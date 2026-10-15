@@ -174,7 +174,7 @@
         font: ~guiSans.(14),
         action: { |i| ~looper !? { |lp| lp.bbcutMode = [\mix, \insert, \gate][i] } }));
     ~mapTag.(~bbcutModeSeg[\view], 'looper.bbcutMode',
-        "How the cutter sits against the dry loop, as in Beat Repeat:\n"
+        "How the cutter sits against the dry loop:\n"
             "Mix: dry loop plus the cut repetitions on top.\n"
             "Insert: dry loop ducks to silence while a repetition plays.\n"
             "Gate: dry loop muted — you hear the cutter alone.");
@@ -508,7 +508,7 @@
         ~performDrumsKit.value_(if(kit.notNil) { 1 } { 0 }).dim_(if(on) { 1 } { 0.3 });
         ~performDrumsKitLabel.string_(kit ? "none");
         ~performNote.(\drum, if(d.isNil) { "No drums on this MegaSA." } {
-            "Rhythmic Steps · switches to the Break pattern on a break." });
+            "Step sequencer · switches to the Break pattern on a break." });
     };
 };
 

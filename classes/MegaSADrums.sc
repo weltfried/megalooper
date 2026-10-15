@@ -1027,7 +1027,7 @@ MegaSADrums {
                 field.(\version, data[\version]),
                 field.(\name, data[\name].asCompileString),
                 field.(\savedAt, data[\savedAt].asCompileString),
-                "    // The kits (\"none\": no kit, a silent slot), Beat Repeat, the reverb (0..1,\n"
+                "    // The kits (\"none\": no kit, a silent slot), the repeats, the reverb (0..1,\n"
                     "    // linear) and the offset (ms)\n"
                     ++ field.(\stepsKit, data[\stepsKit].asCompileString),
                 field.(\onsetKit, data[\onsetKit].asCompileString),
@@ -1037,7 +1037,7 @@ MegaSADrums {
                 "    // Trims: [kit, note, dB] and [kit, layer group, dB], -24..+12 dB\n"
                     ++ field.(\padTrims, data[\padTrims].asCompileString),
                 field.(\groupTrims, data[\groupTrims].asCompileString),
-                "    // Rhythmic Steps' two patterns; lane 0 is the device's lane 1\n"
+                "    // The step sequencer's two patterns; lane 0 is the device's lane 1\n"
                     ++ field.(\main, this.prPatternString(data[\main], "    ")),
                 field.(\break, this.prPatternString(data[\break], "    "))
             ].join(",\n") ++ "\n"

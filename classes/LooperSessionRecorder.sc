@@ -1199,7 +1199,7 @@ LooperSessionRecorder {
     //            for the drums' transport ("drums start 7/8 165.04 BPM", a
     //            "reading 4/4 …" at each landing, "break" / "back", "drums
     //            off" / "drums on", "drums stop")
-    //   track 1  "Rhythmic Steps": every step and roll hit, on MIDI channel
+    //   track 1  "Step sequencer": every step and roll hit, on MIDI channel
     //            lane + 2 (lane 0 on channel 2 … lane 3 on channel 5) as the
     //            device sends them, a 16th long or up to a tick before the
     //            same note on the same channel comes again
@@ -1258,7 +1258,7 @@ LooperSessionRecorder {
             ++ LooperMidiFile.sortedBy((markers ? []).asArray, \at).collect { |m|
                 [tickOf.(m[\at]).max(0), LooperMidiFile.marker(m[\text])]
             };
-        stepsTrack = [[0, LooperMidiFile.trackName("Rhythmic Steps")]] ++ LooperMidiFile.noteEvents(steps, pace);
+        stepsTrack = [[0, LooperMidiFile.trackName("Step sequencer")]] ++ LooperMidiFile.noteEvents(steps, pace);
         onsetTrack = [[0, LooperMidiFile.trackName("Onset notes")]] ++ LooperMidiFile.noteEvents(onsets, pace);
         endTick = tickOf.(endAt ? frame0).max(0);
         [conductor, stepsTrack, onsetTrack].do { |tr| endTick = endTick.max(tr.last[0]) };

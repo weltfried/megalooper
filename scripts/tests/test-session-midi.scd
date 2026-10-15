@@ -166,7 +166,7 @@ conductor = built[\tracks][0];
 ~tEq.("the note tracks are named and empty with no hits",
     [built[\tracks][1], built[\tracks][2]].collect { |t| t.collect { |e| e[1][1] } }, [[0x03], [0x03]]);
 
-// ---- the Rhythmic Steps track: channels, lengths ------------------------------
+// ---- the step sequencer's track: channels, lengths -----------------------------
 // As the Live device sent them: lane 0 on MIDI channel 2 … lane 3 on channel 5
 // (bytes 1..4). A note is a 16th (120 ticks) long, or ends a tick before the
 // same note on the same channel comes again.
@@ -275,7 +275,7 @@ back = m.read(path);
     back[\tracks] !? (_.size)], [nil, 1, 480, 3]);
 back[\tracks] !? { |trs|
     ~tEq.("the track names", trs.collect { |t| t[0][\text] },
-        ["megalooper 261007_143012", "Rhythmic Steps", "Onset notes"]);
+        ["megalooper 261007_143012", "Step sequencer", "Onset notes"]);
     ~tEq.("the tempo, 363548 µs", trs[0].detect { |e| e[\meta] == 0x51 } !? { |e| e[\data] }, [0x05, 0x8C, 0x1C]);
     ~tEq.("the markers", trs[0].select { |e| e[\meta] == 0x06 }.collect { |e| [e[\tick], e[\text]] },
         [[m.tickAt(0.5, 165.04), "drums start 7/8 165.04 BPM"], [m.tickAt(0.7, 165.04), "break"]]);

@@ -122,18 +122,9 @@
     (if(v > 0) { "+" } { "" }) ++ v.asString
 };
 
-// A tooltip in this pane's words, then Rhythmic Steps' own help for the same
-// control word for word (its parameter_info, MegaSASteps.deviceTips), where
-// ours does not already begin from it. `device`: a deviceTips key, or the
-// text itself.
-~drumsTip = { |tip, device|
-    var dev = if(device.isKindOf(Symbol)) { MegaSASteps.deviceTips[device] } { device };
-    case
-    { dev.isNil } { tip ? "" }
-    { tip.isNil } { "Rhythmic Steps: \"" ++ dev ++ "\"" }
-    { tip.contains(dev.keep(24)) } { tip }
-    { tip ++ "\nRhythmic Steps: \"" ++ dev ++ "\"" }
-};
+// A control's tooltip. (It once added the original device's own help text,
+// which is Ableton's to publish, not ours; `device` is kept for the callers.)
+~drumsTip = { |tip, device| tip ? "" };
 
 // "42 HiHat Closed Carbon · F#1": the note, the slot's pad on it ("(empty)"
 // where the kit in force has none, nothing with no kit), and the note in
@@ -210,7 +201,7 @@
     var d = ~drumsModel.(), info;
     info = d !? { |dd| dd.kit(slot) !? { |k| dd.kitInfo(k) } };
     (if(slot == \steps) {
-        "The kit Rhythmic Steps plays. The set plays Kit-Carbon over a KJ Sawka 9 layer;\n"
+        "The kit the step sequencer plays. The set plays Kit-Carbon over a KJ Sawka 9 layer;\n"
         "Kit-Carbon + layer is that, with Core Library stand-ins for the KJ samples\n"
         "(Live's are encrypted)."
     } {
@@ -519,12 +510,12 @@
                 // would cycle on a click there).
                 \repeats, {
                     if(w[\available].value == true) {
-                        view.states_([["Beat Repeat off", ~gt[\ink], ~gt[\panel]],
-                            ["BEAT REPEAT", ~gt[\onacc], ~gt[\drum]]]);
+                        view.states_([["Repeats off", ~gt[\ink], ~gt[\panel]],
+                            ["REPEATS", ~gt[\onacc], ~gt[\drum]]]);
                         view.value = (v == true).binaryValue;
                         view.enabled_(true);
                     } {
-                        view.states_([["no Beat Repeat", ~gt[\mute], ~gt[\panel]]]);
+                        view.states_([["no repeats", ~gt[\mute], ~gt[\panel]]]);
                         view.enabled_(false);
                     };
                 }
@@ -887,9 +878,7 @@
     var menu = ~mapTag.(~drumsMenu.(PopUpMenu()).fixedWidth_(230)
         .items_(~drumsNoteItems.(~drumsModel.()))
         .action_({ |mn| ~drumsLaneSet.(lane, name, mn.value + 36) }), ~drumsLaneId.(lane, name),
-        ~drumsTip.(p[\tip] ++ "\nBy default: " ++ ~drumsNoteText.(nil, p[\live][lane]) ++ ".",
-            // Its first sentence only: here the Alt pad has a menu of its own.
-            MegaSASteps.deviceTips[\note].split($\n).first.stripWhiteSpace));
+        ~drumsTip.(p[\tip] ++ "\nBy default: " ++ ~drumsNoteText.(nil, p[\live][lane]) ++ "."));
     ~drumsWidgets.put(~drumsLaneKey.(name, lane), (kind: \menu, view: menu,
         get: ~drumsLaneGet.(lane, name), index: { |v| v !? { (v - 36).clip(0, 15) } }));
     menu
@@ -1153,7 +1142,7 @@
         "Save a preset first to keep an edit.");
     var keep = ~drumsButton.().fixedSize_(Size(140, 34)).cycles_(false)
         .states_([["Start with this", ~gt[\ink], ~gt[\panel]]])
-        .toolTip_("Keep the drums as they are now (both patterns, the kits, trims, Beat Repeat,\n"
+        .toolTip_("Keep the drums as they are now (both patterns, the kits, trims, repeats,\n"
             "reverb and offset): the next boot starts with them instead of megalooper's own.\n"
             "A kit set to — none — is kept so: that part starts silent.")
         .action_({ ~drumsKeep.() });
@@ -1189,7 +1178,7 @@
 ~drumsRepeatsButton = {
     var b = ~mapTag.(~drumsButton.().fixedWidth_(130)
         .action_({ |bt| ~drumsModel.() !? { |d| d.setRepeats(bt.value == 1) } }), 'sa.drums.repeats',
-        "Kit-Carbon's Beat Repeats, as the set has one on every Carbon pad: now and then\n"
+        "Kit-Carbon's repeats, as the Live set has them on every Carbon pad: now and then\n"
         "a pad's 16th repeats five times through a 2-bar cycle, falling in pitch and level.\n"
         "The KJ layer is not repeated (it is not in the pads' chains).\n"
         "On in the set, yet Live's recordings hold about one stutter in 12 minutes of drums,\n"
@@ -1303,12 +1292,12 @@
     var pageHint = ~guiHint.("");
     ~drumsWidgets.put(\pageHint, (kind: \text, view: pageHint, get: { ~drumsPageHints[~drumsPage] ? "" }));
     [
-        ~drumsTitle.("Rhythmic Steps"),
+        ~drumsTitle.("Step sequencer"),
         HLayout(*([~drumsRowLabel.("Edit")]
             ++ [\main, \break].collect { |w|
                 ~drumsTile.(w, { ~drumsShowPattern.(w) },
                     "Show the " ++ ~drumsPatternLabels[w] ++ " pattern below: the set's "
-                    ++ (if(w == \main) { "Rhythmic Steps" } { "break device, switched in by the Looper's break" })
+                    ++ (if(w == \main) { "main pattern" } { "break pattern, switched in by the Looper's break" })
                     ++ ".\nShowing it changes nothing that plays. A dot: edited off the default.")
             }
             ++ [View().fixedWidth_(14), ~drumsSmallLabel.("Page", 40), View().fixedWidth_(10)]
@@ -1347,7 +1336,7 @@
 ~drumsOffsetSpec = ControlSpec(-15, 50, \lin, 0.5, 0);
 ~drumsStripLabels = (drums: "Drums:", onsetKit: "Onset kit:");
 ~drumsStripTips = (
-    drums: "The drums' strip in MegaSA's mixer: Rhythmic Steps' kit, its Beat Repeat and reverb.\n"
+    drums: "The drums' strip in MegaSA's mixer: the step sequencer's kit, its repeats and reverb.\n"
         "Live's fader was -10.6 dB. Setup shows the same strip.",
     onsetKit: "The onset kit's strip: the One Hit Kit and its chain, playing the Looper's onset\n"
         "notes. Live's fader was -15.7 dB. Setup shows the same strip."
@@ -1526,7 +1515,7 @@
                 [~drumsHeaderRow.(),
                     ~guiPresetBar.(\saDrums, (
                         menu: "Saved drums: both patterns (every step, length, lane and timing setting),\n"
-                            "the kits (a kit set to — none — comes back empty), their trims, Beat Repeat,\n"
+                            "the kits (a kit set to — none — comes back empty), their trims, the repeats,\n"
                             "the reverb and the offset. Choosing one recalls it at once. The on/off\n"
                             "switch, the break and the levels are not in it.",
                         name: "File name for Save. Anything but letters and digits becomes '-', so \"Half "

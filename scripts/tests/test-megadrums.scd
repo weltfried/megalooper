@@ -30,9 +30,8 @@ var st = MegaSASteps;
 ~tEq.("Auto Trigger Rate's labels", st.autoTriggerRateLabels, ["1 Bar", "2 Bars", "3 Bars", "4 Bars"]);
 ~tEq.("the sub-lanes in the device's storage order", st.subs, [\chance, \velo, \alt, \roll, \slide]);
 ~tEq.("the pages the Drums tab shows", st.pages, [\chance, \alt, \velo, \roll]);
-~tEq.("the device's help texts, word for word", st.deviceTips[\clockSpeed], "Lets you change the clock speed");
-~tEq.("...one for every setting and page length", st.deviceTips.size, 17);
-~tAssert.("...including its slips", st.deviceTips[\autoRetrigger].contains("Automtatically"));
+// The original device's own help texts are Ableton's, and not shipped.
+~tAssert.("no copy of the device's help texts", st.respondsTo(\deviceTips).not);
 }.value;
 
 // --------------------------------------------------- velocity and rolls --

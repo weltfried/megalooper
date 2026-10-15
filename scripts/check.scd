@@ -350,10 +350,6 @@ MegaSASteps.pages.do { |pg|
     if(~drumsPageLabels[pg].isNil or: { ~drumsPageHints[pg].isNil } or: { ~drumsLengthTips[pg].isNil }) {
         ("  PAGE  " ++ pg ++ " has no label, hint or length tip in gui-drums.scd").postln; bad = bad + 1 };
 };
-([\note, \lock, \delay, \mute, \shuffle] ++ ~drumsLengthTips.values).do { |k|
-    if(MegaSASteps.deviceTips[k].isNil) {
-        ("  NO DEVICE TIP  MegaSASteps.deviceTips[" ++ k ++ "]").postln; bad = bad + 1 };
-};
 ("  " ++ ~drumsParamNames.size ++ " pattern settings, " ++ ~drumsLaneParamNames.size
     ++ " lane settings, " ++ MegaSASteps.pages.size ++ " pages").postln;
 

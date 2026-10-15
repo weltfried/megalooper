@@ -183,13 +183,21 @@ Routine {
                 and: { ~drumsFormat.(MegaSASteps.paramSpec(\shuffle2), -39.5962143) == "-39.6 %" });
         ok.("a switch On or Off", (~drumsFormat.(MegaSASteps.paramSpec(\autoRetrigger), true) == "On")
             and: { ~drumsFormat.(MegaSASteps.paramSpec(\autoRetrigger), false) == "Off" });
-        ok.("a tooltip ends on the device's own help",
-            ~drumsTip.("Ours.", \mute) == "Ours.\nRhythmic Steps: \"Mutes the MIDI Output of the current sequence\"");
-        ok.("unless ours already starts from it", ~drumsTip.("Lets you change the clock speed: x", \clockSpeed)
-            == "Lets you change the clock speed: x");
-        ok.("every lane setting's tip names the device's text",
-            ~drumsWidgets[\lock0][\view].toolTip.contains("Rhythmic Steps: \"Enables setting sequence lengths globally."),
+        ok.("a tooltip is ours alone: the original device's help text is Ableton's, not quoted",
+            ~drumsTip.("Ours.", \mute) == "Ours.");
+        ok.("...nor on any lane setting", ~drumsWidgets[\lock0][\view].toolTip.contains("\"").not,
             ~drumsWidgets[\lock0][\view].toolTip);
+        { var walk, words = List.new, said;
+          walk = { |v|
+              v.toolTip !? { |t| words.add(t) };
+              if(v.respondsTo(\states) and: { v.states.notNil }) { v.states.do { |st| words.add(st[0].asString) } };
+              if(v.respondsTo(\items) and: { v.items.notNil }) { words.addAll(v.items) };
+              if(v.isKindOf(StaticText)) { words.add(v.string ? "") };
+              v.children.do { |c| walk.(c) } };
+          walk.(~guiPaneHolders[\drums] ?? { pane });
+          said = words.select { |w| ["Rhythmic Steps", "Beat Repeat", "BEAT REPEAT"].any { |n| w.contains(n) } };
+          ok.("no Ableton device name on the pane: it says Step sequencer and Repeats", said.isEmpty and: { words.size > 50 },
+              said.asArray.asString) }.value;
     });
 
     section.("the step lanes, by mouse", {
@@ -521,7 +529,7 @@ Routine {
         tick.();
         ok.("the model moves the menu", km.items[km.value] == "808 Core Kit", km.items[km.value]);
         ok.("a kit without Beat Repeat offers none", ~drumsWidgets[\repeats][\view].enabled.not
-            and: { ~drumsWidgets[\repeats][\view].states[0][0].contains("no Beat Repeat") });
+            and: { ~drumsWidgets[\repeats][\view].states[0][0].contains("no repeats") });
         ok.("the lanes are named from it", ~drumsWidgets[\label0][\view].string == d.padName(\steps, 42),
             ~drumsWidgets[\label0][\view].string);
         km.valueAction_(0);
@@ -547,10 +555,10 @@ Routine {
         repeats0 = d.repeats;
         rb.valueAction_(1);
         tick.();
-        ok.("the switch turns Beat Repeat on", (d.repeats == true) and: { rb.states[rb.value][0] == "BEAT REPEAT" });
+        ok.("the switch turns Beat Repeat on", (d.repeats == true) and: { rb.states[rb.value][0] == "REPEATS" });
         rb.valueAction_(0);
         tick.();
-        ok.("and off", (d.repeats == false) and: { rb.states[rb.value][0] == "Beat Repeat off" });
+        ok.("and off", (d.repeats == false) and: { rb.states[rb.value][0] == "Repeats off" });
         d.setRepeats(true);
         tick.();
         ok.("the model turns it on", rb.value == 1);
@@ -912,7 +920,7 @@ Routine {
         rb = ~drumsWidgets[\repeats][\view];
         ok.("its Beat Repeat button lit from the drums' switch, either way",
             (rb.value == (d.repeats == true).binaryValue)
-                and: { rb.states[rb.value][0] == (if(d.repeats) { "BEAT REPEAT" } { "Beat Repeat off" }) },
+                and: { rb.states[rb.value][0] == (if(d.repeats) { "REPEATS" } { "Repeats off" }) },
             [d.repeats, rb.value].asString);
         d.setRepeats(repeats0);
         tick.();

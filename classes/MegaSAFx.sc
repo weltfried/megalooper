@@ -641,7 +641,7 @@ MegaSAFx {
             // ---- PitchLoop89
             (fx: \pitchLoop, name: \pitchLoopMix, label: "Dry/Wet", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 0.37),
-                tip: "Your guitar against the two voices, equal-power like PitchLoop89: 37 %."),
+                tip: "Your guitar against the two voices, equal-power: 37 %."),
             (fx: \pitchLoop, name: \pitchLoopPitchL, label: "Pitch L", units: " st", centered: true,
                 spec: ControlSpec(-24, 24, \lin, 1, 7),
                 tip: "The reversed voice's transposition: +7 st, a fifth, by default."),

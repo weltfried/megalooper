@@ -426,8 +426,8 @@
             set: { |on| drums.value !? { |d| d.setBreakPattern(on == true) } },
             available: hasDrums));
         // There only while the steps kit in force has Beat Repeat, as the tab's
-        // switch is: elsewhere it says "no Beat Repeat" and takes no click.
-        add.('sa.drums.repeats', "Beat Repeat", "Drums", \toggle, (group: "Kits",
+        // switch is: elsewhere it says "no repeats" and takes no click.
+        add.('sa.drums.repeats', "Repeats", "Drums", \toggle, (group: "Kits",
             flip: { drums.value !? { |d| d.setRepeats((d.repeats == true).not) } },
             get: { drums.value !? { |d| d.repeats } },
             set: { |on| drums.value !? { |d| d.setRepeats(on == true) } },

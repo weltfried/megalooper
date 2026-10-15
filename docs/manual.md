@@ -277,7 +277,7 @@ programs reach Live's own devices through the proxy, as before.
 | Program Change 6 | Record next loop (loop chaining) — was Stop until 2026-09-23 |
 | Program Change 7 | Break — drop out now, resume on a loop downbeat |
 | Program Change 8 | The delay on and off (SA) |
-| Program Change 9, 10, 11 | PitchLoop89, the Auto Filter, the Shifter (SA) |
+| Program Change 9, 10, 11 | Pitch Loops, the Envelope Filter, Pitch Shift (SA) |
 | Program Change 12, 14, 15 | The loop's Echo, Saturator, Redux (SA) |
 | Program Change 13 | Toggle the granular layer |
 | Program Change 16 | Toggle onset notes — the drum part Live plays from the loop |
@@ -591,7 +591,7 @@ footer.
 | **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level) and on Megalooper SA **Effects** and **Drums** — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve bars, and the **macros**: Master, Arc, Onset |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | Megalooper SA only: the **effects** chains (click a block to edit it, its square to switch it) and their sounds |
-| **Drums** | 4 | Megalooper SA only: the **drums** (Rhythmic Steps, timing, kits, mix) |
+| **Drums** | 4 | Megalooper SA only: the **drums** (step sequencer, timing, kits, mix) |
 | **Setup** | 5 | **Analysis** (monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, export) · **Rig** (profile, device, analysis input, input, Live transport, the three timing bars, SA's levels, the MIDI map) · **Calibrate** (where the wizard is) and **MIDI in** |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup |
 

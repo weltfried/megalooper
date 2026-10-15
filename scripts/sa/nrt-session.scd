@@ -1594,8 +1594,8 @@ checkMidi = { |ctx|
         (head !? { |h| h.keep(4) } == [6, 1, 3, 480]) and: { tail == 0 }, said.split($\n).keep(3).join(" | "));
     check.(label ++ ": ...every event with its own status byte, every note closed before its key sounds again, no stray off",
         problems.isEmpty, problems.keep(5).join("; "));
-    check.(label ++ ": ...track names: \"megalooper <stamp>\", \"Rhythmic Steps\", \"Onset notes\"",
-        [0, 1, 2].collect { |k| names[k] } == ["megalooper_" ++ rec.stamp, "Rhythmic_Steps", "Onset_notes"], names.asString);
+    check.(label ++ ": ...track names: \"megalooper <stamp>\", \"Step sequencer\", \"Onset notes\"",
+        [0, 1, 2].collect { |k| names[k] } == ["megalooper_" ++ rec.stamp, "Step_sequencer", "Onset_notes"], names.asString);
     check.(label ++ ": ...one tempo, at tick 0, of the file name's " ++ fixed.(bpmR, 2) ++ " BPM (" ++ (60e6 / bpmR).round.asInteger
         ++ " us a quarter), and one time signature at 0, " ++ ctx[\num] ++ "/" ++ ctx[\den],
         (tempos.asArray == [[0, 0, (60e6 / bpmR).round.asInteger]])
@@ -1615,7 +1615,7 @@ checkMidi = { |ctx|
         };
     };
     want = [stepsIn, onsetsIn].collect { |x| noteOffs.(x) };
-    check.(label ++ ": the Rhythmic Steps track is every logged step and roll hit (no repeat), at its place in the WAVs, lane + 2 as MIDI channel, a 16th long "
+    check.(label ++ ": the step sequencer's track is every logged step and roll hit (no repeat), at its place in the WAVs, lane + 2 as MIDI channel, a 16th long "
         ++ "or to a tick before its key comes again: " ++ want[0].size ++ " notes",
         pyNotes[1].asArray.sort(noteOrder) == want[0], "python " ++ pyNotes[1].size ++ " notes, want " ++ want[0].size ++ "; first difference "
             ++ (pyNotes[1].asArray.detect { |n| want[0].includesEqual(n).not }).asString);
@@ -1691,7 +1691,7 @@ checkMidi = { |ctx|
     firstRows = rows.select { |rw| rw[0] < (setLen * 0.2) };
     lastRows = rows.select { |rw| rw[0] >= (setLen * 0.8) };
     ctx.putAll((midiOffs: offs, midiOffsOnset: offsOnset, midiBound: bound, midiRows: rows));
-    say.("notes against their onsets, (tick / 480 * 60 / " ++ fixed.(bpmName, 2) ++ ") * sr less the onset in the stem, samples: Rhythmic Steps "
+    say.("notes against their onsets, (tick / 480 * 60 / " ++ fixed.(bpmName, 2) ++ ") * sr less the onset in the stem, samples: step sequencer "
         ++ spread.(offs) ++ ", Onset notes " ++ spread.(offsOnset) ++ "; histogram in 8-sample bins " ++ histoStr.(histo.((offs ++ offsOnset).collect { |x| (x / 8).floor.asInteger * 8 })));
     say.("...which is half a block at most (frame 0 is 0 to 64 samples before audioAt, the recorder puts it " ++ (lead * sr) ++ " before; audioAt is "
         ++ ctx[\frame0Lag].round(0.01) ++ " after it here, the WAVs' end " ++ ctx[\endLag].round(0.01) ++ " before stopAt) and the tick's rounding (+-"
@@ -1699,7 +1699,7 @@ checkMidi = { |ctx|
         ++ ambiguous ++ " notes of two hits");
     say.("...over the set: in its first fifth " ++ spread.(firstRows.collect(_[1])) ++ ", in its last " ++ spread.(lastRows.collect(_[1]))
         ++ "; at the Mac's clock instead (rate 1, the lead kept): " ++ spread.(firstRows.collect(_[2])) ++ ", and " ++ spread.(lastRows.collect(_[2])));
-    check.(label ++ ": every note-on of the Rhythmic Steps track, at ticks / 480 * 60 / bpm, is on its hit's onset in the drums stem within half a block and half a tick ("
+    check.(label ++ ": every note-on of the step sequencer's track, at ticks / 480 * 60 / bpm, is on its hit's onset in the drums stem within half a block and half a tick ("
         ++ bound.round(0.1) ++ " samples: inside a block), all through the set",
         offs.notEmpty and: { offs.every { |x| x.abs <= bound } } and: { bound < block }, spread.(offs) ++ "; " ++ offs.count { |x| x.abs > bound } ++ " beyond");
     check.(label ++ ": every note of the Onset notes track is on its onset hit in the onset stem, the same",

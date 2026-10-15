@@ -89,34 +89,6 @@ MegaSASteps {
     *subs { ^#[\chance, \velo, \alt, \roll, \slide] }
     *pages { ^#[\chance, \alt, \velo, \roll] }
 
-    // The device's own help texts (parameter_info in its patch), word for word,
-    // its slips included: "Automtatically", "Auto Retrigger Rate" for Auto
-    // Trigger Rate, "for the currently the entire sequence", "for  the
-    // velocity". The tips in paramSpecs and laneParamSpecs start from these,
-    // cleaned, and say what the set does. note's covers both pad notes: the
-    // device puts it on its pad widget, not on the numbers.
-    *deviceTips {
-        ^(
-            clockSpeed: "Lets you change the clock speed",
-            rollRate: "Specifies the frequency of note repeats in beat time",
-            shuffle: "Allows to shift the timing for the respective clock division.",
-            shuffleLength: "Defines how many steps are used to generate the clock shuffle.",
-            globalShuffle: "Allows to reduce the overall amount of timing deviation globally.",
-            autoRetrigger: "Automtatically resyncs all sequences based on the Auto Retrigger Rate parameter.",
-            autoTriggerRate: "If Auto Retrigger is active, this defines the interval at which the sequences will be resynced.",
-            note: "Allows to set which Drum Pad will be triggered by this sequence. \n\nThe alternative (blue) pad can be assigned while viewing the Alt tab.",
-            globalLength: "Sets the global length in steps for the currently the entire sequence: this affects all tabs at once.",
-            lock: "Enables setting sequence lengths globally.",
-            delay: "Offsets the timing of this sequence by the specified amount of milliseconds.",
-            mute: "Mutes the MIDI Output of the current sequence",
-            lengthChance: "Sets the length in steps for the Chance sequence.",
-            lengthVelo: "Sets the length in steps for  the velocity sequence.",
-            lengthAlt: "Sets the length in steps for the alternate pad sequence.",
-            lengthRoll: "Sets the length in steps for the Roll sequence.",
-            lengthSlide: "Sets the length in steps for the Modulation sequence."
-        )
-    }
-
     // ---- Per step ---------------------------------------------------------
 
     // The velocity a step value plays at.
@@ -579,7 +551,7 @@ MegaSASteps {
             (name: \clockSpeed, label: "Clock",
                 spec: ControlSpec(0, 5, \lin, 1, live[\clockSpeed]),
                 choices: this.clockSpeedLabels.collect { |l, i| [i, l] },
-                tip: "Lets you change the clock speed: how long a step is. 100 % (the set's) is a\n"
+                tip: "The clock speed: how long a step is. 100 % (the set's) is a\n"
                     "16th. The labels are the device's; 75 % really plays 0.8 and 150 % 1.33\n"
                     "times as fast."),
             (name: \rollRate, label: "Roll",
@@ -601,7 +573,7 @@ MegaSASteps {
                     "the set."),
             (name: \shuffleLength, label: "Shuffle Len",
                 spec: ControlSpec(2, 8, \lin, 1, live[\shuffleLength]),
-                tip: "Defines how many steps are used to generate the clock shuffle: the cycle\n"
+                tip: "How many steps the shuffle's cycle spans: the cycle\n"
                     "Shuffle 1..8 repeat over, counted from the transport's start. 7 in the set."),
             (name: \globalShuffle, label: "Global Shuf.", units: " %",
                 spec: ControlSpec(0, 100, \lin, 0, live[\globalShuffle]),
@@ -629,17 +601,17 @@ MegaSASteps {
                     "50, 40 and 41 in the set (the kick's never plays: its Alt steps are 0)."),
             (name: \delay, label: "D", units: " ms", spec: ControlSpec(0, 50, \lin, 0, live[\delay][0]),
                 live: live[\delay],
-                tip: "Offsets the timing of this lane by this many milliseconds: its notes and\n"
+                tip: "Moves this lane later by this many milliseconds: its notes and\n"
                     "their rolls, later only. 0 in the set."),
             (name: \mute, label: "M", bool: true,
                 spec: ControlSpec(0, 1, \lin, 1, live[\mute][0].binaryValue),
                 choices: [[0, "Off"], [1, "On"]], live: live[\mute],
-                tip: "Mutes the lane's output. As in Live, a muted lane keeps drawing its dice and\n"
+                tip: "Silences the lane. As in Live, a muted lane keeps drawing its dice and\n"
                     "running its rolls, so it comes back exactly where it would have been."),
             (name: \lock, label: "Lock", bool: true,
                 spec: ControlSpec(0, 1, \lin, 1, live[\lock][0].binaryValue),
                 choices: [[0, "Off"], [1, "On"]], live: live[\lock],
-                tip: "Sets the lane's lengths globally: while on, every page of the lane plays\n"
+                tip: "One length for all the lane's pages: while on, every page of the lane plays\n"
                     "Global Len steps; off, each page its own length again (both are kept)."),
             (name: \globalLength, label: "Global Len",
                 spec: ControlSpec(2, 16, \lin, 1, live[\globalLength][0]), live: live[\globalLength],
