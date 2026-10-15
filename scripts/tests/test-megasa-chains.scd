@@ -219,7 +219,7 @@ baseline = (
     'megaSAChainIn': [216, 30983118],
     'megaSAChainCopy': [151, 298444183],
     'megaSADevNull': [144, 992001537],
-    'megaSADevShifter': [1709, 532418218],
+    'megaSADevShifter': [3148, 917785194],
     'megaSADevDelay': [2246, 880224587],
     'megaSADevFilter': [3912, 529894533],
     'megaSADevPitchLoop': [5137, 789196505],

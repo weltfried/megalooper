@@ -83,17 +83,27 @@ MegaSAFx {
     // SA does not do (decision 2026-10-05). The first rebuild read it as 0.5 ct,
     // nearly transparent, and SA keeps that until it is set by ear.
     //
-    // Two ways to shift, Mode (2026-10-15): Grain, PitchShift with a 40 ms
-    // window, and FFT, PV_PitchShift on 1024-frame frames. Live's 80 ms window
-    // smeared every attack over about 21 ms; measured offline on plucks, 40 ms
-    // halves that at the same latency, and the FFT smears a little less again
-    // with a steadier pitch, about 8 ms later. Both run all the time, so the
-    // switch is a 50 ms crossfade that can be made while playing. PitchShift's
-    // window is fixed when the synth starts, so it is not a knob.
+    // Two ways to shift, Mode (2026-10-15): PitchShift, and FFT,
+    // PV_PitchShift on 1024-frame frames. Live's 80 ms window smeared every
+    // attack over about 21 ms; measured offline on plucks, 40 ms halves that at
+    // the same latency, and the FFT smears a little less again with a steadier
+    // pitch, about 8 ms later.
+    //
+    // PitchShift with its settings exposed, to play with (the same day): its
+    // window is fixed when the synth starts, so one PitchShift runs for each of
+    // shifterWindows and Window crossfades to the one picked (they are cheap: a
+    // delay line each). Pitch and time spread are PitchShift's pitchDispersion
+    // and timeDispersion, the latter a share of the window (it may not exceed
+    // it). Everything runs all the time, so every switch is a 50 ms crossfade
+    // that can be made while playing.
+    *shifterWindows { ^#[0.01, 0.02, 0.03, 0.04, 0.06, 0.08, 0.12, 0.2] }
+
     *shifter { |sig|
         var semis = (\shifterCoarse.kr(0) + (\shifterCents.kr(0.5) / 100)).clip(-24, 24);
         var ratio = semis.midiratio;
-        var grain = PitchShift.ar(sig, 0.04, ratio);
+        var pitchSpread = \shifterPitchSpread.kr(0), timeSpread = \shifterTimeSpread.kr(0);
+        var grain = SelectX.ar(\shifterWindow.kr(3).lag(0.05),
+            this.shifterWindows.collect { |w| PitchShift.ar(sig, w, ratio, pitchSpread, timeSpread * w) });
         var fft = IFFT(PV_PitchShift(FFT(LocalBuf(1024), sig), ratio));
         var wet = SelectX.ar(\shifterMode.kr(0).lag(0.05), [grain, fft]);
         var mix = \shifterMix.kr(1);
@@ -395,13 +405,14 @@ MegaSAFx {
                 blurb: "Shifts the guitar's pitch.",
                 mainKnobs: [\shifterCoarse, \shifterCents, \shifterMix],
                 dsp: { |sig| this.shifter(sig) },
-                // The grains' line, and the FFT's frame and its IFFT's.
-                memBytes: { |sr| this.lineBytes((0.04 * sr * 3) + 3) + (1024 * 4 * 3) },
-                // Grain: 2 samples unshifted; on average |ratio - 1| x 20 ms
-                // more, sweeping within each 40 ms window. FFT: a frame.
+                // Every window's line, and the FFT's frame and its IFFT's.
+                memBytes: { |sr| this.shifterWindows.sum { |w| this.lineBytes((w * sr * 3) + 3) } + (1024 * 4 * 3) },
+                // PitchShift: 2 samples unshifted; on average |ratio - 1| x half
+                // the window more, sweeping within each window. FFT: a frame.
                 latency: { |s, sr|
                     var ratio = ((s[\shifterCoarse] ? 0) + ((s[\shifterCents] ? 0.5) / 100)).clip(-24, 24).midiratio;
-                    if((s[\shifterMode] ? 0) >= 0.5) { 1024 } { (2 + ((ratio - 1).abs * 0.02 * sr)).floor.asInteger }
+                    var w = this.shifterWindows[(s[\shifterWindow] ? 3).round.asInteger.clip(0, this.shifterWindows.size - 1)];
+                    if((s[\shifterMode] ? 0) >= 0.5) { 1024 } { (2 + ((ratio - 1).abs * (w / 2) * sr)).floor.asInteger }
                 }),
             (key: \delay, track: \guitar, width: \mono, followsTempo: false,
                 blurb: "Two wobbling taps: a near-dry copy and a detuned echo.",
@@ -555,11 +566,26 @@ MegaSAFx {
                 spec: ControlSpec(-100, 100, \lin, 0, 0.5),
                 tip: "Fine pitch in cents: 0.5 ct by default. Set it by ear."),
             (fx: \shifter, name: \shifterMode, label: "Mode",
-                spec: ControlSpec(0, 1, \lin, 1, 0), choices: [[0, "Grain"], [1, "FFT"]],
-                tip: "How it shifts. Grain, the default: short grains, the least latency,\n"
-                    "a little grainy on big shifts. FFT: a steadier pitch and a little less\n"
-                    "smear on attacks, about 8 ms later. Switching crossfades, so it can be\n"
-                    "done while playing."),
+                spec: ControlSpec(0, 1, \lin, 1, 0), choices: [[0, "PitchShift"], [1, "FFT"]],
+                tip: "How it shifts. PitchShift, the default: SuperCollider's grain shifter,\n"
+                    "with the three settings beside this one. FFT: a steadier pitch and a\n"
+                    "little less smear on attacks, about 8 ms later; those settings don't\n"
+                    "touch it. Switching crossfades, so it can be done while playing."),
+            (fx: \shifter, name: \shifterWindow, label: "Window",
+                spec: ControlSpec(0, 7, \lin, 1, 3),
+                choices: MegaSAFx.shifterWindows.collect { |w, i| [i, (w * 1000).round.asInteger.asString ++ " ms"] },
+                tip: "PitchShift's grain length: 40 ms by default. Shorter smears attacks\n"
+                    "less but buzzes on low notes; longer is smoother and smears more.\n"
+                    "Every length runs at once, so switching crossfades."),
+            (fx: \shifter, name: \shifterPitchSpread, label: "Pitch spread", units: " %", scale: 100,
+                spec: ControlSpec(0, 0.25, \lin, 0, 0),
+                tip: "PitchShift's pitch dispersion: each grain's pitch off the ratio by up to\n"
+                    "this much, at random. 0 by default; a little thickens, a lot warbles."),
+            (fx: \shifter, name: \shifterTimeSpread, label: "Time spread", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 0),
+                tip: "PitchShift's time dispersion: each grain starts up to this share of\n"
+                    "the window late, at random. 0 by default; some breaks up the\n"
+                    "metallic comb of evenly spaced grains, a lot smears."),
             (fx: \shifter, name: \shifterMix, label: "Dry/Wet", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 1),
                 tip: "Dry against shifted guitar: 100 % by default. In between:\n"

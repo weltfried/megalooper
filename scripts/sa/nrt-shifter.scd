@@ -7,15 +7,20 @@
 //
 //   0  Grain, a 220 Hz sine (for the switch's clicks)
 //   1  FFT, the same sine
-//   2  Grain, plucks with sharp attacks
+//   2  PitchShift, plucks with sharp attacks (excited by a fixed waveform, not
+//      noise, so that every channel plucks alike)
 //   3  FFT, the same plucks
 //   4  the plucks through PitchShift with the 80 ms window the shifter had
 //      before the modes, for comparison
-//   5  the sine, switched from Grain to FFT at 1.5 s
+//   5  the sine, switched from PitchShift to FFT at 1.5 s
+//   6  the plucks, PitchShift with its 10 ms window
+//   7  the plucks, PitchShift with its 120 ms window
+//   8  the sine, PitchShift with Time spread at half the window
+//   9  the plucks through a plain PitchShift with a 40 ms window
 //
 // Exits 0 if every check passed, 1 otherwise.
 (
-var sr = 48000, dur = 4.0, chans = 6;
+var sr = 48000, dur = 4.0, chans = 10;
 var tmp = PathName.tmp +/+ "megalooper-nrt-shifter-" ++ thisProcess.pid;
 var osc = tmp +/+ "shifter.osc", wav = tmp +/+ "shifter.wav";
 var pass = 0, fail = 0, fails = List.new;
@@ -30,12 +35,12 @@ var plucks = [0.3, 1.0, 1.7, 2.4, 3.1];
 var defs = [
     SynthDef(\megaNrtShifter, { |out = 0, kind = 0|
         var sig = Select.ar(kind, [SinOsc.ar(220) * 0.3,
-            Pluck.ar(WhiteNoise.ar(0.5), Impulse.ar(1 / 0.7, 1 - (0.3 / 0.7)), 0.05, 196.reciprocal, 4, 0.25)]);
+            Pluck.ar((Saw.ar(2345) + (Pulse.ar(1789) * 0.5)) * 0.5, Impulse.ar(1 / 0.7, 1 - (0.3 / 0.7)), 0.05, 196.reciprocal, 4, 0.25)]);
         Out.ar(out, MegaSAFx.shifter(sig));
     }),
     SynthDef(\megaNrtShifterOld, { |out = 0|
-        var sig = Pluck.ar(WhiteNoise.ar(0.5), Impulse.ar(1 / 0.7, 1 - (0.3 / 0.7)), 0.05, 196.reciprocal, 4, 0.25);
-        Out.ar(out, PitchShift.ar(sig, 0.08, 12.midiratio));
+        var sig = Pluck.ar((Saw.ar(2345) + (Pulse.ar(1789) * 0.5)) * 0.5, Impulse.ar(1 / 0.7, 1 - (0.3 / 0.7)), 0.05, 196.reciprocal, 4, 0.25);
+        Out.ar(out, PitchShift.ar(sig, \win.ir(0.08), 12.midiratio));
     })
 ];
 var common = [\shifterCoarse, 12, \shifterCents, 0, \shifterMix, 1];
@@ -50,10 +55,14 @@ score = defs.collect { |d| [0.0, [\d_recv, d.asBytes]] }
         [0.01, [\s_new, \megaNrtShifter, 1004, 0, 0, \out, 3, \kind, 1, \shifterMode, 1] ++ common],
         [0.01, [\s_new, \megaNrtShifterOld, 1005, 0, 0, \out, 4]],
         [0.01, [\s_new, \megaNrtShifter, 1006, 0, 0, \out, 5, \kind, 0, \shifterMode, 0] ++ common],
+        [0.01, [\s_new, \megaNrtShifter, 1007, 0, 0, \out, 6, \kind, 1, \shifterMode, 0, \shifterWindow, 0] ++ common],
+        [0.01, [\s_new, \megaNrtShifter, 1008, 0, 0, \out, 7, \kind, 1, \shifterMode, 0, \shifterWindow, 6] ++ common],
+        [0.01, [\s_new, \megaNrtShifter, 1009, 0, 0, \out, 8, \kind, 0, \shifterMode, 0, \shifterTimeSpread, 0.5] ++ common],
+        [0.01, [\s_new, \megaNrtShifterOld, 1010, 0, 0, \out, 9, \win, 0.04]],
         [1.5, [\n_set, 1006, \shifterMode, 1]],
         // Every synth freed before the end: scsynth 3.14.1 hangs in its offline
         // cleanup when a synth that owns memory is still running.
-        [dur - 0.05, [\n_free, 1001, 1002, 1003, 1004, 1005, 1006]],
+        [dur - 0.05, [\n_free, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010]],
         [dur, [\c_set, 0, 0]]
     ];
 Score(score).writeOSCFile(osc);
@@ -113,19 +122,25 @@ if(sf.isNil or: { sf.numFrames < ((dur - 0.2) * sr) }) {
     jump = { |x| (x.size - 1).collect { |i| (x[i + 1] - x[i]).abs }.maxItem };
 
     "== Pitch Shift's modes, offline ==".postln;
-    [[2, "Grain"], [3, "FFT"]].do { |m|
+    [[2, "PitchShift"], [3, "FFT"]].do { |m|
         ok.(m[1] ++ " shifts plucked G3s an octave up: their period says 392 Hz within 25 cents (median)",
             pluckErr.(m[0]) < 25, pluckErr.(m[0]).round(0.1).asString ++ " ct");
     };
-    ok.("Grain smears the plucks' attacks less than the 80 ms window did", rise.(2) < (rise.(4) * 0.75),
+    ok.("PitchShift at its default Window is a plain 40 ms PitchShift, sample for sample",
+        (chan.(2, 0, dur - 0.1) - chan.(9, 0, dur - 0.1)).abs.maxItem < 1e-6, (chan.(2, 0, dur - 0.1) - chan.(9, 0, dur - 0.1)).abs.maxItem.asString);
+    ok.("...which smears the plucks' attacks less than the 80 ms window did", rise.(2) < rise.(4),
         [rise.(2), rise.(4)].round(0.1).asString ++ " ms");
-    ok.("...and so does FFT", rise.(3) < (rise.(4) * 0.75), [rise.(3), rise.(4)].round(0.1).asString ++ " ms");
-    ok.("switched from Grain to FFT, the sine after the crossfade is FFT's: sample for sample the same",
+    ok.("...and so does FFT", rise.(3) < rise.(4), [rise.(3), rise.(4)].round(0.1).asString ++ " ms");
+    ok.("switched from PitchShift to FFT, the sine after the crossfade is FFT's: sample for sample the same",
         (chan.(5, 1.8, 2.2) - chan.(1, 1.8, 2.2)).abs.maxItem < 1e-4, (chan.(5, 1.8, 2.2) - chan.(1, 1.8, 2.2)).abs.maxItem.asString);
     // A click would be a step far larger than either mode's own steps.
     ok.("...without a click: no step during the switch larger than the steadiest mode's own, doubled",
         jump.(chan.(5, 1.45, 1.65)) < (2 * jump.(chan.(0, 1.0, 1.2)).max(jump.(chan.(1, 1.0, 1.2)))),
         [jump.(chan.(5, 1.45, 1.65)), jump.(chan.(0, 1.0, 1.2)), jump.(chan.(1, 1.0, 1.2))].round(0.0001).asString);
+    ok.("PitchShift's Window: 10 ms smears the plucks less than 120 ms", rise.(6) < rise.(7),
+        [rise.(6), rise.(7)].round(0.1).asString ++ " ms");
+    ok.("Time spread changes the grains: the sine comes out otherwise than without it",
+        (chan.(8, 1.0, 1.5) - chan.(0, 1.0, 1.5)).abs.maxItem > 1e-3, (chan.(8, 1.0, 1.5) - chan.(0, 1.0, 1.5)).abs.maxItem.asString);
     ok.("every render is finite", (0..chans - 1).every { |c| finite.(chan.(c, 0, dur - 0.1)) });
 
     [osc, wav].do { |f| if(File.exists(f)) { File.delete(f) } };

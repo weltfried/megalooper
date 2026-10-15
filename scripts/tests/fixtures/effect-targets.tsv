@@ -68,6 +68,9 @@ sa.fx.shifterCents	Fine	Pitch Shift	Effects	continuous
 sa.fx.shifterCoarse	Coarse	Pitch Shift	Effects	step
 sa.fx.shifterMix	Dry/Wet	Pitch Shift	Effects	continuous
 sa.fx.shifterMode	Mode	Pitch Shift	Effects	choice
+sa.fx.shifterPitchSpread	Pitch spread	Pitch Shift	Effects	continuous
+sa.fx.shifterTimeSpread	Time spread	Pitch Shift	Effects	continuous
+sa.fx.shifterWindow	Window	Pitch Shift	Effects	choice
 sa.fxOn.delay	Dual Delay	Dual Delay	Effects	toggle
 sa.fxOn.echo	Tape Echo	Tape Echo	Effects	toggle
 sa.fxOn.filter	Envelope Filter	Envelope Filter	Effects	toggle

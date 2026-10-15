@@ -70,10 +70,13 @@ An effect brought back by Undo keeps its settings.
 The built-in effects are Pitch Shift, Dual Delay, Envelope Filter, Pitch
 Loops, Tape Echo, Drive and Crusher. You can add any of them more than once.
 
-Pitch Shift has two modes. **Grain**, the default, shifts with short grains
-and adds the least latency; big shifts get a little grainy. **FFT** keeps a
-steadier pitch and smears attacks a little less, about 8 ms later. Switching
-crossfades, so you can change it while playing.
+Pitch Shift has two modes. **PitchShift**, the default, is SuperCollider's
+grain shifter with its settings exposed: **Window** (the grain length, 10 to
+200 ms; shorter smears attacks less but buzzes on low notes), **Pitch spread**
+and **Time spread** (random pitch and timing for each grain; a little time
+spread breaks up a metallic sound). **FFT** keeps a steadier pitch and smears
+attacks a little less, about 8 ms later. Every switch crossfades, so you can
+change them while playing.
 
 ## Sounds
 
