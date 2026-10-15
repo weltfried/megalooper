@@ -1,0 +1,367 @@
+{
+ "source": "megalooper-slave.als",
+ "notes": "Each effect's rack states as MegaSAFx settings: 'as saved' is the macros as the set left them; the rest are the rack's own macro variations, each with only the settings its macros drive (a recall leaves the rest). 'fixed' holds the settings no macro drives, at the device's stored values. MegaSAFx's defaults are 'as saved' plus 'fixed'. Macro positions go through Live's knob curves (tools/export-live-set.py CURVES).",
+ "effects": {
+  "delay": {
+   "rack": "LFO | Delay",
+   "track": "Guitar Rig",
+   "variations": [
+    {
+     "name": "as saved",
+     "settings": {
+      "delayTimeL": 0.001,
+      "delayTimeR": 0.437855,
+      "delayFeedback": 0.0,
+      "delayMix": 1.0,
+      "delayLfoHz": 9.448819,
+      "delayLfoMax": 1.176184
+     }
+    },
+    {
+     "name": "long",
+     "settings": {
+      "delayTimeL": 0.001,
+      "delayTimeR": 0.437855,
+      "delayFeedback": 0.0,
+      "delayMix": 1.0,
+      "delayLfoHz": 9.448819,
+      "delayLfoMax": 1.176184
+     }
+    },
+    {
+     "name": "short",
+     "settings": {
+      "delayTimeL": 0.001,
+      "delayTimeR": 0.084331,
+      "delayFeedback": 0.0,
+      "delayMix": 1.0,
+      "delayLfoHz": 5.03937,
+      "delayLfoMax": 0.028432
+     }
+    },
+    {
+     "name": "delay",
+     "settings": {
+      "delayTimeL": 0.597012,
+      "delayTimeR": 0.712798,
+      "delayFeedback": 0.329134,
+      "delayMix": 0.417323,
+      "delayLfoHz": 15.433071,
+      "delayLfoMax": 40.0
+     }
+    }
+   ],
+   "fixed": {
+    "delayLfoMin": 0.01
+   }
+  },
+  "filter": {
+   "rack": "filter",
+   "track": "Guitar Rig",
+   "variations": [
+    {
+     "name": "as saved",
+     "settings": {
+      "filterType": 4,
+      "filterFreq": 311.094842,
+      "filterRes": 0.307884,
+      "filterEnvAmount": 0.756379,
+      "filterLfoWave": 4.0,
+      "filterLfoAmount": 0.89187,
+      "filterLfoBeats": 1
+     }
+    },
+    {
+     "name": "low pass",
+     "settings": {
+      "filterType": 2,
+      "filterFreq": 46.210543,
+      "filterRes": 0.287248,
+      "filterEnvAmount": -0.626485,
+      "filterLfoWave": 1.0,
+      "filterLfoAmount": 0.752802,
+      "filterLfoBeats": 1
+     }
+    },
+    {
+     "name": "notch",
+     "settings": {
+      "filterType": 3,
+      "filterFreq": 40.282617,
+      "filterRes": 0.449786,
+      "filterEnvAmount": 1.0,
+      "filterLfoWave": 5.0,
+      "filterLfoAmount": 0.632062,
+      "filterLfoBeats": 4
+     }
+    },
+    {
+     "name": "fast",
+     "settings": {
+      "filterType": 3,
+      "filterFreq": 3704.643799,
+      "filterRes": 0.204724,
+      "filterLfoWave": 0.0,
+      "filterLfoAmount": 0.629921,
+      "filterLfoBeats": 1.333333
+     }
+    },
+    {
+     "name": "Variation 1",
+     "settings": {
+      "filterType": 3,
+      "filterFreq": 440.17975,
+      "filterRes": 0.002834,
+      "filterLfoWave": 2.0,
+      "filterLfoAmount": 0.805327,
+      "filterLfoBeats": 0.1875
+     }
+    },
+    {
+     "name": "Variation 2",
+     "settings": {
+      "filterType": 1,
+      "filterFreq": 5660.052125,
+      "filterRes": 0.959062,
+      "filterLfoWave": 0.0,
+      "filterLfoAmount": 0.900561,
+      "filterLfoBeats": 0.0625
+     }
+    },
+    {
+     "name": "Variation 3",
+     "settings": {
+      "filterType": 2,
+      "filterFreq": 184.543196,
+      "filterRes": 0.66284,
+      "filterEnvAmount": -0.52594,
+      "filterLfoWave": 4.0,
+      "filterLfoAmount": 0.970846,
+      "filterLfoBeats": 0.5
+     }
+    },
+    {
+     "name": "Variation 4",
+     "settings": {
+      "filterType": 2,
+      "filterFreq": 395.597843,
+      "filterRes": 0.493202,
+      "filterEnvAmount": -0.862811,
+      "filterLfoWave": 1.0,
+      "filterLfoAmount": 0.332418,
+      "filterLfoBeats": 0
+     }
+    },
+    {
+     "name": "Variation 5",
+     "settings": {
+      "filterType": 4,
+      "filterFreq": 159.872506,
+      "filterRes": 0.955444,
+      "filterEnvAmount": -0.988837,
+      "filterLfoWave": 3.0,
+      "filterLfoAmount": 0.216316,
+      "filterLfoBeats": 0.25
+     }
+    }
+   ],
+   "fixed": {
+    "filterMorph": 0.1641,
+    "filterLfoHz": 1.00031
+   }
+  },
+  "pitchLoop": {
+   "rack": "PitchLoop89",
+   "track": "Guitar Rig",
+   "variations": [
+    {
+     "name": "as saved",
+     "settings": {
+      "pitchLoopPitchL": 7.0,
+      "pitchLoopPosL": 0.795768
+     }
+    },
+    {
+     "name": "Variation 1",
+     "settings": {
+      "pitchLoopPitchL": 12.0,
+      "pitchLoopPosL": 0.10128
+     }
+    },
+    {
+     "name": "Variation 2",
+     "settings": {
+      "pitchLoopPitchL": 7.0,
+      "pitchLoopPosL": 0.839173
+     }
+    },
+    {
+     "name": "Variation 3",
+     "settings": {
+      "pitchLoopPitchL": 7.0,
+      "pitchLoopPosL": 1.143012
+     }
+    },
+    {
+     "name": "Variation 4",
+     "settings": {
+      "pitchLoopPitchL": 12.0,
+      "pitchLoopPosL": 0.10128
+     }
+    },
+    {
+     "name": "Variation 5",
+     "settings": {
+      "pitchLoopPitchL": 12.0,
+      "pitchLoopPosL": 0.10128
+     }
+    }
+   ],
+   "fixed": {}
+  },
+  "saturator": {
+   "rack": "wavetable",
+   "track": "looper guitar",
+   "variations": [
+    {
+     "name": "as saved",
+     "settings": {
+      "saturatorDrive": 6.499551,
+      "saturatorBase": 35.819816,
+      "saturatorFreq": 108.377052,
+      "saturatorWidth": 0.843046,
+      "saturatorDepth": 8.635303,
+      "saturatorOutput": -9.628804,
+      "saturatorMix": 0.566929
+     }
+    },
+    {
+     "name": "brutal",
+     "settings": {
+      "saturatorDrive": 26.939147,
+      "saturatorBase": -12.405552,
+      "saturatorFreq": 504.750622,
+      "saturatorWidth": 0.405648,
+      "saturatorDepth": -22.227079,
+      "saturatorOutput": -14.25965,
+      "saturatorMix": 1.0
+     }
+    },
+    {
+     "name": "guitar-playback",
+     "settings": {
+      "saturatorDrive": 31.605317,
+      "saturatorBase": 12.273186,
+      "saturatorFreq": 5795.323577,
+      "saturatorWidth": 0.60747,
+      "saturatorDepth": -15.616389,
+      "saturatorOutput": -15.31683,
+      "saturatorMix": 0.797855
+     }
+    },
+    {
+     "name": "gut mit redux",
+     "settings": {
+      "saturatorDrive": 31.605317,
+      "saturatorBase": -0.850394,
+      "saturatorFreq": 1551.299175,
+      "saturatorWidth": 0.60747,
+      "saturatorDepth": -18.330709,
+      "saturatorOutput": -15.31683,
+      "saturatorMix": 0.797855
+     }
+    },
+    {
+     "name": "Variation 2",
+     "settings": {
+      "saturatorDrive": 31.605317,
+      "saturatorBase": -8.220472,
+      "saturatorFreq": 143.931946,
+      "saturatorWidth": 0.0,
+      "saturatorDepth": 24.0,
+      "saturatorOutput": -15.31683,
+      "saturatorMix": 0.385827
+     }
+    },
+    {
+     "name": "obertöne",
+     "settings": {
+      "saturatorDrive": 31.605317,
+      "saturatorBase": 25.228346,
+      "saturatorFreq": 264.109494,
+      "saturatorWidth": 0.0,
+      "saturatorDepth": 24.0,
+      "saturatorOutput": -15.31683,
+      "saturatorMix": 0.614173
+     }
+    },
+    {
+     "name": "Variation 4",
+     "settings": {
+      "saturatorDrive": 31.605317,
+      "saturatorBase": -2.551181,
+      "saturatorFreq": 159.255705,
+      "saturatorWidth": 0.0,
+      "saturatorDepth": 24.0,
+      "saturatorOutput": -15.31683,
+      "saturatorMix": 0.797855
+     }
+    }
+   ],
+   "fixed": {
+    "saturatorType": 3
+   }
+  },
+  "redux": {
+   "rack": "redux",
+   "track": "looper guitar",
+   "variations": [
+    {
+     "name": "as saved",
+     "settings": {
+      "reduxRate": 7240.085839,
+      "reduxJitter": 0.0248,
+      "reduxBits": 5.0,
+      "reduxPostOctaves": -2.992126,
+      "reduxMix": 0.795276
+     }
+    },
+    {
+     "name": "heavy distorted",
+     "settings": {
+      "reduxRate": 7240.085839,
+      "reduxJitter": 0.0248,
+      "reduxBits": 1.0,
+      "reduxPostOctaves": -2.992126,
+      "reduxMix": 0.503937
+     }
+    },
+    {
+     "name": "guitar-playback",
+     "settings": {
+      "reduxRate": 7240.085839,
+      "reduxJitter": 0.0248,
+      "reduxBits": 5.0,
+      "reduxPostOctaves": -2.992126,
+      "reduxMix": 1.0
+     }
+    },
+    {
+     "name": "Variation 1",
+     "settings": {
+      "reduxRate": 8948.540019,
+      "reduxJitter": 0.303801,
+      "reduxBits": 3.0,
+      "reduxPostOctaves": 1.33847,
+      "reduxMix": 0.850394
+     }
+    }
+   ],
+   "fixed": {
+    "reduxDcShift": 1.0,
+    "reduxPreFilter": 0.0,
+    "reduxPostFilter": 0.0
+   }
+  }
+ }
+}

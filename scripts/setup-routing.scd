@@ -1,0 +1,919 @@
+// megalooper — routing profiles and the boot-time audio guards.
+//
+// Loaded by boot.scd; defines only, runs nothing. boot.scd picks the profile
+// (~routingProfile) and calls ~applyRoutingProfile BEFORE s.boot, then
+// ~checkSampleRate once the server is up.
+//
+// A profile is one rig: which audio device, how many channels, and where the
+// three SC<->Live stereo pairs sit. The full setup recipe for every rig — the
+// TotalMix loopback, the Loopback bridge, the BlackHole aggregates — is in
+// docs/routing.md. Read that before adding or debugging a rig.
+(
+// The rig to boot when nothing else says otherwise. THIS is the one line to
+// flip when you change rigs from the editor. Both readers use it: boot.scd
+// takes it as its default, and launcher.scd preselects it in the dropdown on
+// first run — so there is no second copy to keep in step.
+// \standalone needs no hardware, no aggregate and no Live, so it is the only honest
+// default for a fresh clone: every other profile names an interface that exists
+// on one machine, and booting one that is absent aborts. Change this line to your
+// own rig, or just pick it in the launcher — the launcher remembers your choice
+// across launches, so this default only decides the FIRST boot and the IDE path.
+~defaultRoutingProfile = \standalone;
+// \standalone | \sa | \fireface | \loopback | \bhFireface | \bhTsMega | \bhBuiltin
+
+// device: exact CoreAudio name (ServerOptions.devices lists them). Channels
+// are 0-indexed stereo pairs: inChannel = SC reads Live's processed guitar;
+// outChannel = SC writes the loop to Live; returnChannel = SC reads Live's
+// processed loop (loop-chaining) — must differ from inChannel or overdubs
+// feed back.
+//
+// analysisChannel is different in kind: a SINGLE (mono) input channel that only
+// the onset/pitch detection reads. It is the guitar's OWN hardware input on this
+// device — SC and Live both have the device open, so SC can read the dry guitar
+// straight from the interface. Nothing about Live is involved: no pre-FX track,
+// no extra loopback pair, and no FX smearing the attacks the meter fit depends
+// on. nil on a rig where SC cannot see the guitar's input. See "The clean
+// analysis tap" in docs/routing.md.
+//
+// sessionChannel is a fifth role and the only one nothing plays: a STEREO
+// input pair carrying LIVE'S MASTER back to SC, so the session recorder can
+// write what the room heard rather than the loop alone. Set on bhTsMega (the
+// rig it was built against) and nil everywhere else: it needs a track in the
+// Ableton set (Audio From: Resampling, Monitor: In, Audio To: Ext. Out on the
+// chosen pair), and a rig that has the number set but not the track records
+// SILENCE into the master file — which you would only discover after the gig.
+// Set it per rig once the Live side exists; until then the recorder writes the
+// dry tap alone and the Perform tab says so. See "Recording the set" in
+// docs/routing.md.
+//
+// numInChans is optional and defaults to numChans. It exists because the
+// analysis tap is the one thing SC needs from the HARDWARE block above the
+// virtual device, and asking for those channels on the OUTPUT side too would
+// hand SC a path to the speakers (the footgun the \bh* rigs deliberately
+// removed). Inputs grow; outputs stay put. sampleRate is optional and only
+// drives the post-boot warning, unless setSampleRate is true: then the device
+// is switched to it before the boot (see \sa). hardwareBufferSize is optional
+// too; a profile without it boots at whatever buffer size the server options
+// held before any profile was applied.
+//
+// midiMap: names the MIDI map a rig starts with (presets/midi/<name>.json, or
+// a map of yours with that name: docs/dev/midi-map.md 8.4). What you choose on the
+// Rig tab's MIDI section is kept in settings.json and wins. Every rig here
+// starts with the TSMega's, except \standalone, which a fresh clone boots and
+// which starts with none: a stranger's keyboard should do nothing until it is
+// mapped.
+//
+// sa: true makes boot.scd build Megalooper SA's mixer around the Looper
+// (scripts/setup-sa.scd), and live: false says the rig has no Live at all, so
+// the Live preflight has nothing to check, and the Calibrate view's wizard is
+// the one without Live, which keeps what it finds for the rig.
+//
+// Two timing values are per-rig because they ARE per-rig — they depend on the
+// round trip through that rig's device and buffers, so a number calibrated on
+// one is wrong on the next:
+//   latencyMs       overdub latency compensation ("Overdub lat" slider)
+//   abletonSyncMs   MIDI-clock offset to Live ("Live sync" slider); optional,
+//                   defaults to 0, may be negative (negative pulls Live earlier)
+//   chainRecOffsetMs   where the loop-chain recorder starts relative to the loop
+//                   boundary, ms, negative = earlier; optional, defaults to 0.
+//                   Per-rig, and the one value here that is MEASURED rather than
+//                   dialled by ear: chain a loop and run
+//                   scripts/check-chain-align.scd, then set this to exactly the
+//                   offset it reports.
+//   onsetNoteOffsetMs  timing trim for the onset notes ("Offset" in the onset
+//                   analysis window); optional, defaults to 0, negative sends
+//                   them earlier. Per-rig because the loop's audio crosses the
+//                   virtual device and Live's input buffer while the notes go
+//                   straight over IAC — that gap is this rig's, not the code's.
+//   onsetThreshold  Onsets.kr detection threshold; optional, defaults to 0.5.
+//                   Per-rig because how noisy the guitar input is depends on the
+//                   interface and the tap. Tune it live in the Onset analysis
+//                   window against the scope, then write the number back.
+// Both are only STARTING values: setup-model.scd pushes them into the Looper at
+// boot and the GUI sliders then adjust them live. When you re-calibrate a rig by
+// ear, write the number back here so the next boot starts where you left off.
+~routingProfiles = (
+    // Guitar is on analog in 1 = SC 0, so the tap needs no extra channels.
+    // NOTE: fireface / loopback / bhFireface set neither onsetNoteOffsetMs nor
+    // abletonSyncMs, so both default to 0 and were absorbing nothing. The
+    // 2026-09-07 loopStartTime fix moved them by the full 200 ms as well — from
+    // ~185 ms late to ~15 ms early. That is an improvement, but they still owe
+    // Live's audio path, so expect to need a positive offset in the same range
+    // the calibrated rigs landed in. Left unset rather than guessed: no
+    // measurement has ever been taken on any of them.
+    fireface: (
+        device: "Fireface 400 (E15)", numChans: 18,
+        midiMap: "tsmega",
+        inChannel: 8, outChannel: 10, returnChannel: 12,
+        analysisChannel: 0,
+        sessionChannel: nil,
+        inChannelCount: 2, latencyMs: 28),
+    // The guitar enters as a Loopback SOURCE on ch 3, and what a source feeds is
+    // readable on the matching capture channel — so SC reads it at index 2.
+    loopback: (
+        device: "SC-Live Bridge", numChans: 14,
+        midiMap: "tsmega",
+        inChannel: 8, outChannel: 10, returnChannel: 12,
+        analysisChannel: 2,
+        sessionChannel: nil,
+        inChannelCount: 2, latencyMs: 28),
+    // BlackHole rigs. Identical apart from the aggregate they name: BlackHole
+    // is first in every one, so it owns ch 1-16 and SC's offsets never change.
+    // numChans 16 asks for the BlackHole block only — the interface sits above
+    // it at ch 17+ and belongs to Live, not to us. The ONE exception is the
+    // analysis tap: the interface's input 1 (the guitar) is aggregate ch 17 =
+    // SC index 16, so inputs reach 17 while outputs stay at 16. Where latencyMs
+    // is still 15 it is a STARTING GUESS (the round trip is BlackHole + both
+    // buffers, no hardware) — measure it with the Overdub lat slider and write
+    // the value back here, as bhTsMega below has been.
+    //
+    // `members` is what the aggregate is supposed to CONTAIN, in order. It is not
+    // used to build anything — it is there so the preflight can say "BlackHole
+    // 16ch is present, TSMEGA is gone" instead of only "this device has 2 fewer
+    // channels than it should". A member that comes and goes (headphones!) moves
+    // every channel above it, silently.
+    bhFireface: (
+        device: "MegaLoop BH (Fireface)", numChans: 16, numInChans: 17,
+        midiMap: "tsmega",
+        members: ["BlackHole 16ch", "Fireface 400 (E15)"],
+        inChannel: 8, outChannel: 10, returnChannel: 12,
+        analysisChannel: 16,
+        sessionChannel: nil,
+        inChannelCount: 2, latencyMs: 15, sampleRate: 48000),
+    // Device name has NO space in "TSMega" — it must match CoreAudio exactly
+    // enough for the boot guard's lenient match, and "TS Mega" does not.
+    // Aggregate member order is BlackHole -> TSMEGA -> MacBook Pro Speakers, so
+    // outputs run BlackHole 1-16, TSMEGA 17-18, speakers 19-20 (Live's Master
+    // goes to 19/20 — Live refuses to drive TSMEGA's own outputs), while inputs
+    // are BlackHole 1-16 then TSMEGA 17-18, which is why the guitar — and so
+    // analysisChannel — sits at ch 17 = SC index 16.
+    //
+    // Overdub round trip, by ear: 33 ms on 2026-08-12, re-dialled to 54 on
+    // 2026-09-07. Independent of that day's loopStartTime fix — `latencyMs` never
+    // read loopStartTime — so the change reflects the rig (buffer size, sample
+    // rate, Live's plugin chain), not the fix. Its only consumers are the engine's
+    // overdub write head and, on rigs that analyse the RECORDED input rather than
+    // the clean tap, the overdub onset folding; this rig uses the tap, so that
+    // second path reads 0 here.
+    //
+    // `latencyMs` stays at its measured 33 and is NOT one of the offsets below:
+    // it compensates a round trip into the buffer rather than an offset out to
+    // Live, only ever runs in one direction (the setter clips it at 0), and its
+    // slider tops out at 100.
+    //
+    // THE TWO OFFSETS ARE NOT THE SAME NUMBER. They both sat at -132 before the
+    // 2026-09-07 fix and that looked like a law; it was not. Both had been
+    // dialled by ear, and ear precision here is ~±15 ms, so -132 was merely
+    // "close enough" for both. With the fix in and everything else correct the
+    // difference became audible, and they were split: the clock wants +68, the
+    // notes want +53. Different streams — the clock drives Live's transport
+    // while notes are quantised to its next audio block and then run a drum
+    // rack — so there was never a reason to expect them to agree.
+    bhTsMega: (
+        device: "MegaLoop BH (TSMega)", numChans: 16, numInChans: 17,
+        midiMap: "tsmega",
+        members: ["BlackHole 16ch", "TSMEGA", "MacBook Pro Speakers"],
+        inChannel: 8, outChannel: 10, returnChannel: 12,
+        analysisChannel: 16,
+        // BlackHole 1-2, which this rig leaves unused. Needs the Resampling
+        // track in the Ableton set (Audio From: Resampling, Monitor: In, Audio
+        // To: Ext. Out 1/2) — without it the master file records silence. See
+        // "Recording the set" in docs/routing.md.
+        sessionChannel: 0,
+        //
+        // 2026-09-07: loopStartTime stopped carrying the skew these three were
+        // each silently absorbing (see spawnEngine).
+        //
+        // The shift to apply is the CONSTANT THE CODE REMOVED — `server.latency`,
+        // exactly 0.200 — not the 185 ms that was measured. Those are different
+        // quantities: the measured skew is the gap between loopStartTime and the
+        // audio, while what determines behaviour is how far loopStartTime itself
+        // moved, and it moved by exactly the constant. Anything firing at
+        // `loopStartTime + p + trim` now fires 200 ms earlier, so each trim needs
+        // exactly +200 to sit where it did.
+        //     onsetNoteOffsetMs  -132 -> +68 -> +53   (CONFIRMED by ear)
+        //     abletonSyncMs      -132 -> +68           (CONFIRMED by ear)
+        //     chainRecOffsetMs   -134 -> +59           (MEASURED, tool-verified)
+        //
+        // All three are now settled on this rig. The notes landing 15 ms below
+        // the +200 arithmetic is the old -132 having been ~15 ms off within ear
+        // precision, not the shift being wrong: the clock, dialled from the same
+        // old -132, confirmed at exactly +68.
+        //
+        // chainRecOffsetMs is the one re-measured after the fix: with +51 in place
+        // check-chain-align.scd reported an 8 ms residual on both copies at
+        // correlation 0.956. Note it implies a shift of ~193, not 200 — both it
+        // and the -134 before it were measured at 2 ms resolution, so the 7 ms
+        // gap is real and unexplained. Treat the two DERIVED values as +68 ± 10
+        // and settle them by ear; do not "correct" the measured 59 to match.
+        //
+        // They should now be small and physically meaningful — the real path
+        // difference between what SC sends and what Live puts out — rather than
+        // a large number dominated by a bug. `latencyMs` is unaffected: it never
+        // read loopStartTime.
+        inChannelCount: 2, latencyMs: 54,
+        onsetNoteOffsetMs: 53, abletonSyncMs: 68, chainRecOffsetMs: 59,
+        sampleRate: 48000),
+    // The awkward one. "External Headphones" only exists in CoreAudio while
+    // something is plugged into the jack, and it sits BELOW the speakers in the
+    // member list — so unplugging headphones does not just change where you
+    // monitor, it slides every output above it down by two. Live's Master at
+    // 17/18 lands on the headphones with them in and on the speakers with them
+    // out. The preflight reports the member as missing for exactly that reason.
+    bhBuiltin: (
+        device: "MegaLoop BH (Built-in)", numChans: 16, numInChans: 17,
+        midiMap: "tsmega",
+        members: ["BlackHole 16ch", "External Headphones",
+            "MacBook Pro Speakers", "stereo mic"],
+        inChannel: 8, outChannel: 10, returnChannel: 12,
+        analysisChannel: 16,
+        sessionChannel: nil,
+        // Dialled in by ear on the rig 2026-09-11, replacing the +84/+84 that
+        // had only been DERIVED (calibrated at -116 on 2026-09-06, then shifted
+        // +200 on 2026-09-07 when loopStartTime stopped carrying that skew).
+        //
+        // They split widely — 63 against 150 — which is the same lesson bhTsMega
+        // taught at a smaller scale: these two travel different paths to the ear
+        // and there is no reason for them to agree. Dial them independently.
+        //
+        // NOTE abletonSyncMs 150 is exactly ~syncMax, the Live-sync slider's
+        // half-range (gui-main.scd). It is reachable, but there is no headroom
+        // left in that direction — if the sync still wants pushing later, raise
+        // ~syncMax rather than assuming 150 is the optimum.
+        //
+        // latencyMs 68 was dialled in by ear the same day, replacing a guessed
+        // 15. It is far above the 20-40 ms docs/manual.md suggests for built-in
+        // audio, and rightly: that figure describes a direct interface round
+        // trip, whereas here the loop goes SC -> BlackHole -> Live -> out, so
+        // Live's own buffers are inside the trip being compensated for. The
+        // TSMega aggregate sits at 54 for the same reason.
+        //
+        // chainRecOffsetMs has never been measured on this rig —
+        // scripts/check-chain-align.scd does that.
+        inChannelCount: 2, latencyMs: 68,
+        onsetNoteOffsetMs: 63, abletonSyncMs: 150,
+        sampleRate: 48000),
+    // The no-hardware rig: whatever CoreAudio calls the default input and the
+    // default output. Nothing to install, nothing to create, nothing to plug in —
+    // this is what a fresh clone boots on, so someone can hear the looper work
+    // before deciding whether the rest of the setup is worth it.
+    //
+    // `device: \systemDefault` is a SENTINEL, not a device name. ~applyRoutingProfile
+    // maps it to `s.options.device = nil`, which makes SC omit -H entirely so
+    // scsynth opens the default input AND the default output. That matters on a
+    // laptop, where the mic and the speakers are two separate CoreAudio devices
+    // and no single device name can name both.
+    //
+    // What this rig cannot do, and why:
+    //   returnChannel  nil — loop chaining reads Live's processed loop back, and
+    //                  there is no Live. Chaining is disabled rather than pointed
+    //                  at a channel that would feed the looper its own output.
+    //   MIDI clock     no IAC bus is assumed; setup-midi.scd already leaves
+    //                  ~midiOut nil when it finds none.
+    //   analysisChannel nil — meaning "analyse the recorded input", which on this
+    //                  rig is already the dry signal: nothing processes it on the
+    //                  way in, because there is no Live in the path. A separate
+    //                  tap would read the same microphone twice.
+    // latencyMs 10 is a placeholder for a direct in->out round trip. It is the one
+    // number worth dialling by ear even on this rig.
+    standalone: (
+        device: \systemDefault, numChans: 2, numInChans: 2,
+        inChannel: 0, outChannel: 0, returnChannel: nil,
+        analysisChannel: nil,
+        sessionChannel: nil,
+        inChannelCount: 1, latencyMs: 10,
+        live: false),
+    // Megalooper SA (docs/dev/megalooper-sa.md): TSMEGA alone, no Live, no
+    // aggregate. Guitar on input 1, the mix on outputs 1/2.
+    //
+    // inChannel is the guitar's hardware input, which the guitar chain (Bias
+    // FX) reads; scripts/setup-sa.scd then points the Looper's input at the
+    // chain's bus and its output at the mixer's, so outChannel has no channel of
+    // its own here. analysisChannel 0 is the same input read dry: the onset
+    // analysis hears the attacks before Bias FX colours them, as on the Live
+    // rigs' clean tap.
+    //
+    // TSMEGA comes up at 44.1 kHz when plugged in alone; megalooper works at 48,
+    // so the preflight switches it (setSampleRate). 64 frames measured 9.3 ms
+    // round trip on the rig at 44.1 kHz (CoreAudio's figures, 2026-10-05), and
+    // latencyMs starts there; dial it by ear like every rig's.
+    //
+    // returnChannel and sessionChannel are nil here for the same reason as
+    // outChannel: setup-sa.scd sets them to the busses MegaSA makes (the loop
+    // after its effects, for loop chaining; the mix, for the session's master
+    // file). chainRecOffsetMs 20 is computed, not measured: the Looper's master
+    // Limiter (0.01 s lookahead) delays the loop by exactly 20 ms before it
+    // reaches that return. Measure it with scripts/check-chain-align.scd.
+    // memSize: SA's effects take about 5 MB of scsynth's real-time pool (delay
+    // lines, PitchLoop's memory) beside the Looper's own, against a default of
+    // 8 MB; a failed allocation silences a synth, so SA asks for 64 MB, which
+    // also leaves room for the devices a chain edit adds (MegaSA.memoryBudget).
+    // inChannelCount 2: the Looper records both sides of the guitar chain
+    // (docs/dev/device-chains.md, decision 5). Today's chain is dual mono, so the
+    // loop holds the same samples; a stereo device or plugin on the guitar
+    // chain is recorded as it plays. It costs no memory: the Looper's buffers
+    // are stereo either way.
+    sa: (
+        device: "TSMEGA", numChans: 2, numInChans: 2,
+        midiMap: "tsmega",
+        inChannel: 0, outChannel: nil, returnChannel: nil,
+        analysisChannel: 0,
+        sessionChannel: nil,
+        inChannelCount: 2, latencyMs: 9, chainRecOffsetMs: 20,
+        sampleRate: 48000, setSampleRate: true, hardwareBufferSize: 64, memSize: 65536,
+        sa: true, live: false),
+    // Megalooper SA on whatever interface you have: the system's default input
+    // and output (the `standalone` sentinel, so a laptop's separate mic and
+    // speakers work too), the guitar on input 1, the mix on outputs 1/2, at
+    // the device's own rate and block size: nothing is switched or forced.
+    // This is the SA profile for a rig that is not the duo's TSMEGA. No MIDI
+    // map is named, so none is assumed: map your own controller on the Setup
+    // view.
+    //
+    // latencyMs 30 is a placeholder for the overdub round trip: the loop's
+    // master limiter's 20 ms plus about 10 ms for a direct interface at 64 to
+    // 128 frames. Run the Calibrate view's latency step, or dial it by ear.
+    // memSize: the effects' delay lines and PitchLoop's memory need the 64 MB
+    // pool, as on \sa. Both sides of the guitar chain are recorded, as on \sa.
+    saSystem: (
+        device: \systemDefault, numChans: 2, numInChans: 2,
+        inChannel: 0, outChannel: nil, returnChannel: nil,
+        analysisChannel: 0,
+        sessionChannel: nil,
+        inChannelCount: 2, latencyMs: 30, chainRecOffsetMs: 20,
+        memSize: 65536,
+        sa: true, live: false)
+);
+
+// What a rig brings, as the launcher says it under its menu. Two rigs play on
+// the system's default devices and differ in everything else: the picker is
+// where one finds out which has the effect chains and the drums.
+~routingProfileSays = { |key|
+    var rp = ~routingProfiles[key];
+    case
+    { rp.isNil } { "" }
+    { rp[\sa] == true } { "Megalooper SA: the looper with its effect chains (FX) and its drums." }
+    { key == \standalone } { "The looper alone. The effect chains and the drums are on the saSystem rig." }
+    { true } { "The looper beside Ableton Live." }
+};
+
+// The server options a profile may set beyond device and channels. What the
+// options held before the FIRST profile was applied is kept, so a profile that
+// leaves one out boots with that rather than with whatever the previous profile
+// in this session asked for (64 frames on an aggregate Live shares is a
+// different rig).
+~applyServerOptions = { |rp|
+    ~serverOptionsBefore = ~serverOptionsBefore ?? {
+        (hardwareBufferSize: s.options.hardwareBufferSize, sampleRate: s.options.sampleRate,
+            memSize: s.options.memSize)
+    };
+    s.options.hardwareBufferSize = rp[\hardwareBufferSize]
+        ?? { ~serverOptionsBefore[\hardwareBufferSize] };
+    s.options.sampleRate = if(rp[\setSampleRate] == true) { rp[\sampleRate] }
+        { ~serverOptionsBefore[\sampleRate] };
+    s.options.memSize = rp[\memSize] ?? { ~serverOptionsBefore[\memSize] ? 8192 };
+};
+
+// The audio devices by name, as CoreAudio lists them. SuperCollider can list
+// none on Linux, where JACK or PipeWire holds the interface (the primitive
+// fails there): empty then, and never a throw. The launcher asks here too.
+~audioDeviceNames = {
+    if(MegaFiles.isLinux) { [] } { ((try { ServerOptions.devices }) ? []).collect { |d| d.asString } }
+};
+
+// Switch a device's nominal rate before the boot, through tools/coreaudio.py,
+// which waits until the device reports the new rate. Answers true on success.
+// Fails while another program holds the device, which for \sa means Live.
+~switchDeviceRate = { |name, rate|
+    var tool = (~megalooperRoot ?? { Looper.repoRoot }) +/+ "tools" +/+ "coreaudio.py";
+    var said = ("python3 " ++ tool.quote ++ " set-rate " ++ name.asString.quote
+        ++ " --rate " ++ rate ++ " 2>&1").unixCmdGetStdOut.stripWhiteSpace;
+    ("    " ++ said).postln;
+    said.contains("error").not
+};
+
+// Resolve a profile into ~rp + the ~inChannel/~outChannel/~returnChannel/
+// ~analysisChannel the rest of the boot reads, and write the server options.
+// ~analysisChannel may be nil (rig with no clean tap); the Looper then analyses
+// its recorded input, as it did before the tap existed. MUST be called before
+// s.boot — device and channel count are fixed at boot time.
+//
+// Guard: the selected profile's audio device must actually be present, else
+// SuperCollider silently boots on the DEFAULT device with the wrong channel
+// count and every SC<->Live route is broken. Fail loudly instead. SC truncates
+// long / non-ASCII device names, so match leniently (either string contained in
+// the other) rather than requiring an exact hit.
+~applyRoutingProfile = { |profileName|
+    var rp = ~routingProfiles[profileName];
+    var found;
+    if(rp.isNil) {
+        Error("megalooper: unknown routing profile '" ++ profileName
+            ++ "'. Known: " ++ ~routingProfiles.keys.asArray.join(", ")).throw;
+    };
+
+    ~rp            = rp;
+    ~audioDevice   = rp[\device];
+    ~inChannel       = rp[\inChannel];
+    ~outChannel      = rp[\outChannel];
+    ~returnChannel   = rp[\returnChannel];
+    ~analysisChannel = rp[\analysisChannel];
+    ~sessionChannel  = rp[\sessionChannel];
+
+    // \systemDefault means "whatever CoreAudio is defaulting to". Setting the
+    // option to nil makes SC omit -H, so scsynth opens the default INPUT and the
+    // default OUTPUT — which on a laptop are two different devices, so there is
+    // no name to look up and nothing to guard against.
+    ~systemDefaultDevice = ~audioDevice == \systemDefault;
+    s.options.device = if(~systemDefaultDevice) { nil } { ~audioDevice };
+    // Inputs may reach higher than outputs to expose the analysis tap — see the
+    // numInChans note on the table above.
+    s.options.numInputBusChannels  = rp[\numInChans] ? rp[\numChans];
+    s.options.numOutputBusChannels = rp[\numChans];
+    ~applyServerOptions.(rp);
+
+    found = ~systemDefaultDevice or: {
+        ~audioDeviceNames.().any { |d|
+            var listed = d.asString, want = ~audioDevice.asString;
+            (listed == want) or: { listed.contains(want) } or: { want.contains(listed) }
+        }
+    };
+    ~deviceFound = found;
+    if(found.not) {
+        "".postln;
+        "!!! ==================== megalooper ROUTING ERROR ====================".postln;
+        ("!!! Profile '" ++ profileName ++ "' needs audio device \""
+            ++ ~audioDevice ++ "\" — NOT FOUND.").postln;
+        case
+            { profileName == \loopback } {
+                "!!! Create a Rogue Amoeba Loopback device named EXACTLY 'SC-Live Bridge'".postln;
+                "!!! (14 channels, Pass-Thru). Full recipe is in docs/routing.md.".postln;
+            }
+            { [\bhFireface, \bhTsMega, \bhBuiltin].includes(profileName) } {
+                "!!! In Audio MIDI Setup, create an Aggregate Device with that EXACT name:".postln;
+                "!!!   BlackHole 16ch FIRST in the list, then the interface for this rig.".postln;
+                "!!!   Clock Source = the interface, Drift Correction on every other row,".postln;
+                "!!!   48 kHz throughout. Full recipe is in docs/routing.md.".postln;
+                "!!! (Or switch ~routingProfile to the rig you actually have plugged in.)".postln;
+            }
+            { true } {
+                "!!! Connect/power on the interface, or change ~routingProfile in boot.scd.".postln;
+            };
+        "!!! Audio devices available right now:".postln;
+        ~audioDeviceNames.().do { |d, i| ("!!!     " ++ i ++ ": " ++ d).postln };
+        if(MegaFiles.isLinux) {
+            "!!! On Linux megalooper knows no device by name: JACK or PipeWire has the".postln;
+            "!!! interface. Use the standalone or saSystem rig, or a profile of your".postln;
+            "!!! own with device: \\systemDefault (docs/linux.md).".postln;
+        };
+        "!!! =================================================================".postln;
+        Error("megalooper: audio device '" ++ ~audioDevice ++ "' not found for profile '"
+            ++ profileName ++ "'. Boot aborted — see the banner above.").throw;
+    };
+    rp
+};
+
+// Post-boot check. A profile may declare the rate its rig is wired for.
+// Mismatches are the classic aggregate-device trap: every member has to run at
+// ONE rate or CoreAudio silently resamples the odd one out — and this machine
+// has devices sitting at both 44.1 and 48 kHz. Warn rather than abort; the rig
+// still makes sound, it just is not the one that was set up.
+// ===========================================================================
+// VSTPlugin preflight — what an SA rig needs to host its plugin
+//
+// SA hosts its guitar plugin through VSTPlugin. On a stranger's Mac three
+// things go wrong silently: it is not installed (SA then plays its built-in
+// effects with no amp); its release ships VSTPlugin_supernova.scx beside
+// VSTPlugin.scx, and scsynth loads both, whose duplicate Cocoa classes risk a
+// crash in the plugin's window; and a copy downloaded in a browser is
+// quarantined, so macOS refuses VSTPlugin.scx and its `host` (which probes
+// every plugin) without saying why. Answers what it found, as notes.
+~vstPluginFacts = {
+    var cls = \VSTPlugin.asClass;
+    var dir = cls !? { |c| c.filenameSymbol.asString.dirname.dirname +/+ "plugins" };
+    // The quarantine is macOS's alone.
+    var quarantined = { |path|
+        MegaFiles.isMac and: { File.exists(path) } and: {
+            ("xattr -p com.apple.quarantine " ++ path.shellQuote ++ " 2>/dev/null").unixCmdGetStdOut.size > 0 }
+    };
+    (
+        installed: cls.notNil,
+        version: cls !? { |c| [c.versionMajor, c.versionMinor, c.versionBugfix] },
+        dir: dir,
+        supernova: dir.notNil and: { File.exists(dir +/+ "VSTPlugin_supernova.scx") },
+        quarantined: dir !? { |d| ["VSTPlugin.scx", "host"].select { |f| quarantined.(d +/+ f) } } ? []
+    )
+};
+
+~checkVSTPlugin = { |profileName|
+    var rp = ~routingProfiles[profileName];
+    var notes = List.new, facts;
+    if(rp.notNil and: { rp[\sa] == true }) {
+        facts = try { ~vstPluginFacts.() } { |err|
+            ("megalooper: the VSTPlugin preflight failed (" ++ err.errorString ++ "); skipping it.").warn;
+            nil
+        };
+        facts !? { |f|
+            case
+            { f[\installed].not } {
+                notes.add("VSTPlugin is not installed: SA plays its built-in effects, and the guitar has no amp "
+                    ++ "plugin. ./tools/install.sh fetches it (or by hand: docs/standalone.md, Plugins).");
+            }
+            { true } {
+                if(f[\version].notNil and: { (f[\version][0] != 0) or: { f[\version][1] != 6 } }) {
+                    notes.add("VSTPlugin " ++ f[\version].join(".") ++ " is installed; megalooper is built and "
+                        ++ "tested on 0.6.2.");
+                };
+                if(f[\supernova]) {
+                    notes.add("VSTPlugin_supernova.scx sits beside VSTPlugin.scx in " ++ f[\dir]
+                        ++ ": delete it. scsynth loads every .scx, and the two copies' Cocoa classes risk a crash "
+                        ++ "in the plugin's window.");
+                };
+                if(f[\quarantined].notEmpty) {
+                    notes.add("macOS has quarantined " ++ f[\quarantined].join(" and ") ++ " (a browser download), "
+                        ++ "so it refuses them and no plugin opens. Run: xattr -dr com.apple.quarantine "
+                        ++ f[\dir].dirname.shellQuote);
+                };
+            };
+        };
+        if(notes.notEmpty) {
+            ("megalooper: VSTPlugin preflight for '" ++ profileName ++ "'").postln;
+            notes.do { |n| ("    " ++ n).warn };
+        };
+    };
+    notes.asArray
+};
+
+// Device preflight — what CoreAudio and Live ACTUALLY have
+// ===========================================================================
+// The existing guard above checks that a device with the right NAME exists.
+// That is not enough, and the gap is exactly where the aggregates bite:
+//
+//   * `ServerOptions.devices` gives names alone.
+//   * `s.options.numInputBusChannels` is what we ASKED for, never what CoreAudio
+//     granted. Ask a degraded 16-channel aggregate for 17 inputs and SC boots
+//     perfectly happily — the analysis tap just reads a bus nothing ever fills,
+//     for the rest of the session, in silence.
+//   * Nothing in SC can see what LIVE opened, and the two apps sharing one
+//     device is the entire premise of every \bh* rig.
+//
+// So: ask the system. `system_profiler SPAudioDataType -json` costs ~0.2 s and
+// sclang parses JSON itself, so there is nothing to install.
+
+// name(Symbol) -> (name:, in:, out:, rate:). Empty if system_profiler is
+// unavailable; every caller treats that as "cannot check" and lets boot proceed
+// rather than blocking a gig on a diagnostic.
+~audioDeviceInfo = {
+    var found = IdentityDictionary.new;
+    // macOS's own list: another system has none to read, and every caller
+    // takes an empty answer as "cannot check".
+    if(MegaFiles.isMac.not) { found } {
+    try {
+        var raw = "system_profiler SPAudioDataType -json 2>/dev/null".unixCmdGetStdOut;
+        raw.parseJSON["SPAudioDataType"][0]["_items"].do { |it|
+            var name = it["_name"].asString;
+            found.put(name.asSymbol, (
+                name: name,
+                in:   (it["coreaudio_device_input"]  ? 0).asInteger,
+                out:  (it["coreaudio_device_output"] ? 0).asInteger,
+                rate: (it["coreaudio_device_srate"]  ? 0).asInteger,
+                // Which devices the system is currently defaulting to. Only the
+                // \systemDefault profile cares, and it cares a lot: scsynth
+                // refuses to boot when the default input and output run at
+                // different rates, which is the out-of-the-box state on plenty
+                // of Macs.
+                defaultIn:  it["coreaudio_default_audio_input_device"].notNil,
+                defaultOut: it["coreaudio_default_audio_output_device"].notNil));
+        };
+    } { |err|
+        ("megalooper: could not read the CoreAudio device list ("
+            ++ err.errorString ++ ") — skipping the device preflight.").warn;
+    };
+    found
+    }
+};
+
+// SC truncates long / non-ASCII device names, so every name comparison here is
+// lenient the same way the boot guard is: either string containing the other.
+~audioNameMatches = { |a, b|
+    var x = a.asString, y = b.asString;
+    (x == y) or: { x.contains(y) } or: { y.contains(x) }
+};
+
+~audioDeviceFind = { |info, name|
+    info.detect { |d| ~audioNameMatches.(d[\name], name) }
+};
+
+// Pre-boot health check for the profile's device. Run it AFTER
+// ~applyRoutingProfile (it reads, and may amend, what that set up) and BEFORE
+// s.boot — channel counts are fixed the moment the server starts.
+//
+// Aborts only when the SC<->Live pairs themselves cannot exist. A missing
+// analysis tap degrades instead: the loop is unaffected, so it drops to
+// analysing the recorded input — which is what tap-less rigs have always done —
+// and says so, rather than ending the session over a diagnostic.
+~checkAudioDevice = { |profileName|
+    var rp    = ~routingProfiles[profileName];
+    var info  = ~audioDeviceInfo.();
+    var dev   = ~audioDeviceFind.(info, rp[\device]);
+    var wantOut = rp[\numChans];
+    var wantIn  = rp[\numInChans] ? rp[\numChans];
+    var notes = List.new;
+
+    if(rp[\device] == \systemDefault) {
+        // No device name to look up — it is whatever CoreAudio is defaulting to.
+        // There is exactly one thing worth checking, and it is not the channel
+        // count: on a stock Mac the default INPUT and the default OUTPUT are two
+        // separate devices, and scsynth flatly refuses to boot when they run at
+        // different rates —
+        //     "Input sample rate is 44100, but output is 48000. Mismatched
+        //      sample rates are not supported."
+        // That is the out-of-the-box state on plenty of Macs (built-in mic at
+        // 44.1k, speakers at 48k), and the message names no fix. Say it here,
+        // before the boot, in terms of the two devices actually involved.
+        var inDev  = info.detect { |d| d[\defaultIn] == true and: { d[\in] > 0 } };
+        var outDev = info.detect { |d| d[\defaultOut] == true and: { d[\out] > 0 } };
+        "".postln;
+        ("megalooper: profile '" ++ profileName
+            ++ "' uses the system default input and output.").postln;
+        inDev  !? { |d| ("    in  : " ++ d[\name] ++ "  " ++ d[\rate] ++ " Hz").postln };
+        outDev !? { |d| ("    out : " ++ d[\name] ++ "  " ++ d[\rate] ++ " Hz").postln };
+        if(inDev.notNil and: { outDev.notNil }
+            and: { inDev[\rate] > 0 } and: { outDev[\rate] > 0 }
+            and: { inDev[\rate] != outDev[\rate] }) {
+            "".postln;
+            "!!! ============== megalooper SAMPLE RATE MISMATCH ==============".postln;
+            ("!!! '" ++ inDev[\name] ++ "' records at " ++ inDev[\rate]
+                ++ " Hz but '" ++ outDev[\name] ++ "' plays at "
+                ++ outDev[\rate] ++ " Hz.").postln;
+            "!!! scsynth does not support that and will REFUSE TO BOOT.".postln;
+            "!!!".postln;
+            "!!! Fix it with one command — this sets the input to match the".postln;
+            "!!! output, which is the rate you actually hear:".postln;
+            "!!!".postln;
+            "!!!     python3 tools/coreaudio.py match-default-rates".postln;
+            "!!!".postln;
+            "!!! Or by hand: Audio MIDI Setup, select each of those two devices".postln;
+            ("!!! and set both Format rates to " ++ outDev[\rate] ++ " Hz.").postln;
+            "!!! =============================================================".postln;
+            notes.add("default in/out sample rates differ");
+        };
+        "    Loop chaining and MIDI clock are off on this rig — see docs/routing.md.".postln;
+        // Built-in mic into built-in speakers is a feedback loop, and the looper
+        // plays back while it records. Worth one line before it howls.
+        "    >>> Use headphones. A built-in mic feeding the speakers will feed back.".postln;
+        if(notes.isEmpty) { "    device ok".postln };
+        "".postln;
+    } {
+    if(info.isEmpty) {
+        // Nothing to check against; the name guard above already ran.
+    } {
+        if(dev.isNil) {
+            ("megalooper: '" ++ rp[\device] ++ "' is not in the CoreAudio device "
+                "list, though SC lists it. Skipping the channel preflight.").warn;
+        } {
+            "".postln;
+            ("megalooper: device preflight for '" ++ profileName ++ "'").postln;
+            ("    " ++ dev[\name] ++ ": " ++ dev[\in] ++ " in, " ++ dev[\out]
+                ++ " out, " ++ dev[\rate] ++ " Hz").postln;
+            ("    profile wants: " ++ wantIn ++ " in, " ++ wantOut ++ " out"
+                ++ (rp[\sampleRate] !? { |r| ", " ++ r ++ " Hz" } ? "")).postln;
+
+            // ---- fatal: the SC<->Live block does not fit -------------------
+            if(dev[\out] < wantOut or: { dev[\in] < rp[\numChans] }) {
+                "".postln;
+                "!!! ================= megalooper DEVICE DEGRADED =================".postln;
+                ("!!! '" ++ dev[\name] ++ "' has " ++ dev[\in] ++ " in / " ++ dev[\out]
+                    ++ " out, but profile '" ++ profileName ++ "' needs at least "
+                    ++ rp[\numChans] ++ " of each for the SC<->Live pairs.").postln;
+                "!!! A sub-device has dropped out of the aggregate. Booting would".postln;
+                "!!! give you a looper whose every route is silently wrong.".postln;
+                rp[\members] !? { |want|
+                    "!!! Expected members, and whether CoreAudio can see them now:".postln;
+                    want.do { |m|
+                        var present = ~audioDeviceFind.(info, m);
+                        ("!!!     " ++ if(present.notNil) { "ok      " } { "MISSING " }
+                            ++ m ++ present !? { |d|
+                                "  (" ++ d[\in] ++ " in, " ++ d[\out] ++ " out, "
+                                ++ d[\rate] ++ " Hz)" } ? "").postln;
+                    };
+                };
+                "!!! Fix it in Audio MIDI Setup: re-add the missing member, keep".postln;
+                "!!! BlackHole 16ch FIRST, then reboot the aggregate's owner app.".postln;
+                "!!! ============================================================".postln;
+                Error("megalooper: '" ++ dev[\name] ++ "' is missing channels the '"
+                    ++ profileName ++ "' profile needs. Boot aborted — see above.").throw;
+            };
+
+            // ---- degrade: only the analysis tap is missing -----------------
+            if(dev[\in] < wantIn) {
+                "".postln;
+                ("!!! megalooper: '" ++ dev[\name] ++ "' has only " ++ dev[\in]
+                    ++ " input channels; the clean analysis tap needs " ++ wantIn
+                    ++ ".").postln;
+                "!!! The guitar's own input has dropped out of the aggregate. The".postln;
+                "!!! LOOP is unaffected, so this is not fatal — but onset detection".postln;
+                "!!! now falls back to the processed input it records, which fits a".postln;
+                "!!! pulse grid worse, so expect more meter mis-detection.".postln;
+                "".postln;
+                ~analysisChannel = nil;
+                s.options.numInputBusChannels = dev[\in].min(wantIn);
+                notes.add("analysis tap disabled");
+            };
+
+            // ---- sample rate, BEFORE the boot rather than after ------------
+            // A profile that owns its device outright (setSampleRate: no Live,
+            // no aggregate) just switches it; the warning below is for rigs
+            // whose rate Live and Audio MIDI Setup own.
+            rp[\sampleRate] !? { |want|
+                if(dev[\rate] > 0 and: { dev[\rate] != want } and: { rp[\setSampleRate] == true }) {
+                    ("    switching " ++ dev[\name] ++ " from " ++ dev[\rate] ++ " to "
+                        ++ want ++ " Hz").postln;
+                    if(~switchDeviceRate.(dev[\name], want).not) {
+                        ("!!! megalooper: could not switch '" ++ dev[\name] ++ "' to " ++ want
+                            ++ " Hz. Quit any program using it (Live), or set it in Audio "
+                            ++ "MIDI Setup.").postln;
+                        notes.add("could not switch the sample rate");
+                    };
+                };
+                if(dev[\rate] > 0 and: { dev[\rate] != want } and: { rp[\setSampleRate] != true }) {
+                    "".postln;
+                    ("!!! megalooper: '" ++ dev[\name] ++ "' is at " ++ dev[\rate]
+                        ++ " Hz; profile '" ++ profileName ++ "' is built for "
+                        ++ want ++ " Hz.").postln;
+                    "!!! Set the aggregate AND every member to the same rate in Audio".postln;
+                    "!!! MIDI Setup, and match it in Live. A member at a different rate".postln;
+                    "!!! is resampled by CoreAudio, which is what makes an aggregate".postln;
+                    "!!! crackle, drift, and need a reboot to come back.".postln;
+                    notes.add("sample-rate mismatch");
+                };
+            };
+
+            // ---- members: present, and all at one rate ---------------------
+            rp[\members] !? { |want|
+                var mismatched = List.new;
+                want.do { |m|
+                    var found = ~audioDeviceFind.(info, m);
+                    if(found.isNil) {
+                        ("!!! megalooper: aggregate member '" ++ m ++ "' is NOT present. "
+                            "The aggregate still has enough channels, which means the "
+                            "remaining members have SHIFTED DOWN to fill the gap — every "
+                            "channel above it is now something else.").postln;
+                        notes.add("member '" ++ m ++ "' missing");
+                    } {
+                        if(found[\rate] > 0 and: { found[\rate] != dev[\rate] }) {
+                            mismatched.add(m ++ " at " ++ found[\rate] ++ " Hz");
+                        };
+                    };
+                };
+                if(mismatched.notEmpty) {
+                    ("!!! megalooper: members running at a different rate than the "
+                        ++ "aggregate's " ++ dev[\rate] ++ " Hz: "
+                        ++ mismatched.join(", ")).postln;
+                    "!!! CoreAudio resamples those, and a resampled member is the".postln;
+                    "!!! usual cause of an aggregate that works until it does not.".postln;
+                    notes.add("member rate mismatch");
+                };
+            };
+
+            if(notes.isEmpty) {
+                "    device ok".postln;
+            } {
+                ("    PROBLEMS: " ++ notes.join(" · ")).postln;
+            };
+            "".postln;
+        };
+    };
+    };
+    notes.asArray
+};
+
+// ---- What LIVE opened ------------------------------------------------------
+// SC cannot ask Live anything, but Live writes its whole audio state to its own
+// log every time that state changes, so the newest block is current. It is only
+// as fresh as Live's last change, which is why the timestamp is reported too.
+~liveAudioState = {
+    var path = "ls -t ~/Library/Preferences/Ableton/*/Log.txt 2>/dev/null | head -1"
+        .unixCmdGetStdOut.stripWhiteSpace;
+    var state = nil;
+    if(path.notEmpty and: { File.exists(path) }) {
+        // Later lines overwrite earlier ones, so what survives the walk is the
+        // most recent state Live logged.
+        var grab = { |line, key|
+            line.find(key) !? { |i| line.copyToEnd(i + key.size).stripWhiteSpace }
+        };
+        state = (log: path);
+        File.readAllString(path).split($\n).do { |line|
+            if(line.contains("Audio In Out:")) {
+                grab.(line, "Input Device:") !? { |v|
+                    state[\inDevice] = v;
+                    state[\at] = line.copyRange(0, 18);
+                };
+                grab.(line, "Output Device:")   !? { |v| state[\outDevice] = v };
+                grab.(line, "Input Channels:")  !? { |v| state[\inChans]  = v.asInteger };
+                grab.(line, "Output Channels:") !? { |v| state[\outChans] = v.asInteger };
+                grab.(line, "Sample Rate:")     !? { |v| state[\rate]     = v.asInteger };
+            };
+        };
+    };
+    state
+};
+
+// Live logs a device as `NAME (n In, m Out)`. The names have parentheses of
+// their own, so strip from the LAST " (" rather than the first.
+~liveDeviceName = { |raw|
+    var cut = raw !? { |r| r.findAll(" (") !? { |all| all.last } };
+    if(cut.notNil) { raw.copyRange(0, cut - 1) } { raw }
+};
+
+// Compare what Live opened against the profile SC is about to boot. Warnings
+// only — SC cannot fix Live, and Live may legitimately not be running yet.
+~checkLiveAudio = { |profileName|
+    var rp = ~routingProfiles[profileName];
+    var st = ~liveAudioState.();
+    var notes = List.new;
+    // A rig with no SC<->Live relationship has nothing here to check. Without
+    // this, \standalone reports Live as being "on a different device" — which is
+    // true, irrelevant, and alarming on the one profile that is meant to just
+    // work. Live may well be open and configured for some other rig. The same
+    // goes for any profile that declares live: false (\sa).
+    if(rp[\device] == \systemDefault or: { rp[\live] == false }) {
+        // Nothing to say. The profile does not talk to Live at all.
+    } {
+    if(st.isNil or: { st[\inDevice].isNil }) {
+        "megalooper: no Ableton log found — skipping the Live audio check.".postln;
+    } {
+        var liveIn  = ~liveDeviceName.(st[\inDevice]);
+        var liveOut = ~liveDeviceName.(st[\outDevice]);
+        "".postln;
+        ("megalooper: Live's audio state, as of " ++ (st[\at] ? "?")).postln;
+        ("    in  " ++ st[\inDevice]).postln;
+        ("    out " ++ st[\outDevice]).postln;
+        ("    " ++ (st[\rate] ? "?") ++ " Hz").postln;
+
+        // The documented footgun, and it looks like it works.
+        if(~audioNameMatches.(liveIn, liveOut).not) {
+            "".postln;
+            "!!! ============== megalooper: LIVE IS SPLIT IN TWO ==============".postln;
+            ("!!! Live's INPUT device is  '" ++ liveIn ++ "'").postln;
+            ("!!! Live's OUTPUT device is '" ++ liveOut ++ "'").postln;
+            "!!! Two different aggregates means BlackHole is open in TWO CLOCK".postln;
+            "!!! DOMAINS at once, each drift-correcting against a different".postln;
+            "!!! master. It looks like it works — BlackHole is ch 1-16 of both,".postln;
+            "!!! so the SC<->Live pairs still line up — and then it crackles,".postln;
+            "!!! time-stretches, or goes silent, and only a reboot clears it.".postln;
+            "!!! Set Live's Input AND Output to the SAME aggregate.".postln;
+            "!!! (docs/routing.md, 'Do not split Live across two of these')".postln;
+            "!!! ==========================================================".postln;
+            notes.add("Live split across two devices");
+        };
+
+        // Both apps must be on the SAME device — that is the whole premise.
+        if(~audioNameMatches.(liveIn, rp[\device]).not) {
+            "".postln;
+            ("!!! megalooper: SC is booting on '" ++ rp[\device]
+                ++ "' but Live's input is '" ++ liveIn ++ "'.").postln;
+            "!!! The SC<->Live pairs only meet if BOTH apps open the same device.".postln;
+            notes.add("Live on a different device than SC");
+        };
+
+        rp[\sampleRate] !? { |want|
+            if(st[\rate].notNil and: { st[\rate] != want }) {
+                ("!!! megalooper: Live is at " ++ st[\rate] ++ " Hz, profile '"
+                    ++ profileName ++ "' expects " ++ want ++ " Hz.").postln;
+                notes.add("Live sample-rate mismatch");
+            };
+        };
+
+        if(notes.isEmpty) { "    Live looks consistent with this profile".postln };
+        "".postln;
+        "  Reminder, because SC cannot see it and it fails silently:".postln;
+        "  Live's Input Config / Output Config are PER DEVICE. Switching Live to a".postln;
+        "  different aggregate does NOT carry the enabled 17/18 pair across — you".postln;
+        "  have to enable it again for the new device, or Live simply cannot see".postln;
+        "  the guitar on ch 17 while SC reads it perfectly.".postln;
+        "".postln;
+    };
+    };
+    notes.asArray
+};
+
+~checkSampleRate = {
+    ~rp[\sampleRate] !? { |want|
+        if(s.sampleRate.notNil and: { s.sampleRate.round != want }) {
+            "".postln;
+            ("!!! megalooper: '" ++ ~audioDevice ++ "' is running at "
+                ++ s.sampleRate.round ++ " Hz, but profile '" ++ ~routingProfile
+                ++ "' expects " ++ want ++ " Hz.").postln;
+            if(~rp[\setSampleRate] == true) {
+                "!!! The switch before the boot did not hold. Quit any program using".postln;
+                "!!! the device, set it in Audio MIDI Setup, and boot again.".postln;
+            } {
+                "!!! Set the aggregate AND every device inside it to the same rate in".postln;
+                "!!! Audio MIDI Setup, and match it in Live — otherwise the SC<->Live".postln;
+                "!!! pairs get resampled and the loop drifts against Live.".postln;
+            };
+            "".postln;
+        };
+    };
+};
+)

@@ -1,0 +1,227 @@
+{
+ "version": 1,
+ "key": "one-hit",
+ "name": "One Hit Kit",
+ "description": "Core Library stand-ins for the set's One Hit Kit, which plays the Looper's onset notes",
+ "source": "~/Library/Mobile Documents/com~apple~CloudDocs/sketch-template_live_12 Project/megalooper-slave.als (track '14-One Hit Kit'); stand-ins: Live 12 Suite Core Library, /Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/Samples",
+ "groups": {
+  "onehit": "One Hit Kit stand-ins"
+ },
+ "pads": {
+  "36": {
+   "name": "Kick Electrified",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Kick Electrified.wav", "gainDb": -9.561, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 6.844, "vel": {"law": "simpler", "amount": 0.1508}}
+   ]
+  },
+  "37": {
+   "name": "Snare Strike Kindified",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Snare Strike Kindified.wav", "gainDb": -12.294, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 7.5, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "38": {
+   "name": "Snare Kindified + Clap Electrified",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Snare Kindified.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 8.906, "vel": {"law": "simpler", "amount": 0.246}},
+    {"group": "onehit", "file": "one-hit/Clap Electrified.wav", "gainDb": -11.704, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 3.75, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "39": {
+   "name": "Clap Acoustified Dry",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Clap Acoustified Dry.wav", "gainDb": -11.995, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 8.438, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "40": {
+   "name": "Snare Electrified",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Snare Electrified.wav", "gainDb": -11.437, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 8.719, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "41": {
+   "name": "Kick Acoustic Room",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Kick Acoustic Room.aif", "gainDb": -8.697, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 8.812, "vel": {"law": "simpler", "amount": 0.1508}}
+   ]
+  },
+  "42": {
+   "name": "Hihat Closed Acoustified",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Hihat Closed Acoustified.aif", "gainDb": -10.875, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 8.906, "vel": {"law": "simpler", "amount": 0.3968}}
+   ]
+  },
+  "43": {
+   "name": "Kick Felt Crack",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Kick Felt Crack.wav", "gainDb": -10.04, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 5.906, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "44": {
+   "name": "Shaker Acoustified 1",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Shaker Acoustified 1.wav", "gainDb": -9.001, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 7.875, "vel": {"law": "simpler", "amount": 0.3016}}
+   ]
+  },
+  "45": {
+   "name": "E-Perc Strike Burned 1",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/E-Perc Strike Burned 1.wav", "gainDb": -13.125, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 8.719, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "46": {
+   "name": "Hihat Open Acoustified",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Hihat Open Acoustified.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 7.875, "vel": {"law": "simpler", "amount": 0.3968}}
+   ]
+  },
+  "47": {
+   "name": "Tamb Acoustified Plymouth",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Tamb Acoustified Plymouth.wav", "gainDb": -11.995, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 5.062, "vel": {"law": "simpler", "amount": 0.3016}}
+   ]
+  },
+  "48": {
+   "name": "E-Perc Strike Grounded 1",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/E-Perc Strike Grounded 1.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 7.219, "vel": {"law": "simpler", "amount": 0.254}}
+   ]
+  },
+  "49": {
+   "name": "Crash Acoustified High",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Crash Acoustified High.wav", "gainDb": -6.979, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 9.562, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "50": {
+   "name": "Bell Mid Metallic Electrified",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Bell Mid Metallic Electrified.wav", "gainDb": -11.777, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 7.406, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  },
+  "51": {
+   "name": "Ride Acoustified",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "onehit", "file": "one-hit/Ride Acoustified.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 8.719, "vel": {"law": "simpler", "amount": 0.246}}
+   ]
+  }
+ },
+ "notes": [
+  "36 Kick Acoustified 5: Kick Acoustified 5.aif at -9.56 dB (Simpler -10.03 + part 0.47), Vel 0.151, drive 6.84 dB -> Kick Electrified.wav (peak -0.0 dBFS) at -9.56 dB",
+  "37 Snare Kindified 6: Snare Kindified 6.aif at -12.31 dB (Simpler -12.84 + part 0.53), Vel 0.246, drive 7.50 dB -> Snare Strike Kindified.wav (peak -0.0 dBFS) at -12.29 dB",
+  "39 Clap Lo Electrified: Clap Lo Electrified.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.246, drive 8.44 dB -> Clap Acoustified Dry.wav (peak -0.0 dBFS) at -11.99 dB",
+  "40 Snare Kindified 7: Snare Kindified 7.aif at -11.44 dB (Simpler -11.44 + part 0.00), Vel 0.246, drive 8.72 dB -> Snare Electrified.wav (peak -0.0 dBFS) at -11.44 dB",
+  "38 Instrument Rack: Snare Kindified 8.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.246, drive 8.91 dB -> Snare Kindified.wav (peak -0.0 dBFS) at -12.00 dB",
+  "38 Instrument Rack: Clap Electrified.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.246, drive 3.75 dB -> Clap Electrified.wav (peak -0.3 dBFS) at -11.70 dB",
+  "41 Kick Acoustified 4: Kick Acoustified 4.aif at -9.47 dB (Simpler -9.47 + part 0.00), Vel 0.151, drive 8.81 dB -> Kick Acoustic Room.aif (peak -0.8 dBFS) at -8.70 dB",
+  "42 Hihat Closed Kindified: Hihat Closed Kindified.aif at -10.88 dB (Simpler -10.88 + part 0.00), Vel 0.397, drive 8.91 dB -> Hihat Closed Acoustified.aif (peak -0.0 dBFS) at -10.87 dB",
+  "43 Kick Acoustified 3: Kick Acoustified 3.aif at -12.56 dB (Simpler -12.56 + part 0.00), Vel 0.246, drive 5.91 dB -> Kick Felt Crack.wav (peak -2.5 dBFS) at -10.04 dB",
+  "44 Shaker Reverb Electrified: Shaker Reverb Electrified.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.302, drive 7.88 dB -> Shaker Acoustified 1.wav (peak -3.0 dBFS) at -9.00 dB",
+  "45 E-Perc Strike Kindified 1: E-Perc Strike Kindified 1.aif at -13.12 dB (Simpler -13.12 + part 0.00), Vel 0.246, drive 8.72 dB -> E-Perc Strike Burned 1.wav (peak -0.0 dBFS) at -13.12 dB",
+  "47 Tambo Acoustified 3: Tambo Acoustified 3.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.302, drive 5.06 dB -> Tamb Acoustified Plymouth.wav (peak -0.0 dBFS) at -12.00 dB",
+  "46 Hihat Open Kindified 3: Hihat Open Kindified 3.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.397, drive 7.88 dB -> Hihat Open Acoustified.aif (peak -0.0 dBFS) at -12.00 dB",
+  "48 E-Perc Strike Kindified 2: E-Perc Strike Kindified 2.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.254, drive 7.22 dB -> E-Perc Strike Grounded 1.wav (peak -0.0 dBFS) at -12.00 dB",
+  "49 Crash Hi Acoustified: Crash Hi Acoustified.aif at -10.94 dB (Simpler -12.00 + part 1.06), Vel 0.246, drive 9.56 dB -> Crash Acoustified High.wav (peak -4.0 dBFS) at -6.98 dB",
+  "50 Perc Metallic Bell Acoustified: Perc Metallic Bell Acoustified.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.246, drive 7.41 dB -> Bell Mid Metallic Electrified.wav (peak -0.2 dBFS) at -11.78 dB",
+  "51 Ride Rise Kindified: Ride Rise Kindified.aif at -12.00 dB (Simpler -12.00 + part 0.00), Vel 0.246, drive 8.72 dB -> Ride Acoustified.wav (peak 0.0 dBFS) at -12.00 dB",
+  "The One Hit Kit's Drum Essentials samples are encrypted; Core Library one-shots stand in, matched by family and length only (the Phase 4 kit survey). Each layer's gainDb is the set's Simpler volume plus part volume, plus the stand-in's peak normalisation to 0 dBFS: the originals' peaks are unknown, and pack one-shots are normalised.",
+  "Velocity: law 'simpler' with each Simpler's Vel. drive: the Simpler filter's drive in dB (the filters are open at 22 kHz); Live applies it before the Simpler volume, to the sample at its own level.",
+  "Not reproduced: the reverbs on pads 38 and 39 and the Limiter on 38 (heard only when the onset note is 38 or 39), and the kit's 'Drum Machines Audio Effect' chain, which MegaSA builds as the onset FX (\\megaSAOnsetFx)."
+ ]
+}

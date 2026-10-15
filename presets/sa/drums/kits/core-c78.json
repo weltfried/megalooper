@@ -1,0 +1,208 @@
+{
+ "version": 1,
+ "key": "core-c78",
+ "name": "C78 Core Kit",
+ "description": "Live 12 Suite Core Library: C78 Core Kit, its own samples and levels",
+ "source": "/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/Racks/Drum Racks/Drum Machines/C78 Core Kit.adg",
+ "groups": {
+  "kit": "C78 Core Kit"
+ },
+ "pads": {
+  "36": {
+   "name": "Bassdrum",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Kick C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "37": {
+   "name": "Rimshot",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Rim C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "38": {
+   "name": "Snare",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Snare C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "39": {
+   "name": "Cowbell",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Cowbell C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "40": {
+   "name": "Tamb",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Tamb C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "41": {
+   "name": "Kick",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Kick C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "42": {
+   "name": "Closed Hi Hat",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Hihat Closed C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "43": {
+   "name": "Conga",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Conga C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "44": {
+   "name": "Guiro Short",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Guiro C78 Short b.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "45": {
+   "name": "Bongo Low",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Bongo C78 Low.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "46": {
+   "name": "Guiro Long",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Guiro C78 Long.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "47": {
+   "name": "Bongo Hi",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Bongo C78 Hi.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "48": {
+   "name": "Guiro Short",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Guiro C78 Short.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "49": {
+   "name": "Cymbal",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Cymbal C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "50": {
+   "name": "Clave",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Clave C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "51": {
+   "name": "Metallic",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-c78/Metallic C78.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  }
+ },
+ "notes": [
+  "Converted from the preset: each pad's sample parts for its note, Key Zone Shift and Sample Selector as stored; velocity zones become layers, a crossfade a switch where a part falls below half its level (a fade at the velocity range's edge keeps playing). gainDb = pad and chain faders + Simpler volume + part volume; Vel as law 'simpler'.",
+  "Not reproduced: the instruments' envelopes (every sample plays its region to the end), filters (only their drive), the pads' other devices (none) and the devices around the Drum Rack (none)."
+ ]
+}

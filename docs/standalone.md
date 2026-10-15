@@ -1,0 +1,191 @@
+# Megalooper SA: megalooper on its own
+
+Megalooper SA plays the guitar's effects, the loop's effects and the drums
+itself, so no Ableton Live is needed. This guide covers the effect chains,
+sounds and plugins. The looper, the cutter, the grains and the MIDI map work
+as [the manual](manual.md) says on every rig.
+
+## Starting it
+
+Pick a rig whose profile has SA switched on:
+
+- **saSystem** uses the system's input and output, with the guitar on input 1
+  and the mix on outputs 1 and 2. Nothing about your interface is changed.
+- A profile of your own, for an interface with more channels:
+  [Rigs and routing](routing.md) says how to write one.
+
+Then open the **FX** view (key **3**) for the effects. The drums have a view
+of their own, **Drums** (key **4**).
+
+**Set the latency once.** saSystem assumes 30 ms for the way out and back in.
+Run the round-trip step on the Calibrate view ([Calibrate](#calibrate)), or
+overdubs will land late or early.
+
+## Calibrate
+
+Once per rig, open **Calibrate** (key 6, or from the Setup view). Without
+Ableton Live it has four steps:
+
+1. **Check the rig.** What megalooper found: the interface, its rate and
+   block size, and whether VSTPlugin is there.
+2. **Input level.** Press Measure and play hard for eight seconds. Turn the
+   interface's input gain until the loudest hit comes in between -12 and
+   -3 dBFS. Too quiet and soft notes go unnoticed; clipped and every hit
+   looks the same.
+3. **Onset threshold.** Set it under Analysis on the Setup view while you
+   play, then press Done.
+4. **Overdub round trip.** Stop the loop. With an interface, patch a cable
+   from output 1 into the guitar input (the guitar is muted while it
+   measures, so there is no feedback); on a computer's own speakers and
+   microphone there is nothing to patch. Press Measure, then Apply. If it
+   cannot be measured, set Overdub latency by ear on the Setup view and
+   press **Start with this**.
+
+What you apply is kept for that rig in `calibration.json` in your megalooper
+folder, and every start begins with it. **Forget** on the Calibrate view goes
+back to the rig's own numbers.
+
+## The three chains
+
+- **The guitar chain** is what you play through. The loop records its output.
+- **The loop chain** plays the recorded loop.
+- **The drums chain** plays the drums' steps, before their reverb. It starts
+  empty. The onset kit does not pass through it.
+
+Each chain is a row of tiles, played left to right.
+
+| To | Do this |
+|---|---|
+| Edit an effect | Click its tile: its settings appear below |
+| Switch it on or off | Click the square in its tile's corner (■ on, □ off), or press its footswitch. A click anywhere else on the tile never changes the sound |
+| Add an effect or a plugin | Press **+** at the end of the chain |
+| Move an effect | Drag its tile along the chain, or onto the other chain. Esc lets go |
+| Move or remove it by menu | Click its tile, then press **⋯** |
+| Put a setting back to its default | Double-click it, or **Reset** for the whole effect |
+| Undo an edit | Cmd+Z. Shift+Cmd+Z redoes |
+
+Edits are safe while a loop plays: the chain cross-fades to its new order.
+An effect brought back by Undo keeps its settings.
+
+The built-in effects are Pitch Shift, Dual Delay, Envelope Filter, Pitch
+Loops, Tape Echo, Drive and Crusher. You can add any of them more than once.
+
+## Sounds
+
+A sound is the three chains as one file: which effects in which order, every switch
+and setting, and each plugin's own state.
+
+- **Save and recall.** The bar above the chains saves the sound under a name
+  and recalls it from the menu. A recall with the same effects changes only
+  settings and never flips a switch. One with other effects rebuilds the
+  chains, also while a loop plays.
+- **Start with this** makes this sound the one megalooper starts with. A dot on the
+  tile means something is not kept yet.
+- **While a loop plays, a plugin's own sound is not written.** Writing it
+  would silence the plugin for a moment. megalooper keeps the chains and says
+  so; stop the loop and press again to keep the plugin's sound too.
+- **Recover.** If you edited the chains and quit without keeping them, the
+  next start offers them back. Nothing is loaded by itself.
+
+Sounds are in `sa/sounds/` in your megalooper folder
+(`~/Library/Application Support/SuperCollider/megalooper/`), and the kept one
+is `sa/kept.json`. The last five kept sounds are in `sa/backups/kept/`. You
+can copy a sound's `.json` file and its `.states` folder to another Mac.
+
+## Plugins
+
+megalooper hosts VST2 and VST3 effects through
+[VSTPlugin](https://git.iem.at/pd/vstplugin). `./tools/install.sh` fetches
+version 0.6.2 into SuperCollider's Extensions, unless a copy is there
+already. Without VSTPlugin megalooper plays its built-in effects and lists no
+plugins.
+
+### Installing VSTPlugin by hand
+
+On macOS:
+
+1. Download VSTPlugin 0.6.2 from
+   <https://git.iem.at/pd/vstplugin/-/releases>.
+2. Put the `VSTPlugin` folder from the zip's `sc` folder into
+   `~/Library/Application Support/SuperCollider/Extensions`.
+3. Delete `VSTPlugin_supernova.scx` from that folder's `plugins` folder.
+4. A copy downloaded in a browser is quarantined, and macOS refuses to run
+   it. Clear the flag:
+   ```bash
+   xattr -dr com.apple.quarantine "$HOME/Library/Application Support/SuperCollider/Extensions/VSTPlugin"
+   ```
+5. Restart megalooper.
+
+On Linux, put the `VSTPlugin` folder from the Linux zip's `sc` folder into
+`~/.local/share/SuperCollider/Extensions`. Steps 3 and 4 are macOS's alone.
+
+megalooper checks all of this at every start and names what is wrong, in the
+post window or in `~/Library/Logs/megalooper.log`.
+
+### Finding and adding plugins
+
+1. Stop the loop, press **+** on a chain and choose **Scan for plugins…**.
+   The scan runs beside megalooper and can take a minute. What it did is in
+   `sa/plugins/scan.log` in your megalooper folder.
+2. Press **+** again. Your plugins are listed by maker, under the built-in
+   effects.
+3. Choose one. Its tile appears at the end of the chain, and the status line
+   under the chains says when it is open.
+4. To see the plugin's own window, click its tile and press **⋯**, then
+   **Open its window**.
+
+What to expect:
+
+- **Effects only.** Instruments are not listed. Audio Units are not hosted.
+- **Intel-only plugins are greyed.** megalooper does not use VSTPlugin's
+  bridge yet.
+- **A plugin that adds delay is held back.** With more than 64 samples of
+  reported delay, the chain plays without it and its tile says why.
+- **A plugin that is not on this Mac keeps its place.** A sound that names
+  one shows it as missing and keeps its state, so nothing is lost when you
+  save the sound again.
+- **A plugin that crashed megalooper is skipped once.** The next start leaves
+  it closed and says so; the start after that tries it again.
+
+### An amp for the guitar
+
+megalooper has no amp simulator of its own, and a DI guitar through the
+built-in effects alone sounds thin. Add an amp plugin to the guitar chain.
+These are free and come as VST3. None of them was tested with megalooper:
+
+- [Neural Amp Modeler](https://www.neuralampmodeler.com/)
+- [AmpliTube 5 CS](https://www.ikmultimedia.com/products/amplitubecs/)
+- [Guitar Rig Player](https://www.native-instruments.com/en/products/komplete/guitar/guitar-rig-7-player/)
+- [Blue Cat's Free Amp](https://www.bluecataudio.com/Products/Product_FreeAmp/)
+
+## MIDI
+
+Every switch, every knob and each effect's Reset can be mapped: press
+**MIDI MAP** in the top bar, click the control, and move a knob or press a
+switch on your controller. A second Dual Delay gets its own entries.
+[The manual](manual.md#midi) has the details.
+
+### A footswitch for something inside a plugin
+
+A plugin's own switches, such as an amp simulator's scenes, are learnt
+inside the plugin from a MIDI controller. A hosted plugin hears none of your
+controllers, because megalooper does. So megalooper sends:
+
+1. Click the plugin's tile. Its page has a row **MIDI to the plugin**, with
+   the numbers 1 to 8.
+2. In the plugin's own window, start its MIDI learn for the thing to switch.
+3. Click a number in megalooper. The plugin learns the controller it sends
+   (CC 20 to 27).
+4. Press **MIDI MAP**, click that number, and press your footswitch.
+
+A plugin's knobs cannot be mapped yet.
+
+## When something is wrong
+
+- **The status line** under the chains names a plugin that failed, is
+  missing or is held back.
+- **Copy diagnostics**, at the end of the **⋯** menu, puts megalooper's
+  state on the clipboard: versions, the chains, each plugin's state. Paste it
+  into a bug report.
+- **Cmd+Period** stops the server and everything on it. Start megalooper
+  again afterwards.

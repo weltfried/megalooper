@@ -1,0 +1,228 @@
+{
+ "version": 1,
+ "key": "core-dry-session",
+ "name": "Dry Session Kit",
+ "description": "Live 12 Suite Core Library: Dry Session Kit, its own samples and levels",
+ "source": "/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/Racks/Drum Racks/Acoustic/Dry Session Kit.adg",
+ "groups": {
+  "kit": "Dry Session Kit"
+ },
+ "pads": {
+  "36": {
+   "name": "Kick Felt",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Kick Felt Soft Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Kick Felt Hard Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "37": {
+   "name": "Snare Sidestick",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Rim Sidestick Soft Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Rim Sidestick Hard Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "38": {
+   "name": "Snare Dry Session",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Snare Stick Hit Soft Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 30, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Snare Stick Hit Medium Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 30, "velHi": 95, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Snare Stick Hit Hard Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 94, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "39": {
+   "name": "Snare 2 Dry Session",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -0.592,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Snare Stick Hit Rim 2 Dry Session.aif", "gainDb": -7.039, "transpose": 0.0, "velLo": 127, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Snare Stick Hit Hard 2 Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 93, "velHi": 126, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Snare Stick Hit Medium 2 Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 30, "velHi": 108, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Snare Stick Hit Soft 2 Dry Session.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 30, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "40": {
+   "name": "Cowbell Dry Session",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Cowbell Simple.aif", "gainDb": -13.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "41": {
+   "name": "Tom Floor",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Soft Dry Session 16.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Hard Dry Session 16.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "42": {
+   "name": "Hihat Closed",
+   "choke": 1,
+   "retrigger": false,
+   "pan": -0.14,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Hihat Closed Stick Tip Soft 1.aif", "gainDb": -15.0, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Hihat Closed Stick Tip Medium.aif", "gainDb": -15.0, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "43": {
+   "name": "Tom Low",
+   "choke": 0,
+   "retrigger": false,
+   "pan": -0.2,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Soft Dry Session 14.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Hard Dry Session 14.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "44": {
+   "name": "Hihat Pedal",
+   "choke": 1,
+   "retrigger": false,
+   "pan": -0.156,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Hihat Foot Soft.aif", "gainDb": -15.0, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Hihat Foot Hard.aif", "gainDb": -15.0, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "45": {
+   "name": "Tom Mid",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.14,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Soft Dry Session 12.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Hard Dry Session 12.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "46": {
+   "name": "Hihat Open",
+   "choke": 1,
+   "retrigger": false,
+   "pan": -0.264,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Hihat Open Stick Tip Soft 2.aif", "gainDb": -15.0, "transpose": 0.0, "velLo": 1, "velHi": 63, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Hihat Open Stick Tip Hard 2.aif", "gainDb": -15.0, "transpose": 0.0, "velLo": 64, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "47": {
+   "name": "Tom Hi",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.04,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Soft Dry Session 10.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 1, "velHi": 68, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Tom Stick Hit Hard Dry Session 10.aif", "gainDb": -9.039, "transpose": 0.0, "velLo": 68, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "48": {
+   "name": "Crash 1 Dry Session",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Crash Dry Session Soft 2.aif", "gainDb": -14.039, "transpose": 0.0, "velLo": 1, "velHi": 85, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Crash Dry Session Hard 2.aif", "gainDb": -14.039, "transpose": 0.0, "velLo": 86, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "49": {
+   "name": "Crash 2 Dry Session",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.359,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Crash Dry Session Soft 1.aif", "gainDb": -14.039, "transpose": 0.25, "velLo": 1, "velHi": 84, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Crash Dry Session Hard 1.aif", "gainDb": -14.039, "transpose": 0.25, "velLo": 84, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "50": {
+   "name": "Ride Dry Session",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.344,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Ride Stick Mid Soft Dry Session.aif", "gainDb": -13.032, "transpose": 0.0, "velLo": 1, "velHi": 28, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Ride Stick Mid Medium Dry Session.aif", "gainDb": -13.032, "transpose": 0.0, "velLo": 28, "velHi": 100, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Ride Stick Mid Hard Dry Session.aif", "gainDb": -13.032, "transpose": 0.0, "velLo": 100, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  },
+  "51": {
+   "name": "Conga Dry Session",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-dry-session/Conga Open Soft.aif", "gainDb": -13.0, "transpose": 0.0, "velLo": 1, "velHi": 92, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}},
+    {"group": "kit", "file": "core-dry-session/Conga Open Hard.aif", "gainDb": -13.0, "transpose": 0.0, "velLo": 92, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.2205}}
+   ]
+  }
+ },
+ "notes": [
+  "Converted from the preset: each pad's sample parts for its note, Key Zone Shift and Sample Selector as stored; velocity zones become layers, a crossfade a switch where a part falls below half its level (a fade at the velocity range's edge keeps playing). gainDb = pad and chain faders + Simpler volume + part volume; Vel as law 'simpler'.",
+  "Not reproduced: the instruments' envelopes (every sample plays its region to the end), filters (only their drive), the pads' other devices (none) and the devices around the Drum Rack (DrumBuss, StereoGain).",
+  "Pulled down to 6 dB over the kit's median pad at velocity 127 (-8.7 dBFS before the drums' strip), by the pad's gainDb, its layers as the preset sets them: 39 Snare 2 Dry Session -2.1 dBFS, -0.59 dB. A pad far over the rest is out of the kit's balance, and SA's drums have no limiter: with the loop on top it can drive the master into its clip."
+ ]
+}

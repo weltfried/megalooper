@@ -1,0 +1,117 @@
+megalooper
+Copyright (C) 2026 Wernfried Lackner
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See LICENSE for the full text.
+
+--------------------------------------------------------------------------
+Why GPL-3 rather than a permissive licence
+--------------------------------------------------------------------------
+
+megalooper is written against BBCut, and two of its classes subclass BBCut
+classes directly:
+
+    classes/LooperBreakProc.sc   LooperBreakProc : BBCutProc
+    classes/LooperCutGate.sc     LooperCutGate   : CutSynth
+
+classes/Looper.sc additionally names 18 BBCut classes (BBCut2, BBCutBuffer,
+CutMixer, CutGroup, ExternalClock and the CutBuf/CutMod/CutRev family among
+them). That is not an arm's-length dependency: the cutter layer is written to
+BBCut's API and is a derivative work of it. A permissive licence on the whole
+would have been a claim the code does not support.
+
+BBCut's own version notice is worth recording, because it is the question a
+reader will ask. Its COPYING file carries the GPL **version 2** text, but every
+source-file notice in the quark reads only:
+
+    "distributed under the terms of the GNU General Public License"
+
+with no version named. GPLv2 section 9 addresses exactly that case:
+
+    "If the Program does not specify a version number of this License, you may
+     choose any version ever published by the Free Software Foundation."
+
+So version 3 is a permitted choice here, and GPL-3 is not in conflict with
+BBCut. (BBCut.quark likewise records `license: "GPL"`, unversioned.)
+
+No third-party code is redistributed in this repository. Every dependency below
+is fetched by the user at install time.
+
+--------------------------------------------------------------------------
+Dependencies
+--------------------------------------------------------------------------
+
+megalooper carries the same licence as SuperCollider itself: GPL-3.0-or-later.
+
+SuperCollider          GPL-3.0-or-later   https://supercollider.github.io/
+  The language, server and class library. Required. 3.14.1 is the minimum:
+  Megalooper SA was built and measured on it.
+
+sc3-plugins            GPL-2.0-or-later   https://github.com/supercollider/sc3-plugins
+  Required: classes/Looper.sc uses Tartini for pitch detection. Tartini is an SC
+  class, not only a server plugin, so the class library will not compile without
+  it. Take the release built for your SuperCollider version.
+
+BBCut (nhthn fork)     GPL, unversioned   https://github.com/nhthn/BBCut
+  Required: the cutter layer, and a compile-time dependency of the class library.
+  Copyright (C) 2001 Nick M. Collins, (C) 2016 Nathan Ho. Archived upstream.
+  megalooper is built and tested against commit
+  edd86e1cbc4f269828df1acac51afdb3e54bfdb8 (2016-11-12). BBCut's quark file
+  names MathLib; megalooper compiles and passes its tests without it.
+
+VSTPlugin 0.6.2        BSD-3-Clause       https://git.iem.at/pd/vstplugin
+  Optional: hosts VST2 and VST3 effects in Megalooper SA's chains. Without it
+  SA plays its built-in effects and says so. Copyright (C) 2018 Christof Ressi,
+  Institute of Electronic Music and Acoustics (IEM), Graz. Its binaries contain
+  Steinberg's VST 3 SDK under that SDK's own licence. Never bundled here: you
+  install it yourself.
+
+BlackHole 16ch         GPL-3.0            https://existential.audio/blackhole/
+  Optional: only the `bh*` routing profiles use it.
+
+AbletonOSC             MIT                https://github.com/ideoforms/AbletonOSC
+  Optional: tempo and time-signature push to Ableton Live.
+
+Rogue Amoeba Loopback  commercial         https://rogueamoeba.com/loopback/
+  Optional: only the `loopback` routing profile uses it.
+
+--------------------------------------------------------------------------
+Trademarks, and what megalooper took from a Live set
+--------------------------------------------------------------------------
+
+Ableton and Live are trademarks of Ableton AG. BIAS FX is a trademark of
+Positive Grid. VST is a trademark of Steinberg Media Technologies GmbH.
+megalooper is not affiliated with, sponsored by or endorsed by any of them.
+Their names appear only to say what megalooper works with, and where a
+setting came from.
+
+Megalooper SA began as a rebuild of the authors' own Live set, and says so
+where it matters:
+
+  - Its built-in effects (Pitch Shift, Dual Delay, Envelope Filter, Pitch
+    Loops, Tape Echo, Drive, Crusher) are megalooper's own SuperCollider code,
+    written to sound like the Live devices that set used. They are
+    approximations, not copies, and contain no code of Ableton's.
+  - presets/sa/fx-variations.json and presets/sa/rhythmic-steps.json hold
+    parameter values read from that set by tools/export-live-set.py: the
+    effects' defaults and variations, and the drum patterns.
+  - presets/sa/drums/kits/*.json are kit maps: which sample plays on which pad,
+    at what level. The kits prefixed core- and the files presets/sa/drums/
+    kit-carbon.* and one-hit-kit.* describe drum racks and samples that ship
+    with Ableton Live and its packs, by name and path.
+  - No audio of Ableton's is in this repository, and megalooper never copies
+    any into it: tools/export-live-set.py kits copies samples from your own
+    Live installation into a folder git ignores. Without them the drums are
+    hidden.
+
+--------------------------------------------------------------------------
+Reusable without any of the above
+--------------------------------------------------------------------------
+
+classes/MeterAnalyzer.sc and classes/PitchAnalyzer.sc are pure analysis: no
+BBCut, no sc3-plugins, no server, no GUI. MeterAnalyzer.analyze takes onset
+times and strengths and returns a meter and a tempo. If you want the odd-meter
+detection and nothing else, those two files are the whole of it, and they carry
+the same GPL-3 terms as the rest.

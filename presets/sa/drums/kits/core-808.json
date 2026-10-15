@@ -1,0 +1,210 @@
+{
+ "version": 1,
+ "key": "core-808",
+ "name": "808 Core Kit",
+ "description": "Live 12 Suite Core Library: 808 Core Kit, its own samples and levels",
+ "source": "/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/Racks/Drum Racks/Drum Machines/808 Core Kit.adg",
+ "groups": {
+  "kit": "808 Core Kit"
+ },
+ "pads": {
+  "36": {
+   "name": "Bass Drum",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Kick 808 Tone8 k.wav", "gainDb": -10.0, "transpose": -2.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "37": {
+   "name": "Rim Shot",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Rim 808.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "38": {
+   "name": "Snare Drum",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Snare 808 Tone5 k.wav", "gainDb": -10.0, "transpose": -1.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "39": {
+   "name": "Hand Clap",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Clap 808.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "40": {
+   "name": "Low Conga",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Conga 808 Low.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "41": {
+   "name": "Mid Conga",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Conga 808 Mid.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "42": {
+   "name": "Closed Hi Hat",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Hihat Closed 808.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "43": {
+   "name": "Hi Conga",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Conga 808 Hi.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "44": {
+   "name": "Low Tom",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Tom 808 Low.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "45": {
+   "name": "Mid Tom",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Tom 808 Mid.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "46": {
+   "name": "Open Hi Hat",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Hihat Open 808.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "47": {
+   "name": "Hi Tom",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Tom 808 Hi.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "48": {
+   "name": "Maracas",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Maracas 808.wav", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "49": {
+   "name": "Cymbal",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Cymbal 808 Tone5 e.wav", "gainDb": -13.0, "transpose": -1.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "50": {
+   "name": "Cow Bell",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Cowbell 808.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "51": {
+   "name": "Claves",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-808/Clave 808.aif", "gainDb": -10.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.045406, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  }
+ },
+ "notes": [
+  "Converted from the preset: each pad's sample parts for its note, Key Zone Shift and Sample Selector as stored; velocity zones become layers, a crossfade a switch where a part falls below half its level (a fade at the velocity range's edge keeps playing). gainDb = pad and chain faders + Simpler volume + part volume; Vel as law 'simpler'.",
+  "Not reproduced: the instruments' envelopes (every sample plays its region to the end), filters (only their drive), the pads' other devices (none) and the devices around the Drum Rack (none).",
+  "Transposed parts, by the preset's transpose or root key, or by a Key Zone Shift, which picks another zone's part and plays it relative to the played note (Live's manual; unverified in Live): 36 Kick 808 Tone8 k.wav -2 st; 38 Snare 808 Tone5 k.wav -1 st; 49 Cymbal 808 Tone5 e.wav -1 st",
+  "Over full scale at velocity 127 as the preset sets them (before the drums' strip): 36 +1.4 dBFS, 37 +1.4 dBFS, 38 +1.4 dBFS, 39 +1.4 dBFS, 40 +1.4 dBFS, 41 +1.4 dBFS, 42 +1.4 dBFS, 43 +1.4 dBFS, 44 +1.4 dBFS, 45 +1.4 dBFS, 46 +1.4 dBFS, 47 +1.4 dBFS, 48 +1.4 dBFS, 50 +1.4 dBFS, 51 +1.4 dBFS"
+ ]
+}

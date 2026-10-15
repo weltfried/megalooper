@@ -1,0 +1,208 @@
+{
+ "version": 1,
+ "key": "core-707",
+ "name": "707 Core Kit",
+ "description": "Live 12 Suite Core Library: 707 Core Kit, its own samples and levels",
+ "source": "/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/Racks/Drum Racks/Drum Machines/707 Core Kit.adg",
+ "groups": {
+  "kit": "707 Core Kit"
+ },
+ "pads": {
+  "36": {
+   "name": "Bassdrum",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Kick 707 1.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "37": {
+   "name": "Rimshot",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Rim 707.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "38": {
+   "name": "Snare",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Snare 707 Variation.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "39": {
+   "name": "Handclap",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Clap 707.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "40": {
+   "name": "Snare",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Snare 707.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "41": {
+   "name": "Kick",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Kick 707 2.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "42": {
+   "name": "Closed Hi Hat",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Hihat Closed 707.aif", "gainDb": -17.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "43": {
+   "name": "Tom Low",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Tom 707 Low.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "44": {
+   "name": "Tamb",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Tamb 707.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "45": {
+   "name": "Tom Low",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Tom 707 Low.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "46": {
+   "name": "Open Hi Hat",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Hihat Open 707.aif", "gainDb": -15.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "47": {
+   "name": "Tom Mid",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Tom 707 Mid.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "48": {
+   "name": "Tom Hi",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Tom 707 Hi.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "49": {
+   "name": "Crash",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Crash 707.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "50": {
+   "name": "Cowbell",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Cowbell 707.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  },
+  "51": {
+   "name": "Ride",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-707/Ride 707.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.5}}
+   ]
+  }
+ },
+ "notes": [
+  "Converted from the preset: each pad's sample parts for its note, Key Zone Shift and Sample Selector as stored; velocity zones become layers, a crossfade a switch where a part falls below half its level (a fade at the velocity range's edge keeps playing). gainDb = pad and chain faders + Simpler volume + part volume; Vel as law 'simpler'.",
+  "Not reproduced: the instruments' envelopes (every sample plays its region to the end), filters (only their drive), the pads' other devices (none) and the devices around the Drum Rack (none)."
+ ]
+}

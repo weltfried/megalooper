@@ -1,0 +1,83 @@
+sa.fx.delayFeedback	Feedback	Dual Delay	Effects	continuous
+sa.fx.delayLfoHz	LFO Rate	Dual Delay	Effects	continuous
+sa.fx.delayLfoMax	Wobble Max	Dual Delay	Effects	continuous
+sa.fx.delayLfoMin	Wobble Min	Dual Delay	Effects	continuous
+sa.fx.delayMix	Dry/Wet	Dual Delay	Effects	continuous
+sa.fx.delayModDepth	LFO > Time	Dual Delay	Effects	continuous
+sa.fx.delayTimeL	L Time	Dual Delay	Effects	continuous
+sa.fx.delayTimeR	R Time	Dual Delay	Effects	continuous
+sa.fx.echoBeatsL	L Synced	Tape Echo	Effects	choice
+sa.fx.echoBeatsR	R Synced	Tape Echo	Effects	choice
+sa.fx.echoDuckRelease	Duck Rel	Tape Echo	Effects	continuous
+sa.fx.echoDuckThresh	Duck Thr	Tape Echo	Effects	continuous
+sa.fx.echoFeedback	Feedback	Tape Echo	Effects	continuous
+sa.fx.echoHp	HP Freq	Tape Echo	Effects	continuous
+sa.fx.echoLp	LP Freq	Tape Echo	Effects	continuous
+sa.fx.echoMidSide	Channels	Tape Echo	Effects	choice
+sa.fx.echoMix	Dry/Wet	Tape Echo	Effects	continuous
+sa.fx.echoOutput	Output	Tape Echo	Effects	continuous
+sa.fx.echoReverb	Reverb	Tape Echo	Effects	continuous
+sa.fx.echoReverbDecay	Rev Decay	Tape Echo	Effects	continuous
+sa.fx.echoWobble	Wobble	Tape Echo	Effects	continuous
+sa.fx.filterEnvAmount	Envelope	Envelope Filter	Effects	continuous
+sa.fx.filterFreq	Frequency	Envelope Filter	Effects	continuous
+sa.fx.filterLfoAmount	LFO Amt	Envelope Filter	Effects	continuous
+sa.fx.filterLfoBeats	LFO Sync	Envelope Filter	Effects	choice
+sa.fx.filterLfoHz	LFO Rate	Envelope Filter	Effects	continuous
+sa.fx.filterLfoWave	LFO Wave	Envelope Filter	Effects	choice
+sa.fx.filterMakeup	Makeup	Envelope Filter	Effects	continuous
+sa.fx.filterMorph	Morph	Envelope Filter	Effects	continuous
+sa.fx.filterOutput	Output	Envelope Filter	Effects	continuous
+sa.fx.filterRelease	Release	Envelope Filter	Effects	continuous
+sa.fx.filterRes	Res	Envelope Filter	Effects	continuous
+sa.fx.filterSense	Sense	Envelope Filter	Effects	continuous
+sa.fx.filterType	Type	Envelope Filter	Effects	choice
+sa.fx.pitchLoopFeedback	Feedback	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopHiCut	Hi Cut	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopLfoL	LFO Depth L	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopLfoR	LFO Depth R	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopLfoRateL	LFO Rate L	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopLfoRateR	LFO Rate R	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopMix	Dry/Wet	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopOutput	Output	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopPitchL	Pitch L	Pitch Loops	Effects	step
+sa.fx.pitchLoopPitchR	Pitch R	Pitch Loops	Effects	step
+sa.fx.pitchLoopPosL	Position L	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopPosR	Position R	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopRandL	Rand. L	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopRandR	Rand. R	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopSegL	Segment L	Pitch Loops	Effects	continuous
+sa.fx.pitchLoopSegR	Segment R	Pitch Loops	Effects	continuous
+sa.fx.reduxBits	Bit Depth	Crusher	Effects	step
+sa.fx.reduxDcShift	DC Shift	Crusher	Effects	choice
+sa.fx.reduxJitter	Jitter	Crusher	Effects	continuous
+sa.fx.reduxMix	Dry/Wet	Crusher	Effects	continuous
+sa.fx.reduxPostFilter	Post-Filter	Crusher	Effects	choice
+sa.fx.reduxPostOctaves	Post Freq	Crusher	Effects	continuous
+sa.fx.reduxPreFilter	Pre-Filter	Crusher	Effects	choice
+sa.fx.reduxRate	Sample Rate	Crusher	Effects	continuous
+sa.fx.saturatorBase	Amt Lo	Drive	Effects	continuous
+sa.fx.saturatorDepth	Amt Hi	Drive	Effects	continuous
+sa.fx.saturatorDrive	Amount	Drive	Effects	continuous
+sa.fx.saturatorFreq	Frequency	Drive	Effects	continuous
+sa.fx.saturatorMix	Dry/Wet	Drive	Effects	continuous
+sa.fx.saturatorOutput	Output	Drive	Effects	continuous
+sa.fx.saturatorType	Type	Drive	Effects	choice
+sa.fx.saturatorWidth	Width	Drive	Effects	continuous
+sa.fx.shifterCents	Fine	Pitch Shift	Effects	continuous
+sa.fx.shifterCoarse	Coarse	Pitch Shift	Effects	step
+sa.fx.shifterMix	Dry/Wet	Pitch Shift	Effects	continuous
+sa.fxOn.delay	Dual Delay	Dual Delay	Effects	toggle
+sa.fxOn.echo	Tape Echo	Tape Echo	Effects	toggle
+sa.fxOn.filter	Envelope Filter	Envelope Filter	Effects	toggle
+sa.fxOn.pitchLoop	Pitch Loops	Pitch Loops	Effects	toggle
+sa.fxOn.redux	Crusher	Crusher	Effects	toggle
+sa.fxOn.saturator	Drive	Drive	Effects	toggle
+sa.fxOn.shifter	Pitch Shift	Pitch Shift	Effects	toggle
+sa.fxReset.delay	Reset	Dual Delay	Effects	trigger
+sa.fxReset.echo	Reset	Tape Echo	Effects	trigger
+sa.fxReset.filter	Reset	Envelope Filter	Effects	trigger
+sa.fxReset.pitchLoop	Reset	Pitch Loops	Effects	trigger
+sa.fxReset.redux	Reset	Crusher	Effects	trigger
+sa.fxReset.saturator	Reset	Drive	Effects	trigger
+sa.fxReset.shifter	Reset	Pitch Shift	Effects	trigger

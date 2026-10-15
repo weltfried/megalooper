@@ -1,0 +1,228 @@
+{
+ "version": 1,
+ "key": "carbon",
+ "name": "Kit-Carbon",
+ "description": "Kit-Carbon as Ableton recorded its pads (Designer Drums previews), at Live's level, without the KJ Sawka layer",
+ "source": "~/Library/Mobile Documents/com~apple~CloudDocs/sketch-template_live_12 Project/megalooper-slave.als (track 'drum rack 1'); previews ~/Library/Mobile Documents/com~apple~CloudDocs/Ableton/Factory Packs/Designer Drums/Ableton Folder Info/Previews/Drums/Drum Hits; fit: Phase 4 fidelity review; level: Live's recordings of the set (Phase 4 liverec)",
+ "groups": {
+  "carbon": "Kit-Carbon"
+ },
+ "pads": {
+  "36": {
+   "name": "Kick Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "fit": {
+    "db": -7.1,
+    "r2": 0.996
+   },
+   "beatRepeat": true,
+   "repeatFilter": true,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Kick Carbon.ogg", "gainDb": 1.7, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.62}}
+   ]
+  },
+  "37": {
+   "name": "Sidestick Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "fit": {
+    "db": -2.3,
+    "r2": 0.829
+   },
+   "beatRepeat": true,
+   "repeatFilter": true,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Sidestick Carbon.ogg", "gainDb": 8.3, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.62, "curve": 1.2}}
+   ]
+  },
+  "38": {
+   "name": "Snare Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "fit": {
+    "db": -3.3,
+    "r2": 0.954
+   },
+   "beatRepeat": true,
+   "repeatFilter": true,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Snare Carbon.ogg", "gainDb": 7.5, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.62}}
+   ]
+  },
+  "39": {
+   "name": "Clap Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "fit": {
+    "db": -3.85,
+    "r2": 0.789
+   },
+   "beatRepeat": true,
+   "repeatFilter": true,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Clap Carbon.ogg", "gainDb": 6.95, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.62}}
+   ]
+  },
+  "40": {
+   "name": "Snare2 Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "fit": {
+    "db": -3.8,
+    "r2": 0.789
+   },
+   "beatRepeat": true,
+   "repeatFilter": true,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Snare2 Carbon.ogg", "gainDb": 8.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.62}}
+   ]
+  },
+  "41": {
+   "name": "Purrr Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Purrr Carbon.ogg", "gainDb": 4.8, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.46}}
+   ]
+  },
+  "42": {
+   "name": "HiHat Closed Carbon",
+   "choke": 1,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "fit": {
+    "db": -10.1,
+    "r2": 0.996
+   },
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/HiHat Closed Carbon.ogg", "gainDb": 1.1, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.62, "curve": 2.4}}
+   ]
+  },
+  "43": {
+   "name": "Tom Floor Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": -0.56,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Tom Floor Carbon.ogg", "gainDb": 4.8, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.43}}
+   ]
+  },
+  "44": {
+   "name": "HiHat Pedal Carbon",
+   "choke": 1,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/HiHat Pedal Carbon.ogg", "gainDb": 5.6, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.37, "curve": 2.8}}
+   ]
+  },
+  "45": {
+   "name": "Tom Low Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": -0.04,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Tom Low Carbon.ogg", "gainDb": 4.8, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.43}}
+   ]
+  },
+  "46": {
+   "name": "HiHat Open Carbon",
+   "choke": 1,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "fit": {
+    "db": -5.7,
+    "r2": 0.8
+   },
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/HiHat Open Carbon.ogg", "gainDb": 5.1, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.37, "curve": 2.8}}
+   ]
+  },
+  "47": {
+   "name": "Tom Mid Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.16,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Tom Mid Carbon.ogg", "gainDb": 4.8, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.43}}
+   ]
+  },
+  "48": {
+   "name": "Tom High Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.48,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Tom High Carbon.ogg", "gainDb": 4.8, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.43}}
+   ]
+  },
+  "49": {
+   "name": "Crash Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Crash Carbon.ogg", "gainDb": 4.8, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.46}}
+   ]
+  },
+  "51": {
+   "name": "Ride Carbon",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": true,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "carbon", "file": "carbon/Ride Carbon.ogg", "gainDb": 4.8, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "operator", "amount": 0.46}}
+   ]
+  }
+ },
+ "notes": [
+  "Pads: the Designer Drums previews (Ableton's recordings of these Operator pads), names, pans, choke groups, Operator retrigger and osc A's Vel from the set's 'drum rack 1' track.",
+  "Balance: a per-onset least-squares fit of the pad previews against Ableton's preview of the whole kit (Phase 4 fidelity review, review/match2.py), at that clip's unknown velocities; 'fit' holds dB and R². 39 is the mean of two fits, 40 has R² 0.79 (low confidence), 42 is its accented on-beat level, 44 is 42 + 4.9 dB (derived: never in the preview; from liverec, below, where the review had 42 + 2.5), 41/43/45/47/48/49/51 are -6 dB (unplayed, unfitted).",
+  "Level: calibrated against Live's own recordings of the set (liverec, the Phase 4 comparison of Live's drum takes with SA: SA re-rendered on the patterns of the 28/29 Sep session takes and resampler take 0007, each hit class's band levels set against Live's through the drums strip at -10.6 dB and the reverb at 15.08 %; then all 14 hat, snare and sidestick classes came within 1 dB of Live's). Every Carbon layer plays 10.8 dB over its fit (the kit preview is normalised; high confidence on 36, 37, 40, 42 and 44, assumed for the others), then per pad 36 -2, 37 -0.2, 40 +1, 42 +0.4 dB (medium-high confidence; liverec's -2 dB on 38 had low confidence and is left out). Layer gains: 36: -7.1 + 10.8 - 2 = 1.7; 37: -2.3 + 10.8 - 0.2 = 8.3; 38: -3.3 + 10.8 = 7.5; 39: -3.85 + 10.8 = 6.95; 40: -3.8 + 10.8 + 1 = 8; 41: -6 + 10.8 = 4.8; 42: -10.1 + 10.8 + 0.4 = 1.1; 43: -6 + 10.8 = 4.8; 44: -10.1 + 4.9 + 10.8 = 5.6; 45: -6 + 10.8 = 4.8; 46: -5.7 + 10.8 = 5.1; 47: -6 + 10.8 = 4.8; 48: -6 + 10.8 = 4.8; 49: -6 + 10.8 = 4.8; 51: -6 + 10.8 = 4.8.",
+  "Velocity: law 'operator', amount = osc A's Vel (Operator's own law is unknown: a linear placeholder), and on 37 1.2, 42 2.4, 44 2.8, 46 2.8 a 'curve': the placeholder's amplitude to that power, anchored at velocity 88, fitted to Live's hats and sidestick at velocities 10 to 127 (liverec; 46, never in the takes, as 44). Kick and snares play only at 88 in the takes: their law is unmeasured.",
+  "Beat Repeat: on for every pad whose chain has one on in the set, its band filter where the set's is on. The pads' EQ, Saturator and Compressor are in the recordings; the track's Limiter is not.",
+  "Not changed by the calibration (liverec): the drums strip (-10.6 dB) and the reverb (15.08 %); no limiter. The levels above hold through them."
+ ]
+}

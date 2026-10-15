@@ -1,0 +1,210 @@
+{
+ "version": 1,
+ "key": "core-flares",
+ "name": "Flares Kit",
+ "description": "Live 12 Suite Core Library: Flares Kit, its own samples and levels",
+ "source": "/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/Racks/Drum Racks/Electronic/Flares Kit.adg",
+ "groups": {
+  "kit": "Flares Kit"
+ },
+ "pads": {
+  "36": {
+   "name": "Kick Volt",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Kick Volt.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "37": {
+   "name": "Rim Bipp",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Rim Bipp.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "38": {
+   "name": "Snare Snipp",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Snare Snipp.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "39": {
+   "name": "Clap eClap",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Clap eClap.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "40": {
+   "name": "Snare Thin Smack",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": -6.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Snare Thin Smack.wav", "gainDb": 0.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "41": {
+   "name": "Kick Sine Me Up",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Kick Sine Me Up.wav", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "42": {
+   "name": "Hihat Closed Hi There",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Hihat Closed Hi There.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "43": {
+   "name": "Tom Jack Lo",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Tom Jack Lo.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "44": {
+   "name": "E-Perc Weouh",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/E-Perc Weouh.aif", "gainDb": -20.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "45": {
+   "name": "Tom Jack Mid",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Tom Jack Mid.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "46": {
+   "name": "Hihat Open Dolphins",
+   "choke": 1,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Hihat Open Dolphins.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "47": {
+   "name": "Tom Haskell Mid",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Tom Haskell Mid.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "48": {
+   "name": "Tom Haskell High",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Tom Haskell High.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "49": {
+   "name": "Crash Bolt",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Crash Bolt.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "50": {
+   "name": "Cowbell Bessie",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Cowbell Bessie.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  },
+  "51": {
+   "name": "Ride Abacus",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {"group": "kit", "file": "core-flares/Ride Abacus.aif", "gainDb": -12.0, "transpose": 0.0, "velLo": 1, "velHi": 127, "startFrames": 0, "lenSecs": 0.0, "drive": 0.0, "vel": {"law": "simpler", "amount": 0.45}}
+   ]
+  }
+ },
+ "notes": [
+  "Converted from the preset: each pad's sample parts for its note, Key Zone Shift and Sample Selector as stored; velocity zones become layers, a crossfade a switch where a part falls below half its level (a fade at the velocity range's edge keeps playing). gainDb = pad and chain faders + Simpler volume + part volume; Vel as law 'simpler'.",
+  "Not reproduced: the instruments' envelopes (every sample plays its region to the end), filters (only their drive), the pads' other devices (none) and the devices around the Drum Rack (none).",
+  "Over full scale at velocity 127 as the preset sets them (before the drums' strip): 40 +10.2 dBFS",
+  "Pulled down to 6 dB over the kit's median pad at velocity 127 (-1.8 dBFS before the drums' strip), by the pad's gainDb, its layers as the preset sets them: 40 Snare Thin Smack +10.2 dBFS, -6.00 dB. A pad far over the rest is out of the kit's balance, and SA's drums have no limiter: with the loop on top it can drive the master into its clip."
+ ]
+}

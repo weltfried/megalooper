@@ -1,0 +1,157 @@
+# megalooper
+
+A live looper for SuperCollider that works out the meter from what you played.
+Record a phrase in free time and megalooper finds its tempo and its meter,
+odd ones like 7/8 included, from the onsets in the audio.
+
+It runs in two ways:
+
+- **Beside Ableton Live.** megalooper loops, analyses and sends MIDI clock;
+  Live plays the effects and the drums.
+- **On its own (Megalooper SA).** megalooper also hosts the effect chains, VST
+  plugins and the drums, with no Live at all.
+
+It was built for a guitar and bass duo and is used on stage, on macOS. A
+Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
+
+## What it does
+
+- **Finds the meter.** Twelve meters from 2/4 to 12/8, over one to four bars,
+  with the downbeat placed by where the accents fall.
+- **Loops.** Overdub with undo, reverse, multiply, loop chaining, and
+  overdubs shifted by your measured round-trip latency so they land in time.
+- **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
+  with presets.
+- **Effect chains (SA).** Three chains, for the guitar, the loop and the drums,
+  with seven built-in effects and your VST2 and VST3 plugins. Add, drag
+  and remove effects while a loop plays. A sound is one file: the chains,
+  every setting and each plugin's state.
+- **Drums (SA).** Step patterns and a kit triggered by the loop's own onsets.
+- **MIDI.** Every control can be mapped to your controller by clicking it and
+  moving a knob. MIDI clock and transport go out to other gear.
+- **Records the set.** The audio of a whole set and a log of everything
+  pressed, into `sessions/`.
+
+## What you need
+
+- **macOS 11 or later**, on which everything was built and measured (an
+  Apple Silicon Mac). Or **Linux**, as a first port:
+  [megalooper on Linux](docs/linux.md) has its own install steps.
+- **SuperCollider 3.14.1 or later.** <https://supercollider.github.io/>, or
+  `brew install --cask supercollider`.
+- **sc3-plugins**, the release built for your SuperCollider version.
+  <https://github.com/supercollider/sc3-plugins/releases>. Unzip it into
+  `~/Library/Application Support/SuperCollider/Extensions`.
+- **BBCut.** The installer fetches it.
+- **VSTPlugin 0.6.2**, only if you want plugins in the chains. The installer
+  fetches it. [Plugins](docs/standalone.md#plugins) says how to add it by
+  hand.
+
+SuperCollider, sc3-plugins and BBCut are needed for the class library to
+compile. Without any one of them nothing runs, not even the tests.
+
+## Install
+
+```bash
+git clone https://github.com/weltfried/megalooper.git
+cd megalooper
+./tools/install.sh
+```
+
+The installer:
+
+1. checks that SuperCollider and sc3-plugins are there, and says what to do
+   if not;
+2. fetches BBCut, at the commit megalooper is tested against;
+3. fetches VSTPlugin 0.6.2, unless you have it (`--no-vstplugin` skips it);
+4. links megalooper's classes into SuperCollider's Extensions;
+5. runs the quick checks, which must end with `ALL CHECKS PASSED`;
+6. builds the Desktop icon.
+
+It deletes nothing of yours, and you can run it again, for instance after moving this
+folder. `./tools/install.sh --help` lists its options.
+
+If SuperCollider is open, restart it afterwards, or recompile the class
+library (Cmd+Shift+L).
+
+## First run
+
+**Use headphones.** A laptop's microphone into its own speakers feeds back,
+and the looper plays while it records.
+
+1. Double-click **megalooper** on the Desktop (or run `./tools/megalooper`).
+2. Pick a rig from the dropdown:
+   - **standalone** is the looper alone, on the system's input and output;
+   - **saSystem** is Megalooper SA on the system's input and output, with the
+     guitar on input 1.
+3. Press **Start megalooper** and wait for the window.
+4. With the megalooper window in front, press **R** to record, play a
+   phrase, and press **R** again. The status band shows the meter and the
+   tempo it found. **S** stops, **C** clears.
+
+From the SuperCollider IDE, open `scripts/boot.scd` and evaluate its block.
+The rig then comes from `~defaultRoutingProfile` in `scripts/setup-routing.scd`.
+
+Under the icon there is no post window. Everything megalooper says goes to
+`~/Library/Logs/megalooper.log`.
+
+## Where your files are
+
+Everything you save lives in
+`~/Library/Application Support/SuperCollider/megalooper/`, never in this
+folder:
+
+| Folder | What it holds |
+|---|---|
+| `bbcut/`, `granular/` | The cutter's and the grains' presets |
+| `midi/` | Your MIDI maps |
+| `sa/kept.json`, `sa/sounds/` | The sound a boot starts with, and the sounds you saved |
+| `sa/drum-presets/`, `sa/kept-drums/` | The drums' presets, and the drums a boot starts with |
+| `sa/plugins/` | The list of plugins megalooper found |
+
+Recorded sets go to `sessions/` in this folder, which git ignores.
+
+## Guides
+
+| Guide | For |
+|---|---|
+| [Megalooper SA](docs/standalone.md) | Running without Live: the effect chains, sounds and plugins |
+| [megalooper on Linux](docs/linux.md) | Installing and starting it there, and what differs |
+| [Drums](docs/drums.md) | Getting a kit, and making one from your own samples |
+| [Rigs and routing](docs/routing.md) | Profiles for an audio interface, and for Live |
+| [The manual](docs/manual.md) | Every control, the MIDI map, the cutter, the grains, calibration, how the meter is found |
+| [MIDI map files](docs/midi-maps.md) | The JSON a map is kept in, to write or share one |
+
+## Known limits
+
+- **Linux is new.** It has run on one machine so far (Omarchy, on Arch).
+- **No Audio Units.** Plugins are VST2 and VST3 effects. Instruments are not
+  offered, and a plugin built only for Intel is listed but cannot be added.
+- **Plugin delay is not compensated.** A plugin that reports more than 64
+  samples of delay is held back: its chain plays without it and says why.
+- **Effects are added by menu.** A tile moves by dragging; dragging a new
+  effect in from a list is planned.
+- **The drums ship without audio.** The kits megalooper was built on play
+  Ableton's samples, which cannot be passed on. See [Drums](docs/drums.md).
+- **The public default chain has no amp.** A DI guitar through the built-in
+  effects alone sounds thin: add an amp simulator plugin
+  ([some free ones](docs/standalone.md#an-amp-for-the-guitar)).
+
+## Licence
+
+**GPL-3.0-or-later**, the same as SuperCollider. See [LICENSE](LICENSE).
+
+megalooper's cutter layer subclasses BBCut, so the project as a whole is GPL.
+[NOTICE](NOTICE) says why, lists every dependency with its licence, and names
+the trademarks megalooper mentions. No third-party code or audio is in this
+repository: you install each dependency from its own source.
+
+`classes/MeterAnalyzer.sc` and `classes/PitchAnalyzer.sc` need nothing but
+SuperCollider's class library, if the meter detection is the part you want.
+
+## Trademarks
+
+Ableton and Live are trademarks of Ableton AG. BIAS FX is a trademark of
+Positive Grid. VST is a trademark of Steinberg Media Technologies GmbH. They
+are named here only to say what megalooper works with; megalooper is not
+affiliated with, or endorsed by, any of them.

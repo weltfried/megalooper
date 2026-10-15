@@ -1,0 +1,90 @@
+// Every SynthDef's compiled graph, fingerprinted.
+//
+// The SynthDefs are the part of Looper that runs on scsynth, so nothing about
+// what they SOUND like can be asserted headlessly. What can be asserted is that
+// the compiled bytes have not moved — and that turns out to be enough to make
+// the graphs refactorable with confidence, because a graph rewrite that changes
+// no bytes cannot change any audio.
+//
+// That is exactly how the mono/stereo and detection-chain duplication was
+// collapsed: the eleven defs were dumped before and after, and all eleven were
+// byte-identical. The baseline below is those same bytes, so it covers the
+// graphs as they were BEFORE that refactor too.
+//
+// A deliberate graph change means updating the baseline — the failure line
+// prints the value to paste. If ALL eleven move at once, suspect SuperCollider
+// itself was upgraded (a new def-file version or UGen set changes the encoding)
+// rather than the class; re-baseline in that case and say so in the commit.
+//
+// This works with no server because SynthDef builds its graph in the language;
+// only .add sends anything, and an unbooted server just means the message goes
+// nowhere.
+
+if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").load };
+~tFile.("test-synthdefs");
+
+{
+// [byte count, order-sensitive rolling checksum]
+var baseline = (
+    // Moved 2026-09-29 from [ 1417, 508731360 ] / [ 1357, 129150009 ]: the
+    // recorder now tracks the tap's and the input's peak over the take and
+    // reports them on /looperLevels, for the starved-tap warning. Deliberate —
+    // see the graph's comment and roadmap item 6.
+    'looperRec':             [ 1844, 347506692 ],
+    'looperRecMono':         [ 1784, 322503125 ],
+    'looperAnalysisMonitor': [ 1059, 897460795 ],
+    'looperOverdubAnalysis': [  864, 693388309 ],
+    'looperRecPlain':        [  605, 125864998 ],
+    'looperRecPlainMono':    [  545, 466595377 ],
+    'looperEngine':          [ 2074, 209975019 ],
+    'looperEngineMono':      [ 2014, 953598608 ],
+    'looperClick':           [  429, 831893340 ],
+    'looperMaster':          [  478, 767188786 ],
+    // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the
+    // engine's phase bus (two new controls, phaseBus and locked, and the
+    // phase-correction UGens). A deliberate change — see the graph's comment.
+    'looperGranular':        [ 3072, 748923918 ]
+);
+// Defined here rather than leaning on ArrayedCollection:hash, so the
+// fingerprint is fixed by this file and cannot shift under the test.
+var fingerprint = { |bytes|
+    var acc = 0;
+    bytes.do { |b, i| acc = (acc * 31 + b + i) % 1000000007 };
+    [bytes.size, acc]
+};
+var l = ~tLooper.();
+
+~tCheck.("every SynthDef builds with no server", { l.loadSynthDefs });
+
+baseline.keys.asArray.sort.do { |name|
+    var desc = SynthDescLib.global[name];
+    var got;
+    if(desc.isNil or: { desc.def.isNil }) {
+        ~tFail.(name ++ ": built", "not in SynthDescLib after loadSynthDefs");
+    } {
+        got = fingerprint.(desc.def.asBytes);
+        ~tAssert.(name ++ ": graph unchanged", got == baseline[name],
+            "got " ++ got.asCompileString ++ ", baseline "
+                ++ baseline[name].asCompileString);
+    };
+};
+
+// The mono/stereo pairs are built from ONE graph function each, so the only
+// thing that may differ between a pair is the input. Equal byte counts would
+// mean the input expressions had become the same — which would mean one of the
+// two is reading the wrong number of channels.
+[
+    [\looperRec,       \looperRecMono],
+    [\looperRecPlain,  \looperRecPlainMono],
+    [\looperEngine,    \looperEngineMono]
+].do { |pair|
+    ~tAssert.(pair[0] ++ " and " ++ pair[1] ++ " still differ",
+        baseline[pair[0]][0] != baseline[pair[1]][0],
+        "identical byte counts suggest both read the same channel count");
+    // The mono graph is the smaller one: SoundIn.ar(ch).dup needs no
+    // BinaryOpUGen for ch + 1.
+    ~tAssert.(pair[1] ++ " is the smaller graph (no ch + 1)",
+        baseline[pair[1]][0] < baseline[pair[0]][0],
+        "mono " ++ baseline[pair[1]][0] ++ " vs stereo " ++ baseline[pair[0]][0]);
+};
+}.value;

@@ -1,0 +1,671 @@
+// megalooper — the status band, its strip, and the MIDI monitor.
+//
+// Loaded by boot.scd; defines only, runs nothing. Entry points:
+//   ~buildStatusBand        — Perform's status band: the state block, the take,
+//                             the input, and the bar grid
+//   ~buildStatusStrip       — the same, folded into 56 px, for every other view
+//   ~statusRefreshAll       — push the whole model state into both
+//   ~buildMidiMonitorPanel  — the MIDI-in log, for the Setup view
+//
+// The shell places the band and the strip and shows one of them; everything
+// here PAINTS them. Every painter reaches its views through a nil guard, so a
+// painter can run before, after, or entirely without the widget existing.
+// That is what lets the model fire notifications at boot, while the GUI is
+// still being assembled, without a single ordering rule.
+//
+// The status is READ-ONLY on purpose (but for Revert, which is part of what
+// the reading chip says). It shows what the model REPORTS, never what the
+// keypress asked for: every piece is driven from a `this.changed(...)`
+// notification in Looper or from the shell's position poll, so a refused
+// action leaves the display telling the truth.
+//
+// Repainting is kept to what changed: the state block on \state and \break
+// (and four times a second while it counts something down), the grid at the
+// poll's rate only while a loop is playing, and only the one of band and
+// strip that shows. That is the same order of Pen calls as the old header's
+// position view, which is what the MIDI clock was measured against.
+(
+// ---- The state block ----------------------------------------------------------------
+// What the looper is doing: the fill (a STATE colour, or the hatch for a
+// break), the words, and what R does next. Read from the model each time.
+~statusLook = { |l|
+    var st = (l !? { |x| x.state }) ? \empty;
+    var brk = l.notNil and: { l.onBreak };
+    var look = case
+        { brk } { (label: "BREAK", hatch: true, ink: Color.new255(243, 243, 241)) }
+        { st == \recording } { (label: "● REC", fill: ~gt[\rec], ink: Color.white) }
+        { st == \playing } { (label: "▶ PLAYING", fill: ~gt[\play], ink: ~gt[\onacc]) }
+        { st == \overdubbing } { (label: "● OVERDUB", fill: ~gt[\dub], ink: ~gt[\onacc]) }
+        { st == \stopped } { (label: "■ STOPPED", fill: ~gt[\panel2], ink: ~gt[\ink]) }
+        { (label: "EMPTY", fill: ~gt[\panel2], ink: ~gt[\ink]) };
+    look[\state] = st;
+    look[\next] = ~statusNextLine.(l, st, brk);
+    look
+};
+
+// The line under the state: what the trigger does next, or what is counting.
+~statusNextLine = { |l, st, brk|
+    var left, t;
+    case
+    { l.isNil } { "" }
+    { brk } {
+        left = l.breakEndsAt !? { |at| (at - SystemClock.seconds).max(0) };
+        if(left.notNil) { "back on the downbeat in " ++ left.round(0.1) ++ " s" } { "back on the downbeat" }
+    }
+    { l.dissolving } { "dissolving " ++ (l.dissolvePos * 100).round.asInteger ++ "% · cutter → loop → grains" }
+    { st == \recording } {
+        t = l.recStartTime !? { |at| (SystemClock.seconds - at).max(0) } ? 0;
+        "R → close loop & analyse · " ++ t.round(0.1) ++ " s"
+    }
+    { st == \playing } { "R → overdub · S stop" }
+    { st == \overdubbing } { "R → play · fdbk " ++ l.feedback.round(0.01) }
+    { st == \stopped } { "R → play · " ++ l.loopDuration.round(0.01) ++ " s in buffer" }
+    { "R → record a phrase" }
+};
+
+// Paint a state block: the band's with its caption and next line, the strip's
+// with the words alone.
+~statusDrawState = { |v, compact|
+    var b = v.bounds, w = b.width, h = b.height;
+    var look = ~statusShown ?? { ~statusLook.(~looper) };
+    var ink = look[\ink] ? ~gt[\ink];
+    var fade = { |c, a| Color(c.red, c.green, c.blue, a) };
+    var x0;
+    if(look[\hatch] == true) {
+        Pen.fillColor = ~guiHatchDark;
+        Pen.addRect(Rect(0, 0, w, h));
+        Pen.fill;
+        Pen.strokeColor = ~guiHatchLight;
+        Pen.width = 10;
+        ((w + h) / 28).ceil.asInteger.do { |i|
+            x0 = (i * 28) - h;
+            Pen.line(Point(x0, h), Point(x0 + h, 0));
+        };
+        Pen.stroke;
+    } {
+        Pen.fillColor = look[\fill] ? ~gt[\panel2];
+        Pen.addRect(Rect(0, 0, w, h));
+        Pen.fill;
+    };
+    if(compact == true) {
+        Pen.stringInRect(look[\label], Rect(18, 0, w - 36, h), ~statusFitFont.(look[\label], 24, w - 36),
+            ink, QAlignment(\left));
+    } {
+        Pen.stringInRect("LOOPER STATE", Rect(26, 20, w - 52, 18), ~guiMono.(12, true), fade.(ink, 0.8),
+            QAlignment(\left));
+        Pen.stringInRect(look[\label], Rect(26, 52, w - 52, 80), ~statusFitFont.(look[\label], 58, w - 52),
+            ink, QAlignment(\left));
+        Pen.stringInRect(look[\next] ? "", Rect(26, h - 40, w - 40, 20), ~guiMono.(13, true), fade.(ink, 0.85),
+            QAlignment(\left));
+    };
+};
+
+// The state's words at `size`, or smaller until they fit `room`: the design's
+// Nitti Grotesk is narrower than the system sans a machine without it falls
+// back to.
+~statusFitFont = { |str, size, room|
+    var s = size, f = ~guiSans.(s, true);
+    while { (str.bounds(f).width > room) and: { s > 12 } } { s = s - 2; f = ~guiSans.(s, true) };
+    f
+};
+
+~statusPaintState = {
+    ~statusShown = ~statusLook.(~looper);
+    [~statusStateLabel, ~statusStateStrip].do { |v| v !? { if(v.isClosed.not) { v.refresh } } };
+    ~statusRepaintGrids.();
+};
+
+// The state blocks alone, and only if their words or colours moved: for what
+// changes often and touches nothing else (a count, the overdub's feedback).
+~statusPaintLook = {
+    var look = ~statusLook.(~looper);
+    if(look != ~statusShown) {
+        ~statusShown = look;
+        [~statusStateLabel, ~statusStateStrip].do { |v| v !? { if(v.isClosed.not) { v.refresh } } };
+    };
+};
+
+// Four times a second, from the shell: what counts. The state block while it
+// counts down (a break), up (a recording) or along (a dissolve), and the
+// Perform tiles that say the same; the input's dB.
+~statusPaintCounting = {
+    var l = ~looper;
+    if(l.notNil and: { l.onBreak or: { l.dissolving } or: { l.state == \recording } }) {
+        ~statusPaintLook.();
+        ~performPaintCounting !? { |f| f.value };
+    };
+    ~guiLevelDb !? { |t|
+        if(t.isClosed.not and: { ~guiView == \perform }) {
+            t.string_(((~analysisPeak ? 0).ampdb.max(-60)).round(0.1).asString ++ " dB");
+        };
+    };
+};
+
+// ---- The take -------------------------------------------------------------------------
+// What the analyser decided, as the band shows it: the head, the signature,
+// BPM, bars and key, the reading chip and its hint.
+~statusTake = { |l|
+    var r = l !? { |x| x.lastResult };
+    var st = (l !? { |x| x.state }) ? \empty;
+    var pend = l !? { |x| x.pendingReading };
+    var n = l !? { |x| x.readingCount } ? 0;
+    var t = (head: "TAKE · NONE YET", sig: "—", bpm: "—", bars: "—", chip: nil, chipLit: false,
+        hint: "R to record. Bar 1 beat 1 is where you press.", line: "no take");
+    var up, loops;
+    case
+    { st == \recording } {
+        t[\head] = "TAKE · LISTENING…";
+        t[\hint] = "Meter and tempo come from your onsets.";
+        t[\line] = "recording…";
+    }
+    { r.isNil } { }
+    { (r[\error].notNil) and: { r[\error] != \lengthAnchored } } {
+        t[\head] = "TAKE · NO METER";
+        t[\hint] = "No meter: " ++ r[\error] ++ ". The cutter needs one: record again.";
+        t[\line] = "no meter";
+    }
+    {
+        t[\sig] = r[\numerator].asString ++ "/" ++ r[\denominator];
+        t[\bpm] = (r[\bpm] ? 0).round(0.1).asString;
+        t[\bars] = (r[\k] ? 1).asString;
+        t[\line] = t[\sig] ++ " · " ++ t[\bpm] ++ " · " ++ t[\bars] ++ " bar" ++ (if((r[\k] ? 1) > 1) { "s" } { "" });
+        case
+        { r[\error] == \lengthAnchored } {
+            t[\head] = "TAKE · ANCHORED";
+            t[\hint] = "No beat found: kept at the fallback meter. No cutter on this take.";
+        }
+        { pend.notNil } {
+            loops = ((pend[\at] - SystemClock.seconds) / l.loopDuration.max(1e-6)).ceil.asInteger.max(1);
+            t[\head] = "TAKE · READING " ++ (pend[\index] + 1) ++ "/" ++ n;
+            t[\chip] = "→ " ++ Looper.prReadingString(pend[\result]) ++ " · lands in " ++ loops
+                ++ " loop" ++ (if(loops > 1) { "s" } { "" });
+            t[\chipLit] = true;
+            t[\hint] = "Lands on the loop boundary where Live's bar line agrees";
+        }
+        { l.readingIndex > 0 } {
+            t[\head] = "TAKE · READING " ++ (l.readingIndex + 1) ++ "/" ++ n;
+            t[\chip] = "reading " ++ (l.readingIndex + 1) ++ "/" ++ n;
+            t[\hint] = "A again for the next one. It wraps round to the analyser's own.";
+        }
+        { (l.readingMargin ? 1) < 0.1 } {
+            up = l.runnerUp;
+            t[\head] = "TAKE · DETECTED";
+            t[\chip] = up !? { |u| "or " ++ u[\numerator] ++ "/" ++ u[\denominator]
+                ++ " @ " ++ (u[\bpm] ? 0).round(0.1) ++ "?" };
+            t[\hint] = "Close call: press A or "
+                ++ (~midiWords.('looper.nextReading') ? "its footswitch") ++ " for the next reading";
+        }
+        {
+            t[\head] = "TAKE · DETECTED";
+            t[\hint] = if(n > 1) { "A tries the analyser's next reading." } { "" };
+        };
+    };
+    t
+};
+
+~statusPaintTake = {
+    var l = ~looper, t = ~statusTake.(l);
+    var set = { |v, str| v !? { if(v.isClosed.not) { v.string_(str) } } };
+    set.(~guiTakeHead, t[\head]);
+    set.(~guiTakeSig, t[\sig]);
+    set.(~guiTakeBpm, t[\bpm]);
+    set.(~guiTakeBars, t[\bars]);
+    set.(~guiReadingHint, t[\hint]);
+    ~guiReadingHint !? { |v| if(v.isClosed.not) { v.toolTip_(t[\hint] ? "") } };
+    ~guiTakeLabel !? { |v|
+        if(v.isClosed.not) { v.string_(t[\line]).toolTip_(~guiTakeString.()) };
+    };
+    ~guiReadingChipBox !? { |box|
+        if(box.isClosed.not) {
+            box.visible_(t[\chip].notNil);
+            ~guiReadingChip.string_(t[\chip] ? "")
+                .background_(if(t[\chipLit]) { ~gt[\armed] } { ~gt[\bg] })
+                .stringColor_(if(t[\chipLit]) { ~gt[\onacc] } { ~gt[\ink] });
+        };
+    };
+    ~revertReadingButton !? { |b|
+        if(b.isClosed.not) {
+            b.enabled_(l.notNil and: { (l.readingIndex > 0) or: { l.pendingReading.notNil } });
+        };
+    };
+    // What the Perform tiles say about the reading (Next reading's sub).
+    ~performPaintReading !? { |f| f.value };
+};
+
+// ---- The bar grid --------------------------------------------------------------------
+// One UserView, not a widget per beat: per frame n beat cells, n lines and one
+// playhead, n <= 28 or so. The beat under the playhead is filled in the
+// state's colour (the hatch on a break); the beats behind it in \panel2.
+~statusGridInset = 4;
+~statusDrawGrid = { |v, compact|
+    var b = v.bounds, w = b.width, h = b.height, top = ~statusGridInset, gh = h - (2 * ~statusGridInset);
+    var l = ~looper, pos = ~guiLoopPos, phase = ~guiLoopPhase;
+    var st = (l !? { |x| x.state }) ? \empty;
+    var bars = pos !? { |p| p[\barCount] }, bpb = pos !? { |p| p[\beatsPerBar] };
+    var frac = (pos !? { |p| p[\fraction] }) ? 0;
+    var running = phase.notNil and: { (st == \playing) or: { st == \overdubbing } };
+    var brk = l.notNil and: { l.onBreak };
+    var n, bi, cw, x, cur, ink, i, text, stripe;
+    Pen.fillColor = ~gt[\panel];
+    Pen.addRect(Rect(0, top, w, gh));
+    Pen.fill;
+    if((st == \empty) or: { st == \recording }) {
+        // No grid until the loop closes: a hatch of thin rules and what is
+        // happening instead.
+        stripe = 24;
+        Pen.fillColor = ~gt[\panel2];
+        (w / stripe).ceil.asInteger.do { |k| Pen.addRect(Rect((k * stripe) + 22, top, 2, gh)) };
+        Pen.fill;
+        if(compact != true) {
+            text = if(st == \recording) {
+                "● " ++ ((l.recStartTime !? { |at| (SystemClock.seconds - at).max(0) }) ? 0).round(0.1)
+                    ++ " s · no grid until the loop closes"
+            } { "empty buffer" };
+            Pen.stringInRect(text, Rect(18, top, w - 36, gh), ~guiMono.(15, true),
+                if(st == \recording) { ~gt[\rec] } { ~gt[\mute] }, QAlignment(\left));
+        };
+    } {
+        if(bars.notNil and: { bpb.notNil } and: { (bars * bpb) > 0 }) {
+            n = bars * bpb;
+            cw = w / n;
+            bi = (frac * n).floor.asInteger.clip(0, n - 1);
+            cur = if(st == \overdubbing) { ~gt[\dub] } { ~gt[\play] };
+            // The beats played this pass, and the one under the playhead.
+            if(running) {
+                if(bi > 0) {
+                    Pen.fillColor = ~gt[\panel2];
+                    Pen.addRect(Rect(0, top, cw * bi, gh));
+                    Pen.fill;
+                };
+                if(brk) {
+                    Pen.push;
+                    Pen.addRect(Rect(cw * bi, top, cw, gh));
+                    Pen.clip;
+                    Pen.strokeColor = ~gt[\ink];
+                    Pen.width = 3;
+                    ((cw + gh) / 9).ceil.asInteger.do { |k|
+                        x = (cw * bi) + (k * 9) - gh;
+                        Pen.line(Point(x, top + gh), Point(x + gh, top));
+                    };
+                    Pen.stroke;
+                    Pen.pop;
+                } {
+                    Pen.fillColor = cur;
+                    Pen.addRect(Rect(cw * bi, top, cw, gh));
+                    Pen.fill;
+                };
+            };
+            // The beat lines, then the bar lines over them: a bar line is a
+            // beat line too, and drawing the heavy one second means it wins.
+            Pen.fillColor = ~gt[\line];
+            n.do { |k| if((k % bpb) != 0) { Pen.addRect(Rect((cw * k).round, top, 1, gh)) } };
+            Pen.fill;
+            Pen.fillColor = ~gt[\ink];
+            bars.do { |k| if(k > 0) { Pen.addRect(Rect(((cw * k * bpb) - 1).round, top, 3, gh)) } };
+            Pen.fill;
+            // The beat numbers, where a cell can hold one: a multiplied loop
+            // of hundreds of beats shows its lines alone.
+            if((compact != true) and: { cw >= 16 }) {
+                text = ~guiMono.(11, true);
+                n.do { |k|
+                    ink = if(running and: { k == bi } and: { brk.not }) { ~gt[\onacc] } { ~gt[\mute] };
+                    Pen.stringAtPoint(((k % bpb) + 1).asString, Point((cw * k) + 6, top + gh - 18), text, ink);
+                };
+            };
+        } {
+            // A take with no grid to count on: elapsed against the length.
+            if(running) {
+                Pen.fillColor = ~gt[\panel2];
+                Pen.addRect(Rect(0, top, w * frac, gh));
+                Pen.fill;
+            };
+        };
+        // The playhead, standing proud of the grid.
+        if(running) {
+            Pen.fillColor = ~gt[\ink];
+            Pen.addRect(Rect(((w * frac) - 1).round, 0, if(compact == true) { 2 } { 3 }, h));
+            Pen.fill;
+        };
+    };
+};
+
+// The position in words: the band's two lines and the strip's short one.
+~statusPositionWords = {
+    var l = ~looper, pos = ~guiLoopPos, phase = ~guiLoopPhase;
+    var st = (l !? { |x| x.state }) ? \empty;
+    var dur = (l !? { |x| x.loopDuration }) ? 0;
+    var bars = pos !? { |p| p[\barCount] };
+    case
+    { st == \recording } {
+        ["RECORDING · " ++ ((l.recStartTime !? { |at| (SystemClock.seconds - at).max(0) }) ? 0).round(0.01) ++ " s",
+            "free time · no grid yet", "rec"]
+    }
+    { dur <= 0 } { ["NO LOOP", "press R to record", "—"] }
+    // Recorded but not playing. Calling a stopped loop "no loop" would be the
+    // display lying about what is in the buffer.
+    { phase.isNil } {
+        ["STOPPED", dur.round(0.01).asString ++ " s" ++ (bars !? { |b| " · " ++ b ++ " bars" } ? ""), "■"]
+    }
+    { pos.notNil and: { pos[\bar].notNil } } {
+        ["BAR " ++ pos[\bar] ++ "/" ++ pos[\barCount] ++ " · BEAT " ++ pos[\beat] ++ "/" ++ pos[\beatsPerBar],
+            phase.round(0.01).asString ++ " / " ++ dur.round(0.01) ++ " s",
+            pos[\bar].asString ++ "·" ++ pos[\beat]]
+    }
+    // No grid to count on, so elapsed/total alone rather than an invented
+    // beat. asString first: a Number does not answer ++.
+    { [phase.round(0.01).asString ++ " / " ++ dur.round(0.01) ++ " s", "no bar grid on this take",
+        phase.round(0.1).asString] }
+};
+
+// The words are kept per label rather than read back from Qt: this runs at
+// 20 Hz while a loop moves.
+~statusPosShown = IdentityDictionary.new;
+~statusRepaintGrids = {
+    var words = ~statusPositionWords.();
+    var set = { |v, str|
+        v !? { if(v.isClosed.not and: { ~statusPosShown[v] != str }) { ~statusPosShown[v] = str; v.string_(str) } } };
+    if(~guiView == \perform) {
+        set.(~guiPosBig, words[0]);
+        set.(~guiPosSmall, words[1]);
+        ~guiPositionView !? { |v| if(v.isClosed.not) { v.refresh } };
+    } {
+        set.(~guiPosShort, words[2]);
+        ~guiPositionStrip !? { |v| if(v.isClosed.not) { v.refresh } };
+    };
+};
+
+// ---- The input: a level and the onset lamp ---------------------------------------------------
+// The meter: the level in dB over -60..0 (a guitar's linear amplitude spends
+// almost all its time in the bottom tenth of a bar), the clip mark at 92 %.
+~statusDrawMeter = { |v, mark|
+    var b = v.bounds, w = b.width, h = b.height;
+    var norm = (((~analysisLevel ? 0).ampdb + 60) / 60).clip(0, 1);
+    Pen.fillColor = ~gt[\panel2];
+    Pen.addRect(Rect(0, 0, w, h));
+    Pen.fill;
+    Pen.fillColor = if(norm > 0.95) { ~gt[\rec] } { ~gt[\play] };
+    Pen.addRect(Rect(0, 0, w * norm, h));
+    Pen.fill;
+    if(mark == true) {
+        Pen.fillColor = ~gt[\rec];
+        Pen.addRect(Rect((w * 0.92).round, 0, 2, h));
+        Pen.fill;
+    };
+};
+
+// The lamp: a square (the brand has no curves), lit \rec on every onset the
+// detector fires and fading in about 200 ms. The unlit square is always drawn:
+// a dark lamp must read as "nothing detected", never as "nothing running".
+~statusDrawLamp = { |v|
+    var b = v.bounds, f = ~analysisFlash ? 0;
+    Pen.fillColor = ~gt[\panel2].blend(~gt[\rec], f.clip(0, 1));
+    Pen.addRect(Rect(0, 0, b.width, b.height));
+    Pen.fill;
+    Pen.strokeColor = ~gt[\line];
+    Pen.width = 1;
+    Pen.addRect(Rect(0.5, 0.5, b.width - 1, b.height - 1));
+    Pen.stroke;
+};
+
+~statusRepaintLamps = {
+    (if(~guiView == \perform) { ~guiOnsetLampView } { ~guiOnsetLampStrip }) !? { |v|
+        if(v.isClosed.not) { v.refresh } };
+};
+~statusRepaintMeters = {
+    (if(~guiView == \perform) { ~guiLevelView } { ~guiLevelStrip }) !? { |v|
+        if(v.isClosed.not) { v.refresh } };
+};
+
+// "thr 0.50 · CC 7": the threshold, and what drives it in the map.
+~statusPaintThreshold = {
+    ~guiOnsetThrLabel !? { |t|
+        if(t.isClosed.not) {
+            t.string_("thr " ++ ((~looper !? { |l| l.onsetThreshold }) ? 0.5).round(0.01)
+                ++ (~midiWords.('looper.onsetThreshold') !? { |w| " · " ++ w } ? ""));
+        };
+    };
+};
+
+// ---- Building them ---------------------------------------------------------------------------
+~buildStatusBand = {
+    var caption = { |str| ~guiCaption.(str) };
+    var number = { |str| ~guiMonoText.(str, 40, ~gt[\ink]) };
+    var stack = { |big, label| VLayout(big, caption.(label)).spacing_(2).margins_(0) };
+    var row1, row2, band;
+    ~statusStateLabel = UserView().canFocus_(false).fixedWidth_(330)
+        .drawFunc_({ |v| ~statusDrawState.(v, false) });
+    ~guiTakeHead = caption.("TAKE · NONE YET");
+    ~guiTakeSig = ~guiText.("—", 84, nil, true);
+    ~guiTakeBpm = number.("—");
+    ~guiTakeBars = number.("—");
+    ~rootLabel = number.("—");
+    // The chip on one line at its own width; the hint takes what is left and
+    // is cut at the right rather than widen the window (a label that doesn't
+    // wrap asks for its whole line unless given a minimum).
+    ~guiReadingChip = ~guiMonoText.("", 13, ~gt[\ink]).align_(\center);
+    ~guiReadingChip.setProperty(\wordWrap, false);
+    ~guiReadingChipBox = View().background_(~gt[\armed]).fixedHeight_(28)
+        .layout_(HLayout(~guiReadingChip).margins_([10, 2, 10, 2]));
+    ~guiReadingHint = ~guiText.("", 15, ~gt[\mute]).minWidth_(10);
+    ~guiReadingHint.setProperty(\wordWrap, false);
+    ~revertReadingButton = ~mapTag.(LooperTile().states_([["Revert ↺", ~gt[\ink], nil]])
+        .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(92, 28)).pad_(6)
+        .action_({ ~looper !? { |l| l.revertReading } }),
+        'looper.revertReading', "Back to what the analyser heard, on the next loop boundary.");
+    ~guiLevelView = UserView().canFocus_(false).fixedHeight_(18)
+        .drawFunc_({ |v| ~statusDrawMeter.(v, true) });
+    ~guiLevelDb = ~guiMonoText.("—", 12, ~gt[\mute]).align_(\center);
+    ~guiOnsetLampView = UserView().canFocus_(false).fixedSize_(Size(30, 30))
+        .toolTip_("Flashes on every onset the detector fires at the current threshold.\n"
+            "Flashes between notes mean ghosts (raise it); a hit that leaves it\n"
+            "dark means it is too high. Live on the analysis monitor (Setup).")
+        .drawFunc_({ |v| ~statusDrawLamp.(v) });
+    ~guiOnsetThrLabel = ~guiMonoText.("thr —", 12, ~gt[\mute]);
+    ~midiWatch.(~guiOnsetThrLabel, { ~statusPaintThreshold.() });
+    ~statusPosShown = IdentityDictionary.new;
+    ~guiPosBig = ~guiMonoText.("NO LOOP", 22, ~gt[\ink]);
+    ~guiPosSmall = ~guiMonoText.("", 15, ~gt[\mute], true).align_(\right);
+    ~guiPositionView = UserView().canFocus_(false).minHeight_(60)
+        .drawFunc_({ |v| ~statusDrawGrid.(v, false) });
+
+    row1 = View().fixedHeight_(190).layout_(HLayout(
+        ~statusStateLabel,
+        [View().layout_(VLayout(
+            ~guiTakeHead,
+            nil,
+            HLayout(
+                [~guiTakeSig, align: \bottom],
+                [stack.(~guiTakeBpm, "BPM"), align: \bottom],
+                [stack.(~guiTakeBars, "BARS"), align: \bottom],
+                [stack.(~rootLabel, "KEY"), align: \bottom],
+                nil
+            ).spacing_(34).margins_(0),
+            nil,
+            View().fixedHeight_(28).layout_(HLayout(~guiReadingChipBox, [~guiReadingHint, stretch: 1],
+                ~revertReadingButton).spacing_(10).margins_(0))
+        ).margins_([30, 22, 30, 18]).spacing_(0)), stretch: 1],
+        ~guiRule.(true),
+        ~guiStatusInput = View().fixedWidth_(300).layout_(VLayout(
+            caption.("INPUT"),
+            nil,
+            ~guiLevelView,
+            HLayout(~guiMonoText.("-60", 12, ~gt[\mute]), nil, ~guiLevelDb, nil,
+                ~guiMonoText.("0", 12, ~gt[\mute])).margins_(0),
+            nil,
+            HLayout(~guiOnsetLampView, VLayout(~guiText.("Onset", 15, nil, true), ~guiOnsetThrLabel)
+                .spacing_(0).margins_(0), nil).spacing_(14).margins_(0)
+        ).margins_([24, 22, 24, 18]).spacing_(8))
+    ).margins_(0).spacing_(0));
+    row2 = View().fixedHeight_(126).layout_(VLayout(
+        HLayout(~guiPosBig, nil, ~guiPosSmall).margins_(0),
+        [~guiPositionView, stretch: 1]
+    ).margins_([26, 14, 26, 14]).spacing_(8));
+    band = View().background_(~gt[\bg]).fixedHeight_(318).layout_(VLayout(
+        row1, ~guiRule.(), row2, ~guiRule.()
+    ).margins_(0).spacing_(0));
+    ~guiStatusBandMin = band.minSizeHint.width;
+    band
+};
+
+~buildStatusStrip = {
+    var strip;
+    ~statusStateStrip = UserView().canFocus_(false).fixedWidth_(220)
+        .drawFunc_({ |v| ~statusDrawState.(v, true) });
+    ~guiTakeLabel = ~guiText.("no take", 22, nil, true);
+    ~guiTakeLabel.setProperty(\wordWrap, false);
+    ~guiPosShort = ~guiMonoText.("—", 14, ~gt[\ink]).fixedWidth_(70);
+    ~guiPositionStrip = UserView().canFocus_(false).fixedHeight_(18 + (2 * ~statusGridInset))
+        .drawFunc_({ |v| ~statusDrawGrid.(v, true) });
+    ~guiOnsetLampStrip = UserView().canFocus_(false).fixedSize_(Size(16, 16))
+        .drawFunc_({ |v| ~statusDrawLamp.(v) });
+    ~guiLevelStrip = UserView().canFocus_(false).fixedHeight_(10)
+        .drawFunc_({ |v| ~statusDrawMeter.(v, false) });
+    strip = View().background_(~gt[\bg]).fixedHeight_(57).layout_(VLayout(
+        View().fixedHeight_(56).layout_(HLayout(
+            ~statusStateStrip,
+            ~guiStatusTake = View().fixedWidth_(280).layout_(HLayout(~guiTakeLabel).margins_([18, 0, 18, 0])),
+            ~guiRule.(true),
+            [View().layout_(HLayout(~guiPosShort, [~guiPositionStrip, stretch: 1])
+                .margins_([18, 0, 18, 0]).spacing_(14)), stretch: 1],
+            ~guiRule.(true),
+            ~guiStatusOnset = View().fixedWidth_(180).layout_(HLayout(~guiOnsetLampStrip, [~guiLevelStrip, stretch: 1])
+                .margins_([16, 0, 16, 0]).spacing_(10))
+        ).margins_(0).spacing_(0)),
+        ~guiRule.()
+    ).margins_(0).spacing_(0));
+    ~guiStatusStripMin = strip.minSizeHint.width;
+    strip
+};
+
+// The band and the strip each give their fixed columns a narrower width when
+// the window is narrower than they are as designed (the words in the state
+// blocks are fitted to what they get, see ~statusFitFont). Called with the
+// window's width, as the top bar is (~guiTopBarFit).
+~guiStatusFit = { |width|
+    var band = width < (~guiStatusBandMin ? 0), strip = width < (~guiStatusStripMin ? 0);
+    [
+        [~statusStateLabel, band, 330, 220], [~guiStatusInput, band, 300, 210],
+        [~statusStateStrip, strip, 220, 150], [~guiStatusTake, strip, 280, 190], [~guiStatusOnset, strip, 180, 130]
+    ].do { |item|
+        var v = item[0], to = if(item[1]) { item[3] } { item[2] };
+        if(v.notNil and: { v.isClosed.not } and: { v.bounds.width != to }) { v.fixedWidth_(to) };
+    };
+};
+
+// Push the whole model state into the status and the tiles at once. Used on
+// build (so a rebuilt window starts correct rather than waiting for the next
+// event) and available for a manual resync.
+~statusRefreshAll = {
+    ~statusPaintState.();
+    ~statusPaintTake.();
+    ~statusPaintThreshold.();
+    ~statusRepaintGrids.();
+    ~performRefreshAll !? { |f| f.value };
+    ~bbcutPaintHeader !? { |f| f.value };
+    ~granularPaintHeader !? { |f| f.value };
+};
+
+// ---- MIDI monitor -------------------------------------------------------------------------
+// A controller sending a CC sweep produces messages far faster than a text view
+// should be redrawn, so incoming lines are appended to a bounded buffer by the
+// MIDI thread and the view is repainted on a timer, only when something changed.
+// Without that throttle a knob sweep can stall the GUI.
+~midiMonitorMax   = 200;   // lines kept; the oldest are dropped
+~midiMonitorShown = 60;    // lines drawn: the panel shows about 30
+~midiMonitorHz    = 10;    // view repaints per second
+~midiMonitorLines = ~midiMonitorLines ? List.new;
+~midiMonitorDirty = false;
+~midiMonitorPaused = ~midiMonitorPaused ? false;
+
+// The sink setup-midi.scd calls for every logged message. Runs on the MIDI
+// thread: it may touch only plain data, never a view. It also stamps the top
+// bar's MIDI lamp, paused or not.
+~midiMonitorPush = { |line|
+    ~guiMidiSeenAt = Main.elapsedTime;
+    if(~midiMonitorPaused.not) {
+        ~midiMonitorLines.add(line);
+        while { ~midiMonitorLines.size > ~midiMonitorMax } { ~midiMonitorLines.removeAt(0) };
+        ~midiMonitorDirty = true;
+    };
+};
+
+~midiMonitorClear = {
+    ~midiMonitorLines = List.new;
+    ~midiMonitorDirty = true;
+};
+
+// ---- Panel ----------------------------------------------------------------
+// Returns a View for the Setup view to place. Safe to re-run: the generation
+// token retires the previous repaint timer.
+~buildMidiMonitorPanel = {
+    var gen, panel = View().background_(~gt[\bg]);
+    var link = { |label| LooperTile().states_([[label, ~gt[\mute], nil]]).font_(~guiSans.(13))
+        .fixedHeight_(24).pad_(4) };
+    // The log's colour is its palette's, so a repaint sets the text and
+    // nothing else (recolouring 200 lines took 5 ms of a 10 ms repaint).
+    var pal = ~guiPalette.();
+    pal.baseText = ~gt[\mute];
+    ~statusGen = ~statusGen + 1;
+    gen = ~statusGen;
+
+    panel.layout_(VLayout(
+        HLayout(
+            ~guiText.("MIDI in", 16, nil, true),
+            nil,   // spacer: pushes the links to the right
+            ~midiMonitorPauseButton = link.("Pause").fixedWidth_(64)
+                .states_([["Pause", ~gt[\mute], nil], ["Paused", ~gt[\onacc], ~gt[\dub]]])
+                .value_(if(~midiMonitorPaused) { 1 } { 0 })
+                .action_({ |b| ~midiMonitorPaused = (b.value == 1) }),
+            link.("Clear").fixedWidth_(56).action_({ ~midiMonitorClear.() })
+        ).margins_(0).spacing_(6),
+        // Monospaced so the aligned num=/vel=/chan= columns stay readable.
+        // Not editable — it is a log, and an editable view would also steal
+        // the keyboard from the window's single-key shortcuts.
+        [~midiMonitorView = TextView()
+            .canFocus_(false)
+            .editable_(false)
+            .minHeight_(140)
+            .palette_(pal)
+            .background_(~gt[\panel])
+            .font_(~guiMono.(12, false))
+            .string_(~midiMonitorLines.asArray.keep(~midiMonitorShown.neg).join("\n")), stretch: 1]
+    ).margins_([22, 16, 22, 16]).spacing_(8));
+
+    ~midiMonitorPanel = panel;
+
+    // Repaint timer. AppClock so it can touch views directly. Returning nil
+    // from the function stops the clock — that is the only kill switch, so it
+    // has to test every way this panel can go away, not just a closed window.
+    ~midiMonitorRoutine = AppClock.sched(0, {
+        var shown;
+        if(gen != ~statusGen
+            or: { ~guiWindow.isNil } or: { ~guiWindow.isClosed }
+            or: { ~midiMonitorPanel.isNil } or: { ~midiMonitorPanel.isClosed }) {
+            nil   // retired: unschedule
+        } {
+            // ~midiMonitorPush keeps filling the buffer while Setup is hidden
+            // — it is plain data, already bounded at ~midiMonitorMax — so
+            // there is nothing to catch up on but one repaint on return.
+            if(~midiMonitorDirty and: {
+                ~guiStack.isNil or: { ~guiStack.index == ~guiTabIndex.(\rig) }
+            }) {
+                ~midiMonitorDirty = false;
+                // The newest lines only, and their length from here rather
+                // than read back from Qt: every Qt call here holds the language,
+                // and with it the MIDI clock (docs/dev/roadmap.md, MIDI clock
+                // jitter: 10 ms a repaint swung Live's tempo; this is 1.5 ms).
+                shown = ~midiMonitorLines.asArray.keep(~midiMonitorShown.neg).join("\n");
+                ~midiMonitorView !? { |v|
+                    v.string_(shown);
+                    // Keep the newest line visible without fighting a manual
+                    // scroll: only pin to the bottom, never restore a position.
+                    v.select(shown.size, 0);
+                };
+            };
+            ~midiMonitorHz.reciprocal
+        };
+    });
+
+    panel
+};
+)

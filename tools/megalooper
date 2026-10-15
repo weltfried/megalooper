@@ -1,0 +1,116 @@
+#!/bin/bash
+# Start megalooper: the rig picker, then the looper.
+#
+#   ./tools/megalooper            # start it
+#   ./tools/megalooper --log      # say where the log is, and start nothing
+#   ./tools/megalooper --dry-run  # say what it would run, and start nothing
+#
+# On Linux this is what the application launcher runs (tools/install.sh
+# puts it there). On macOS the Desktop icon does the same; this is the way
+# from a terminal. What megalooper says goes to the terminal and to the log:
+#   macOS   ~/Library/Logs/megalooper.log
+#   Linux   ~/.local/state/megalooper/megalooper.log
+#
+# Linux: scsynth speaks JACK, which PipeWire answers with pipewire-jack. To
+# ask PipeWire for a block size and rate, set PIPEWIRE_LATENCY before
+# starting, for example: PIPEWIRE_LATENCY=128/48000 ./tools/megalooper
+#
+# For its own tests: MEGALOOPER_OS stands in for `uname -s`.
+
+set -uo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OS="${MEGALOOPER_OS:-$(uname -s)}"
+
+if [ "$OS" = "Darwin" ]; then
+    LOG="$HOME/Library/Logs/megalooper.log"
+else
+    LOG="${XDG_STATE_HOME:-$HOME/.local/state}/megalooper/megalooper.log"
+fi
+
+if [ "${1:-}" = "--log" ]; then echo "$LOG"; exit 0; fi
+
+SCLANG=""
+for candidate in \
+    "/Applications/SuperCollider.app/Contents/MacOS/sclang" \
+    "$HOME/Applications/SuperCollider.app/Contents/MacOS/sclang" \
+    "$(command -v sclang 2>/dev/null || true)"
+do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then SCLANG="$candidate"; break; fi
+done
+if [ -z "$SCLANG" ]; then
+    echo "megalooper: error: sclang not found. Run ./tools/install.sh first." >&2
+    exit 1
+fi
+
+# The window is laid out for 1440 x 900. On a smaller screen the whole
+# application is scaled down to fit it (Qt's QT_SCALE_FACTOR: every size, font
+# and drawing together), so a laptop shows the layout as designed and not its
+# top-left corner. MEGALOOPER_SCALE=1 turns this off; any other number
+# sets the scale; a QT_SCALE_FACTOR you set yourself is left alone.
+screen_size() {
+    # "width height" of the screen in points, or nothing.
+    if [ "$OS" = "Darwin" ]; then
+        osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
+            | awk -F', *' 'NF == 4 { print $3 - $1, $4 - $2 }'
+    elif command -v hyprctl >/dev/null 2>&1; then
+        hyprctl monitors -j 2>/dev/null | python3 -I -c '
+import json, sys
+try:
+    ms = json.load(sys.stdin)
+    m = next((m for m in ms if m.get("focused")), ms[0])
+    w, h, s = m["width"], m["height"], m.get("scale") or 1
+    if m.get("transform", 0) % 2: w, h = h, w
+    print(int(w / s), int(h / s))
+except Exception:
+    pass'
+    fi
+}
+if [ -z "${QT_SCALE_FACTOR:-}" ]; then
+    scale="${MEGALOOPER_SCALE:-}"
+    if [ -z "$scale" ]; then
+        read -r sw sh <<< "$(screen_size)"
+        if [ -n "${sw:-}" ] && [ -n "${sh:-}" ]; then
+            scale="$(awk -v w="$sw" -v h="$sh" 'BEGIN {
+                s = w / 1440; if (h / 900 < s) s = h / 900
+                if (s < 0.5) s = 0.5
+                if (s >= 0.95) s = 1
+                printf "%.2f", s }')"
+        fi
+    fi
+    if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.00" ]; then
+        export QT_SCALE_FACTOR="$scale"
+        echo "megalooper: scaling the window by $scale for this screen (MEGALOOPER_SCALE=1 to turn it off)"
+    fi
+fi
+
+# Debian and Ubuntu: SuperCollider is linked to JACK 2's library there, which
+# does not reach PipeWire. pw-jack (the package pipewire-jack) puts PipeWire's
+# in its place for this run. Not on Arch, where pipewire-jack is the system's
+# JACK library already; not without PipeWire running; and not while a JACK
+# server of your own runs. MEGALOOPER_PW_JACK=0 turns it off, 1 forces it.
+WRAP=""
+if [ "$OS" = "Linux" ] && command -v pw-jack >/dev/null 2>&1; then
+    case "${MEGALOOPER_PW_JACK:-}" in
+        1) WRAP="pw-jack" ;;
+        0) ;;
+        *)
+            if command -v dpkg-query >/dev/null 2>&1 && pgrep -x pipewire >/dev/null 2>&1 \
+                && ! pgrep -x jackd >/dev/null 2>&1 && ! pgrep -x jackdbus >/dev/null 2>&1; then
+                WRAP="pw-jack"
+            fi ;;
+    esac
+fi
+
+if [ "${1:-}" = "--dry-run" ]; then
+    echo "megalooper: would run: ${WRAP:+$WRAP }$SCLANG $REPO/scripts/launcher.scd"
+    exit 0
+fi
+
+mkdir -p "$(dirname "$LOG")"
+echo "megalooper: the log is $LOG"
+if [ -n "$WRAP" ]; then
+    echo "megalooper: starting through pw-jack, PipeWire's JACK (MEGALOOPER_PW_JACK=0 turns it off)"
+fi
+$WRAP "$SCLANG" "$REPO/scripts/launcher.scd" 2>&1 | tee -a "$LOG"
+exit "${PIPESTATUS[0]}"
