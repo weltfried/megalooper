@@ -36,8 +36,11 @@ var calls, pending, bankAction, late, plug, lats, dev, sent2;
 ~tAssert.("...twice that at 96 kHz",
     MegaSAFx.type(\delay)[\memBytes].value(96000) == (2 * MegaSAFx.type(\delay)[\memBytes].value(48000)));
 ~tEq.("the Shifter delays 2 samples at its default, as measured", MegaSAFx.type(\shifter)[\latency].value((), 48000), 2);
-~tNear.("...about 20 ms at +7 st", MegaSAFx.type(\shifter)[\latency].value((shifterCoarse: 7, shifterCents: 0), 48000),
-    0.02 * 48000, 10);
+~tNear.("...about 10 ms at +7 st in Grain, its 40 ms window", MegaSAFx.type(\shifter)[\latency].value((shifterCoarse: 7, shifterCents: 0), 48000),
+    0.01 * 48000, 10);
+~tEq.("...and a 1024-frame FFT frame in FFT mode, whatever the shift",
+    [0, 7, -12].collect { |st| MegaSAFx.type(\shifter)[\latency].value((shifterCoarse: st, shifterCents: 0, shifterMode: 1), 48000) },
+    [1024, 1024, 1024]);
 ~tAssert.("...and as much down as up a ratio's distance: more at +12 than at -12",
     MegaSAFx.type(\shifter)[\latency].value((shifterCoarse: 12), 48000)
         > MegaSAFx.type(\shifter)[\latency].value((shifterCoarse: -12), 48000));
@@ -216,7 +219,7 @@ baseline = (
     'megaSAChainIn': [216, 30983118],
     'megaSAChainCopy': [151, 298444183],
     'megaSADevNull': [144, 992001537],
-    'megaSADevShifter': [1021, 339022019],
+    'megaSADevShifter': [1709, 532418218],
     'megaSADevDelay': [2246, 880224587],
     'megaSADevFilter': [3912, 529894533],
     'megaSADevPitchLoop': [5137, 789196505],

@@ -66,7 +66,7 @@ families = [
     [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 44],
     [\live, "^live\\.record$", 1],
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
-    [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 69],
+    [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 70],
     [\fxReset, "^sa\\.fxReset\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
     [\level, "^sa\\.level\\.(guitar|loop|drums|onsetKit|master)$", 5],
     [\mute, "^sa\\.mute\\.(guitar|loop|drums|onsetKit)$", 4],
@@ -238,7 +238,7 @@ protect {
         var wantLines = want.split($\n).reject(_.isEmpty);
         ~tEq.("the effects' controls are exactly the snapshot's: ids, labels, groups, tabs, kinds",
             [have.reject { |l| wantLines.includesEqual(l) }, wantLines.reject { |l| have.includesEqual(l) }], [[], []]);
-        ~tEq.("...all 83 of them", have.size, 83);
+        ~tEq.("...all 84 of them", have.size, 84);
     }.value;
 
     live = [targets.size, count.(there)];
@@ -549,10 +549,10 @@ protect {
         ~tEq.("a moved device keeps its controls: they reach it where it is now",
             [got.collect(_.first), ~tLastSet.(sa, sa.fxNode(\delay), \delayMix)], [[\fxParam], sa.fxParam(\delayMix)]);
         d2 = sa.insertDevice(\guitar, nil, \delay);
-        ~tEq.("a second Delay has its own controls, built again after the insert: the effects' 83 and its ten",
+        ~tEq.("a second Delay has its own controls, built again after the insert: the effects' 84 and its ten",
             { var now = ~midiTargetsBuild.();
               [now.keys.asArray.count { |id| id.asString.beginsWith("sa.fx") }, now.includesKey('sa.fxOn.delay2')] }.value,
-            [93, true]);
+            [94, true]);
         act.('sa.fx.delayTimeR', [\position, 0.75]);
         ~tAssert.("...and the Delay's settings still drive the first Delay, never the second",
             (d2.param(\delayTimeR) == MegaSAFx.param(\delayTimeR)[\spec].default)
@@ -630,7 +630,7 @@ protect {
         [before ++ " › " ++ t['sa.fx.delayMix'][\label], before, t['looper.trigger'][\label]]);
     ~megaSA = nil;
     ~tEq.("with no Megalooper SA the reason is that", ~midiTargetWhy.('sa.fxOn.delay'), "Megalooper SA is not running");
-    ~tEq.("...and the family is the default devices', from the table", ~midiTargetsBuild.(\effects).size, 83);
+    ~tEq.("...and the family is the default devices', from the table", ~midiTargetsBuild.(\effects).size, 84);
     ~megaSA = sa;
     sa.undo;
     ~midiTargets = keptTargets;

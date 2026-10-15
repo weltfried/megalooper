@@ -77,16 +77,25 @@ MegaSAFx {
 
     // ---- The guitar's effects -------------------------------------------
 
-    // Live's Shifter in pitch mode, not in a rack: coarse 0, an 80 ms window,
-    // fully wet. Fine is the open question. Live stores 0.496 of a -1..1 range
-    // there, most likely +50 ct (or +25), and in Live it followed CC 7, the
-    // threshold knob, which SA does not do (decision 2026-10-05). The first
-    // rebuild read it as 0.5 ct, nearly transparent, and SA keeps that until it
-    // is set by ear. The window is fixed when the synth starts (PitchShift
-    // cannot move it), so it is not a knob.
+    // Live's Shifter in pitch mode, not in a rack: coarse 0, fully wet. Fine is
+    // the open question. Live stores 0.496 of a -1..1 range there, most likely
+    // +50 ct (or +25), and in Live it followed CC 7, the threshold knob, which
+    // SA does not do (decision 2026-10-05). The first rebuild read it as 0.5 ct,
+    // nearly transparent, and SA keeps that until it is set by ear.
+    //
+    // Two ways to shift, Mode (2026-10-15): Grain, PitchShift with a 40 ms
+    // window, and FFT, PV_PitchShift on 1024-frame frames. Live's 80 ms window
+    // smeared every attack over about 21 ms; measured offline on plucks, 40 ms
+    // halves that at the same latency, and the FFT smears a little less again
+    // with a steadier pitch, about 8 ms later. Both run all the time, so the
+    // switch is a 50 ms crossfade that can be made while playing. PitchShift's
+    // window is fixed when the synth starts, so it is not a knob.
     *shifter { |sig|
         var semis = (\shifterCoarse.kr(0) + (\shifterCents.kr(0.5) / 100)).clip(-24, 24);
-        var wet = PitchShift.ar(sig, 0.08, semis.midiratio);
+        var ratio = semis.midiratio;
+        var grain = PitchShift.ar(sig, 0.04, ratio);
+        var fft = IFFT(PV_PitchShift(FFT(LocalBuf(1024), sig), ratio));
+        var wet = SelectX.ar(\shifterMode.kr(0).lag(0.05), [grain, fft]);
         var mix = \shifterMix.kr(1);
         ^(sig * (1 - mix)) + (wet * mix)
     }
@@ -386,12 +395,13 @@ MegaSAFx {
                 blurb: "Shifts the guitar's pitch.",
                 mainKnobs: [\shifterCoarse, \shifterCents, \shifterMix],
                 dsp: { |sig| this.shifter(sig) },
-                memBytes: { |sr| this.lineBytes((0.08 * sr * 3) + 3) },
-                // 2 samples unshifted; on average |ratio - 1| x 40 ms more,
-                // sweeping within each 80 ms window.
+                // The grains' line, and the FFT's frame and its IFFT's.
+                memBytes: { |sr| this.lineBytes((0.04 * sr * 3) + 3) + (1024 * 4 * 3) },
+                // Grain: 2 samples unshifted; on average |ratio - 1| x 20 ms
+                // more, sweeping within each 40 ms window. FFT: a frame.
                 latency: { |s, sr|
                     var ratio = ((s[\shifterCoarse] ? 0) + ((s[\shifterCents] ? 0.5) / 100)).clip(-24, 24).midiratio;
-                    (2 + ((ratio - 1).abs * 0.04 * sr)).floor.asInteger
+                    if((s[\shifterMode] ? 0) >= 0.5) { 1024 } { (2 + ((ratio - 1).abs * 0.02 * sr)).floor.asInteger }
                 }),
             (key: \delay, track: \guitar, width: \mono, followsTempo: false,
                 blurb: "Two wobbling taps: a near-dry copy and a detuned echo.",
@@ -544,6 +554,12 @@ MegaSAFx {
             (fx: \shifter, name: \shifterCents, label: "Fine", units: " ct", centered: true,
                 spec: ControlSpec(-100, 100, \lin, 0, 0.5),
                 tip: "Fine pitch in cents: 0.5 ct by default. Set it by ear."),
+            (fx: \shifter, name: \shifterMode, label: "Mode",
+                spec: ControlSpec(0, 1, \lin, 1, 0), choices: [[0, "Grain"], [1, "FFT"]],
+                tip: "How it shifts. Grain, the default: short grains, the least latency,\n"
+                    "a little grainy on big shifts. FFT: a steadier pitch and a little less\n"
+                    "smear on attacks, about 8 ms later. Switching crossfades, so it can be\n"
+                    "done while playing."),
             (fx: \shifter, name: \shifterMix, label: "Dry/Wet", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 1),
                 tip: "Dry against shifted guitar: 100 % by default. In between:\n"

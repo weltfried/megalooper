@@ -70,6 +70,11 @@ An effect brought back by Undo keeps its settings.
 The built-in effects are Pitch Shift, Dual Delay, Envelope Filter, Pitch
 Loops, Tape Echo, Drive and Crusher. You can add any of them more than once.
 
+Pitch Shift has two modes. **Grain**, the default, shifts with short grains
+and adds the least latency; big shifts get a little grainy. **FFT** keeps a
+steadier pitch and smears attacks a little less, about 8 ms later. Switching
+crossfades, so you can change it while playing.
+
 ## Sounds
 
 A sound is the three chains as one file: which effects in which order, every switch
