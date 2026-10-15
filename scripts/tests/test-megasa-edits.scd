@@ -130,7 +130,10 @@ d = sa.copyDevice(\filter);
 ~tEq.("a copy is a new device of the type, its settings and switch, right after the original",
     d !? { [d.id, d.name, d.param(\filterFreq), d.on, g.indexOf(d) - g.indexOf(g.device(\filter))] },
     [\filter2, "Envelope Filter 2", 900, true, 1]);
-~tEq.("...fading in as an insert does: its synth, then its switch", since.(n).collect { |b| b[1].collect(_.first) }, [[9], [15]]);
+~tEq.("...fading in as an insert does: its synth, then its switch, waking it (an Envelope Filter sleeps while off)",
+    since.(n).collect { |b| b[1].collect(_.first) }, [[9], [12, 15]]);
+~tEq.("...its wake first, then its switch, both its own synth's",
+    since.(n)[1] !? { |b| b[1] }, [[12, d.node.nodeID, 1], [15, d.node.nodeID, \filterOn, 1]]);
 ~tEq.("...in the server's chain", kids.(g), want.(g));
 ~tAssert.("...its settings its own: moving the original's leaves it",
     { sa.setFxParam(\filterFreq, 500); d.param(\filterFreq) == 900 }.value);
@@ -321,6 +324,33 @@ bundles = since.(n);
     [bundles.collect { |b| b[1].collect(_.first) }, bundles.last[1], stub[\msgs].size - before],
     [[[9], [15]], [[15, d.node.nodeID, \delayOn, 1]], 0]);
 ~tAssert.("...a birthGap after it at least", (bundles.last[0] - bundles[0][0]) >= MegaSA.birthGap);
+// A device that sleeps while off (Drive) is woken with its switch, in one
+// bundle; switched off it needs no word: it sleeps by itself once faded.
+{
+var dv = sa.insertDevice(\guitar, nil, \saturator, nil, false);
+var before, n;
+dv.pendingUntil = thisThread.seconds - 1;   // its insert landed
+before = stub[\msgs].size;
+n = stub[\bundles].size;
+sa.setFx(dv.id, true);
+~tEq.("a sleeping type switched on is woken in the same bundle, at once: n_run, then its switch",
+    [since.(n).collect { |b| [b[0] - thisThread.seconds, b[1]] }, stub[\msgs].size - before],
+    [[[0, [[12, dv.node.nodeID, 1], [15, dv.node.nodeID, \saturatorOn, 1]]]], 0]);
+sa.setFx(dv.id, false);
+~tEq.("...switched off, its switch alone, as ever", stub[\msgs].last, [15, dv.node.nodeID, \saturatorOn, 0]);
+sa.setFx(dv.id, true);
+n = stub[\bundles].size;
+sa.moveDevice(dv.id, \guitar, 0);
+~tEq.("...and an edit that moves it switched on wakes it as it switches it back on",
+    since.(n).collect { |b| b[1].collect(_.first) }, [[15], [19, 12, 15]]);
+sa.setFx(dv.id, false);
+~tEq.("...a footswitch during that edit lands after it, its switch alone",
+    since.(n).last[1], [[15, dv.node.nodeID, \saturatorOn, 0]]);
+sa.setFx(dv.id, true);
+~tEq.("...and on again, stamped after it too, woken with its switch",
+    since.(n).last[1], [[12, dv.node.nodeID, 1], [15, dv.node.nodeID, \saturatorOn, 1]]);
+sa.removeDevice(dv.id);
+}.value;
 // A setting moved and a tempo read then go after the synth too: sent at once
 // they would reach no synth yet.
 n = stub[\bundles].size;
@@ -346,8 +376,8 @@ c = sa.copyDevice(\filter);
 ~tEq.("a copy made after a tempo starts with its beat", since.(n)[0][1][0] !? { |x| x[x.indexOf(\beatDur) + 1] }, 0.4);
 
 // ---- edits in a row ----------------------------------------------------------------
-n = stub[\bundles].size;
 sa.setFx(\filter, true);
+n = stub[\bundles].size;
 sa.moveDevice(\filter, \guitar, 0);
 sa.moveDevice(\shifter, \loop, 0);
 bundles = since.(n);

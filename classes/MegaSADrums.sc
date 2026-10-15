@@ -142,6 +142,12 @@ MegaSADrums {
     // whether build loads it (a real server only) through which reader.
     var <irBuffers, irDummy, irSerial = 0, fxBusses, <reverbState = \none;
     var <>irReader, <>autoIR = false;
+    // The effects' sleep (prRestFx): per slot (\steps: the reverb, \onset:
+    // the onset chain) when its last voice can have ended, and whether its
+    // synth is paused. stepsHeld: a function, true while something may sound
+    // through the reverb with no hit (MegaSA: a device on the drums' chain is
+    // on), which keeps it awake.
+    var fxQuietAt, <fxAsleep, <>stepsHeld;
     // Beat Repeat: the captures decided (their gates not yet over), the next
     // one to decide (epoch:, c:), the steps' hits that may still be sounding
     // (in grid order), its switch as a condition history, the chance per pad
@@ -171,6 +177,8 @@ MegaSADrums {
         bufferCache = IdentityDictionary.new;
         bufferEnds = IdentityDictionary.new;
         bufferFreeAt = IdentityDictionary.new;
+        fxQuietAt = IdentityDictionary.new;
+        fxAsleep = IdentityDictionary.new;
         readsInFlight = IdentityDictionary.new;
         padTrims = IdentityDictionary.new;
         groupTrims = IdentityDictionary.new;
@@ -1622,6 +1630,7 @@ MegaSADrums {
             this.prRun(wall, wall + lead);
             this.prDrainJobs(wall);
             this.prUpdateBreakActive(wall);
+            this.prRestFx(wall);
         }.protect { busy = false };
         this.prFlushNotes;
     }
@@ -1873,6 +1882,7 @@ MegaSADrums {
         msgs = layers.collect { |layer| this.prVoiceMsg(rec, kit, pad, layer, ring, hitId) }.reject(_.isNil);
         if(msgs.isEmpty) { ^false };
         this.prSend(nil, [[\c_set, ring, 0]]);
+        this.prWakeFx(slot, rec[\stamp] + layers.collect { |layer| kit.soundingDur(layer) ? 10 }.maxItem + 0.005);
         this.prSend(rec[\stamp], msgs);
         rec[\emitted] = true;
         rec[\ring] = ring;
@@ -2242,6 +2252,11 @@ MegaSADrums {
         msgs = rec[\plan].collect { |v| this.prRepeatVoiceMsg(rec, kit, pad, v, ring, hitId) }.reject(_.isNil);
         if(msgs.isEmpty) { ^false };
         this.prSend(nil, [[\c_set, ring, 0]]);
+        // A repeat plays its slice at its own rate, within its dur and gate.
+        this.prWakeFx(\steps, rec[\stamp] + rec[\plan].collect { |v|
+            var natural = ((kit.soundingDur(v[\layer]) ? 10) * MegaSAKit.rateFor(v[\layer])) / (v[\rate] ? 1).abs.max(0.01);
+            ([natural] ++ [v[\dur], v[\gateLen]].select { |x| x.notNil and: { x > 0 } }).minItem
+        }.maxItem + 0.005);
         this.prSend(rec[\stamp], msgs);
         rec[\emitted] = true;
         rec[\ring] = ring;
@@ -2894,6 +2909,8 @@ MegaSADrums {
         // the frees below reach the server: the old spectra are never read
         // after they are gone.
         fxSynth = Synth.replace(fxSynth, \megaSADrumsFx, this.prReverbArgs);
+        // The new synth runs; the pump puts it to sleep again if all is quiet.
+        fxAsleep.put(\steps, false);
         old.do { |b| b.free };
         this.prReverbState(\ready);
     }
@@ -2909,6 +2926,42 @@ MegaSADrums {
     prReverbState { |state|
         reverbState = state;
         this.prNotify(\reverb, state);
+    }
+
+    // ---- The effects' sleep -------------------------------------------------
+    // The reverb (four convolutions, the costliest synth SA has) and the onset
+    // chain run every block whether a drum sounds or not. Once the last voice
+    // through one can have ended, and fxRest more for the reverb's tail
+    // (0.3 s), the pump pauses its synth (n_run 0); the next hit for it wakes
+    // it at once, before its voices are sent, which are stamped later. The
+    // reverb stays awake while stepsHeld says something before it may sound
+    // with no hit.
+    *fxRest { ^1.0 }
+
+    prFxNode { |slot| ^if(slot == \onset) { onsetFxSynth } { fxSynth } }
+
+    // A hit for `slot` sounding until `end`.
+    prWakeFx { |slot, end|
+        var node = this.prFxNode(slot);
+        if(end > (fxQuietAt[slot] ? inf.neg)) { fxQuietAt.put(slot, end) };
+        if(node.notNil and: { fxAsleep[slot] == true }) {
+            fxAsleep.put(slot, false);
+            this.prSend(nil, [[12, node.nodeID, 1]]);
+        };
+    }
+
+    prRestFx { |wall|
+        [\steps, \onset].do { |slot|
+            var node = this.prFxNode(slot), rest;
+            if(node.notNil) {
+                rest = (wall > ((fxQuietAt[slot] ? inf.neg) + this.class.fxRest))
+                    and: { (slot == \onset) or: { (stepsHeld.value == true).not } };
+                if(rest != (fxAsleep[slot] == true)) {
+                    fxAsleep.put(slot, rest);
+                    this.prSend(nil, [[12, node.nodeID, rest.not.binaryValue]]);
+                };
+            };
+        };
     }
 
     // Where hits go, by bus and node ID, without building anything: build's
@@ -2977,6 +3030,8 @@ MegaSADrums {
         [fxSynth, onsetFxSynth, stepsGroup, repeatGroup, onsetGroup].do { |n| n !? { n.free } };
         fxSynth = nil;
         onsetFxSynth = nil;
+        fxAsleep.clear;
+        fxQuietAt.clear;
         stepsGroup = nil;
         repeatGroup = nil;
         onsetGroup = nil;

@@ -188,6 +188,23 @@ controllers, because megalooper does. So megalooper sends:
 
 A plugin's knobs cannot be mapped yet.
 
+## On a slower computer
+
+- **Switch off what you don't play.** Once it has faded out, a switched-off
+  Envelope Filter, Drive or Crusher stops computing, and so does any plugin:
+  it costs nothing until you switch it on again. Dual Delay, Tape Echo, Pitch
+  Loops and Pitch Shift keep running while off, so that switched on they
+  already hold the last seconds of your playing.
+- **The drums rest when they are quiet.** Their reverb and the onset kit's
+  chain stop a second after the last drum has rung out, and the next hit
+  wakes them. While a device on the drums' chain is on, the reverb stays
+  awake for it.
+- **A bigger buffer.** If you hear clicks or gaps, pick 256 frames under
+  **Buffer** in the launcher. At 48 kHz that adds about 5 ms each way, so run
+  the round-trip step on the Calibrate view again afterwards.
+- The **CPU** figure in the top bar is the audio server's load. It turns red
+  past 60 %.
+
 ## When something is wrong
 
 - **The status line** under the chains names a plugin that failed, is

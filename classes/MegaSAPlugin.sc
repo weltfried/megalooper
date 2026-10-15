@@ -75,7 +75,12 @@ MegaSAPlugin {
             SynthDef(this.defName(io[0], io[1]), { |bus, on = 0, ready = 0, bypass = 0, lat = 0|
                 var dry = In.ar(bus, 2);
                 var input = if(io[0] == 1) { (dry[0] + dry[1]) * 0.5 } { dry };
-                var wet = Sanitize.ar(vst.ar(input, io[1], bypass, id: \plugin));
+                // Switched off and faded out, the plugin is hard-bypassed:
+                // VSTPlugin no longer runs it, so a plugin switched off costs
+                // no CPU (Bias FX's full load before, measured 2026-10-15).
+                // Any click of its own bypass is under the faded slot, and it
+                // runs again from the block its switch goes on.
+                var wet = Sanitize.ar(vst.ar(input, io[1], Select.kr(MegaSAFx.faded(on), [bypass, 1]), id: \plugin));
                 var held = Select.ar(lat > 0, [dry, DelayN.ar(dry, this.maxLatency, lat * SampleDur.ir)]);
                 ReplaceOut.ar(bus, XFade2.ar(held, wet, ((Lag.kr(on, 0.03) * ready) * 2) - 1));
             }).add;

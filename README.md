@@ -84,7 +84,8 @@ and the looper plays while it records.
    - **standalone** is the looper alone, on the system's input and output;
    - **saSystem** is Megalooper SA on the system's input and output, with the
      guitar on input 1.
-3. Press **Start megalooper** and wait for the window.
+3. Press **Start megalooper** and wait for the window. On a slower computer
+   that clicks or drops out, pick 256 frames under **Buffer** first.
 4. With the megalooper window in front, press **R** to record, play a
    phrase, and press **R** again. The status band shows the meter and the
    tempo it found. **S** stops, **C** clears.

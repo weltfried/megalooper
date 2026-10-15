@@ -2227,6 +2227,65 @@ rec[\logHits] = { |self, hits| Error("the disk is full").throw };
 ~tAssert.("...and the transport still told", rec[\events].notEmpty);
 }.value;
 
+// ---------------------------------------------- the effects' sleep (CPU) --
+// The pump pauses the reverb and the onset chain (n_run 0) once nothing can
+// sound through them for fxRest; a hit wakes its slot's synth at once, before
+// its voices' bundle, the other sleeping on; a device on the drums' chain
+// switched on (stepsHeld) keeps the reverb awake.
+{
+var fx = ~dsMake.(90.0), d = fx[\drums];
+var rev = Synth.basicNew(\megaSADrumsFx, fx[\stub], 901), ons = Synth.basicNew(\megaSAOnsetFx, fx[\stub], 902);
+var held = false, n, at, voices, stamp;
+// The n_run messages the log holds from entry `from`, as [entry, msg].
+var runs = { |from|
+    var out = List.new;
+    fx[\log].do { |e, i| if(i >= from) { e[1].do { |m| if(m[0] == 12) { out.add([i, m]) } } } };
+    out.asArray
+};
+var voicesFrom = { |from| (fx[\log].copyToEnd(from).detectIndex { |e|
+    e[1].any { |m| (m[0] == \s_new) and: { m[1].asString.beginsWith("megaSADrumVoice") } } }) !? { |i| i + from } };
+d.instVarPut(\fxSynth, rev);
+d.instVarPut(\onsetFxSynth, ons);
+d.stepsHeld = { held };
+~dsRun.(fx, 90.05);
+~tEq.("nothing has sounded: the pump pauses both effects, once each",
+    runs.(0).collect(_[1]), [[12, 901, 0], [12, 902, 0]]);
+~dsRun.(fx, 91.0);
+~tEq.("...and sends nothing more while all stays quiet", runs.(0).size, 2);
+n = fx[\log].size;
+d.onsetNoteOn(38, 100, 91.3);
+~dsRun.(fx, 91.4);
+at = runs.(n);
+voices = voicesFrom.(n);
+~tEq.("an onset hit wakes the onset chain, at once and before its voices' bundle, and the reverb sleeps on",
+    [at.collect(_[1]), at.first !? { |x| fx[\log][x[0]][0] }, (at.first !? { |x| voices.notNil and: { x[0] < voices } }) ? false],
+    [[[12, 902, 1]], nil, true]);
+stamp = voices !? { |i| fx[\log][i][0] } ? 91.3;
+n = fx[\log].size;
+~dsRun.(fx, stamp + MegaSADrums.fxRest);
+~tEq.("...and does not sleep while the hit, and fxRest after it, may still sound", runs.(n), []);
+~dsRun.(fx, stamp + MegaSADrums.fxRest + 0.2);
+~tEq.("...then it sleeps again", runs.(n).collect(_[1]), [[12, 902, 0]]);
+held = true;
+n = fx[\log].size;
+~dsRun.(fx, fx[\wall] + 0.02);
+~tEq.("a device on the drums' chain switched on wakes the reverb within a pump, with no hit",
+    runs.(n).collect(_[1]), [[12, 901, 1]]);
+~dsRun.(fx, fx[\wall] + 2);
+~tEq.("...and keeps it awake", runs.(n).size, 1);
+held = false;
+~dsRun.(fx, fx[\wall] + 0.02);
+~tEq.("...switched off again, the reverb sleeps", runs.(n).collect(_[1]), [[12, 901, 1], [12, 901, 0]]);
+~dsPlain.(d, \main, (0: [0]));
+n = fx[\log].size;
+~dsStart.(fx, 98.0);
+~dsRun.(fx, 98.3);
+at = runs.(n);
+voices = voicesFrom.(n);
+~tEq.("a steps hit wakes the reverb, before its voices' bundle, and the onset chain sleeps on",
+    [at.collect(_[1]), (at.first !? { |x| voices.notNil and: { x[0] < voices } }) ? false], [[[12, 901, 1]], true]);
+}.value;
+
 ~dsDropKits.();
 [\dsDir, \dsMakeKits, \dsDropKits, \dsReader, \dsMake, \dsMakeGap, \dsEvery, \dsPlain, \dsStart, \dsRun, \dsHits,
     \dsVoices, \dsVoicesSounding, \dsVoiceKey, \dsVoiceKeys, \dsSounding, \dsOf, \dsGrid, \dsKey, \dsKeys,

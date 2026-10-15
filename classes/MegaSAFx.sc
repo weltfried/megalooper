@@ -68,6 +68,19 @@ MegaSAFx {
         ^XFade2.ar(dry, Sanitize.ar(wet), (Lag.kr(onName.kr(0), 0.03) * 2) - 1)
     }
 
+    // 1 once a switch is off and its slot has faded out: the Lag 80 dB down,
+    // where XFade2 already passes the dry alone, to the bit. 0 again the
+    // moment the switch goes on, before its fade-in has begun.
+    *faded { |on| ^(on <= 0) * (Lag.kr(on, 0.03) < 1e-4) }
+
+    // A device that has nothing to remember (a type with `sleeps`) pauses its
+    // own synth once faded, so an effect switched off costs no CPU; its bus
+    // then passes through untouched, as the faded slot passed it. Switching it
+    // on wakes it (n_run) with its switch (MegaSADevice.switchMsgs). A device
+    // that remembers the past (a delay line, a loop buffer) keeps running, so
+    // it sounds on its switch as it always has.
+    *sleepWhenFaded { |onName| PauseSelf.kr(this.faded(onName.kr(0))) }
+
     // An envelope follower with the times it is given, at control rate.
     // Amplitude.kr on an audio signal runs its attack and release one block
     // (64x) faster than asked (measured in NRT, SC 3.14.1), which left the
@@ -379,6 +392,11 @@ MegaSAFx {
     //                 its effect to both; the dry path stays the two sides.
     //                 \stereo: both sides, each its own.
     //   followsTempo  it reads \beatDur, which each chain's group is sent
+    //   sleeps        true: nothing it remembers is heard past its fade-in
+    //                 (filter states, an envelope follower, an LFO's phase),
+    //                 so its synth pauses itself once switched off
+    //                 (sleepWhenFaded). The delays and Pitch Loops remember
+    //                 seconds, the Shifter its window: they keep running.
     //   switch        its on/off control, <key>On
     //   mainKnobs     the settings a folded panel shows
     //   memBytes      { |sampleRate| } what its synth takes from the
@@ -420,7 +438,7 @@ MegaSAFx {
                 dsp: { |sig| this.delay(sig) },
                 memBytes: { |sr| this.lineBytes((2.7 * sr) + 1) * 4 },
                 latency: none),
-            (key: \filter, track: \guitar, width: \mono, followsTempo: true,
+            (key: \filter, track: \guitar, width: \mono, followsTempo: true, sleeps: true,
                 blurb: "A filter your picking and a synced LFO move.",
                 mainKnobs: [\filterFreq, \filterRes, \filterEnvAmount, \filterLfoAmount],
                 dsp: { |sig| this.filter(sig) },
@@ -441,13 +459,13 @@ MegaSAFx {
                 // Two lines and FreeVerb2's own.
                 memBytes: { |sr| (this.lineBytes((2.5 * sr) + 1) * 2) + 102400 },
                 latency: none),
-            (key: \saturator, track: \loop, width: \stereo, followsTempo: false,
+            (key: \saturator, track: \loop, width: \stereo, followsTempo: false, sleeps: true,
                 blurb: "A drive with the lows driven hardest.",
                 mainKnobs: [\saturatorDrive, \saturatorBase, \saturatorMix],
                 dsp: { |sig| this.saturator(sig) },
                 memBytes: { |sr| 0 },
                 latency: none),
-            (key: \redux, track: \loop, width: \stereo, followsTempo: false,
+            (key: \redux, track: \loop, width: \stereo, followsTempo: false, sleeps: true,
                 blurb: "Fewer samples, fewer bits.",
                 mainKnobs: [\reduxRate, \reduxBits, \reduxMix],
                 dsp: { |sig| this.redux(sig) },
@@ -480,6 +498,7 @@ MegaSAFx {
             var dry = In.ar(bus, 2);
             var sig = if(t[\width] == \mono) { (dry[0] + dry[1]) * 0.5 } { dry };
             ReplaceOut.ar(bus, this.slot(dry, t[\switch], t[\dsp].value(sig)));
+            if(t[\sleeps] == true) { this.sleepWhenFaded(t[\switch]) };
         })
     }
 

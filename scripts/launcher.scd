@@ -9,8 +9,10 @@
 // there is no post window. So this asks first, and checks up front whether the
 // profile's audio device is actually plugged in.
 //
-// It sets ~launcherProfile, which boot.scd prefers over its own default. Running
-// boot.scd from the IDE is unaffected: ~launcherProfile is nil there.
+// It sets ~launcherProfile, which boot.scd prefers over its own default, and
+// ~launcherBufferSize, the audio buffer in frames (nil: as the rig sets it),
+// which setup-routing.scd prefers over the profile's. Running boot.scd from
+// the IDE is unaffected: both are nil there.
 //
 // Under the Desktop icon there is no post window — stdout goes to
 // ~/Library/Logs/megalooper.log (see tools/make-app.sh). The status line at the
@@ -21,8 +23,13 @@ var scriptDir = thisProcess.nowExecutingPath !? { |p| p.dirname }
     ?? { Looper.repoRoot +/+ "scripts" };
 var prefsPath = Platform.userAppSupportDir +/+ "megalooper-launcher.txt";
 var profileKeys, deviceOf, presentDevices, isPresent, labelFor;
-var lastUsed, startIdx;
-var win, menu, statusText, startButton, setStatus, refresh;
+var lastUsed, startIdx, saved, lastBuffer;
+var win, menu, bufferMenu, statusText, startButton, setStatus, refresh;
+// The audio buffer, in frames: nil keeps what the rig sets (64 on the duo's
+// TSMEGA, the device's own on the system's default). More frames give a slow
+// computer more time for each block, so it drops out less, and add as much
+// delay: 256 at 48 kHz are 5.3 ms each way.
+var buffers = [nil, 64, 128, 256, 512, 1024];
 var booted = false;
 // An Apple Silicon Mac running this interpreter as Intel. megalooper.app
 // starts sclang natively since tools/make-app.sh learnt to (macOS may run the
@@ -71,18 +78,20 @@ labelFor = { |key|
     (if(isPresent.(key)) { "✓  " } { "✗  " }) ++ key.asString ++ "   — " ++ deviceOf.(key)
 };
 
-// Remember the last rig across launches. A plain one-line file: this runs
-// before any Looper exists, so there is nothing heavier to hang it on.
-lastUsed = if(File.exists(prefsPath)) {
-    File.readAllString(prefsPath).stripWhiteSpace.asSymbol
-} { nil };
+// Remember the last rig and buffer across launches. A plain file, the rig on
+// its first line and the buffer on its second (a file from before has only
+// the rig): this runs before any Looper exists, so there is nothing heavier
+// to hang it on.
+saved = if(File.exists(prefsPath)) { File.readAllString(prefsPath).split($\n) } { [] };
+lastUsed = saved[0] !? { |x| x.stripWhiteSpace.asSymbol };
+lastBuffer = saved[1] !? { |x| x.stripWhiteSpace.asInteger };
 // Preference order: the rig used last, then the editor default from
 // setup-routing.scd, then whatever is actually plugged in, then slot 0.
 startIdx = profileKeys.indexOf(lastUsed)
     ?? { profileKeys.indexOf(~defaultRoutingProfile) }
     ?? { profileKeys.detectIndex { |k| isPresent.(k) } } ? 0;
 
-win = Window("megalooper", Rect(240, 320, 460, 210)).userCanClose_(true);
+win = Window("megalooper", Rect(240, 320, 460, 240)).userCanClose_(true);
 
 setStatus = { |str, isError = false|
     statusText.string_(str).stringColor_(
@@ -116,7 +125,7 @@ win.layout_(VLayout(
         .stringColor_(Color.gray(0.4))
         .align_(\left),
     HLayout(
-        StaticText().string_("Rig:").align_(\right).fixedWidth_(38),
+        StaticText().string_("Rig:").align_(\right).fixedWidth_(50),
         menu = PopUpMenu()
             .canFocus_(false)
             .toolTip_("Routing profile: which audio device carries the SC↔Live pairs.\n"
@@ -129,6 +138,16 @@ win.layout_(VLayout(
             .toolTip_("Re-scan CoreAudio for devices plugged in since this window opened.")
             .states_([["Rescan"]])
             .action_({ refresh.() })
+    ),
+    HLayout(
+        StaticText().string_("Buffer:").align_(\right).fixedWidth_(50),
+        bufferMenu = PopUpMenu()
+            .canFocus_(false)
+            .items_(buffers.collect { |n| if(n.isNil) { "as the rig sets it" } { n.asString ++ " frames" } })
+            .toolTip_("The audio buffer. On a slower computer a bigger one stops dropouts\n"
+                "(clicks, gaps) and adds delay: 256 frames at 48 kHz are 5 ms each way.\n"
+                "After a change, run the latency step on the Calibrate view,\n"
+                "so that overdubs land in time.")
     ),
     HLayout(
         startButton = Button()
@@ -145,12 +164,15 @@ win.layout_(VLayout(
                             ++ "\" is not connected.", true);
                     } {
                         booted = true;
-                        // boot.scd reads this in preference to its own default.
+                        // boot.scd reads these in preference to its own defaults.
                         ~launcherProfile = key;
-                        protect { File.use(prefsPath, "w", { |f| f.write(key.asString) }) } { };
+                        ~launcherBufferSize = buffers[bufferMenu.value];
+                        protect { File.use(prefsPath, "w", { |f|
+                            f.write(key.asString ++ "\n" ++ (~launcherBufferSize ? "").asString) }) } { };
                         startButton.states_([["Running…", Color.gray(0.35), Color.gray(0.85)]]);
                         startButton.enabled = false;
                         menu.enabled = false;
+                        bufferMenu.enabled = false;
                         setStatus.("Booting on " ++ key ++ " — windows will open shortly.");
                         // Deferred so this click returns and the label/status
                         // above actually repaint before boot.scd blocks the
@@ -162,6 +184,7 @@ win.layout_(VLayout(
                                 if(err.notNil) {
                                     booted = false;
                                     menu.enabled = true;
+                                    bufferMenu.enabled = true;
                                     startButton.enabled = true;
                                     startButton.states_([["Start megalooper",
                                         Color.white, Color.new(0.2, 0.55, 0.3)]]);
@@ -200,6 +223,7 @@ win.onClose = {
 
 menu.items = profileKeys.collect { |k| labelFor.(k) };
 menu.value = startIdx;
+bufferMenu.value = buffers.indexOf(lastBuffer) ? 0;
 refresh.();
 win.front;
 )

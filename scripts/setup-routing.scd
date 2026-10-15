@@ -361,13 +361,15 @@
 // options held before the FIRST profile was applied is kept, so a profile that
 // leaves one out boots with that rather than with whatever the previous profile
 // in this session asked for (64 frames on an aggregate Live shares is a
-// different rig).
+// different rig). The launcher's Buffer menu (~launcherBufferSize, frames)
+// goes before the profile's: a slower computer needs a bigger buffer on any
+// rig.
 ~applyServerOptions = { |rp|
     ~serverOptionsBefore = ~serverOptionsBefore ?? {
         (hardwareBufferSize: s.options.hardwareBufferSize, sampleRate: s.options.sampleRate,
             memSize: s.options.memSize)
     };
-    s.options.hardwareBufferSize = rp[\hardwareBufferSize]
+    s.options.hardwareBufferSize = ~launcherBufferSize ?? { rp[\hardwareBufferSize] }
         ?? { ~serverOptionsBefore[\hardwareBufferSize] };
     s.options.sampleRate = if(rp[\setSampleRate] == true) { rp[\sampleRate] }
         { ~serverOptionsBefore[\sampleRate] };

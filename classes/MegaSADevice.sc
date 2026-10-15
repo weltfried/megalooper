@@ -104,6 +104,17 @@ MegaSADevice {
     // The message that sets its synth's switch.
     switchMsg { |flag| ^[15, node.nodeID, this.switchName, (flag == true).binaryValue] }
 
+    // Whether its synth pauses itself while switched off (its type's
+    // `sleeps`, MegaSAFx.sleepWhenFaded).
+    sleeps { ^(this.typeRow !? { |t| t[\sleeps] == true }) ? false }
+
+    // The messages, for one bundle, that set its switch: switched on, a synth
+    // that sleeps is woken first, in the same bundle, so it runs from the
+    // block its switch goes on.
+    switchMsgs { |flag|
+        ^if((flag == true) and: { this.sleeps }) { [[12, node.nodeID, 1], this.switchMsg(true)] } { [this.switchMsg(flag)] }
+    }
+
     // Its synth went with its chain's group: nothing is sent.
     forget { node = nil }
 
@@ -128,22 +139,26 @@ MegaSADevice {
 
     setOn { |flag|
         on = flag == true;
-        node !? { this.sendToSynth(this.switchMsg(on)) };
+        node !? { this.sendToSynth(*this.switchMsgs(on)) };
         this.changed(\on, on);
     }
 
     // Whether an edit's bundles are still on their way to its synth.
     pending { ^pendingUntil > thisThread.seconds }
 
-    // A message for its synth (it has one): at once, or while an edit is
+    // Messages for its synth (it has one): at once, or while an edit is
     // pending stamped a millisecond after the last thing sent it, which moves
     // pendingUntil on, so the next edit, and the next press, land after it.
-    sendToSynth { |msg|
+    // More than one go as one bundle.
+    sendToSynth { |... msgs|
         var now = thisThread.seconds;
-        if(pendingUntil > now) {
+        case
+        { pendingUntil > now } {
             pendingUntil = pendingUntil + 0.001;
-            node.server.sendBundle(pendingUntil - now, msg);
-        } { node.server.sendMsg(*msg) };
+            node.server.sendBundle(pendingUntil - now, *msgs);
+        }
+        { msgs.size > 1 } { node.server.sendBundle(nil, *msgs) }
+        { node.server.sendMsg(*msgs[0]) };
     }
 
     // Its display name (the type's title, or the plugin's, until renamed).

@@ -180,8 +180,12 @@ Double-click it and a small window opens: pick the rig from the dropdown and
 press **Start megalooper**. A ✓ next to a profile means that rig's audio device
 is connected right now, so a missing interface is visible *before* the boot
 rather than as an aborted boot. **Rescan** re-checks CoreAudio if you plug
-something in after opening the window. The chosen rig is remembered for next
-time, and closing the window quits the app and the server.
+something in after opening the window. **Buffer** sets the audio buffer: leave
+it at *as the rig sets it*, or pick a bigger one (256 frames) on a slower
+computer that clicks or drops out. It adds as much delay (5 ms each way at
+48 kHz), so run the latency step on the Calibrate view after changing it. The
+chosen rig and buffer are remembered for next time, and closing the window
+quits the app and the server.
 
 The bundle is a thin wrapper around `scripts/launcher.scd` with the repo path
 baked in — nothing is copied, so script edits take effect on the next launch

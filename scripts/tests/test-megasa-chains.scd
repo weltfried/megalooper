@@ -132,6 +132,22 @@ MegaSAFx.keys.do { |k|
             and: { fades.every { |u| dependsOn.(def, u.inputs[0]) == [\bus] } },
         fades.collect { |u| [dependsOn.(def, u.inputs[0]), dependsOn.(def, u.inputs[2])] }.asString);
 };
+// The types that sleep (MegaSAFx.sleepWhenFaded): their synth pauses itself
+// once switched off and faded, on its switch alone. The others, which
+// remember what they play, never pause.
+~tEq.("the types that sleep while off: Envelope Filter, Drive and Crusher",
+    MegaSAFx.keys.select { |k| MegaSAFx.type(k)[\sleeps] == true }, [\filter, \saturator, \redux]);
+MegaSAFx.keys.do { |k|
+    var def = SynthDescLib.global[MegaSAFx.deviceDefName(k)] !? (_.def);
+    var pauses = def !? { |x| x.children.select { |u| u.class == PauseSelf } } ? [];
+    if(MegaSAFx.type(k)[\sleeps] == true) {
+        ~tAssert.(k ++ "'s synth pauses itself, on its switch alone",
+            (pauses.size == 1) and: { dependsOn.(def, pauses[0].inputs[0]) == [MegaSAFx.switchName(k)] },
+            pauses.collect { |u| dependsOn.(def, u.inputs[0]) }.asString);
+    } {
+        ~tEq.(k ++ "'s synth never pauses itself", pauses.size, 0);
+    };
+};
 // The width rule: the dry path is the two sides as they came, each to its
 // own; a mono type's one effect, heard from (L + R) / 2, goes to both; a
 // stereo type's sides are each their own. (On the dual-mono guitar chain a
@@ -173,9 +189,9 @@ pluginDescs.reject(_.isNil).do { |desc|
     ~tAssert.("...its dry path each side of the bus as it came (or delayed by the latency)",
         (fades.size == 2) and: { desc.def.children.detect { |u| u.class == In } !? { |inn|
             fades.every { |u, i| (u.inputs[0].class == Select) and: { u.inputs[0].inputs[1] === inn.channels[i] } } } ? false });
-    ~tAssert.("...its dry path the bus delayed by the latency, its wet path the plugin's, bypassed or not",
+    ~tAssert.("...its dry path the bus delayed by the latency, its wet path the plugin's, bypassed or not, and hard-bypassed once its switch has faded out",
         fades.notEmpty and: { fades.every { |u| (dependsOn.(desc.def, u.inputs[0]) == [\bus, \lat])
-            and: { dependsOn.(desc.def, u.inputs[1]) == [\bus, \bypass] } } },
+            and: { dependsOn.(desc.def, u.inputs[1]) == [\bus, \bypass, \on] } } },
         fades.collect { |u| [dependsOn.(desc.def, u.inputs[0]), dependsOn.(desc.def, u.inputs[1])] }.asString);
 };
 pluginDescs.reject(_.isNil).do { |desc|
@@ -215,21 +231,24 @@ fingerprint = { |bytes|
     bytes.do { |x, i| acc = (acc * 31 + x + i) % 1000000007 };
     [bytes.size, acc]
 };
+// Filter, Drive and Crusher moved 2026-10-15: they pause themselves once
+// switched off (MegaSAFx.sleepWhenFaded); the plugins' hard-bypass VSTPlugin
+// once switched off. Deliberate, and nrt-chains passes on them.
 baseline = (
     'megaSAChainIn': [216, 30983118],
     'megaSAChainCopy': [151, 298444183],
     'megaSADevNull': [144, 992001537],
     'megaSADevShifter': [3148, 917785194],
     'megaSADevDelay': [2246, 880224587],
-    'megaSADevFilter': [3912, 529894533],
+    'megaSADevFilter': [4097, 907353534],
     'megaSADevPitchLoop': [5137, 789196505],
     'megaSADevEcho': [4036, 513022876],
-    'megaSADevSaturator': [2899, 984807484],
-    'megaSADevRedux': [2719, 590131265],
-    'megaSADevPlugin11': [974, 922994887],
-    'megaSADevPlugin12': [1012, 988238537],
-    'megaSADevPlugin21': [896, 296310357],
-    'megaSADevPlugin22': [934, 65038697]
+    'megaSADevSaturator': [3088, 619047135],
+    'megaSADevRedux': [2908, 323508165],
+    'megaSADevPlugin11': [1176, 349604764],
+    'megaSADevPlugin12': [1214, 700342614],
+    'megaSADevPlugin21': [1098, 929643650],
+    'megaSADevPlugin22': [1136, 573272804]
 );
 baseline.keys.asArray.sort.do { |name|
     var desc = SynthDescLib.global[name];

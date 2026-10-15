@@ -522,6 +522,10 @@ MegaSA {
         var fx = drums !? { |d| d.fxSynth };
         if(fx.notNil) { drumsChain.build(fx, \addBefore, beatDur) } { drumsChain.build(drumGroup, \addToTail, beatDur) };
         this.prMakePlugins(drumsChain);
+        // A device switched on there (a delay's repeats) may sound with no
+        // hit, so the drums' reverb stays awake for it (MegaSADrums.prRestFx).
+        // Read at each pump: a sound may bring another chain.
+        drums !? { |d| d.stepsHeld = { drumsChain.notNil and: { drumsChain.devices.any(_.on) } } };
     }
 
     // The second half of the setup, once the Looper is up: the loop's chain
@@ -1074,12 +1078,12 @@ MegaSA {
         if(device.node.isNil) {
             this.prSend(t0, [device.newOffMsg(server, anchor, chain.bus.index, beatDur)]);
             t1 = t0 + this.class.birthGap;
-            if(device.on) { this.prSend(t1, [device.switchMsg(true)]) };
+            if(device.on) { this.prSend(t1, device.switchMsgs(true)) };
         } {
             node = device.node.nodeID;
             msgs = [[19, node, anchor.nodeID], [15, node, \bus, chain.bus.index]]
                 ++ if(device.followsTempo) { [[15, node, \beatDur, beatDur]] } { [] };
-            if(device.on) { msgs = msgs.add(device.switchMsg(true)) };
+            if(device.on) { msgs = msgs ++ device.switchMsgs(true) };
             this.prSend(t0, msgs);
             device.plugin !? { |p| tempo !? { |t| p.setTempo(t) } };
         };
@@ -1124,7 +1128,7 @@ MegaSA {
             if(device.on) { this.prSend(t0, [device.switchMsg(false)]); t1 = t0 + this.class.fadeTime };
             msgs = [[19, node, chain.anchorFor(chain.indexOf(device)).nodeID]];
             if(chain !== from) { msgs = msgs.add([15, node, \bus, chain.bus.index]) };
-            if(device.on) { msgs = msgs.add(device.switchMsg(true)) };
+            if(device.on) { msgs = msgs ++ device.switchMsgs(true) };
             this.prSend(t1, msgs);
         };
         device.pendingUntil = t1;
