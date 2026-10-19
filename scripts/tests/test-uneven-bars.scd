@@ -227,8 +227,12 @@ r = read.(take.([7, 7, 7, 9], true));
 // press; the period is the shortest the riff repeats at.
 tk = take.([7, 7, 7, 8], true);
 r = MeterAnalyzer.prUnevenPulse(tk[\dur] + 0.25, tk[\onsets] + 0.25);
-~tEq.("a take that begins with an eighth's rest: 30 pulses, the first hit on pulse 1",
-    [r[\n], r[\offset]], [30, 1]);
+~tEq.("a take that begins with an eighth's rest: 30 pulses, nothing on pulse 0, the first hit on pulse 1",
+    [r[\n], MeterAnalyzer.prPulseProfile(tk[\onsets] + 0.25, tk[\strengths], r).keep(2).collect(_.sign)], [30, [0, 1]]);
+// A grid that fits its onsets this well is trusted with the whole half eighth.
+~tAssert.("its grid fit is recorded, for the snap", r[\gridFit] >= MeterAnalyzer.snapTrustFit, r[\gridFit].asString);
+~tEqArray.("trusted, the snap may move it half an eighth (139 ms at 108 BPM), else 100 ms",
+    [Looper.snapLimitAt(108, true), Looper.snapLimitAt(108)], [15 / 108, 0.1], 1e-9);
 r = MeterAnalyzer.prBarPeriods(MeterAnalyzer.prPulseProfile(tk[\onsets], tk[\strengths],
     MeterAnalyzer.prUnevenPulse(tk[\dur], tk[\onsets])));
 ~tEq.("the riff repeats every 7 (not 14)", r[0][\m], 7);
@@ -258,4 +262,53 @@ l.offerBars([7, 7, 7, 9], 8);
 ~tEq.("bars given by hand that the detection found arm its reading, no copy",
     [l.pendingReading[\index], l.readingCount], [1, 3]);
 l.prCancelReading;
+}.value;
+
+// ---- the duo's first labelled takes (2026-10-19) ---------------------------------
+// fixtures/uneven-takes.json: two takes of the duo's own, the onsets the stage
+// heard and the bars they gave by hand. 5+5+5+8 is found from them. 7+7+7+8 is
+// every eighth played, its loudest hits off the downbeats, so the onsets carry
+// no bar line; only the notes repeat. Locked as known, to be seen when it moves.
+{
+var takes = File.readAllString(thisProcess.nowExecutingPath.dirname +/+ "fixtures" +/+ "uneven-takes.json").parseJSON;
+takes.do { |tk|
+    var dur = tk["dur"].asFloat, on = tk["onsets"].collect { |p| p[0].asFloat };
+    var st = tk["onsets"].collect { |p| p[1].asFloat }, want = tk["bars"].collect(_.asInteger), r;
+    r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(dur - on[0], on - on[0], st, leadIn: on[0]), dur);
+    if(want == [5, 5, 5, 8]) {
+        ~tEq.(tk["set"] ++ ": 5+5+5+8 from the stage's onsets", r[\bars], want);
+        ~tNear.("...its stop press 113 ms late corrected: a grid all its onsets sit on is trusted",
+            r[\loopDur], dur - 0.113, 0.01);
+    } {
+        ~tXfail.(tk["set"] ++ ": 7+7+7+8, every eighth played, found from the onsets",
+            r[\bars] != want, Looper.prReadingString(r) ++ " — the notes would tell, the onsets do not");
+    };
+};
+}.value;
+
+// ---- the label: bars given by hand count once armed --------------------------------
+// A set stopped before the next boundary logs the arming and not the landing;
+// the bars the player typed are the label all the same.
+{
+var hand = (numerator: 7, denominator: 8, k: 4, bars: [7, 7, 7, 8], bpm: 107.5, from: \hand);
+var other = (numerator: 7, denominator: 4, k: 4, bpm: 200);
+var take = (ev: "take", t: 10.0, start: 2.0, dur: 8.0, onsets: [], result: (numerator: 7, denominator: 8, k: 4,
+    error: \lengthAnchored), candidates: []);
+var x = LooperSessionRecorder.takesFrom([
+    (ev: "recordStart", t: 2.0), take,
+    (ev: "readingArmed", t: 30.0, index: 1, via: "hand", reading: hand),
+    (ev: "sessionStop", t: 31.0)])[0];
+~tEq.("armed by hand, not landed: corrected, the bars its label", [x[\outcome], x[\label][\bars], x[\byHand]],
+    [\corrected, [7, 7, 7, 8], true]);
+x = LooperSessionRecorder.takesFrom([
+    (ev: "recordStart", t: 2.0), take,
+    (ev: "readingArmed", t: 30.0, index: 1, via: "next", reading: other),
+    (ev: "sessionStop", t: 31.0)])[0];
+~tEq.("armed by the switch and not landed: no label, as before", [x[\outcome], x[\label]], [\reverted, nil]);
+x = LooperSessionRecorder.takesFrom([
+    (ev: "recordStart", t: 2.0), take,
+    (ev: "readingArmed", t: 30.0, index: 1, via: "hand", reading: hand),
+    (ev: "readingArmed", t: 31.0, index: 0, via: "revert", reading: take[\result]),
+    (ev: "sessionStop", t: 32.0)])[0];
+~tEq.("by hand, then reverted before it landed: no label", [x[\outcome], x[\label]], [\reverted, nil]);
 }.value;

@@ -1394,7 +1394,10 @@ LooperSessionRecorder {
     //   \accepted   played on as heard; `label` is the analyser's own reading,
     //               a weak label — right, or wrong and not noticed
     //   \corrected  the next-reading switch moved it; `label` is the reading it
-    //               settled on, and the analyser was wrong on this take
+    //               settled on, and the analyser was wrong on this take. Bars
+    //               given by hand (Looper.offerBars) are a label once armed:
+    //               the player said what was played, and a set stopped before
+    //               the next boundary would otherwise lose it (`byHand`)
     //   \reverted   moved and moved back: wrong, and no reading fitted, so no
     //               label — the analyser did not have the truth on its list
     //   \discarded  undone before it was played; no label
@@ -1460,13 +1463,17 @@ LooperSessionRecorder {
                     };
                 },
                 \readingArmed, {
-                    cur.value !? { |c| c[\presses] = c[\presses] + 1 };
+                    cur.value !? { |c|
+                        c[\presses] = c[\presses] + 1;
+                        c[\lastArmed] = ev;
+                    };
                 },
                 \readingLanded, {
                     cur.value !? { |c|
                         c[\settled] = ev[\index];
                         c[\settledReading] = ev[\reading];
                         c[\readings].add(ev);
+                        c[\lastArmed] = nil;
                     };
                 },
                 // An undo whose snapshot was taken with no loop playing undid a
@@ -1486,6 +1493,16 @@ LooperSessionRecorder {
             );
         };
         takes.do { |x|
+            // Bars given by hand, armed last and not landed before the take
+            // ended: what the player said was played.
+            x[\lastArmed] !? { |a|
+                if(((a[\via] ? "").asSymbol == \hand) and: { a[\reading].notNil }) {
+                    x[\settled] = a[\index] ? -1;
+                    x[\settledReading] = a[\reading];
+                    x[\byHand] = true;
+                };
+            };
+            x.removeAt(\lastArmed);
             if(x[\outcome] != \discarded) {
                 x[\outcome] = case
                     { x[\settled] != 0 } { \corrected }

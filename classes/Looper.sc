@@ -873,12 +873,15 @@ Looper {
         ^(this.prSnapCycles(r, loopSecs) * this.prCycleDur(r)) - loopSecs
     }
     // Within MeterAnalyzer.snapLimit eighths, an eighth being 30 / bpm seconds
-    // whatever the denominator, and never more than snapLimitSecs.
+    // whatever the denominator, and never more than snapLimitSecs unless the
+    // reading's grid fits its onsets that well (gridFit >= snapTrustFit).
     *prSnapFits { |r, loopSecs|
-        ^this.prSnapMove(r, loopSecs).abs <= this.snapLimitAt(r[\bpm])
+        ^this.prSnapMove(r, loopSecs).abs
+            <= this.snapLimitAt(r[\bpm], (r[\gridFit] ? 0) >= MeterAnalyzer.snapTrustFit)
     }
-    *snapLimitAt { |bpm|
-        ^(MeterAnalyzer.snapLimit * 30 / bpm).min(MeterAnalyzer.snapLimitSecs)
+    *snapLimitAt { |bpm, trusted = false|
+        var half = MeterAnalyzer.snapLimit * 30 / bpm;
+        ^if(trusted) { half } { half.min(MeterAnalyzer.snapLimitSecs) }
     }
     *prSnapToBars { |r, loopSecs|
         var cycle = MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r));
@@ -1733,7 +1736,7 @@ Looper {
         if(r.isNil) { ^nil };
         #[\numerator, \denominator, \k, \n, \sub, \tau, \bpm, \loopDur, \score,
             \error, \onsetCount, \phase, \downbeatOffset, \downbeatPhase, \accent,
-            \fromOverdub, \reading, \snapRefused, \bars, \from].do { |key|
+            \fromOverdub, \reading, \snapRefused, \bars, \from, \gridFit].do { |key|
             r[key] !? { |v| out[key] = v };
         };
         ^out

@@ -20,12 +20,18 @@ MeterAnalyzer {
     // cut 159 ms off), while the hand on the switch is the same at any tempo.
     classvar <snapLimit = 0.5;
     classvar <snapLimitSecs = 0.1;
+    // ...unless the reading's grid is that good: a reading whose onsets sit on
+    // its pulse this often (`gridFit`, the uneven bars' grid) may be snapped by
+    // the whole half eighth. A stop press 113 ms late on the duo's first
+    // 5+5+5+8 (all its onsets on the grid) is the hand, not a wrong reading.
+    classvar <snapTrustFit = 0.9;
     // Uneven bars, detected (analyzeUneven). Settable for the sweeps the
     // duo's labelled takes will allow; tuned so far on synthetic takes only.
     //   unevenPulse     the pulse it looks for, seconds: an eighth at 220 to a
     //                   quarter at 80 BPM
     //   unevenBar       the common bar, in pulses
-    //   unevenMaxDev    how far an odd bar may be from it, in pulses
+    //   unevenMaxDev    how far an odd bar may be from it, in pulses (the duo's
+    //                   5+5+5+8 is +3)
     //   unevenAcFloor   how clearly the riff must repeat at the bar's period
     //                   (the autocorrelation of the pulse profile there)
     //   unevenFitFloor  how alike the bars must be (cosine with their fold)
@@ -34,12 +40,15 @@ MeterAnalyzer {
     //   unevenTwoOddCost two odd bars in a loop, which they rarely play
     classvar <>unevenPulse = #[0.13, 0.75];
     classvar <>unevenBar = #[4, 16];
-    classvar <>unevenMaxDev = 2;
+    classvar <>unevenMaxDev = 4;
     classvar <>unevenAcFloor = 0.3;
     classvar <>unevenFitFloor = 0.6;
     classvar <>unevenAccent = 0.25;
     classvar <>unevenLastBonus = 0.05;
     classvar <>unevenTwoOddCost = 0.15;
+    //   unevenDevCost   per pulse an odd bar is off: the nearer barring wins
+    //                   a near tie (5+5+5+4, not 5+5+9)
+    classvar <>unevenDevCost = 0.03;
     //   unevenOnsetSecs the pulse's onset tolerance in seconds as well: a
     //                   fifth of a slow pulse is ~100 ms, which sparse hits
     //                   meet on a wrong grid (7+7+7+6 came out 4+4+4+3/4)
@@ -318,17 +327,23 @@ MeterAnalyzer {
     //      bars are (each against their fold), the hits on their bar lines,
     //      an odd bar last a little up and two odd bars down.
     *analyzeUneven { |fullDur, onsets, strengths|
-        var pulse, prof, periods, scored, readings, seen;
+        var pulse, prof, profC, periods, scored, readings, seen;
         if(onsets.size < 4 or: { fullDur.isNil } or: { fullDur <= 0 }) { ^nil };
         pulse = this.prUnevenPulse(fullDur, onsets);
         if(pulse.isNil) { ^nil };
+        // Two profiles of the same hits: compressed, where that a hit is there
+        // counts most (the period: one loud hit drowned the riff's), and raw
+        // (the bar lines: compressed, every eighth of a dense take looks alike).
         prof = this.prPulseProfile(onsets, strengths, pulse);
-        periods = this.prBarPeriods(prof);
+        periods = this.prBarPeriods(this.prPulseProfile(onsets, strengths, pulse, true));
+        this.prBarPeriods(prof).do { |per|
+            if(periods.any { |x| x[\m] == per[\m] }.not) { periods = periods.add(per) } };
         if(periods.isEmpty) { ^nil };
         scored = List.new;
+        profC = this.prPulseProfile(onsets, strengths, pulse, true);
         periods.do { |per|
             this.prBarHypotheses(pulse[\n], per[\m]).do { |bars|
-                scored.add(this.prScoreBars(prof, bars, per[\m]).put(\bars, bars).put(\ac, per[\ac]));
+                scored.add(this.prScoreBars(profC, prof, bars, per[\m]).put(\bars, bars).put(\ac, per[\ac]));
             };
         };
         scored = scored.asArray.sort { |a, b| a[\score] >= b[\score] };
@@ -350,44 +365,84 @@ MeterAnalyzer {
 
     *prAllAlike { |bars| ^bars.every { |b| b == bars[0] } }
 
-    // The coarsest pulse grid over the take that the onsets fit and whose
-    // length meets the take's within half a pulse, never more than the
-    // snap's seconds (else the snap would refuse it). The grid is fitted from
-    // the first onset, as analyze fits its meters: an onset detector reports
-    // every hit some milliseconds late, which a grid through the press would
-    // take for timing errors. `offset` is the first onset's pulse from the
-    // press (0 unless the take begins with a rest). (n:, tau:, offset:) or nil.
+    // The coarsest pulse grid over the take that the onsets fit, and whose n
+    // pulses meet the take's length within half a pulse (the stop press).
+    // The grid is t = phase + p * tau, both fitted (prPhaseFit): an onset
+    // detector reports every hit some milliseconds late, and a player sits
+    // behind or ahead of the beat, which a grid pinned to the press or to
+    // the first onset (a faint click at the press, on the duo's first takes)
+    // takes for timing errors. `phase` is wrapped to within half a pulse of
+    // the press, so a take that begins with a rest counts its first hit from
+    // pulse 1. `gridFit` is the share of onsets on the grid, for the snap
+    // (Looper.prSnapFits trusts a grid this good with half a pulse).
+    // (n:, tau:, phase:, gridFit:) or nil.
     *prUnevenPulse { |fullDur, onsets|
         var nLo = (fullDur / unevenPulse[1]).ceil.asInteger.max(4);
         var nHi = (fullDur / unevenPulse[0]).floor.asInteger.min(maxN);
-        var lead = onsets[0], rel = onsets - onsets[0];
         // (a..b) counts DOWN when a > b: no grid in range is no pulse.
         if(nLo > nHi) { ^nil };
         (nLo..nHi).do { |n|
-            var tau = this.fitTau(fullDur, n, rel), errs, tol;
-            if(((tau * n) - fullDur).abs <= (tau * 0.5).min(snapLimitSecs)) {
+            var fit = this.prPhaseFit(fullDur / n, onsets), tau = fit[0], phi = fit[1];
+            var errs, tol, share;
+            if(((tau * n) - fullDur).abs <= (tau * 0.5)) {
                 // scorePulse's gates, with the tolerance in seconds capped.
-                errs = rel.collect { |t| (t - ((t / tau).round * tau)).abs };
+                errs = onsets.collect { |t| ((t - phi) - (((t - phi) / tau).round * tau)).abs };
                 tol = (onsetTolerance * tau).min(unevenOnsetSecs);
-                if(((errs.count { |e| e < tol } / errs.size) >= fitThreshold)
-                    and: { (errs.mean / tau) <= errThreshold }) {
-                    ^(n: n, tau: tau, offset: (lead / tau).round.asInteger)
+                share = errs.count { |e| e < tol } / errs.size;
+                if((share >= fitThreshold) and: { (errs.mean / tau) <= errThreshold }) {
+                    ^(n: n, tau: tau, phase: phi - ((phi / tau).round * tau), gridFit: share)
                 };
             };
         };
         ^nil
     }
 
+    // Least squares for t = phase + p * tau with p the nearest pulse, four
+    // rounds from tau0 and the first onset. [tau, phase].
+    *prPhaseFit { |tau0, onsets|
+        var tau = tau0, phi = onsets[0], nn = onsets.size, ps, sp, spp, st, spt, den;
+        4.do {
+            ps = onsets.collect { |t| ((t - phi) / tau).round };
+            sp = ps.sum;
+            spp = (ps * ps).sum;
+            st = onsets.sum;
+            spt = (ps * onsets).sum;
+            den = (nn * spp) - (sp * sp);
+            if(den.abs > 1e-12) {
+                tau = ((nn * spt) - (sp * st)) / den;
+                phi = (st - (tau * sp)) / nn;
+            };
+        };
+        ^[tau, phi]
+    }
+
     // The onsets on the grid, counted from the press: per pulse the sum of
     // their strengths (1 each with none given), the loop's end wrapping to
     // its start.
-    *prPulseProfile { |onsets, strengths, pulse|
+    *prPulseProfile { |onsets, strengths, pulse, compressed = false|
         var tau = pulse[\tau], n = pulse[\n], prof = Array.fill(n, 0.0);
+        var ref = this.prStrengthRef(strengths);
         onsets.do { |t, i|
-            var p = (((t - onsets[0]) / tau).round.asInteger + pulse[\offset]) % n;
-            prof[p] = prof[p] + (if(strengths.isNil) { 1 } { (strengths[i] ? 0).max(0) });
+            var p = ((t - pulse[\phase]) / tau).round.asInteger % n;
+            var s = strengths !? { |x| x[i] };
+            prof[p] = prof[p] + if(compressed) { this.prCompress(s, ref) } { (s ? 1).max(0) };
         };
         ^prof
+    }
+
+    // A hit's weight in the compressed profile: log(1 + strength / ref), ref a tenth of
+    // the take's median strength, 1 with no strengths. Raw strengths span 50:1
+    // on the duo's guitar (0.01 to 0.54 in one take), so one loud hit drowned
+    // the riff's period (9 instead of 5 on their 5+5+5+8); compressed, that
+    // there IS a hit counts most and how loud a little.
+    *prCompress { |s, ref|
+        if(s.isNil) { ^1 };
+        ^(1 + (s.max(0) / ref)).log
+    }
+    *prStrengthRef { |strengths|
+        var nz = (strengths ? []).select { |s| s > 0 };
+        if(nz.isEmpty) { ^1 };
+        ^(nz.asArray.sort[nz.size div: 2] * 0.1).max(1e-6)
     }
 
     // The periods the riff repeats at, in pulses: the autocorrelation of the
@@ -449,11 +504,12 @@ MeterAnalyzer {
         ^out.asArray
     }
 
-    // One barring against the profile: how alike its bars are (each bar's
-    // first m pulses against the mean of all of them, by cosine), how strong
-    // the hits on its bar lines are (against the profile's mean), and the
-    // priors. (score:, fit:, accent:).
-    *prScoreBars { |prof, bars, m|
+    // One barring against the profiles: how alike its bars are (each bar's
+    // first m pulses against the mean of all of them, by cosine, on the
+    // compressed profile `prof`: which eighths are played), how strong the
+    // hits on its bar lines are (on the raw one, `loud`, against its mean),
+    // and the priors. (score:, fit:, accent:).
+    *prScoreBars { |prof, loud, bars, m|
         var starts = bars.inject([0], { |acc, b| acc.add(acc.last + b) }).drop(-1);
         var ref = Array.fill(m, 0.0), cnt = Array.fill(m, 0), fit, accent, odd, score;
         var cosine = { |a, b|
@@ -471,11 +527,12 @@ MeterAnalyzer {
             var w = len.min(m);
             cosine.(Array.fill(w, { |j| prof[(starts[b] + j) % prof.size] }), ref.keep(w))
         }.mean;
-        accent = starts.collect { |s| prof[s] }.mean / prof.mean.max(1e-9);
+        accent = starts.collect { |s| loud[s] }.mean / loud.mean.max(1e-9);
         odd = bars.count { |b| b != m };
         score = fit + (accent.min(3) * unevenAccent)
             + (if((odd == 1) and: { bars.last != m }) { unevenLastBonus } { 0 })
-            - (if(odd >= 2) { unevenTwoOddCost } { 0 });
+            - (if(odd >= 2) { unevenTwoOddCost } { 0 })
+            - (bars.sum { |b| (b - m).abs } * unevenDevCost);
         ^(score: score, fit: fit, accent: accent)
     }
 
@@ -491,7 +548,7 @@ MeterAnalyzer {
             if((bpm >= bpmRangeLo) and: { bpm <= bpmRangeHi }) {
                 r = (denominator: den, sub: sub, tau: tau, bpm: bpm, loopDur: pulse[\n] * tau,
                     phase: 0, downbeatOffset: 0, accent: h[\accent], onsetCount: onsetCount,
-                    unevenFit: h[\fit],
+                    unevenFit: h[\fit], gridFit: pulse[\gridFit],
                     unevenScore: h[\score] - ((bpm.log - preferredBpm.log).abs * 0.2) - ((sub - 1) * 0.5));
                 out.add(this.putBars(r, (h[\bars] / sub).collect(_.asInteger)));
             };

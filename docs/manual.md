@@ -1649,9 +1649,12 @@ and everything that counts bars follows them:
 **Found by the analyser.** After a first take the analyser also looks for
 uneven bars (`MeterAnalyzer.analyzeUneven`): the pulse that fits the onsets over
 the whole take, the period at which the riff repeats, then every way of
-barring the take into bars of that period with one or two of them up to two
-pulses longer or shorter, scored by how alike the bars are and how strong the
-hits on their bar lines, an odd bar last a little ahead. When no ordinary meter
+barring the take into bars of that period with one or two of them up to four
+pulses longer or shorter, scored by how alike the bars are (which eighths are
+played) and how strong the hits on their bar lines, an odd bar last a little
+ahead. It needs a riff whose rhythm repeats: a take that plays every eighth,
+its accents off the downbeats, shows no bar line in its onsets at all (the
+duo's first 7+7+7+8 was one), and then gives the bars by hand. When no ordinary meter
 fits the take (29 eighths fit none), its answer is the take's reading instead
 of the fallback. When one does (7+7+7+9 is also three bars of 5/4), the meter
 stays the answer and the uneven bars come **second**, one press of the
@@ -1668,7 +1671,8 @@ passes through it, and **Revert** goes back to the analyser's answer. Bars the
 analyser already offers are armed as they are.
 
 **Labelled takes.** With **Record set** on, a take whose bars were given by
-hand (or reached with the switch) keeps them as its label in the set's log, and
+hand keeps them as its label in the set's log, even when the set stops before
+they land; one moved with the switch keeps the reading it landed on. And
 `scripts/replay-session.scd` scores today's analyser against them. That is how
 the detection gets tuned on real playing.
 
