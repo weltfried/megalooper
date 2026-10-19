@@ -1613,6 +1613,48 @@ The accent term is *additive*. When no strengths are supplied, or the playing
 has no dynamic accents, it contributes nothing and scoring falls back to the
 prior-only behavior, so previously-working results are unchanged.
 
+### Snapping to whole bars
+
+Once the take has a reading, `Looper.snapAnalysisToLoop` makes the loop a whole
+number of its bars, which mends a stop press that came a little early or late.
+It may move the loop by **half an eighth at most, and never more than 100 ms**
+(`MeterAnalyzer.snapLimit`, `snapLimitSecs`). Further than that is not the
+hand: it is a bar that was played longer or shorter, like the 8/8 that ends
+7/8 7/8 7/8 8/8, and rounding it away would cut it off. A reading that would
+move the loop further gives way to the best reading that does not, and with none
+the take is length-anchored at its own length. Readings that would move it are
+not offered by the next-reading switch. The Post window says when this happens,
+and the take's log has it as `snapRefused`.
+
+### Uneven bars
+
+A loop can be bars that are not all alike: three of 7/8 and one of 8/8, say,
+written `7+7+7+8/8`. A reading like that carries its bars (`bars: [7, 7, 7, 8]`,
+in units of the denominator; `numerator` is the commonest bar, `k` the count),
+and everything that counts bars follows them:
+
+- **The bar grid and the counter.** The fourth bar is drawn an eighth longer, and
+  the counter goes `BAR 4/4 · BEAT 8/8` there.
+- **The drums.** With Auto Retrigger on, as in the set, the step lanes start
+  again on the first step of every bar, so a 7/8 bar plays 14 steps of a
+  16-step lane and the 8/8 bar all 16. This is new for even bars too: Live's
+  device waited for "pseudo-bars" of *numerator* quarter notes, so in plain 7/8 a
+  lane used to reshape itself over four bars. `MegaSADrums.retrigAt = \live`
+  (on `~megaSA.drums`) brings Live's way back.
+- **The click** accents every bar line; **the snap** makes a loop whole cycles of
+  the bars, never whole bars of 7/8; **the dissolve** counts the mean bar.
+- **Live**, where it is used, is sent one bar per cycle (`29/8`), so its bar line
+  still meets the loop's.
+
+The analyser does not find uneven bars yet. Until it does, give them by hand:
+on the Analysis tab, **Bars by hand**, type one cycle (`7 7 7 8`), choose the
+denominator and press **Set bars**. The loop's length sets the tempo, and the
+reading in force decides how many cycles the loop holds. The reading lands on the
+next loop boundary like the next reading; the header says **TAKE · BARS BY HAND**,
+the next-reading switch passes through it, and **Revert** goes back to the
+analyser's answer. The session recorder still names files and writes the drums'
+MIDI file with the commonest bar (7/8).
+
 ## Exporting training data
 
 The analyzer is only as good as the data it is tuned against, so the GUI can

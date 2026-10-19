@@ -684,12 +684,15 @@ alignment = { |label, bpm, num, den, withBreak|
         offRoll.every { |x| x.abs <= 1 }, histoStr.(histo.(offRoll)));
     // scsynth rounds a bundle's time to the nearest sample of its block, and
     // a time in the block's last half sample rounds to 64, which it clamps to
-    // 63: such a hit starts one sample early.
+    // 63: such a hit starts one sample early. A time ON a half sample (to
+    // 1e-4, as the steps of 7/8 here can be) rounds either way: which, the
+    // OSC time tag's last bit decides, not the stamp this side computed.
     ties.do { |t| say.("off its stamp's sample: " ++ t[0] ++ " " ++ t[1] ++ ", stamped " ++ t[2]
         ++ " samples into its block, by " ++ t[3]) };
     check.(label ++ ": every hit starts on the sample its stamp rounds to (OffsetOut, through the effects), "
         ++ "but in a block's last half sample, which scsynth clamps one early",
-        offStamp.notEmpty and: { ties.every { |t| (t[2] >= (block - 0.5)) and: { t[3] == -1 } } },
+        offStamp.notEmpty and: { ties.every { |t| ((t[2] >= (block - 0.5)) and: { t[3] == -1 })
+            or: { ((t[2].frac - 0.5).abs < 1e-3) and: { t[3].abs == 1 } } } },
         histoStr.(histo.(offStamp)));
     if(withBreak) {
         check.(label ++ ": through the break the \\break pattern alone plays, the main pattern on either side",

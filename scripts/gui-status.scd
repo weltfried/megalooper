@@ -165,10 +165,17 @@
         t[\line] = "no meter";
     }
     {
-        t[\sig] = r[\numerator].asString ++ "/" ++ r[\denominator];
+        t[\sig] = MeterAnalyzer.sigString(r);
         t[\bpm] = (r[\bpm] ? 0).round(0.1).asString;
         t[\bars] = (r[\k] ? 1).asString;
-        t[\line] = t[\sig] ++ " · " ++ t[\bpm] ++ " · " ++ t[\bars] ++ " bar" ++ (if((r[\k] ? 1) > 1) { "s" } { "" });
+        // Uneven bars spell their own count (7+7+7+8 is four), so the strip
+        // gives the cycles instead, and only when there are more than one.
+        t[\line] = if(MeterAnalyzer.isUneven(r)) {
+            t[\sig] ++ { |c| if(c > 1) { " ×" ++ c } { "" } }.((r[\k] ? 1)
+                div: MeterAnalyzer.cycleOf(r[\bars]).size.max(1)) ++ " · " ++ t[\bpm]
+        } {
+            t[\sig] ++ " · " ++ t[\bpm] ++ " · " ++ t[\bars] ++ " bar" ++ (if((r[\k] ? 1) > 1) { "s" } { "" })
+        };
         case
         { r[\error] == \lengthAnchored } {
             t[\head] = "TAKE · ANCHORED";
@@ -183,14 +190,15 @@
             t[\hint] = "Lands on the loop boundary where Live's bar line agrees";
         }
         { l.readingIndex > 0 } {
-            t[\head] = "TAKE · READING " ++ (l.readingIndex + 1) ++ "/" ++ n;
+            t[\head] = if(r[\from] == \hand) { "TAKE · BARS BY HAND" }
+                { "TAKE · READING " ++ (l.readingIndex + 1) ++ "/" ++ n };
             t[\chip] = "reading " ++ (l.readingIndex + 1) ++ "/" ++ n;
             t[\hint] = "A again for the next one. It wraps round to the analyser's own.";
         }
         { (l.readingMargin ? 1) < 0.1 } {
             up = l.runnerUp;
             t[\head] = "TAKE · DETECTED";
-            t[\chip] = up !? { |u| "or " ++ u[\numerator] ++ "/" ++ u[\denominator]
+            t[\chip] = up !? { |u| "or " ++ MeterAnalyzer.sigString(u)
                 ++ " @ " ++ (u[\bpm] ? 0).round(0.1) ++ "?" };
             t[\hint] = "Close call: press A or "
                 ++ (~midiWords.('looper.nextReading') ? "its footswitch") ++ " for the next reading";
@@ -208,12 +216,19 @@
     var set = { |v, str| v !? { if(v.isClosed.not) { v.string_(str) } } };
     set.(~guiTakeHead, t[\head]);
     set.(~guiTakeSig, t[\sig]);
+    // 84 pt holds nine characters (7+7+7+8/8); a longer cycle of uneven bars
+    // gets smaller rather than push the tempo and the bars out of the band.
+    ~guiTakeSig !? { |v| if(v.isClosed.not) {
+        v.font_(~guiSans.((84 * 9 / t[\sig].size.max(9)).round.max(36), true)) } };
     set.(~guiTakeBpm, t[\bpm]);
     set.(~guiTakeBars, t[\bars]);
     set.(~guiReadingHint, t[\hint]);
     ~guiReadingHint !? { |v| if(v.isClosed.not) { v.toolTip_(t[\hint] ? "") } };
+    // The strip's 22 pt holds 20 characters (7/8 · 108.3 · 4 bars); a long
+    // cycle of uneven bars gets smaller to keep its tempo in view.
     ~guiTakeLabel !? { |v|
-        if(v.isClosed.not) { v.string_(t[\line]).toolTip_(~guiTakeString.()) };
+        if(v.isClosed.not) { v.string_(t[\line]).toolTip_(~guiTakeString.())
+            .font_(~guiSans.((22 * 20 / t[\line].size.max(20)).round.max(14), true)) };
     };
     ~guiReadingChipBox !? { |box|
         if(box.isClosed.not) {
@@ -241,11 +256,13 @@
     var b = v.bounds, w = b.width, h = b.height, top = ~statusGridInset, gh = h - (2 * ~statusGridInset);
     var l = ~looper, pos = ~guiLoopPos, phase = ~guiLoopPhase;
     var st = (l !? { |x| x.state }) ? \empty;
-    var bars = pos !? { |p| p[\barCount] }, bpb = pos !? { |p| p[\beatsPerBar] };
+    // The length of every bar in beats (Looper.loopPositionAt): 7 7 7 8 draws
+    // its fourth bar an eighth longer.
+    var lens = pos !? { |p| p[\bars] };
     var frac = (pos !? { |p| p[\fraction] }) ? 0;
     var running = phase.notNil and: { (st == \playing) or: { st == \overdubbing } };
     var brk = l.notNil and: { l.onBreak };
-    var n, bi, cw, x, cur, ink, i, text, stripe;
+    var n, bi, cw, x, cur, ink, i, text, stripe, starts, inBar;
     Pen.fillColor = ~gt[\panel];
     Pen.addRect(Rect(0, top, w, gh));
     Pen.fill;
@@ -265,8 +282,10 @@
                 if(st == \recording) { ~gt[\rec] } { ~gt[\mute] }, QAlignment(\left));
         };
     } {
-        if(bars.notNil and: { bpb.notNil } and: { (bars * bpb) > 0 }) {
-            n = bars * bpb;
+        if(lens.notNil and: { lens.notEmpty } and: { lens.sum > 0 }) {
+            n = lens.sum;
+            starts = lens.inject([0], { |acc, b| acc.add(acc.last + b) }).drop(-1);
+            inBar = lens.collect { |b| (1..b) }.flatten;
             cw = w / n;
             bi = (frac * n).floor.asInteger.clip(0, n - 1);
             cur = if(st == \overdubbing) { ~gt[\dub] } { ~gt[\play] };
@@ -298,10 +317,10 @@
             // The beat lines, then the bar lines over them: a bar line is a
             // beat line too, and drawing the heavy one second means it wins.
             Pen.fillColor = ~gt[\line];
-            n.do { |k| if((k % bpb) != 0) { Pen.addRect(Rect((cw * k).round, top, 1, gh)) } };
+            n.do { |k| if(inBar[k] != 1) { Pen.addRect(Rect((cw * k).round, top, 1, gh)) } };
             Pen.fill;
             Pen.fillColor = ~gt[\ink];
-            bars.do { |k| if(k > 0) { Pen.addRect(Rect(((cw * k * bpb) - 1).round, top, 3, gh)) } };
+            starts.do { |k| if(k > 0) { Pen.addRect(Rect(((cw * k) - 1).round, top, 3, gh)) } };
             Pen.fill;
             // The beat numbers, where a cell can hold one: a multiplied loop
             // of hundreds of beats shows its lines alone.
@@ -309,7 +328,7 @@
                 text = ~guiMono.(11, true);
                 n.do { |k|
                     ink = if(running and: { k == bi } and: { brk.not }) { ~gt[\onacc] } { ~gt[\mute] };
-                    Pen.stringAtPoint(((k % bpb) + 1).asString, Point((cw * k) + 6, top + gh - 18), text, ink);
+                    Pen.stringAtPoint(inBar[k].asString, Point((cw * k) + 6, top + gh - 18), text, ink);
                 };
             };
         } {

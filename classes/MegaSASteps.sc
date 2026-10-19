@@ -38,6 +38,7 @@
 //   skip n if skipsStep(n, s, v, shuffleLength)    (Live plays only the later one)
 //   tick  = fireTick(n, s, v, shuffleLength)       when it fires, from the origin
 //   state = resync(state, n, tick, numerator, autoRetrigger, autoTriggerRate)
+//           (Live's rule; SA's default, resyncAtBar, takes the bar step n is in)
 //   hits  = decideStep(pattern, n - state[\offset],
 //               { |lane, kind| dice(seed, which, n, lane, kind) })
 //
@@ -185,6 +186,28 @@ MegaSASteps {
                 and: { (b % ((autoTriggerRate ? 0).asInteger.max(0) + 1)) == 0 }) { armed = true };
         };
         if(armed and: { (n % 8) == 0 }) { offset = n; armed = false };
+        ^(lastB: lastB, armed: armed, offset: offset)
+    }
+
+    // Auto Retrigger on the real bar lines (MegaSADrums.retrigAt \barLine): the
+    // same state, but `bar` is the bar step n is in (counted from the origin,
+    // uneven bars too), and the lanes start again ON the step where it changes,
+    // not on the next multiple of 8. Every rateth bar, as in resync: B a
+    // multiple of autoTriggerRate + 1. An armed state (Live's resync on the
+    // first time-shift edit) resyncs on the next bar line even with Auto
+    // Retrigger off. At the origin lastB is nil, so step 0 resyncs.
+    *resyncAtBar { |state, n, bar, autoRetrigger, autoTriggerRate|
+        var lastB = state !? { |st| st[\lastB] };
+        var armed = (state !? { |st| st[\armed] }) == true;
+        var offset = (state !? { |st| st[\offset] }) ? 0;
+        if(bar != lastB) {
+            lastB = bar;
+            if(armed or: { (autoRetrigger == true)
+                and: { (bar % ((autoTriggerRate ? 0).asInteger.max(0) + 1)) == 0 } }) {
+                offset = n;
+                armed = false;
+            };
+        };
         ^(lastB: lastB, armed: armed, offset: offset)
     }
 
@@ -562,10 +585,11 @@ MegaSASteps {
             (name: \autoRetrigger, label: "Retrig", bool: true,
                 spec: ControlSpec(0, 1, \lin, 1, live[\autoRetrigger].binaryValue),
                 choices: [[0, "Off"], [1, "On"]],
-                tip: "Automatically resyncs all sequences, every Auto Trigger Rate. On in the set:\n"
-                    "the lanes start again on the first step that is a multiple of 8 after every\n"
-                    "pseudo-bar of <numerator> quarter notes, so in 7/8 a 16-step lane reshapes\n"
-                    "itself over four bars, as in Live."),
+                tip: "Automatically resyncs all sequences, every Auto Trigger Rate. On in the set.\n"
+                    "The lanes start again on the first step of every bar, uneven bars too, so\n"
+                    "in 7/8 a 16-step lane plays 14 steps a bar and an 8/8 bar all 16. Live's\n"
+                    "device waited for pseudo-bars of <numerator> quarter notes instead\n"
+                    "(MegaSADrums.retrigAt = \\live)."),
             (name: \autoTriggerRate, label: "Retrig Rate",
                 spec: ControlSpec(0, 3, \lin, 1, live[\autoTriggerRate]),
                 choices: this.autoTriggerRateLabels.collect { |l, i| [i, l] },

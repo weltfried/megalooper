@@ -2286,6 +2286,35 @@ voices = voicesFrom.(n);
     [at.collect(_[1]), (at.first !? { |x| voices.notNil and: { x[0] < voices } }) ? false], [[[12, 901, 1]], true]);
 }.value;
 
+// ------------------------------------------------ uneven bars, on the bar lines --
+// 7 7 7 8 over 8 at 120 BPM: 58 16ths of 0.125 s, a loop of 7.25 s. With Auto
+// Retrigger on, as in the set, SA's lanes start again on every bar line (lane
+// step 0 at 16ths 0, 14, 28, 42 and the next loop's 58), so a 7/8 bar plays
+// its lane to step 13 and the 8/8 bar to 15. Live's rule (\live) does not.
+{
+var go = { |mode|
+    var fx = ~dsMake.(90.0, 7.25), d = fx[\drums], b = 97.25, ls;
+    ~tPut.(fx[\looper], \lastResult, (numerator: 7, denominator: 8, k: 4, bars: [7, 7, 7, 8],
+        sub: 1, tau: 0.25, bpm: 120, loopDur: 7.25));
+    ~dsPlain.(d, \main, (3: ~dsEvery));
+    d.setParam(\main, \autoRetrigger, true);
+    d.retrigAt = mode;
+    ~dsStart.(fx, b);
+    // Asked as the run goes: the playhead keeps the recent steps only.
+    ls = [0, 13, 14, 27, 28, 41, 42, 57, 58].collect { |n|
+        ~dsRun.(fx, b + (n * 0.125) + 0.2);
+        d.playheadAt(b + (n * 0.125) + 1e-6) !? { |p| p[\ls] }
+    };
+    ~dsRun.(fx, b + 7.25 + 1.0);
+    [ls, ~dsGrid.(~dsOf.(~dsSounding.(fx[\log]), 36)).select { |t| t < (b + 7.25 - 1e-6) }.size]
+};
+var bar = go.(\barLine), live = go.(\live);
+~tEq.("on the bar lines: lane step 0 on every bar, 13 at a 7/8 bar's end, 15 at the 8/8's",
+    bar[0], [0, 13, 0, 13, 0, 13, 0, 15, 0]);
+~tEq.("...every 16th of the loop sounds the kick, 58 of them", bar[1], 58);
+~tAssert.("Live's rule walks on past the second bar line", live[0][2] != 0, live[0].asString);
+}.value;
+
 ~dsDropKits.();
 [\dsDir, \dsMakeKits, \dsDropKits, \dsReader, \dsMake, \dsMakeGap, \dsEvery, \dsPlain, \dsStart, \dsRun, \dsHits,
     \dsVoices, \dsVoicesSounding, \dsVoiceKey, \dsVoiceKeys, \dsSounding, \dsOf, \dsGrid, \dsKey, \dsKeys,

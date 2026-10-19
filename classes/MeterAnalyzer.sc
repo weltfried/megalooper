@@ -8,6 +8,18 @@ MeterAnalyzer {
     classvar <maxK = 4;
     classvar <maxN = 128;
     classvar <loopTolerance = 0.10;
+    // The most Looper.snapAnalysisToLoop may move a take's length to make it
+    // whole bars, in EIGHTHS at the reading's tempo. Half an eighth is the
+    // nearest eighth: closer than that to the reading's bar line it is the stop
+    // press (good to about ±60–80 ms, docs/dev/meter-perception.md), further it
+    // is an eighth that was played — the long bar of 7+7+7+8, which a 7/8
+    // reading would cut off. loopTolerance is no such guard: it is relative,
+    // and lets a wrong reading move a ten-second take by a second.
+    // snapLimitSecs caps it: the eighth is the READING's, and a wrong slow
+    // reading has a long one (a sparse 5+5+5+6 read as 12/8 at 63 BPM was let
+    // cut 159 ms off), while the hand on the switch is the same at any tempo.
+    classvar <snapLimit = 0.5;
+    classvar <snapLimitSecs = 0.1;
     classvar <accentWeight = 0.5;
     // How many ranked readings analyze() returns beside its answer, best
     // first. See prRankCandidates. Settable so an offline sweep can ask for
@@ -176,6 +188,81 @@ MeterAnalyzer {
             n: n, tau: tau, k: bars, sub: 1,
             loopDur: loopDur, phase: 0, downbeatOffset: 0, accent: 0,
             onsetCount: onsetCount, error: \lengthAnchored)
+    }
+
+    // ---- Uneven bars ---------------------------------------------------------
+    // A reading whose bars are not all alike carries them: `bars`, one entry
+    // per bar of the loop in denominator units, [7, 7, 7, 8] for three bars of
+    // 7/8 and one of 8/8. `numerator` is then the commonest bar (the first of
+    // the commonest on a tie), `k` the number of bars, and the invariant is
+    // loopDur == tau * sub * (the sum of the bars). A reading whose bars ARE
+    // alike has no `bars` key and k bars of its numerator, as every reading had
+    // before, so the code that only knows numerator and k is right for it.
+    // Read the bars through these, never `numerator * k`.
+
+    // The bars of a reading, one per bar of the loop.
+    *barsOf { |r|
+        if(r.isNil) { ^[4] };
+        ^r[\bars] ?? { Array.fill((r[\k] ? 1).asInteger.max(1), (r[\numerator] ? 4).asInteger.max(1)) }
+    }
+
+    // Denominator units in the loop: what numerator * k is for even bars.
+    *unitsOf { |r| ^this.barsOf(r).sum }
+
+    *isUneven { |r| ^r.notNil and: { r[\bars].notNil } }
+
+    // The shortest run of bars whose repetition is the whole list: [7, 7, 7, 8]
+    // for a multiplied 7 7 7 8 7 7 7 8, [7] for four bars of 7/8.
+    *cycleOf { |bars|
+        var size = bars.size;
+        var p = (1..size.max(1)).detect { |len|
+            ((size % len) == 0) and: { bars.every { |b, i| b == bars[i % len] } } };
+        ^bars.keep(p ? size)
+    }
+
+    // "7/8", or for uneven bars the cycle's: "7+7+7+8/8".
+    *sigString { |r|
+        if(r.isNil or: { r[\denominator].isNil }) { ^"—" };
+        ^if(this.isUneven(r)) { this.cycleOf(r[\bars]).join("+") } { r[\numerator].asString }
+            ++ "/" ++ r[\denominator]
+    }
+
+    // `r` with these bars: k, numerator and n from them, and `bars` only when
+    // they differ (all alike, the key goes). Changes r and answers it; the
+    // pulse and the length are the caller's.
+    *putBars { |r, bars|
+        bars = bars.asArray.collect { |b| b.asInteger.max(1) };
+        if(bars.isEmpty) { ^r };
+        if(bars.every { |b| b == bars[0] }) {
+            r.removeAt(\bars);
+            r[\numerator] = bars[0];
+        } {
+            r[\bars] = bars;
+            r[\numerator] = bars.maxItem { |b| bars.occurrencesOf(b) };
+        };
+        r[\k] = bars.size;
+        r[\n] = bars.sum * (r[\sub] ? 1);
+        ^r
+    }
+
+    // A reading of `bars` (one cycle, in units of 1/denom) over exactly
+    // loopDur: as many cycles as put the tempo nearest `nearBpm` (the reading
+    // in force, when there is one; else preferredBpm), the pulse the length
+    // over the units. Not detected: `from: \hand` says the player gave it.
+    *readingOfBars { |loopDur, bars, denom, nearBpm, onsetCount = 0|
+        var cycle = bars.asArray.collect { |b| b.asInteger.max(1) };
+        var units = cycle.sum, ref = (nearBpm ? preferredBpm), best = 1, bestErr = inf, tau, r;
+        (1..maxFallbackBars).do { |c|
+            var bpm = 240 * units * c / (denom * loopDur);
+            var err = (bpm.log - ref.log).abs;
+            if(bpm < bpmRangeLo or: { bpm > bpmRangeHi }) { err = err + 10 };
+            if(err < bestErr) { bestErr = err; best = c };
+        };
+        tau = loopDur / (units * best);
+        r = (denominator: denom, sub: 1, tau: tau, bpm: 240 / (denom * tau),
+            loopDur: loopDur, phase: 0, downbeatOffset: 0, accent: 0,
+            onsetCount: onsetCount, from: \hand);
+        ^this.putBars(r, (cycle ! best).flatten)
     }
 
     // Bar count for a length-anchored loop. fallbackBars > 0 forces it;

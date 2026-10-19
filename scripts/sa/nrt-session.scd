@@ -1966,7 +1966,7 @@ main = Routine {
             // five seconds later as the others are.
             sets.add(runSet.((label: "double", bpm: 165.04, num: 7, den: 8, seed: 3, midRun: true,
                 recAt: (((3300 * 64) + 33) / sr) - 0.2, double: (stopAfter: 0.08, again: 1.0 + (30 / sr)),
-                repeats: true, repeatChance: 1.0, stopPass: 3)));
+                repeats: true, repeatChance: 1.0, stopPass: 3, tailHit: true)));
         };
     } { |err|
         fails = fails + 1;

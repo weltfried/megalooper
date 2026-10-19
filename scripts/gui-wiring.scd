@@ -207,7 +207,7 @@
         // onAnalysis already handles Live and the export fields, and the
         // status band's take picks the new result up on its next poll.
         .put(\overdubDetected, { |looper, what, r|
-            var txt = r[\numerator].asString ++ "/" ++ r[\denominator]
+            var txt = MeterAnalyzer.sigString(r)
                 ++ " @ " ++ r[\bpm].round(0.1) ++ " BPM · " ++ r[\k] ++ " bars · "
                 ++ r[\onsetCount] ++ " onsets";
             { ~overdubDetectLabel !? { |t| if(t.isClosed.not) { t.string_(txt) } } }.defer;

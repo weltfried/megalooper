@@ -581,7 +581,7 @@
         } {
             nx = if(n > 1) { Looper.readingFor(l.analysedResult, (l.readingIndex + 1) % n, l.loopDuration) };
             ~performPaintAction.(\reading,
-                if(nx.notNil) { "try " ++ nx[\numerator] ++ "/" ++ nx[\denominator] } { "nothing else fits" },
+                if(nx.notNil) { "try " ++ MeterAnalyzer.sigString(nx) } { "nothing else fits" },
                 (fill: ~gt[\panel], ink: ~gt[\ink], border: ~gt[\armed]));
         };
     };

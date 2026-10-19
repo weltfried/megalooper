@@ -807,20 +807,48 @@ Looper {
     // a take that fits no grid is anchored to the full length as whole bars of
     // the user's fallback meter; anything else keeps the raw take.
     //
+    // The guard: a grid fit may move the take by at most MeterAnalyzer.snapLimit
+    // eighths, and never more than snapLimitSecs. Rounding a 7+7+7+8 take to
+    // whole bars of 7/8 would cut the long bar off; a sparse 7+7+7+7+8 read as
+    // 5/4 lost 448 ms that way. An answer
+    // that would move the loop further gives way to the best reading that does
+    // not, and with none the take is length-anchored, which keeps its length
+    // exactly. The readings that would move it are dropped from the ranked
+    // list, so the next-reading switch never offers one. `snapRefused` on the
+    // result says what gave way and by how much. guard = false is readingFor's:
+    // its readings were vetted against the take when it was analysed, and the
+    // loop in force since then is whole bars of the answer (a multiply doubles
+    // a reading's small drift with it).
+    //
     // A CLASS method taking everything it needs as arguments, so the offline
     // harnesses can call the real decision instead of reproducing it — see
     // scripts/eval_meter_analyzer.scd, which carried its own copy of this and
     // could therefore score a take differently from the way the app decided it.
-    *snapAnalysisToLoop { |result, loopSecs|
-        var barDur, bars;
+    *snapAnalysisToLoop { |result, loopSecs, guard = true|
+        var fits, refused, out;
         if(result.isNil) { ^result };
         if(result[\error].isNil) {
-            barDur = result[\tau] * result[\numerator] * result[\sub];
-            bars   = (loopSecs / barDur).round.asInteger.max(1);
-            result[\loopDur] = bars * barDur;
-            result[\k]       = bars;
-            result[\n]       = bars * result[\numerator] * result[\sub];
-            ^result
+            if(guard.not or: { this.prSnapFits(result, loopSecs) }) {
+                if(guard and: { result[\candidates].notNil }) {
+                    result[\candidates] = result[\candidates].select { |c|
+                        this.prSnapFits(c, loopSecs) };
+                };
+                ^this.prSnapToBars(result, loopSecs)
+            };
+            refused = (numerator: result[\numerator], denominator: result[\denominator],
+                k: this.prSnapCycles(result, loopSecs)
+                    * MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(result)).size,
+                moveMs: (this.prSnapMove(result, loopSecs) * 1000).round(1));
+            fits = (result[\candidates] ? []).select { |c| this.prSnapFits(c, loopSecs) };
+            out = if(fits.notEmpty) {
+                this.prSnapToBars(fits[0].copy, loopSecs).put(\candidates, fits)
+            } {
+                MeterAnalyzer.anchorToLength(loopSecs,
+                    MeterAnalyzer.fallbackNum, MeterAnalyzer.fallbackDenom,
+                    result[\onsetCount])
+            };
+            out[\snapRefused] = refused;
+            ^out
         };
         if(result[\error] == \lengthAnchored) {
             ^MeterAnalyzer.anchorToLength(loopSecs,
@@ -829,6 +857,35 @@ Looper {
         };
         result[\loopDur] = loopSecs;
         ^result
+    }
+
+    // A grid fit made whole bars of the take. The unit is the reading's CYCLE:
+    // one bar when its bars are alike, the whole run when they are not (7 7 7 8
+    // snaps to whole 7 7 7 8s, never to 7 7 7). How many, and how far that
+    // moves the take (seconds, + longer). Neither touches the result.
+    *prCycleDur { |r|
+        ^r[\tau] * (r[\sub] ? 1) * MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r)).sum
+    }
+    *prSnapCycles { |r, loopSecs|
+        ^(loopSecs / this.prCycleDur(r)).round.asInteger.max(1)
+    }
+    *prSnapMove { |r, loopSecs|
+        ^(this.prSnapCycles(r, loopSecs) * this.prCycleDur(r)) - loopSecs
+    }
+    // Within MeterAnalyzer.snapLimit eighths, an eighth being 30 / bpm seconds
+    // whatever the denominator, and never more than snapLimitSecs.
+    *prSnapFits { |r, loopSecs|
+        ^this.prSnapMove(r, loopSecs).abs <= this.snapLimitAt(r[\bpm])
+    }
+    *snapLimitAt { |bpm|
+        ^(MeterAnalyzer.snapLimit * 30 / bpm).min(MeterAnalyzer.snapLimitSecs)
+    }
+    *prSnapToBars { |r, loopSecs|
+        var cycle = MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r));
+        var count = this.prSnapCycles(r, loopSecs), dur = this.prCycleDur(r);
+        MeterAnalyzer.putBars(r, (cycle ! count).flatten);
+        r[\loopDur] = count * dur;
+        ^r
     }
 
     // ===================================================================
@@ -883,9 +940,15 @@ Looper {
     // pulses). So a musical beat is tau*sub and a bar is tau*num*sub. Counting
     // in tau alone reports 7/8 as though it had 14 beats to the bar whenever the
     // fit came back with sub = 2.
+    //
+    // Uneven bars (MeterAnalyzer.barsOf): `bars` is the length of every bar of
+    // the loop in beats, `beatsPerBar` the length of the bar the playhead is
+    // in, and the bars repeat every cycle of them, so a loop that has grown
+    // since its reading still counts bar by bar.
     *loopPositionAt { |posSecs, result, loopDur|
         var pos, beatDur, beatsPerBar, totalBeats, beat;
-        var out = (bar: nil, beat: nil, barCount: nil, beatsPerBar: nil, fraction: 0);
+        var bars, units, cycles, within, idx = 0, start = 0;
+        var out = (bar: nil, beat: nil, barCount: nil, beatsPerBar: nil, bars: nil, fraction: 0);
         if(posSecs.isNil or: { loopDur.isNil } or: { loopDur <= 0 }) { ^out };
         pos = posSecs.clip(0, loopDur);
         out[\fraction] = pos / loopDur;
@@ -916,10 +979,19 @@ Looper {
         totalBeats = (loopDur / beatDur).round.asInteger.max(1);
         beat = (((pos - (result[\downbeatPhase] ? 0)) / beatDur) + 1e-6)
             .floor.asInteger.mod(totalBeats);
-        out[\beatsPerBar] = beatsPerBar;
-        out[\barCount]    = (totalBeats / beatsPerBar).round.asInteger.max(1);
-        out[\bar]         = (beat div: beatsPerBar) + 1;
-        out[\beat]        = (beat mod: beatsPerBar) + 1;
+        bars   = MeterAnalyzer.barsOf(result);
+        units  = bars.sum;
+        cycles = (totalBeats / units).round.asInteger.max(1);
+        within = beat mod: units;
+        while { (idx < (bars.size - 1)) and: { (start + bars[idx]) <= within } } {
+            start = start + bars[idx];
+            idx = idx + 1;
+        };
+        out[\bars]        = (bars ! cycles).flatten;
+        out[\beatsPerBar] = bars[idx];
+        out[\barCount]    = cycles * bars.size;
+        out[\bar]         = ((beat div: units) * bars.size) + idx + 1;
+        out[\beat]        = (within - start) + 1;
         ^out
     }
 
@@ -976,6 +1048,12 @@ Looper {
                 dur - firstOnset, relOnsets.asArray, strengths.asArray);
             var newFrames, applied;
             result = Looper.snapAnalysisToLoop(result, dur);
+            result[\snapRefused] !? { |x|
+                ("Looper: " ++ x[\numerator] ++ "/" ++ x[\denominator] ++ " x" ++ x[\k]
+                    ++ " would move the loop " ++ x[\moveMs] ++ " ms — kept its length, as "
+                    ++ Looper.prReadingString(result)
+                    ++ (if(result[\error].notNil) { " (length-anchored)" } { "" }) ++ ".").postln;
+            };
             newFrames = (result.loopDur * sr).asInteger;
             // Chord/pitch segmentation over the full loop (cheap, ~0.1 ms).
             if(result.tau.notNil) {
@@ -1310,10 +1388,10 @@ Looper {
         // only within loopTolerance, and a tempo a hair off the loop length
         // drifts against Live over a few minutes. The loop cannot be resized
         // here — there is already audio in it.
-        n = result[\k] * result[\numerator] * result[\sub];
+        n = MeterAnalyzer.unitsOf(result) * result[\sub];
         result[\n]       = n;
         result[\tau]     = loopSecs / n;
-        result[\bpm]     = 240 * result[\k] * result[\numerator]
+        result[\bpm]     = 240 * MeterAnalyzer.unitsOf(result)
             / (result[\denominator] * loopSecs);
         result[\loopDur] = loopSecs;
         // Absolute position of the downbeat within the loop, for the transport.
@@ -1653,7 +1731,7 @@ Looper {
         if(r.isNil) { ^nil };
         #[\numerator, \denominator, \k, \n, \sub, \tau, \bpm, \loopDur, \score,
             \error, \onsetCount, \phase, \downbeatOffset, \downbeatPhase, \accent,
-            \fromOverdub, \reading].do { |key|
+            \fromOverdub, \reading, \snapRefused, \bars, \from].do { |key|
             r[key] !? { |v| out[key] = v };
         };
         ^out
@@ -2075,7 +2153,7 @@ Looper {
         // Pulses-as-beats: the BBCut clock ticks once per detected pulse, and
         // beatlength = total pulses in the loop. For 7/8 (sub=1, k=1) that's
         // a 7-beat phrase; for 4/4 with eighth-note sub=2, an 8-beat phrase.
-        totalBeats = lastResult.numerator * lastResult.sub * lastResult.k;
+        totalBeats = MeterAnalyzer.unitsOf(lastResult) * lastResult.sub;
         loopDur = loopFrames / server.sampleRate;
         outBusIdx = outBus.index;
         baseBps = tau.reciprocal;
@@ -2152,7 +2230,7 @@ Looper {
         var tau = lastResult.tau;
         ^(
             tau:        tau,
-            totalBeats: lastResult.numerator * lastResult.sub * lastResult.k,
+            totalBeats: MeterAnalyzer.unitsOf(lastResult) * lastResult.sub,
             outBusIdx:  outBus.index,
             baseBps:    tau.reciprocal
         )
@@ -3306,12 +3384,14 @@ Looper {
 
     // One bar, in seconds. A take that fit no pulse grid has no bar to speak
     // of, so the whole loop stands in as the only musical unit there is —
-    // better than refusing, and it still resumes in phase.
+    // better than refusing, and it still resumes in phase. With uneven bars it
+    // is their mean: the dissolve's length, which a ramp across 7 7 7 8 need
+    // not land bar by bar.
     prBarDuration {
         var r = lastResult;
         if(r.notNil and: { r[\error].isNil }
             and: { r[\tau].notNil } and: { r[\numerator].notNil }) {
-            ^r[\tau] * r[\numerator] * (r[\sub] ? 1)
+            ^r[\tau] * (r[\sub] ? 1) * MeterAnalyzer.unitsOf(r) / MeterAnalyzer.barsOf(r).size
         };
         ^this.loopDuration
     }
@@ -3486,6 +3566,8 @@ Looper {
     readingMargin {
         var c = analysedResult !? { |a| a[\candidates] };
         if(c.isNil or: { c.size < 2 }) { ^nil };
+        // A reading given by hand (offerBars) has no score to compare.
+        if(c[0][\score].isNumber.not or: { c[1][\score].isNumber.not }) { ^nil };
         ^(c[0][\score] - c[1][\score])
     }
 
@@ -3517,6 +3599,52 @@ Looper {
         if(pendingReading.isNil and: { readingIndex == 0 }) { ^this };
         if((state != \playing) and: { state != \overdubbing }) { ^this.prCancelReading };
         ^this.prArmReading(0, \revert)
+    }
+
+    // Bars given by hand: `bars` one cycle of them in units of 1/denom, as
+    // [7, 7, 7, 8] with 8. They become a reading of the loop as it is
+    // (MeterAnalyzer.readingOfBars: the length decides the tempo, the reading
+    // in force how many cycles), added to the take's readings after the
+    // analyser's own and armed like the next one: it lands on a boundary,
+    // the drums and the bar grid follow it, Revert goes back to the
+    // analyser's answer, and the switch passes through it. The same bars
+    // again arm the reading they already made. Until detection finds uneven
+    // bars itself, this is how to hear them.
+    offerBars { |bars, denom = 8|
+        var loopSecs = this.loopDuration;
+        var analysed = analysedResult ? lastResult;
+        var cycle, near, reading, cands, index;
+        if((state != \playing) and: { state != \overdubbing }) {
+            "Bars: nothing is playing.".warn;
+            ^this.prRefused(\offerBars, "nothing playing")
+        };
+        cycle = (bars ? []).asArray.select { |b| b.isNumber }.collect { |b| b.asInteger };
+        if(cycle.isEmpty or: { cycle.size > 16 } or: { cycle.any { |b| (b < 1) or: { b > 32 } } }
+            or: { #[2, 4, 8, 16].includes(denom).not }) {
+            ("Bars: " ++ bars.asCompileString ++ "/" ++ denom
+                ++ " is not a bar list (1 to 16 bars of 1 to 32, over 2, 4, 8 or 16).").warn;
+            ^this.prRefused(\offerBars, "not a bar list")
+        };
+        if(analysed.isNil or: { loopSecs <= 0 }) {
+            "Bars: no take to give bars to.".warn;
+            ^this.prRefused(\offerBars, "no take")
+        };
+        near = lastResult !? { |r| if(r[\error].isNil) { r[\bpm] } };
+        reading = MeterAnalyzer.readingOfBars(loopSecs, cycle, denom, near,
+            analysed[\onsetCount] ? 0);
+        // Index 0 is always the analyser's answer: a take that fit no grid has
+        // no list, so the list starts with the answer itself.
+        cands = (analysed[\candidates] ?? { [analysed.copy] }).copy;
+        index = cands.detectIndex { |c|
+            (c[\from] == \hand) and: { c[\denominator] == denom }
+                and: { MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(c)) == cycle } };
+        if(index.isNil) {
+            cands = cands.add(reading);
+            index = cands.size - 1;
+            // A copy, so the undo snapshot keeps the take's own list.
+            analysedResult = analysed.copy.put(\candidates, cands);
+        };
+        ^this.prArmReading(index, \hand)
     }
 
     // Arm reading `index`: work out the boundary it lands on, publish it, and
@@ -3618,7 +3746,7 @@ Looper {
         // meter; the dissolve reads the bar from lastResult when it is armed.
         granularSynth !? { |g| result[\tau] !? { |t| g.set(\tau, t) } };
         if(clickRoutine.notNil and: { result[\tau].notNil }) {
-            this.startClick(result[\tau], result[\numerator] * (result[\sub] ? 1));
+            this.startClick(result[\tau], this.class.prClickBars(result));
         };
         // Live gets the tempo and the signature the way an analysis delivers
         // them, through the same callback.
@@ -3656,7 +3784,7 @@ Looper {
         var r;
         if(cands.isNil or: { index < 0 } or: { index >= cands.size }
             or: { loopSecs.isNil } or: { loopSecs <= 0 }) { ^nil };
-        r = this.snapAnalysisToLoop(cands[index].copy, loopSecs);
+        r = this.snapAnalysisToLoop(cands[index].copy, loopSecs, false);
         [\chordSegments, \downbeatPhase, \fromOverdub, \candidates].do { |key|
             analysed[key] !? { |v| r[key] = v };
         };
@@ -3689,8 +3817,12 @@ Looper {
 
     // Live counts 24 ticks per quarter note whatever the signature, so a bar
     // of num/denom is 96·num/denom ticks and a loop of k bars k times that.
-    *barTicksOf  { |r| ^(96 * r[\numerator] / r[\denominator]).round.asInteger }
-    *loopTicksOf { |r| ^(this.barTicksOf(r) * (r[\k] ? 1)) }
+    // Uneven bars give Live one bar per cycle of them (the signature
+    // setup-model.scd sends it, 29/8 for 7 7 7 8), so its bar is the cycle.
+    *barTicksOf  { |r|
+        ^(96 * MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r)).sum / r[\denominator]).round.asInteger
+    }
+    *loopTicksOf { |r| ^(96 * MeterAnalyzer.unitsOf(r) / r[\denominator]).round.asInteger }
 
     // The cutter reads the pulse and the pulse count and nothing else, so a
     // reading that keeps both — the other denominator, or half the bars —
@@ -3698,13 +3830,13 @@ Looper {
     *prReadingChangesCutter { |from, to|
         var fromBeats, toBeats;
         if(from.isNil or: { to.isNil } or: { from[\tau].isNil } or: { to[\tau].isNil }) { ^true };
-        fromBeats = (from[\numerator] ? 0) * (from[\sub] ? 1) * (from[\k] ? 1);
-        toBeats   = (to[\numerator] ? 0) * (to[\sub] ? 1) * (to[\k] ? 1);
+        fromBeats = if(from[\numerator].isNil) { 0 } { MeterAnalyzer.unitsOf(from) * (from[\sub] ? 1) };
+        toBeats   = if(to[\numerator].isNil) { 0 } { MeterAnalyzer.unitsOf(to) * (to[\sub] ? 1) };
         ^(((from[\tau] - to[\tau]).abs > 1e-6) or: { fromBeats != toBeats })
     }
 
     *prReadingString { |r|
-        ^(r[\numerator].asString ++ "/" ++ r[\denominator] ++ " @ "
+        ^(MeterAnalyzer.sigString(r) ++ " @ "
             ++ (r[\bpm] ? 0).round(0.1) ++ " BPM · " ++ (r[\k] ? 1)
             ++ " bar" ++ (if((r[\k] ? 1) > 1) { "s" } { "" }))
     }
@@ -3966,6 +4098,7 @@ Looper {
         lastResult = lastResult.copy;
         lastResult[\k] = (lastResult[\k] ? 1) * f;
         lastResult[\n] = (lastResult[\n] ? 1) * f;
+        lastResult[\bars] !? { |b| lastResult[\bars] = (b ! f).flatten };
         // Take the length from the frames actually in play rather than
         // multiplying the old value, so it cannot drift from the audio.
         if(server.notNil and: { server.sampleRate.notNil } and: { loopFrames > 0 }) {
@@ -4051,10 +4184,10 @@ Looper {
 
     startTempoClocks { |result|
         if(metronome and: { result.tau.notNil }) {
-            this.startClick(result.tau, result.numerator * result.sub);
+            this.startClick(result.tau, this.class.prClickBars(result));
         };
         if(midiOut.notNil and: { result.bpm.notNil }) {
-            var barDur = result.tau * result.numerator * result.sub;
+            var barDur = Looper.prCycleDur(result);
             // Live's Start is aligned to the LOOP, not to any bar. A loop is k
             // bars long, so only every k-th bar boundary is the true start of
             // the take — aligning to barDur drops Live's 1.1.1 into the middle
@@ -4375,12 +4508,20 @@ Looper {
         this.changed(\onsetNoteChance, onsetNoteChance);
     }
 
-    startClick { |tau, pulsesPerBar|
+    // The click's bars in pulses (tau each), one entry per bar of the loop.
+    *prClickBars { |r| ^MeterAnalyzer.barsOf(r) * (r[\sub] ? 1) }
+
+    // `bars`: pulses per bar, one entry per bar of the loop (prClickBars), or
+    // one number for bars all alike. The accent falls on every bar line.
+    startClick { |tau, bars|
+        var lens = bars.asArray.collect { |b| b.asInteger.max(1) };
+        var cycle = lens.sum;
+        var lines = lens.inject([0], { |acc, b| acc.add(acc.last + b) }).drop(-1).asSet;
         clickRoutine !? { |r| r.stop };
         clickRoutine = Routine {
             var i = 0;
             inf.do {
-                var isDownbeat = (i % pulsesPerBar) == 0;
+                var isDownbeat = lines.includes(i % cycle);
                 Synth(\looperClick, [
                     \freq, if(isDownbeat) { 1500 } { 900 },
                     \amp,  if(isDownbeat) { 0.5 }  { 0.2 }

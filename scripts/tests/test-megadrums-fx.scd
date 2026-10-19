@@ -411,13 +411,15 @@ ctl.remove;
 
 // ------------------------------------------------- Beat Repeat: the grid --
 // The capture points from the transport's origin: in 4/4 every 4 s here, each
-// on lane step 6; in 7/8 the patterns' resyncs walk them over lane steps 6,
-// 6, 14, 14, 6, 6, 14, 6, 6, 14 (the research's table).
+// on lane step 6; in 7/8 Live's resyncs walk them over lane steps 6, 6, 14,
+// 14, 6, 6, 14, 6, 6, 14 (the research's table), and SA's, on every bar line
+// (MegaSADrums.retrigAt \barLine, 14 16ths), over 6, 10, 0, 4, 8, 12, 2, ...
 {
-var go = { |b, loopDur, result, seconds|
+var go = { |b, loopDur, result, seconds, mode = \barLine|
     var fx = ~bfMake.(90.0, loopDur, \brkit, result);
     var d = fx[\drums], seen = IdentitySet.new, out = List.new, w;
     d.repeatChance = 0;
+    d.retrigAt = mode;
     ~bfPattern.(d, \main, (0: (note: 42, steps: [0])));
     ~bfStart.(fx, b);
     w = fx[\wall];
@@ -431,7 +433,8 @@ var go = { |b, loopDur, result, seconds|
     };
     out
 };
-var c44 = go.(92.0, 2.0, nil, 41), c78 = go.(91.75, 1.75, (numerator: 7, denominator: 8, k: 1, bpm: 120, loopDur: 1.75), 41);
+var r78 = (numerator: 7, denominator: 8, k: 1, bpm: 120, loopDur: 1.75);
+var c44 = go.(92.0, 2.0, nil, 41), c78 = go.(91.75, 1.75, r78, 41, \live), b78 = go.(91.75, 1.75, r78, 41);
 ~tAssert.("captures were decided", (c44.size >= 10) and: { c78.size >= 10 });
 ~tEqArray.("4/4: a capture 6/16 into every 2 bars (8 quarter notes, 4 s at 120 BPM)",
     c44.keep(10).collect { |x| x[0][\tc] - 92.0 }, (0..9).collect { |c| 0.75 + (4 * c) }, 1e-9);
@@ -440,8 +443,12 @@ var c44 = go.(92.0, 2.0, nil, 41), c78 = go.(91.75, 1.75, (numerator: 7, denomin
     [0.125, 0.75], 1e-9);
 ~tEqArray.("7/8: the same quarter-note grid, from its origin", c78.keep(10).collect { |x| x[0][\tc] - 91.75 },
     (0..9).collect { |c| 0.75 + (4 * c) }, 1e-9);
-~tEq.("...on lane steps 6, 6, 14, 14, 6, 6, 14, 6, 6, 14 (the resyncs)",
+~tEq.("...on lane steps 6, 6, 14, 14, 6, 6, 14, 6, 6, 14 (Live's resyncs)",
     c78.keep(10).collect { |x| x[1] !? { |p| p[\ls] % 16 } }.asArray, [6, 6, 14, 14, 6, 6, 14, 6, 6, 14]);
+~tEqArray.("on SA's bar lines the captures fall where they did", b78.keep(10).collect { |x| x[0][\tc] - 91.75 },
+    (0..9).collect { |c| 0.75 + (4 * c) }, 1e-9);
+~tEq.("...on lane steps 6, 10, 0, 4, 8, 12, 2, 6, 10, 0 (every bar of 14 16ths starts again)",
+    b78.keep(10).collect { |x| x[1] !? { |p| p[\ls] % 16 } }.asArray, [6, 10, 0, 4, 8, 12, 2, 6, 10, 0]);
 ~tEq.("...the capture index counted from the origin", c78.keep(3).collect { |x| x[0][\c] }.asArray, [0, 1, 2]);
 }.value;
 

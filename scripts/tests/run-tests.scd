@@ -38,6 +38,7 @@ var files = [
     "test-calibrator.scd",
     "test-meter-analyzer.scd",
     "test-meter-corpus.scd",
+    "test-uneven-bars.scd",
     "test-ranges.scd",
     "test-megasa-sound.scd",
     "test-megasa.scd",

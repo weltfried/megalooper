@@ -157,6 +157,29 @@ after = st.resync(before, 16, 1920, 4, true, 0);
     st.resync((lastB: 0, armed: true, offset: 0), 12, 1440, 3, true, 0)[\offset], 0);
 }.value;
 
+// SA's rule (resyncAtBar): the lanes start again ON the first step of every
+// bar the caller names, uneven bars too.
+{
+var st = MegaSASteps;
+// 16ths, 7 7 7 8 over 8: bars of 14, 14, 14 and 16 steps, 58 a loop.
+var barOf = { |n| var w = n % 58; ((n div: 58) * 4) + [0, 14, 28, 42].count { |b| b <= w } - 1 };
+var walk = { |rate = 0, retrig = true, armedAt|
+    var state, at = List.new;
+    120.do { |n|
+        if(n == armedAt) { state = state.copy.put(\armed, true) };
+        state = st.resyncAtBar(state, n, barOf.(n), retrig, rate);
+        if(state[\offset] == n) { at.add(n) };
+    };
+    at.asArray
+};
+~tEq.("7 7 7 8: on every bar line, the long bar's 16 steps too", walk.(), [0, 14, 28, 42, 58, 72, 86, 100, 116]);
+~tEq.("...every other bar at Rate 2 Bars", walk.(1), [0, 28, 58, 86, 116]);
+~tEq.("...Auto Retrigger off: from the origin only", walk.(0, false), [0]);
+~tEq.("...off, an armed state resyncs on the next bar line", walk.(0, false, 20), [0, 28]);
+~tAssert.("it answers a new state", { |before| (st.resyncAtBar(before, 14, 1, true, 0) !== before)
+    and: { before[\offset] == 0 } }.((lastB: 0, armed: false, offset: 0)));
+}.value;
+
 // --------------------------------------------------------- lane indexing --
 {
 var st = MegaSASteps;

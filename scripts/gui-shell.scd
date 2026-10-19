@@ -357,7 +357,7 @@
         { l.readingIndex > 0 } { " · reading " ++ (l.readingIndex + 1) ++ "/" ++ n }
         { (l.readingMargin ? 1) < 0.1 } {
             up = l.runnerUp;
-            (up !? { " · or " ++ up[\numerator] ++ "/" ++ up[\denominator]
+            (up !? { " · or " ++ MeterAnalyzer.sigString(up)
                 ++ " @ " ++ (up[\bpm] ? 0).round(0.1) ++ "?" }) ? ""
         }
         { "" }
@@ -378,16 +378,17 @@
             // knowing to re-record — and it is the same condition that makes
             // enableBBCut refuse.
             if(r[\error] == \lengthAnchored) {
-                r[\numerator].asString ++ "/" ++ r[\denominator]
+                MeterAnalyzer.sigString(r)
                     ++ " @ " ++ (r[\bpm] ? 0).round(0.1) ++ " BPM · "
                     ++ (r[\k] ? 1) ++ " bars · anchored, no beat found (no cutter)"
             } {
                 "no meter — " ++ r[\error] ++ " (no cutter)"
             }
         } {
-            r[\numerator].asString ++ "/" ++ r[\denominator]
+            MeterAnalyzer.sigString(r)
                 ++ " @ " ++ (r[\bpm] ? 0).round(0.1) ++ " BPM · "
-                ++ (r[\k] ? 1) ++ " bars" ++ ~guiReadingSuffix.(l)
+                ++ (r[\k] ? 1) ++ " bars" ++ (if(r[\from] == \hand) { " by hand" } { "" })
+                ++ ~guiReadingSuffix.(l)
         }
     }
 };

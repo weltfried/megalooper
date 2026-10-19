@@ -94,6 +94,14 @@ MegaSADrums {
     // The two patterns, \main and \break (MegaSASteps' Event), and the Live
     // set's, for liveStep and edited.
     var <patterns, livePatterns, timeShiftArm;
+    // Where Auto Retrigger starts the lanes again. \barLine: on the first step
+    // at or after every bar line of the reading, uneven bars too, so a 7/8 bar
+    // plays 14 of a 16-step lane and an 8/8 bar all 16 (the duo's choice,
+    // 2026-10-18). \live: as Live's device did, after every pseudo-bar of
+    // <numerator> quarter notes on the next step that is a multiple of 8
+    // (MegaSASteps.resync), so in 7/8 a lane reshapes itself over four bars.
+    // Takes effect from the next step decided. Not kept in presets yet.
+    var <retrigAt = \barLine;
     // PC 17, the pattern in force now, and whether the transport plays.
     var <on = true, <breakActive = false, <playing = false;
     // Beat Repeat's switch starts OFF: in Live's recordings of the set its
@@ -249,10 +257,17 @@ MegaSADrums {
     // numerator/denominator. Not the loop's length times the tempo, which need
     // not be whole for a reading whose pulse does not divide the loop.
     *sixteenthsFor { |result|
-        var num = ((result !? { |r| r[\numerator] }) ? 4).asInteger.max(1);
         var den = ((result !? { |r| r[\denominator] }) ? 4).asInteger.max(1);
-        var k = ((result !? { |r| r[\k] }) ? 1).max(1);
-        ^((((16 * k) * num) / den).round).asInteger.max(1)
+        ^(((16 * MeterAnalyzer.unitsOf(result)) / den).round).asInteger.max(1)
+    }
+
+    // Where a reading's bars begin in one loop, in ticks (480 a quarter note)
+    // from the loop's start: [0, 1680, 3360, 5040] for 7 7 7 8 over 8.
+    *barStartTicks { |result|
+        var den = ((result !? { |r| r[\denominator] }) ? 4).asInteger.max(1);
+        var unit = 1920 / den;
+        ^MeterAnalyzer.barsOf(result).inject([0], { |acc, b| acc.add(acc.last + (b * unit)) })
+            .drop(-1).collect { |t| t.round.asInteger }
     }
 
     // A condition history is [[time, value], ...] in time order, its first
@@ -534,6 +549,16 @@ MegaSADrums {
         if(stored.isNil) { ("MegaSADrums: " ++ name ++ " cannot be " ++ v.asCompileString).warn; ^this };
         if((stored != old) and: { this.class.timingParams.includes(name) }) { this.prRetime(which, [name]) };
         this.prNotify(\param, which, name, stored);
+    }
+
+    // \barLine or \live (see the variable). Notifies \retrigAt.
+    retrigAt_ { |mode|
+        if(#[\barLine, \live].includes(mode).not) {
+            ("MegaSADrums: retrigAt is \\barLine or \\live, not " ++ mode.asCompileString).warn;
+            ^this
+        };
+        retrigAt = mode;
+        this.prNotify(\retrigAt, mode);
     }
 
     // The Live set's pattern back. Notifies \pattern, which and \steps, which.
@@ -1462,7 +1487,7 @@ MegaSADrums {
     // Start there, which begins it again on the reading's grid (so a reading
     // taken back leaves the first Start's epoch as it was).
     prInstallLanding { |pl|
-        var at = pl[\at], p = pl[\p], ep, seg;
+        var at = pl[\at], p = pl[\p], ep, seg, tick, prev;
         ep = at !? { this.prEpochAt(at) };
         if(ep.isNil or: { this.prPlayingAt(at).not }) { ^this };
         if(p[\restart] == true) {
@@ -1470,7 +1495,9 @@ MegaSADrums {
             pl[\target] = this.prInstallEpoch(at, p[\result], this.prLoopDur, p);
             pl[\kind] = \epoch;
         } {
-            seg = this.prSegment(at, this.prTicksAt(ep, at).round, p[\result], this.prLoopDur);
+            tick = this.prTicksAt(ep, at).round;
+            prev = ep[\segs].select { |s| s[\t0] < (at - 1e-6) }.last ?? { ep[\segs].first };
+            seg = this.prSegment(at, tick, p[\result], this.prLoopDur, this.prBarAt(prev, tick));
             pl[\replaced] = ep[\segs].select { |s| s[\t0] >= (at - 1e-6) };
             ep[\segs] = ep[\segs].reject { |s| s[\t0] >= (at - 1e-6) }.add(seg);
             pl[\target] = seg;
@@ -1553,8 +1580,11 @@ MegaSADrums {
     }
 
     // One grid segment from t0 (at tick tick0, 480 a quarter note): the 16th is
-    // the loop's length over the reading's whole number of 16ths.
-    prSegment { |t0, tick0, result, loopDur|
+    // the loop's length over the reading's whole number of 16ths. Its bar
+    // lines (barStarts, from tick0, every loop again) are the reading's bars,
+    // uneven ones too, and bar0 is how many bars the epoch had played before
+    // it, so the bar count goes on across a landing (prBarAt).
+    prSegment { |t0, tick0, result, loopDur, bar0 = 0|
         var n16 = this.class.sixteenthsFor(result);
         var bpm = result !? { |r| r[\bpm] };
         var dur = if((loopDur ? 0) > 0) { loopDur } { (result !? { |r| r[\loopDur] }) ? 0 };
@@ -1566,7 +1596,18 @@ MegaSADrums {
         ^(t0: t0, tick0: tick0, s16: s16, n16: n16, loopDur: dur,
             numerator: ((result !? { |r| r[\numerator] }) ? 4).asInteger.max(1),
             denominator: ((result !? { |r| r[\denominator] }) ? 4).asInteger.max(1),
-            k: (result !? { |r| r[\k] }) ? 1)
+            k: (result !? { |r| r[\k] }) ? 1,
+            barStarts: this.class.barStartTicks(result), loopTicks: n16 * 120, bar0: bar0)
+    }
+
+    // The bar a tick is in, counted from the epoch's start: bar0, plus the
+    // segment's bar lines at or before it.
+    prBarAt { |seg, tick|
+        var rel = ((tick - seg[\tick0]) + 1e-6).max(0);
+        var starts = seg[\barStarts] ? [0], loopTicks = (seg[\loopTicks] ? 1920).max(1);
+        var loops = (rel / loopTicks).floor, within = rel - (loops * loopTicks);
+        ^(seg[\bar0] ? 0) + (loops.asInteger * starts.size)
+            + ((starts.count { |s| s <= within }) - 1).max(0)
     }
 
     // ---- The onset sink (Looper.onsetNoteSink) ------------------------------
@@ -1730,9 +1771,17 @@ MegaSADrums {
     // and their rolls agree whichever of them a cut re-sends.
     prDecideStep { |pk, wall|
         var which = pk[\which], pat = patterns[which], cur = pk[\cursor], ep = pk[\epoch], seg = pk[\seg];
-        var n = pk[\n], post, ls, hits, rec, delta;
-        post = MegaSASteps.resync((lastB: cur[\lastB], armed: cur[\armed], offset: cur[\offset]), n,
-            pk[\tick], seg[\numerator], pat[\autoRetrigger], pat[\autoTriggerRate]);
+        var n = pk[\n], post, ls, hits, rec, delta, state, nominal;
+        state = (lastB: cur[\lastB], armed: cur[\armed], offset: cur[\offset]);
+        post = if(retrigAt == \live) {
+            MegaSASteps.resync(state, n, pk[\tick], seg[\numerator], pat[\autoRetrigger], pat[\autoTriggerRate])
+        } {
+            // The step's own place, unshuffled: a shuffled step a hair over a
+            // bar line still belongs to the bar it was written in.
+            nominal = n * MegaSASteps.stepTicks[pat[\clockSpeed]];
+            MegaSASteps.resyncAtBar(state, n, this.prBarAt(this.prSegAtTick(ep, nominal), nominal),
+                pat[\autoRetrigger], pat[\autoTriggerRate])
+        };
         ls = n - post[\offset];
         hits = MegaSASteps.decideStep(pat, ls, { |lane, kind| MegaSASteps.dice(ep[\seed], which, n, lane, kind) });
         stepSerial = stepSerial + 1;

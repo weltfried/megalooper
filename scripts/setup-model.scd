@@ -155,7 +155,7 @@
         if(r.bpm.notNil) {
             var bars = if(r.k > 1) { " over " ++ r.k ++ " bars" } { "" };
             var tag  = if(r.error == \lengthAnchored) { " (loop-locked)" } { "" };
-            ("=> " ++ r.numerator ++ "/" ++ r.denominator
+            ("=> " ++ MeterAnalyzer.sigString(r)
                 ++ " @ " ++ r.bpm.round(0.1) ++ " BPM"
                 ++ bars ++ tag
                 ++ " (" ++ r.onsetCount ++ " onsets, N=" ++ r.n ++ ")").postln;
@@ -163,7 +163,11 @@
             // Megalooper SA's loop echo is synced to the loop the same way,
             // and its drums keep the whole reading (MegaSA.setAnalysis).
             ~megaSA !? { |m| m.setAnalysis(r) };
-            ~ableton.sendMsg("/live/song/set/signature_numerator", r.numerator.asInteger);
+            // Uneven bars go to Live as one bar per cycle of them (29/8 for
+            // 7 7 7 8), so its bar line still meets the loop's
+            // (Looper.barTicksOf). Live takes numerators up to 99.
+            ~ableton.sendMsg("/live/song/set/signature_numerator",
+                MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r)).sum.asInteger.clip(1, 99));
             ~ableton.sendMsg("/live/song/set/signature_denominator", r.denominator.asInteger);
         } {
             ("=> " ++ r.error ++ " (" ++ r.onsetCount ++ " onsets)").postln

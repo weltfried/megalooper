@@ -200,6 +200,15 @@
         .margins_([10, 8, 10, 8]).spacing_(2))
 };
 // A line of the lower block: the label left, the controls right.
+// The Bars-by-hand field to the Looper: "7 7 7 8", "7,7,7,8" or "7+7+7+8".
+// Anything that is not a whole number reads as 0, which offerBars refuses
+// out loud.
+~analysisOfferBars = {
+    var words = ~analysisBarsField !? { |f| f.string.replace(",", " ").replace("+", " ")
+        .split($ ).reject { |w| w.isEmpty } } ? [];
+    ~looper !? { |l| l.offerBars(words.collect { |w| w.asInteger },
+        ~exportDenoms[(~analysisBarsDenom !? { |m| m.value }) ? 2]) };
+};
 ~analysisLine = { |label, controls|
     HLayout(*([~guiLabel.(label, 14), nil] ++ controls)).margins_(0).spacing_(6)
 };
@@ -394,6 +403,38 @@
         .clipLo_(1).clipHi_(64).step_(1).scroll_step_(1).decimals_(0)
         .value_(1), 40);
 
+    // ---- Bars by hand -----------------------------------------------------------------
+    // One cycle of uneven bars, "7 7 7 8" (spaces, commas or +), over the
+    // denominator beside it. Looper.offerBars makes a reading of the loop as it
+    // is and lands it on the next boundary like the next reading; the drums and
+    // the bar grid follow it, and Revert goes back. Until detection finds
+    // uneven bars by itself, this is how to hear them. Focus as the name field's.
+    ~analysisBarsField = TextField()
+        .font_(~guiMono.(14, true)).background_(~gt[\panel]).stringColor_(~gt[\ink])
+        .string_("7 7 7 8").fixedWidth_(120)
+        .toolTip_("One cycle of the loop's bars, in units of the denominator beside it:\n"
+            "7 7 7 8 over 8 is three bars of 7/8 and one of 8/8. Enter or Set bars lands\n"
+            "it on the next loop boundary; the loop's length sets the tempo.")
+        .action_({ ~analysisOfferBars.(); ~guiWindow !? { |w| w.view.focus(true) } })
+        .focusGainedAction_({ |v|
+            v.background_(~gt[\armed]).stringColor_(~gt[\onacc]);
+            ~guiSetTyping !? { |f| f.(true) };
+        })
+        .focusLostAction_({ |v|
+            v.background_(~gt[\panel]).stringColor_(~gt[\ink]);
+            ~guiSetTyping !? { |f| f.(false) };
+        })
+        .keyDownAction_({ |v, char, mods, uni|
+            if(uni == 27) {
+                ~guiWindow !? { |w| w.view.focus(true) }; true
+            } { nil };
+        });
+    ~analysisBarsDenom = PopUpMenu().canFocus_(false).font_(~guiMono.(13, true))
+        .background_(~gt[\panel]).stringColor_(~gt[\ink])
+        .fixedWidth_(56)
+        .items_(~exportDenoms.collect(_.asString))
+        .value_((~exportDenoms.indexOf(8)) ? 2);
+
     pane.layout_(VLayout(
         HLayout(~guiTitle.("Analysis", 24), ~analysisMonitorButton, nil,
             LooperTile().states_([["Reset counts", ~gt[\mute], nil]]).cycles_(false).font_(~guiSans.(13))
@@ -461,6 +502,13 @@
                 .clipLo_(0).clipHi_(MeterAnalyzer.maxFallbackBars).step_(1).scroll_step_(1).decimals_(0)
                 .value_(MeterAnalyzer.fallbackBars)
                 .action_({ |nb| MeterAnalyzer.fallbackBars = nb.value.asInteger }), 44)
+        ]),
+        ~analysisLine.("Bars by hand · one cycle", [
+            ~analysisBarsField, ~guiText.("/", 14, ~gt[\mute]), ~analysisBarsDenom,
+            LooperTile().states_([["Set bars", ~gt[\ink], nil]]).border_(~gt[\line]).cycles_(false)
+                .font_(~guiSans.(13)).fixedSize_(Size(86, 26))
+                .toolTip_("Give the loop these bars, from the next loop boundary.")
+                .action_({ ~analysisOfferBars.() })
         ]),
         // Exporting a take is what you do when the detector got it WRONG, and
         // the correction typed here is the label tuning is scored against.
