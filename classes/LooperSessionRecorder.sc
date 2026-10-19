@@ -1430,7 +1430,7 @@ LooperSessionRecorder {
                         tk = (kind: \inForce, index: takes.size, t: t, start: nil,
                             dur: tk0[\dur], loopDur: tk0[\loopDur] ? ev[\loopDur],
                             threshold: tk0[\threshold], firstOnset: tk0[\firstOnset],
-                            onsets: tk0[\onsets] ? [], result: tk0[\result],
+                            onsets: tk0[\onsets] ? [], pitches: tk0[\pitches], result: tk0[\result],
                             candidates: tk0[\candidates] ? [],
                             fromOverdub: tk0[\fromOverdub] == true,
                             presses: 0, settled: tk0[\reading] ? 0,
@@ -1443,7 +1443,7 @@ LooperSessionRecorder {
                 \take, {
                     tk = (kind: \take, index: takes.size, start: ev[\start], t: t,
                         dur: ev[\dur], loopDur: ev[\loopDur], threshold: ev[\threshold],
-                        firstOnset: ev[\firstOnset], onsets: ev[\onsets] ? [],
+                        firstOnset: ev[\firstOnset], onsets: ev[\onsets] ? [], pitches: ev[\pitches],
                         result: ev[\result], candidates: ev[\candidates] ? [],
                         applied: ev[\applied], tapPeakDb: ev[\tapPeakDb], inPeakDb: ev[\inPeakDb],
                         presses: 0, settled: 0,

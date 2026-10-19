@@ -1050,7 +1050,8 @@ Looper {
             // leadIn: the first take's bars count from the press, which turns
             // on the uneven-bars detection (MeterAnalyzer.analyzeUneven).
             var result = MeterAnalyzer.analyze(
-                dur - firstOnset, relOnsets.asArray, strengths.asArray, leadIn: firstOnset);
+                dur - firstOnset, relOnsets.asArray, strengths.asArray, leadIn: firstOnset,
+                pitches: pitchSnap.asArray);
             var newFrames, applied;
             result = Looper.snapAnalysisToLoop(result, dur);
             result[\snapRefused] !? { |x|
@@ -1101,7 +1102,7 @@ Looper {
                 };
             };
             // The take, to the set's log: what was heard, what was decided.
-            this.prLogTake(result, dur, firstOnset, onsetsSnap, applied, pressAt, levelsSnap);
+            this.prLogTake(result, dur, firstOnset, onsetsSnap, applied, pressAt, levelsSnap, pitchSnap);
         }.defer;
     }
 
@@ -1657,6 +1658,13 @@ Looper {
         ^ctx
     }
 
+    // A take's pitch readings for the log, [time, Hz, amp] at 25 Hz while
+    // there is a pitch: the uneven bars' notes, for the replay (about 5 KB a
+    // take).
+    *prPitchesForLog { |ps|
+        ^(ps ? []).asArray.collect { |p| [p[0].round(0.001), p[1].round(0.1), p[2].round(0.0001)] }
+    }
+
     // What the analyser was given for the loop in force, and what it answered:
     // the raw take length, the onsets from the press, the reading and its list,
     // and which reading is in force now. The audio is not in the tap, so the
@@ -1668,6 +1676,7 @@ Looper {
             dur: loopDur,
             firstOnset: if(pairs.isEmpty) { 0 } { pairs[0][0] },
             onsets: pairs,
+            pitches: Looper.prPitchesForLog(pitchSamples),
             threshold: onsetThreshold,
             result: Looper.resultForLog(analysed),
             candidates: (analysed[\candidates] ? []).collect { |c| Looper.resultForLog(c) },
@@ -1704,7 +1713,7 @@ Looper {
     // gave and its ranked list; and where the loop's playback began, for an
     // overdub's phase later. `applied` is false when the loop was cleared or
     // replaced during the analysis gap — the analysis still happened.
-    prLogTake { |result, dur, firstOnset, onsetPairs, applied, pressAt, levels|
+    prLogTake { |result, dur, firstOnset, onsetPairs, applied, pressAt, levels, pitches|
         var fields;
         if(sessionRec.isNil or: { sessionRec.logging.not }) { ^this };
         fields = (
@@ -1713,6 +1722,7 @@ Looper {
             threshold: onsetThreshold,
             firstOnset: firstOnset,
             onsets: onsetPairs.asArray,
+            pitches: Looper.prPitchesForLog(pitches),
             result: Looper.resultForLog(result),
             candidates: (result[\candidates] ? []).collect { |c| Looper.resultForLog(c) },
             loopDur: result[\loopDur],

@@ -226,7 +226,7 @@ r = read.(take.([7, 7, 7, 9], true));
 // The pieces: the pulse is fitted from the first onset and counted from the
 // press; the period is the shortest the riff repeats at.
 tk = take.([7, 7, 7, 8], true);
-r = MeterAnalyzer.prUnevenPulse(tk[\dur] + 0.25, tk[\onsets] + 0.25);
+r = MeterAnalyzer.prUnevenPulses(tk[\dur] + 0.25, tk[\onsets] + 0.25)[0];
 ~tEq.("a take that begins with an eighth's rest: 30 pulses, nothing on pulse 0, the first hit on pulse 1",
     [r[\n], MeterAnalyzer.prPulseProfile(tk[\onsets] + 0.25, tk[\strengths], r).keep(2).collect(_.sign)], [30, [0, 1]]);
 // A grid that fits its onsets this well is trusted with the whole half eighth.
@@ -234,7 +234,7 @@ r = MeterAnalyzer.prUnevenPulse(tk[\dur] + 0.25, tk[\onsets] + 0.25);
 ~tEqArray.("trusted, the snap may move it half an eighth (139 ms at 108 BPM), else 100 ms",
     [Looper.snapLimitAt(108, true), Looper.snapLimitAt(108)], [15 / 108, 0.1], 1e-9);
 r = MeterAnalyzer.prBarPeriods(MeterAnalyzer.prPulseProfile(tk[\onsets], tk[\strengths],
-    MeterAnalyzer.prUnevenPulse(tk[\dur], tk[\onsets])));
+    MeterAnalyzer.prUnevenPulses(tk[\dur], tk[\onsets])[0]));
 ~tEq.("the riff repeats every 7 (not 14)", r[0][\m], 7);
 ~tEq.("the barrings of 29 into 7s: one odd bar at each of four places",
     MeterAnalyzer.prBarHypotheses(29, 7).select { |b| b.count { |x| x != 7 } == 1 }.size, 4);
@@ -266,24 +266,46 @@ l.prCancelReading;
 
 // ---- the duo's first labelled takes (2026-10-19) ---------------------------------
 // fixtures/uneven-takes.json: two takes of the duo's own, the onsets the stage
-// heard and the bars they gave by hand. 5+5+5+8 is found from them. 7+7+7+8 is
-// every eighth played, its loudest hits off the downbeats, so the onsets carry
-// no bar line; only the notes repeat. Locked as known, to be seen when it moves.
+// heard, the pitch the replay tracked from the tap, and the bars they gave by
+// hand. 7+7+7+8 is every eighth played, its loudest hits off the downbeats:
+// the onsets alone carry no bar line, the notes do (the same seven
+// notes three times, then a descending turnaround).
 {
 var takes = File.readAllString(thisProcess.nowExecutingPath.dirname +/+ "fixtures" +/+ "uneven-takes.json").parseJSON;
 takes.do { |tk|
     var dur = tk["dur"].asFloat, on = tk["onsets"].collect { |p| p[0].asFloat };
-    var st = tk["onsets"].collect { |p| p[1].asFloat }, want = tk["bars"].collect(_.asInteger), r;
-    r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(dur - on[0], on - on[0], st, leadIn: on[0]), dur);
+    var st = tk["onsets"].collect { |p| p[1].asFloat }, want = tk["bars"].collect(_.asInteger);
+    var pz = tk["pitches"].collect { |p| p.collect(_.asFloat) };
+    var read = { |pitches| Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(dur - on[0], on - on[0], st,
+        leadIn: on[0], pitches: pitches), dur) };
+    var r = read.(pz);
+    ~tEq.(tk["set"] ++ ": " ++ want.join("+") ++ " from the stage's onsets and the notes", r[\bars], want);
     if(want == [5, 5, 5, 8]) {
-        ~tEq.(tk["set"] ++ ": 5+5+5+8 from the stage's onsets", r[\bars], want);
         ~tNear.("...its stop press 113 ms late corrected: a grid all its onsets sit on is trusted",
             r[\loopDur], dur - 0.113, 0.01);
+        ~tEq.("...and from the onsets alone", read.(nil)[\bars], want);
     } {
-        ~tXfail.(tk["set"] ++ ": 7+7+7+8, every eighth played, found from the onsets",
-            r[\bars] != want, Looper.prReadingString(r) ++ " — the notes would tell, the onsets do not");
+        ~tXfail.("...and from the onsets alone, every eighth played", read.(nil)[\bars] != want,
+            Looper.prReadingString(read.(nil)) ++ " — the onsets carry no bar line");
     };
 };
+}.value;
+
+// The notes, synthetic: every eighth played at one loudness, so the hits show
+// no bar at all; three bars of a riff and a turnaround, each note read by the
+// pitch tracker three times after its hit.
+{
+var e8 = 0.25, riff = [40, 40, 47, 47, 45, 45, 43], turn = [44, 44, 43, 43, 42, 42, 41, 41];
+var notes = riff ++ riff ++ riff ++ turn, on = notes.collect { |m, i| i * e8 };
+var st = Array.fill(notes.size, 0.5), pz = List.new, r;
+notes.do { |m, i| [0.04, 0.08, 0.12].do { |d| pz.add([(i * e8) + d, m.midicps, 0.1]) } };
+r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(29 * e8, on, st, leadIn: 0, pitches: pz.asArray), 29 * e8);
+~tEq.("flat hits, the notes repeating: 7+7+7+8", r[\bars], [7, 7, 7, 8]);
+r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(29 * e8, on, st, leadIn: 0), 29 * e8);
+~tAssert.("...the same hits without the notes: not those bars", r[\bars] != [7, 7, 7, 8], Looper.prReadingString(r));
+~tEq.("a note per onset: the median of its readings", MeterAnalyzer.prOnsetNotes(on.keep(2), pz.asArray.keep(6))
+    .collect { |m| m !? { |x| x.round(1e-6) } }, [40, 40]);
+~tEq.("...none without readings", MeterAnalyzer.prOnsetNotes(on.keep(2), nil), nil);
 }.value;
 
 // ---- the label: bars given by hand count once armed --------------------------------

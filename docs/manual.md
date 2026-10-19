@@ -1647,14 +1647,18 @@ and everything that counts bars follows them:
   still meets the loop's.
 
 **Found by the analyser.** After a first take the analyser also looks for
-uneven bars (`MeterAnalyzer.analyzeUneven`): the pulse that fits the onsets over
-the whole take, the period at which the riff repeats, then every way of
+uneven bars (`MeterAnalyzer.analyzeUneven`): the pulse grids that fit the onsets
+over the whole take, the period at which the riff repeats, then every way of
 barring the take into bars of that period with one or two of them up to four
-pulses longer or shorter, scored by how alike the bars are (which eighths are
-played) and how strong the hits on their bar lines, an odd bar last a little
-ahead. It needs a riff whose rhythm repeats: a take that plays every eighth,
-its accents off the downbeats, shows no bar line in its onsets at all (the
-duo's first 7+7+7+8 was one), and then gives the bars by hand. When no ordinary meter
+pulses longer or shorter, scored by how alike the bars are and how strong the
+hits on their bar lines, the cycle's last bar odd a little ahead. "Alike" is
+which eighths are played and, when the pitch tracker heard notes, **which notes
+are played**: the regular bars play the same notes at the same places, and the
+turnaround is the one that does not. A riff that plays every eighth with its
+accents off the downbeats (the duo's first 7+7+7+8) shows its bars in its
+notes only. A hit counts as a note when its pitch holds still for the first
+quarter second; a noise burst's wandering pitch does not, and notes that never
+repeat at any period are ignored. When no ordinary meter
 fits the take (29 eighths fit none), its answer is the take's reading instead
 of the fallback. When one does (7+7+7+9 is also three bars of 5/4), the meter
 stays the answer and the uneven bars come **second**, one press of the

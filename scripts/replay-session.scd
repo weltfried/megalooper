@@ -42,7 +42,7 @@ var tmpDir = (Platform.defaultTempDir ? "/tmp") +/+ "megalooper-replay";
 var headless = Platform.ideName != "scide";
 var failures = 0;
 var pad, padR, fmtTime, fmtReading, sameReading, gridSame, verdict, labelWord, stageWord, check;
-var findEvents, selfTest, render, readSlots, analyse;
+var findEvents, selfTest, render, readSlots, readPitchSlots, analyse;
 var eventsPath, events, header, audio, allTakes, takes, overdubs, inForce, tapPath, sr, tapFrames, filesEv;
 var reanalysis, starvedOf, withInput;
 var files, cells, savedFallback, stamp, changes, csv;
@@ -226,7 +226,11 @@ selfTest = {
 // stretch of the tap is read into a buffer; one synth per threshold plays it
 // through the recorder's chain and latches every onset's time and strength
 // into a result buffer, one slot per onset, which is written out at the end
-// of the take. Returns [takeIndex, thresholdIndex] -> result file.
+// of the take. One more synth per take tracks its pitch as the recorder does
+// (Tartini, 25 Hz while it has a pitch: [time, Hz, amplitude]), which the
+// uneven-bars detection reads its notes from; a set logged before the take
+// event carried `pitches` has it only this way. Returns [takeIndex,
+// thresholdIndex] -> result file, and [takeIndex, \pitch] -> the pitch's.
 render = { |tap, takeList, thrs, audioT, rate|
     var def = SynthDef(\replayOnsets, { |bufnum = 0, threshold = 0.5, resultBuf = 1|
         var sig = PlayBuf.ar(1, bufnum, 1, 1, 0, 0);
@@ -236,6 +240,15 @@ render = { |tap, takeList, thrs, audioT, rate|
         var count = Stepper.kr(trig, 0, 0, maxOnsets, 1, 0);
         BufWr.kr([Latch.kr(time, trig), Latch.kr(strength, trig), 1], resultBuf, count, 0);
     });
+    var pitchDef = SynthDef(\replayPitch, { |bufnum = 0, resultBuf = 1, slots = 100|
+        var sig = PlayBuf.ar(1, bufnum, 1, 1, 0, 0);
+        var tartini = Tartini.kr(sig);
+        var trig = Impulse.kr(25) * tartini[1];
+        var time = Sweep.kr(1, 1);
+        var count = Stepper.kr(trig, 0, 0, slots, 1, 0);
+        BufWr.kr([Latch.kr(time, trig), Latch.kr(tartini[0], trig), Latch.kr(Amplitude.kr(sig), trig), 1],
+            resultBuf, count, 0);
+    });
     var score = List.new;
     var t = 0.0, bufnum = 0, node = 1000;
     var out = Dictionary.new;
@@ -244,10 +257,23 @@ render = { |tap, takeList, thrs, audioT, rate|
     var cmd, said;
     if(File.exists(tmpDir).not) { File.mkdir(tmpDir) };
     score.add([0.0, [\d_recv, def.asBytes]]);
+    score.add([0.0, [\d_recv, pitchDef.asBytes]]);
     takeList.do { |tk, i|
-        var tapBuf = bufnum;
+        var tapBuf = bufnum, pitchBuf, pitchPath, slots;
         bufnum = bufnum + 1;
         score.add([t + 0.001, [\b_allocRead, tapBuf, tap, tk[\startFrame], tk[\numFrames]]]);
+        pitchBuf = bufnum;
+        bufnum = bufnum + 1;
+        pitchPath = tmpDir +/+ "take" ++ i ++ "-pitch.wav";
+        slots = ((tk[\dur] ? 1) * 25).ceil.asInteger + 16;
+        score.add([t + 0.002, [\b_alloc, pitchBuf, slots + 1, 4]]);
+        score.add([t + 0.01, [\s_new, \replayPitch, node, 0, 0,
+            \bufnum, tapBuf, \resultBuf, pitchBuf, \slots, slots]]);
+        score.add([t + 0.01 + tk[\dur], [\n_free, node]]);
+        score.add([t + 0.02 + tk[\dur], [\b_write, pitchBuf, pitchPath, "wav", "float", -1, 0, 0]]);
+        score.add([t + 0.03 + tk[\dur], [\b_free, pitchBuf]]);
+        out[[i, \pitch]] = pitchPath;
+        node = node + 1;
         thrs.do { |thr, j|
             var res = bufnum;
             var path = tmpDir +/+ "take" ++ i ++ "-thr" ++ j ++ ".wav";
@@ -293,13 +319,31 @@ readSlots = { |path|
     found.asArray
 };
 
+// A pitch result file: slot k (k >= 1) the k-th reading, [time, Hz, amp].
+readPitchSlots = { |path|
+    var sf = SoundFile.new, data, found = List.new;
+    if(path.notNil and: { sf.openRead(path) }) {
+        data = FloatArray.newClear(sf.numFrames * sf.numChannels);
+        sf.readData(data);
+        sf.close;
+        (1..(sf.numFrames - 1)).do { |slot|
+            if((data[(slot * 4) + 3] > 0.5) and: { data[slot * 4] > 0 }) {
+                found.add([data[slot * 4], data[(slot * 4) + 1], data[(slot * 4) + 2]]);
+            };
+        };
+    };
+    found.asArray
+};
+
 // The Looper's own path, as stopRecordStartPlay runs it: onsets relative to
-// the first, the span after it analysed, the result snapped to the take.
-analyse = { |tk, onsets|
+// the first, the span after it analysed, the result snapped to the take. The
+// pitch: what the take logged, else what the render tracked from the tap.
+analyse = { |tk, onsets, pitches|
     var first = if(onsets.isEmpty) { 0 } { onsets[0][0] };
     var rel = onsets.collect { |p| p[0] - first };
     var str = onsets.collect { |p| p[1] };
-    var r = MeterAnalyzer.analyze(tk[\dur] - first, rel, str, leadIn: first);
+    var r = MeterAnalyzer.analyze(tk[\dur] - first, rel, str, leadIn: first,
+        pitches: pitches ?? { tk[\pitches] ?? { tk[\renderedPitches] } });
     Looper.snapAnalysisToLoop(r, tk[\dur])
 };
 
@@ -443,13 +487,14 @@ savedFallback = [MeterAnalyzer.fallbackNum, MeterAnalyzer.fallbackDenom, MeterAn
 
 "rendering...".postln;
 files = render.(tapPath, takes, thresholds, audio[\t], sr);
+takes.do { |tk, i| tk[\renderedPitches] = readPitchSlots.(files[[i, \pitch]]) };
 
 // cells[[i, j]] = (onsets:, reading:, label:, stage:)
 cells = Dictionary.new;
 takes.do { |tk, i|
     thresholds.do { |thr, j|
         var onsets = readSlots.(files[[i, j]]);
-        var r = analyse.(tk, onsets);
+        var r = analyse.(tk, onsets, tk[\renderedPitches]);
         cells[[i, j]] = (onsets: onsets, reading: r,
             label: verdict.(r, tk[\label]), stage: verdict.(r, tk[\result]));
     };
