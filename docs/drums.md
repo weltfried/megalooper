@@ -40,11 +40,12 @@ here, it starts on the first kit that has.
 
 Put one-shots (wav, aif, flac or ogg) into a folder. Then, on the Drums view:
 
-1. Press **Import samples…**. It is under the kit menus, or on the note
-   when no kit has its samples yet.
+1. Press **Import samples…**. It is at the top of the Drums view, beside
+   **Reset pattern**, or on the note when no kit has its samples yet. It is
+   there whenever you want another kit.
 2. Choose the folder.
-3. The line beside the button says how many pads the kit has and which
-   files it could not place. The Steps part plays the new kit at once, and
+3. A line by the button says how many pads the kit has and which files it
+   could not place. The Steps part plays the new kit at once, and
    both kit menus list it. There is no restart.
 
 The kit is named after the folder. Its samples are copied into megalooper's

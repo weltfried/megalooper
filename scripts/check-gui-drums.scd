@@ -7,7 +7,8 @@
 // through their own mouse handlers at known coordinates (a pane that is never
 // shown has no other way in: it never paints), and it exits 0 or 1. It needs
 // no server and no audio device. It opens one window, transparent, for a
-// moment: to measure that eight tabs leave the window 620 pt wide.
+// moment: to see the import's line hide and show (a view never shown is
+// never visible).
 // check-gui.scd covers the same pane on the SA rig itself, painted.
 //
 //   /Applications/SuperCollider.app/Contents/MacOS/sclang scripts/check-gui-drums.scd
@@ -1107,7 +1108,7 @@ Routine {
                 [\steps, \onset].collect { |slot| [menuOf.(slot).items, menuOf.(slot).item] }.asString);
             line = words.(pane);
             button = findButton.(pane, "Import samples…");
-            ok.("...and the line by the button, now under the kit menus, says so and names the file it could not place",
+            ok.("...and the line by the button, now in the header, says so and names the file it could not place",
                 line.contains("Imported My Kit!: 1 pad. The Steps part plays it.") and: { line.contains("Not placed: weird.wav") }
                     and: { button.notNil } and: { button.enabled } and: { ~drumsImportBad.not }, line);
             // The same folder again is the same kit; another folder of that name is not.
@@ -1193,8 +1194,56 @@ Routine {
             pane = ~buildDrumsPane.();
             tick.();
         };
-        ok.("with the first drums back the pane is theirs, the button under the kit menus",
+        ok.("with the first drums back the pane is theirs, the button in it",
             ~drumsWidgets[\label0].notNil and: { findButton.(pane, "Import samples…").notNil });
+    });
+
+    // With kits here the button is the header's, the first row the view
+    // opens on: under the kit menus, below the lanes and Timing, a rig with
+    // kits did not find it. Its line shows under the header once there is something
+    // to say. Headless, a view is visible only in a window that is shown, so
+    // the pane is on screen for a moment, transparent.
+    section.("Import samples… in the header", {
+        var button = findButton.(pane, "Import samples…"), live = findButton.(pane, "Reset pattern");
+        var line = ~drumsImportViews !? { |v| v[\line] }, kids, win, count = 0;
+        var walk = { |v| v.children.do { |c|
+            if(c.isKindOf(LooperTile) and: { c.states.notNil } and: { c.states.first.first == "Import samples…" }) {
+                count = count + 1 };
+            walk.(c) } };
+        walk.(pane);
+        ok.("one Import samples… in the pane: none under the kit menus", count == 1, count.asString);
+        kids = button !? { |b| b.parent !? { |p| p.children } };
+        ok.("...beside Reset pattern, in the header", kids.notNil and: { button.parent == live.parent }
+            and: { (kids.indexOf(live) - kids.indexOf(button)) == 1 },
+            kids !? { |k| [k.indexOf(button), k.indexOf(live)].asString });
+        ok.("...and its line is the one the import writes", line.notNil and: { line.parent == button.parent });
+        ok.("the kits' tip says where the button is", ~drumsKitTip.(\steps).contains("Import samples… at the top"));
+        ~drumsImportSaid = "";
+        ~drumsImportBad = false;
+        win = Window("drums", Rect(0, 0, 1200, 600)).alpha_(0);
+        win.layout_(VLayout(pane).margins_(0));
+        win.front;
+        tick.();
+        ok.("on screen, with nothing said, the line under the header is hidden", line.visible.not and: { button.visible });
+        ok.("...as tall as the header's other buttons, on their colour",
+            (button.bounds.height == 34) and: { button.states.first[2] == ~gt[\panel] },
+            [button.bounds.height, button.states.first].asString);
+        ~drumsImportSay.("Importing My Kit! …");
+        tick.();
+        ok.("...and shows once the import says something", line.visible and: { line.string == "Importing My Kit! …" });
+        ~drumsImportSaid = "";
+        ~drumsImportShow.();
+        tick.();
+        ok.("...and hides again when there is nothing", line.visible.not);
+        // A bare window gives the keyboard to the preset bar's name field
+        // (the shell's takes it itself), whose focus-out would then paint a
+        // view half closed.
+        win.view.focus(true);
+        tick.();
+        win.close;
+        tick.();
+        pane = ~buildDrumsPane.();
+        tick.();
     });
 
     // The stage window's top bar (gui-shell.scd): Megalooper SA adds the FX

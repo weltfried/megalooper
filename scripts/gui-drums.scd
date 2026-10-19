@@ -212,14 +212,17 @@
         "\n\n" ++ i[\name] ++ ": " ++ (i[\description] ? "")
             ++ ((i[\source] !? { |s| "\nFrom " ++ s }) ? "")
     }) ? "") ++ "\n— none —: no kit, so this part is silent; presets and Keep keep it that way."
-        ++ "\nKits are presets/sa/drums/kits/*.json, made by python3 tools/export-live-set.py kits."
+        ++ "\nKits are presets/sa/drums/kits/*.json, made by python3 tools/export-live-set.py kits,"
+        ++ "\nor from a folder of your own samples by Import samples… at the top."
 };
 
 // ---- Importing a kit ---------------------------------------------------------
-// "Import samples…" under the kit menus, and on the note a clone shows instead
-// of the drums: choose a folder of one-shots, and tools/export-live-set.py
-// makes a kit of it (the command docs/drums.md gives), which the Steps part
-// then plays. The tool runs beside megalooper, so the drums play on meanwhile.
+// "Import samples…" in the drums' header, and on the note a clone shows
+// instead of the drums: choose a folder of one-shots, and
+// tools/export-live-set.py makes a kit of it (the command docs/drums.md
+// gives), which the Steps part then plays. The tool runs beside megalooper,
+// so the drums play on meanwhile. (It was under the kit menus, below the
+// lanes and Timing, where a rig with kits did not find it.)
 ~drumsImporting = false;
 ~drumsImportSaid = ~drumsImportSaid ? "";
 ~drumsImportBad = ~drumsImportBad ? false;
@@ -300,10 +303,16 @@
         }
 };
 
+// The line under the header shows only once there is something to say
+// (`hideEmpty`). Its visibility is set only once a pane holds it (`placed`):
+// a view made visible before it has a parent opens as a window of its own.
 ~drumsImportShow = {
     ~drumsImportViews !? { |v|
         if(v[\line].isClosed.not) {
             v[\line].string_(~drumsImportSaid).stringColor_(if(~drumsImportBad) { ~gt[\rec] } { ~guiHintColor });
+            if((v[\hideEmpty] == true) and: { v[\placed] == true }) {
+                v[\line].visible_(~drumsImportSaid.notEmpty);
+            };
         };
         if(v[\button].isClosed.not) { v[\button].enabled_(~drumsImporting.not) };
     };
@@ -363,10 +372,14 @@
     };
 };
 
-// The button and the line beside it that says how the last import went.
-~drumsImportRow = {
+// The button and the line that says how the last import went: one pair at a
+// time, the pane's. `header`: the button sized and coloured as the header's
+// others, and the line under the header, hidden while it is empty
+// (~drumsImportShow).
+~drumsImportViewsMake = { |header = false|
     var button = ~drumsButton.().cycles_(false).fixedWidth_(150)
-        .states_([["Import samples…", ~gt[\ink], nil]])
+        .fixedHeight_(if(header) { 34 } { 28 })
+        .states_([["Import samples…", ~gt[\ink], if(header) { ~gt[\panel] }]])
         .toolTip_("A kit from a folder of your own one-shots (wav, aif, flac, ogg): choose the folder,\n"
             "and its files go onto pads by the words in their names: kick, snare, rim, clap,\n"
             "hat closed, hat open, tom, crash, ride, perc. The Steps part then plays the kit.\n"
@@ -374,9 +387,19 @@
             "The samples are copied into megalooper's kits folder. docs/drums.md has the table.")
         .action_({ ~drumsImportAsk.({ |folder| ~drumsImport.(folder) }) });
     var line = StaticText().font_(~guiHintFont);
-    ~drumsImportViews = (button: button, line: line);
+    ~drumsImportViews = (button: button, line: line, hideEmpty: header);
     ~drumsImportShow.();
-    HLayout(button, [line, stretch: 1]).spacing_(8)
+    ~drumsImportViews
+};
+// On the note: the button with its line beside it.
+~drumsImportRow = {
+    var v = ~drumsImportViewsMake.();
+    HLayout(v[\button], [v[\line], stretch: 1]).spacing_(8)
+};
+// The pane holds the views now: the line may be shown or hidden.
+~drumsImportPlaced = {
+    ~drumsImportViews !? { |v| v[\placed] = true };
+    ~drumsImportShow.();
 };
 
 // ---- Trims -------------------------------------------------------------------
@@ -1103,7 +1126,9 @@
     };
 };
 
-~drumsHeaderRow = {
+// `importButton`: Import samples…, on the right with the other actions: the
+// first row the view opens on, so another kit is a click away.
+~drumsHeaderRow = { |importButton|
     // Its label carries the program its footswitch sends, as the map has it.
     // Its tooltip says what drives it already, so its tag has no tip.
     var on = ~midiWatch.(~mapTag.(LooperTile().border_(~gt[\drum]).font_(~guiMono.(14, true))
@@ -1149,7 +1174,7 @@
     ~drumsWidgets.put(\on, (kind: \button, view: on, get: { ~drumsModel.() !? { |d| d.on } }));
     ~drumsWidgets.put(\breakActive, (kind: \button, view: brk,
         get: { ~drumsModel.() !? { |d| d.breakActive } }));
-    HLayout(~guiTitle.("Drums", 26), on, brk, nil, live, keep).spacing_(14)
+    HLayout(~guiTitle.("Drums", 26), on, brk, nil, importButton, live, keep).spacing_(14)
 };
 
 ~drumsKitMenu = { |d, slot|
@@ -1270,7 +1295,6 @@
             ~drumsRepeatsButton.()).spacing_(4),
         HLayout(~drumsRowLabel.("Onset kit:"), ~drumsKitMenu.(d, \onset),
             ~drumsKitLineText.(\onset)).spacing_(4),
-        HLayout(~drumsRowLabel.("New kit:"), ~drumsImportRow.()).spacing_(4),
         ~drumsTrimHolder = View().layout_(VLayout().margins_(0).spacing_(0)),
         ~guiHint.("Trims in dB, kept per kit: a layer's balance, the pads the lanes play, the onset pad.")
     ]
@@ -1487,7 +1511,7 @@
 // ---- Pane --------------------------------------------------------------------------
 ~buildDrumsPane = {
     var pane = View().background_(~gt[\bg]);
-    var d, m, gen, shown;
+    var d, m, gen, shown, imp;
     ~presetStopTimers.(\saDrums);
     ~guiTeardowns[\drums].value;
     d = ~drumsModel.();
@@ -1509,10 +1533,12 @@
     } {
         if(~drumsPatternLabels.includesKey(~drumsPattern).not) { ~drumsPattern = \main };
         if(MegaSASteps.pages.includes(~drumsPage).not) { ~drumsPage = \chance };
+        imp = ~drumsImportViewsMake.(true);
         pane.layout_(VLayout(
             ~guiBand.(\drum),
             View().layout_(VLayout(*(
-                [~drumsHeaderRow.(),
+                [~drumsHeaderRow.(imp[\button]),
+                    imp[\line],
                     ~guiPresetBar.(\saDrums, (
                         menu: "Saved drums: both patterns (every step, length, lane and timing setting),\n"
                             "the kits (a kit set to — none — comes back empty), their trims, the repeats,\n"
@@ -1531,6 +1557,7 @@
                     "default · hover for what it does"), nil]
             )).margins_([22, 14, 22, 14]).spacing_(8))
         ).margins_(0).spacing_(0));
+        ~drumsImportPlaced.();
         ~drumsControllers = ~drumsWire.(d, m);
         ~drumsRefreshAll.();
     } };
