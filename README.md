@@ -17,7 +17,9 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
 ## What it does
 
 - **Finds the meter.** Twelve meters from 2/4 to 12/8, over one to four bars,
-  with the downbeat placed by where the accents fall.
+  with the downbeat placed by where the accents fall. And loops whose bars
+  are not all alike, like three bars of 7/8 and one of 8/8, found from the
+  rhythm and the notes you played, or typed in by hand.
 - **Loops.** Overdub with undo, reverse, multiply, loop chaining, and
   overdubs shifted by your measured round-trip latency so they land in time.
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
