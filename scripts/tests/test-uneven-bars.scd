@@ -207,11 +207,15 @@ r = read.(take.([7, 7, 7, 8], true), false);
 ~tEq.("no lead-in, no detection (the overdub's path): the fallback as before", r[\error], \lengthAnchored);
 
 r = read.(take.([7, 7, 7, 9], true));
-~tAssert.("7+7+7+9 is also three bars of 5: a meter that fits answers, as before",
-    (r[\numerator] == 5) and: { r[\k] == 3 } and: { r[\bars].isNil } and: { r[\error].isNil },
+~tEq.("7+7+7+9 is also three bars of 5, but its bars score clearly better on the same grid: they answer",
+    r[\bars], [7, 7, 7, 9]);
+~tAssert.("...the meter second, one press of the switch away",
+    (r[\candidates][1] !? { |c| (c[\numerator] == 5) and: { c[\k] == 3 } and: { c[\bars].isNil } }) == true,
+    r[\candidates].keep(3).collect { |c| Looper.prReadingString(c) }.asString);
+r = read.(take.([7, 7, 7, 6], true));
+~tAssert.("7+7+7+6 dense, no notes: a near tie with 9/8 x3, so the meter answers and the bars come second",
+    (r[\numerator] == 9) and: { r[\bars].isNil } and: { r[\candidates][1][\bars] == [7, 7, 7, 6] },
     Looper.prReadingString(r));
-~tEq.("...and the bars come second, one press of the switch away",
-    r[\candidates][1] !? { |c| c[\bars] }, [7, 7, 7, 9]);
 
 [[[7, 7, 7, 7], "7/8 x4"], [[8, 8], "4/4 x2"], [[5, 5, 5, 5], "5/8 x4"], [[8, 8, 8, 8], "4/4 x4"]].do { |c|
     [true, false].do { |dense|
@@ -264,12 +268,17 @@ l.offerBars([7, 7, 7, 9], 8);
 l.prCancelReading;
 }.value;
 
-// ---- the duo's first labelled takes (2026-10-19) ---------------------------------
-// fixtures/uneven-takes.json: two takes of the duo's own, the onsets the stage
-// heard, the pitch the replay tracked from the tap, and the bars they gave by
-// hand. 7+7+7+8 is every eighth played, its loudest hits off the downbeats:
-// the onsets alone carry no bar line, the notes do (the same seven
-// notes three times, then a descending turnaround).
+// ---- the duo's labelled takes (2026-10-19) ----------------------------------------
+// fixtures/uneven-takes.json: six takes of the duo's own, the onsets and the
+// pitch the stage heard (for the first two, logged before the take carried its
+// pitch, the replay's from the tap), and the bars they gave by hand.
+//   261019_100238 7+7+7+8: every eighth played, its loudest hits off the
+//     downbeats; the onsets alone carry no bar line, the notes do (the same
+//     seven notes three times, then a descending turnaround)
+//   261019_100113 5+5+5+8: its stop press 113 ms late, over the snap's cap
+//   261019_120346 7+7+7+6: also three bars of 9/8, the bars win on its grid
+//   261019_120507 9+9+9+4: the last bar five eighths short
+//   261019_120233 7+7+7+6: hits off any strict grid by up to 140 ms, known
 {
 var takes = File.readAllString(thisProcess.nowExecutingPath.dirname +/+ "fixtures" +/+ "uneven-takes.json").parseJSON;
 takes.do { |tk|
@@ -278,13 +287,18 @@ takes.do { |tk|
     var pz = tk["pitches"].collect { |p| p.collect(_.asFloat) };
     var read = { |pitches| Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(dur - on[0], on - on[0], st,
         leadIn: on[0], pitches: pitches), dur) };
-    var r = read.(pz);
-    ~tEq.(tk["set"] ++ ": " ++ want.join("+") ++ " from the stage's onsets and the notes", r[\bars], want);
-    if(want == [5, 5, 5, 8]) {
+    var r = read.(pz), label = tk["set"] ++ ": " ++ want.join("+") ++ " from the stage's onsets and the notes";
+    if(tk["expect"] == "found") {
+        ~tEq.(label, r[\bars], want);
+    } {
+        ~tXfail.(label, r[\bars] != want, Looper.prReadingString(r) ++ " — no strict grid fits its hits");
+    };
+    if(tk["set"] == "261019_100113") {
         ~tNear.("...its stop press 113 ms late corrected: a grid all its onsets sit on is trusted",
             r[\loopDur], dur - 0.113, 0.01);
         ~tEq.("...and from the onsets alone", read.(nil)[\bars], want);
-    } {
+    };
+    if(tk["set"] == "261019_100238") {
         ~tXfail.("...and from the onsets alone, every eighth played", read.(nil)[\bars] != want,
             Looper.prReadingString(read.(nil)) ++ " — the onsets carry no bar line");
     };

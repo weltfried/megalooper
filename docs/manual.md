@@ -1650,8 +1650,9 @@ and everything that counts bars follows them:
 uneven bars (`MeterAnalyzer.analyzeUneven`): the pulse grids that fit the onsets
 over the whole take, the period at which the riff repeats, then every way of
 barring the take into bars of that period with one or two of them up to four
-pulses longer or shorter, scored by how alike the bars are and how strong the
-hits on their bar lines, the cycle's last bar odd a little ahead. "Alike" is
+pulses longer, or one of them shorter down to two (9+9+9+4), scored by how
+alike the bars are and how strong the hits on their bar lines, the cycle's last
+bar odd a little ahead. "Alike" is
 which eighths are played and, when the pitch tracker heard notes, **which notes
 are played**: the regular bars play the same notes at the same places, and the
 turnaround is the one that does not. A riff that plays every eighth with its
@@ -1660,10 +1661,12 @@ notes only. A hit counts as a note when its pitch holds still for the first
 quarter second; a noise burst's wandering pitch does not, and notes that never
 repeat at any period are ignored. When no ordinary meter
 fits the take (29 eighths fit none), its answer is the take's reading instead
-of the fallback. When one does (7+7+7+9 is also three bars of 5/4), the meter
-stays the answer and the uneven bars come **second**, one press of the
-next-reading switch away. It never answers with even bars of its own, so
-straight takes read as they always did. It is tuned on synthetic takes so far;
+of the fallback. When one does on the same eighths (7+7+7+6 is also three bars
+of 9/8), the meter's bars are scored on that grid the same way, and the uneven
+bars answer only when they score clearly better (`unevenWinMargin`); otherwise
+the meter answers and the bars come **second**. Either way the other is one
+press of the next-reading switch away. It never answers with even bars of its
+own, so straight takes read as they always did. It is tuned on synthetic takes so far;
 the duo's labelled takes will tune it (see below).
 
 **Given by hand**, when the analyser missed them: on the Analysis tab, **Bars

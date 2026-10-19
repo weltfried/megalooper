@@ -43,6 +43,8 @@ MeterAnalyzer {
     classvar <>unevenPulse = #[0.13, 0.75];
     classvar <>unevenBar = #[4, 16];
     classvar <>unevenMaxDev = 4;
+    //   unevenMinBar    the shortest an odd bar may be, in pulses
+    classvar <>unevenMinBar = 2;
     classvar <>unevenAcFloor = 0.3;
     classvar <>unevenFitFloor = 0.6;
     classvar <>unevenAccent = 0.2;
@@ -68,6 +70,9 @@ MeterAnalyzer {
     classvar <>unevenGrids = 4;
     //   unevenGridCost  per step from the coarsest grid that fits
     classvar <>unevenGridCost = 0.1;
+    //   unevenWinMargin how much better uneven bars must score than a meter
+    //                   that fits the same grid to answer instead of it
+    classvar <>unevenWinMargin = 0.1;
     classvar <accentWeight = 0.5;
     // How many ranked readings analyze() returns beside its answer, best
     // first. See prRankCandidates. Settable so an offline sweep can ask for
@@ -126,7 +131,7 @@ MeterAnalyzer {
     // `pitches` (optional, with leadIn): the take's pitch readings, [time from
     // the press, Hz, amplitude] each, for the uneven bars' notes.
     *analyze { |loopDur, onsets, strengths, maxBars, minOnsetDensity = 0, leadIn, pitches|
-        var best, bestScore = -inf, uneven;
+        var best, bestScore = -inf, uneven, meterScore;
         var kMax = (maxBars ? maxK).asInteger.max(1);
         // Every reading that passes the fit, with its score. The perception map
         // (docs/dev/meter-perception.md) found the wrong answers to be near-ties,
@@ -217,8 +222,20 @@ MeterAnalyzer {
         // is no next reading to offer.
         best[\score] = bestScore;
         best[\candidates] = this.prRankCandidates(passed, onsets.size);
-        uneven !? { |u|
-            best[\candidates] = best[\candidates].insert(1, u.copy.put(\candidates, nil)) };
+        if(uneven.isNil) { ^best };
+        // Both a meter and uneven bars: when they share a grid (7+7+7+6 is
+        // also three bars of 9/8), the meter's bars are scored on it as the
+        // uneven ones were, and the uneven bars answer when they win by
+        // unevenWinMargin, the meter second. Else the meter answers and the
+        // bars go second: one press of the switch either way.
+        meterScore = uneven[\grid] !? { |g| this.prMeterOnGrid(best, g) } !? { |x| x[\score] };
+        if(meterScore.notNil and: { (uneven[\barsScore] - meterScore) >= unevenWinMargin }) {
+            ^uneven.copy.put(\candidates, [uneven.copy.put(\candidates, nil)]
+                ++ best[\candidates] ++ uneven[\candidates].drop(1)).put(\meterScore, meterScore)
+        };
+        best[\candidates] = best[\candidates].insert(1, uneven.copy.put(\candidates, nil));
+        best[\meterScore] = meterScore;
+        best[\unevenBarsScore] = uneven[\barsScore];
         ^best
     }
 
@@ -359,7 +376,8 @@ MeterAnalyzer {
         // A finer grid costs a little: the same bars on a grid twice as fine
         // are the same music, and the coarser grid offers them already.
         pulses.do { |pulse, g|
-            this.prScoreGrid(pulse, onsets, strengths, onsetNotes).do { |h|
+            this.prScoreGrid(this.prGrid(pulse, onsets, strengths, onsetNotes)).do { |h|
+                h[\barsScore] = h[\score];
                 h[\score] = h[\score] - (g * unevenGridCost);
                 scored.add(h);
             };
@@ -381,30 +399,51 @@ MeterAnalyzer {
         ^readings[0].copy.put(\candidates, readings)
     }
 
-    // Every barring of one pulse grid, scored (prScoreBars), each carrying its
-    // grid as `pulse`. Two profiles of the same hits: compressed, where that a
-    // hit is there counts most (the period: one loud hit drowned the riff's),
-    // and raw (the bar lines: compressed, every eighth of a dense take looks
-    // alike). With pitch, a third: the note on each pulse, whose repeats show
-    // the period and the bars when the hits show neither.
-    *prScoreGrid { |pulse, onsets, strengths, onsetNotes|
-        var prof = this.prPulseProfile(onsets, strengths, pulse);
-        var profC = this.prPulseProfile(onsets, strengths, pulse, true);
+    // What a pulse grid makes of the take, for scoring barrings on it. Two
+    // profiles of the same hits: compressed, where that a hit is there counts
+    // most (the period: one loud hit drowned the riff's), and raw (the bar
+    // lines: compressed, every eighth of a dense take looks alike). With
+    // pitch, a third: the note on each pulse, whose repeats show the period
+    // and the bars when the hits show neither; notes that repeat at no period
+    // are no riff (a noisy or chordal take the tracker guesses at) and do not
+    // count. (pulse:, prof:, profC:, notes:, notePeriods:)
+    *prGrid { |pulse, onsets, strengths, onsetNotes|
         var notes = onsetNotes !? { |ns| this.prPulseNotes(onsets, strengths, ns, pulse) };
         var notePeriods = notes !? { |ns| this.prNotePeriods(ns) } ? [];
-        var periods = this.prBarPeriods(profC), out = List.new;
-        // Notes that repeat at no period are no riff: a noisy or chordal take
-        // the pitch tracker guesses at. They then do not count at all.
         if(notePeriods.isEmpty) { notes = nil };
-        (this.prBarPeriods(prof) ++ notePeriods).do { |per|
+        ^(pulse: pulse, prof: this.prPulseProfile(onsets, strengths, pulse),
+            profC: this.prPulseProfile(onsets, strengths, pulse, true),
+            notes: notes, notePeriods: notePeriods)
+    }
+
+    // Every barring of one pulse grid, scored (prScoreBars), each carrying its
+    // grid as `pulse` and the grid as `grid`.
+    *prScoreGrid { |grid|
+        var pulse = grid[\pulse], periods = this.prBarPeriods(grid[\profC]), out = List.new;
+        (this.prBarPeriods(grid[\prof]) ++ grid[\notePeriods]).do { |per|
             if(periods.any { |x| x[\m] == per[\m] }.not) { periods = periods.add(per) } };
         periods.do { |per|
             this.prBarHypotheses(pulse[\n], per[\m]).do { |bars|
-                out.add(this.prScoreBars(profC, prof, bars, per[\m], notes)
-                    .put(\bars, bars).put(\ac, per[\ac]).put(\pulse, pulse));
+                out.add(this.prScoreBars(grid[\profC], grid[\prof], bars, per[\m], grid[\notes])
+                    .put(\bars, bars).put(\ac, per[\ac]).put(\pulse, pulse).put(\grid, grid));
             };
         };
         ^out
+    }
+
+    // A meter's bars on an uneven reading's grid, scored the same way, or nil
+    // when the meter is not on that grid (its unit not one or two pulses, or
+    // its loop not the grid's length). How analyze lets uneven bars compete
+    // with a meter that fits: 7+7+7+6 is also three bars of 9/8.
+    *prMeterOnGrid { |meter, grid|
+        var pulse = grid[\pulse], unit = meter[\tau] * (meter[\sub] ? 1);
+        var q = unit / pulse[\tau], per, bars;
+        if(meter[\tau].isNil or: { meter[\error].notNil }) { ^nil };
+        per = q.round.asInteger;
+        if((per < 1) or: { per > 2 } or: { ((q - per).abs / q) > 0.03 }) { ^nil };
+        bars = this.barsOf(meter) * per;
+        if(bars.sum != pulse[\n]) { ^nil };
+        ^this.prScoreBars(grid[\profC], grid[\prof], bars, bars.maxItem { |b| bars.occurrencesOf(b) }, grid[\notes])
     }
 
     *prAllAlike { |bars| ^bars.every { |b| b == bars[0] } }
@@ -543,14 +582,16 @@ MeterAnalyzer {
     // Every barring of n pulses into bars of m with up to two odd ones: k
     // bars (n / m rounded down and up, at least 2), r = n - k * m pulses over;
     // none (all alike), one bar of m + r at each position, or two bars sharing
-    // r (each off by 1..unevenMaxDev, the same way) at each pair.
+    // r (each off by 1..unevenMaxDev, the same way) at each pair. One odd bar
+    // may be up to unevenMaxDev longer, or shorter down to unevenMinBar
+    // pulses: the duo's 9+9+9+4 takes five eighths from the last bar.
     *prBarHypotheses { |n, m|
         var out = List.new, dev = unevenMaxDev;
         [(n / m).floor.asInteger, (n / m).ceil.asInteger].asSet.do { |k|
             var r = n - (k * m), splits;
             if((k >= 2) and: { k <= 32 }) {
                 if(r == 0) { out.add(Array.fill(k, m)) };
-                if((r != 0) and: { r.abs <= dev } and: { (m + r) >= 2 }) {
+                if((r != 0) and: { r <= dev } and: { (m + r) >= unevenMinBar }) {
                     k.do { |i| out.add(Array.fill(k, m).put(i, m + r)) };
                 };
                 if(r.abs >= 2) {
@@ -687,7 +728,7 @@ MeterAnalyzer {
             if((bpm >= bpmRangeLo) and: { bpm <= bpmRangeHi }) {
                 r = (denominator: den, sub: sub, tau: tau, bpm: bpm, loopDur: pulse[\n] * tau,
                     phase: 0, downbeatOffset: 0, accent: h[\accent], onsetCount: onsetCount,
-                    unevenFit: h[\fit], gridFit: pulse[\gridFit],
+                    unevenFit: h[\fit], gridFit: pulse[\gridFit], barsScore: h[\barsScore], grid: h[\grid],
                     unevenScore: h[\score] - ((bpm.log - preferredBpm.log).abs * 0.2) - ((sub - 1) * 0.5));
                 out.add(this.putBars(r, (h[\bars] / sub).collect(_.asInteger)));
             };
