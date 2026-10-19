@@ -24,6 +24,11 @@ presets/granular/*.scd
 # Recorded sets: two WAVs per session, hundreds of MB a gig.
 sessions/
 
+# The duo's labelled uneven-bars takes (their onsets and their riffs' pitch,
+# taken from sessions/): private like the sets they come from. The tests
+# that read them skip when the file is not there.
+scripts/tests/fixtures/uneven-takes.json
+
 # Megalooper SA: BIAS FX state exported from the Live set by
 # tools/export-live-set.py biasfx, and the sound Keep sound kept (current.fxb
 # and current.scd). Regenerated from the set or the rig, not committed.

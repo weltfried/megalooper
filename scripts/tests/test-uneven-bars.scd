@@ -279,8 +279,14 @@ l.prCancelReading;
 //   261019_120346 7+7+7+6: also three bars of 9/8, the bars win on its grid
 //   261019_120507 9+9+9+4: the last bar five eighths short
 //   261019_120233 7+7+7+6: hits off any strict grid by up to 140 ms, known
+// The file is the duo's own, kept out of the repository with their sets
+// (.gitignore); without it these checks are skipped.
 {
-var takes = File.readAllString(thisProcess.nowExecutingPath.dirname +/+ "fixtures" +/+ "uneven-takes.json").parseJSON;
+var path = thisProcess.nowExecutingPath.dirname +/+ "fixtures" +/+ "uneven-takes.json";
+var takes = if(File.exists(path)) { File.readAllString(path).parseJSON } { [] };
+if(takes.isEmpty) {
+    ~tSkip.("the duo's labelled uneven-bars takes", "fixtures/uneven-takes.json is private and not here");
+};
 takes.do { |tk|
     var dur = tk["dur"].asFloat, on = tk["onsets"].collect { |p| p[0].asFloat };
     var st = tk["onsets"].collect { |p| p[1].asFloat }, want = tk["bars"].collect(_.asInteger);
