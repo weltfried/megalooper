@@ -58,7 +58,8 @@
                 r = MeterAnalyzer.analyze(
                     ai["loopDur"].asFloat,
                     ai["onsets"].collect { |v| v.asFloat },
-                    ai["strengths"].collect { |v| v.asFloat });
+                    ai["strengths"].collect { |v| v.asFloat },
+                    leadIn: (d["firstOnsetSec"] ? 0).asFloat);
                 r = Looper.snapAnalysisToLoop(r, full);
 
                 sigMatch = (r.numerator == wantNum)

@@ -1646,14 +1646,34 @@ and everything that counts bars follows them:
 - **Live**, where it is used, is sent one bar per cycle (`29/8`), so its bar line
   still meets the loop's.
 
-The analyser does not find uneven bars yet. Until it does, give them by hand:
-on the Analysis tab, **Bars by hand**, type one cycle (`7 7 7 8`), choose the
-denominator and press **Set bars**. The loop's length sets the tempo, and the
-reading in force decides how many cycles the loop holds. The reading lands on the
-next loop boundary like the next reading; the header says **TAKE · BARS BY HAND**,
-the next-reading switch passes through it, and **Revert** goes back to the
-analyser's answer. The session recorder still names files and writes the drums'
-MIDI file with the commonest bar (7/8).
+**Found by the analyser.** After a first take the analyser also looks for
+uneven bars (`MeterAnalyzer.analyzeUneven`): the pulse that fits the onsets over
+the whole take, the period at which the riff repeats, then every way of
+barring the take into bars of that period with one or two of them up to two
+pulses longer or shorter, scored by how alike the bars are and how strong the
+hits on their bar lines, an odd bar last a little ahead. When no ordinary meter
+fits the take (29 eighths fit none), its answer is the take's reading instead
+of the fallback. When one does (7+7+7+9 is also three bars of 5/4), the meter
+stays the answer and the uneven bars come **second**, one press of the
+next-reading switch away. It never answers with even bars of its own, so
+straight takes read as they always did. It is tuned on synthetic takes so far;
+the duo's labelled takes will tune it (see below).
+
+**Given by hand**, when the analyser missed them: on the Analysis tab, **Bars
+by hand**, type one cycle (`7 7 7 8`), choose the denominator and press **Set
+bars**. The loop's length sets the tempo, and the reading in force decides how
+many cycles the loop holds. The reading lands on the next loop boundary like the
+next reading; the header says **TAKE · BARS BY HAND**, the next-reading switch
+passes through it, and **Revert** goes back to the analyser's answer. Bars the
+analyser already offers are armed as they are.
+
+**Labelled takes.** With **Record set** on, a take whose bars were given by
+hand (or reached with the switch) keeps them as its label in the set's log, and
+`scripts/replay-session.scd` scores today's analyser against them. That is how
+the detection gets tuned on real playing.
+
+The session recorder still names files and writes the drums' MIDI file with the
+commonest bar (7/8).
 
 ## Exporting training data
 

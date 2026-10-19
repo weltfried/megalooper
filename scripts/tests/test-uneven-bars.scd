@@ -151,3 +151,111 @@ l.offerBars([7, 7, 7, 8], 7);
 l.offerBars([7, 7, 7, 8], 8);
 ~tAssert.("stopped: refused", (refused.size == 4) and: { l.pendingReading.isNil }, "");
 }.value;
+
+// ---- uneven bars, detected ----------------------------------------------------------
+// MeterAnalyzer.analyzeUneven through analyze, as the first take's path calls it
+// (leadIn given). Synthetic hits on an eighth of 0.25 s: bar heads 1.0, the
+// heads of the beat groups (2+2+3, 2+2+2+2, 2+2+2+3, 2+3) 0.7, the rest 0.35,
+// every eighth played or the group heads only.
+{
+var e8 = 0.25;
+var take = { |bars, dense, delay = 0|
+    var t = List.new, s = List.new, pos = 0;
+    bars.do { |len|
+        var groups = switch(len, 5, { [2, 3] }, 6, { [2, 2, 2] }, 7, { [2, 2, 3] },
+            8, { [2, 2, 2, 2] }, 9, { [2, 2, 2, 3] });
+        var p = pos;
+        groups.do { |g, gi|
+            g.do { |u|
+                if((u == 0) or: { dense }) {
+                    t.add(((p + u) * e8) + delay);
+                    s.add(if(u == 0) { if(gi == 0) { 1.0 } { 0.7 } } { 0.35 });
+                };
+            };
+            p = p + g;
+        };
+        pos = pos + len;
+    };
+    (onsets: t.asArray, strengths: s.asArray, dur: pos * e8)
+};
+// The Looper's preparation: relative to the first onset, the span after it,
+// the lead-in given, then the snap on the whole take.
+var read = { |tk, lead = true|
+    var first = tk[\onsets][0];
+    Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(tk[\dur] - first, tk[\onsets] - first,
+        tk[\strengths], leadIn: if(lead) { first }), tk[\dur])
+};
+var r, tk, unevenOn;
+unevenOn = { |res| (res[\candidates] ? []).select { |c| MeterAnalyzer.isUneven(c) } };
+
+r = read.(take.([7, 7, 7, 8], true));
+~tEq.("7+7+7+8, no meter fits it: the bars are the answer",
+    [r[\bars], r[\denominator], r[\k], r[\error]], [[7, 7, 7, 8], 8, 4, nil]);
+~tNear.("...at 120 BPM", r[\bpm], 120, 0.5);
+~tNear.("...the loop kept to the eighth", r[\loopDur], 29 * e8, 0.01);
+~tAssert.("...and its alternatives are the odd bar elsewhere",
+    r[\candidates].drop(1).any { |c| c[\bars] == [7, 7, 8, 7] }, r[\candidates].collect { |c| c[\bars] }.asString);
+r = read.(take.([7, 7, 7, 8], true, 0.025));
+~tEq.("...with every hit reported 25 ms late, as an onset detector does", r[\bars], [7, 7, 7, 8]);
+r = read.(take.([8, 7, 7, 7], true));
+~tEq.("the odd bar first", r[\bars], [8, 7, 7, 7]);
+r = read.(take.([7, 7, 7, 8, 7, 7, 7, 9], false));
+~tEq.("two odd bars in eight, the group heads only", r[\bars], [7, 7, 7, 8, 7, 7, 7, 9]);
+r = read.(take.([5, 5, 5, 6], false));
+~tEq.("5+5+5+6, the group heads only", r[\bars], [5, 5, 5, 6]);
+r = read.(take.([7, 7, 7, 8], true), false);
+~tEq.("no lead-in, no detection (the overdub's path): the fallback as before", r[\error], \lengthAnchored);
+
+r = read.(take.([7, 7, 7, 9], true));
+~tAssert.("7+7+7+9 is also three bars of 5: a meter that fits answers, as before",
+    (r[\numerator] == 5) and: { r[\k] == 3 } and: { r[\bars].isNil } and: { r[\error].isNil },
+    Looper.prReadingString(r));
+~tEq.("...and the bars come second, one press of the switch away",
+    r[\candidates][1] !? { |c| c[\bars] }, [7, 7, 7, 9]);
+
+[[[7, 7, 7, 7], "7/8 x4"], [[8, 8], "4/4 x2"], [[5, 5, 5, 5], "5/8 x4"], [[8, 8, 8, 8], "4/4 x4"]].do { |c|
+    [true, false].do { |dense|
+        tk = take.(c[0], dense);
+        r = read.(tk);
+        ~tAssert.(c[1] ++ (if(dense) { " dense" } { " sparse" }) ++ ": no uneven reading offered",
+            r[\bars].isNil and: { unevenOn.(r).isEmpty }, Looper.prReadingString(r) ++ " "
+                ++ unevenOn.(r).collect { |x| MeterAnalyzer.sigString(x) });
+    };
+};
+
+// The pieces: the pulse is fitted from the first onset and counted from the
+// press; the period is the shortest the riff repeats at.
+tk = take.([7, 7, 7, 8], true);
+r = MeterAnalyzer.prUnevenPulse(tk[\dur] + 0.25, tk[\onsets] + 0.25);
+~tEq.("a take that begins with an eighth's rest: 30 pulses, the first hit on pulse 1",
+    [r[\n], r[\offset]], [30, 1]);
+r = MeterAnalyzer.prBarPeriods(MeterAnalyzer.prPulseProfile(tk[\onsets], tk[\strengths],
+    MeterAnalyzer.prUnevenPulse(tk[\dur], tk[\onsets])));
+~tEq.("the riff repeats every 7 (not 14)", r[0][\m], 7);
+~tEq.("the barrings of 29 into 7s: one odd bar at each of four places",
+    MeterAnalyzer.prBarHypotheses(29, 7).select { |b| b.count { |x| x != 7 } == 1 }.size, 4);
+~tAssert.("...and of 59: 7 7 7 8 7 7 7 9 among the two odd ones",
+    MeterAnalyzer.prBarHypotheses(59, 7).any { |b| b == [7, 7, 7, 8, 7, 7, 7, 9] }, "");
+}.value;
+
+// ---- the Looper with detected readings ---------------------------------------------
+{
+var l = ~tLooper.();
+var even = { |num, score| (score: score, numerator: num, denominator: 8, k: 4, sub: 1, tau: 0.25,
+    loopDur: num * 4 * 0.25, bpm: 120, n: num * 4, phase: 0, downbeatOffset: 0, accent: 0.4, onsetCount: 30) };
+var uneven = MeterAnalyzer.putBars((denominator: 8, sub: 1, tau: 0.25, bpm: 120, loopDur: 7.5,
+    phase: 0, downbeatOffset: 0, accent: 1.5, onsetCount: 30, unevenScore: 1.2), [7, 7, 7, 9]);
+var answer = even.(5, 0.9).put(\denominator, 4).put(\k, 3);
+answer[\candidates] = [answer.copy, uneven, even.(10, 0.85)];
+~tPut.(l, \state, \playing);
+~tPut.(l, \loopFrames, (7.5 * 48000).asInteger);
+~tPut.(l, \loopStartTime, SystemClock.seconds);
+~tPut.(l, \lastResult, answer);
+~tPut.(l, \analysedResult, answer);
+~tNear.("the margin skips the bars, to the next meter", l.readingMargin, 0.05, 1e-9);
+~tEq.("the runner-up is the bars", l.runnerUp !? { |r| r[\bars] }, [7, 7, 7, 9]);
+l.offerBars([7, 7, 7, 9], 8);
+~tEq.("bars given by hand that the detection found arm its reading, no copy",
+    [l.pendingReading[\index], l.readingCount], [1, 3]);
+l.prCancelReading;
+}.value;

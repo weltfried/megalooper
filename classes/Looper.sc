@@ -1044,8 +1044,10 @@ Looper {
             // aligned regardless of how much silence precedes the first note.
             var relOnsets = onsetsSnap.collect { |p| p[0] - firstOnset };
             var strengths = onsetsSnap.collect { |p| p[1] };
+            // leadIn: the first take's bars count from the press, which turns
+            // on the uneven-bars detection (MeterAnalyzer.analyzeUneven).
             var result = MeterAnalyzer.analyze(
-                dur - firstOnset, relOnsets.asArray, strengths.asArray);
+                dur - firstOnset, relOnsets.asArray, strengths.asArray, leadIn: firstOnset);
             var newFrames, applied;
             result = Looper.snapAnalysisToLoop(result, dur);
             result[\snapRefused] !? { |x|
@@ -3565,10 +3567,12 @@ Looper {
     // (docs/dev/meter-perception.md), which is when the header shows it.
     readingMargin {
         var c = analysedResult !? { |a| a[\candidates] };
-        if(c.isNil or: { c.size < 2 }) { ^nil };
-        // A reading given by hand (offerBars) has no score to compare.
-        if(c[0][\score].isNumber.not or: { c[1][\score].isNumber.not }) { ^nil };
-        ^(c[0][\score] - c[1][\score])
+        var next;
+        if(c.isNil or: { c.size < 2 } or: { c[0][\score].isNumber.not }) { ^nil };
+        // Uneven readings (detected, or given by hand) have no score to compare
+        // with the meters': the margin is to the best meter after the answer.
+        next = c.drop(1).detect { |x| x[\score].isNumber };
+        ^next !? { |x| c[0][\score] - x[\score] }
     }
 
     // THE footswitch. Moves the take to the next reading in the analyser's own
@@ -3607,9 +3611,9 @@ Looper {
     // in force how many cycles), added to the take's readings after the
     // analyser's own and armed like the next one: it lands on a boundary,
     // the drums and the bar grid follow it, Revert goes back to the
-    // analyser's answer, and the switch passes through it. The same bars
-    // again arm the reading they already made. Until detection finds uneven
-    // bars itself, this is how to hear them.
+    // analyser's answer, and the switch passes through it. Bars already on
+    // the list (the detection's, or given before) arm that reading. For when
+    // the detection did not find them.
     offerBars { |bars, denom = 8|
         var loopSecs = this.loopDuration;
         var analysed = analysedResult ? lastResult;
@@ -3635,8 +3639,10 @@ Looper {
         // Index 0 is always the analyser's answer: a take that fit no grid has
         // no list, so the list starts with the answer itself.
         cands = (analysed[\candidates] ?? { [analysed.copy] }).copy;
+        // The same bars already on the list, detected or given before, are
+        // armed as they are.
         index = cands.detectIndex { |c|
-            (c[\from] == \hand) and: { c[\denominator] == denom }
+            MeterAnalyzer.isUneven(c) and: { c[\denominator] == denom }
                 and: { MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(c)) == cycle } };
         if(index.isNil) {
             cands = cands.add(reading);

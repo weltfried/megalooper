@@ -62,13 +62,16 @@ fmtReading = { |r|
     { r[\numerator].isNil } { "no meter" ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
     { Looper.prReadingString(r) ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
 };
-// The same reading: meter and bar count. The tempo follows from those and the
-// loop length, so it is not compared separately.
+// The same reading: meter and bar count, and for uneven bars the bars
+// themselves (7+7+7+8 is not 7+7+8+7; a bar list from the log reads back as
+// Floats, which == takes). The tempo follows from those and the loop length,
+// so it is not compared separately.
 sameReading = { |a, b|
     a.notNil and: { b.notNil }
         and: { a[\numerator] == b[\numerator] }
         and: { a[\denominator] == b[\denominator] }
         and: { (a[\k] ? 1) == (b[\k] ? 1) }
+        and: { MeterAnalyzer.barsOf(a) == MeterAnalyzer.barsOf(b) }
 };
 // The same grid under another barring: the same tempo within half a percent
 // and the same length in whole notes — 2/4 in two bars against 4/4 in one, 6/8
@@ -80,8 +83,8 @@ gridSame = { |a, b|
         and: { a[\bpm].notNil } and: { b[\bpm].notNil }
         and: { a[\numerator].notNil } and: { b[\numerator].notNil }
         and: { ((a[\bpm] - b[\bpm]).abs / a[\bpm].max(1e-6)) < 0.005 }
-        and: { ((a[\numerator] * (a[\k] ? 1) / a[\denominator])
-            - (b[\numerator] * (b[\k] ? 1) / b[\denominator])).abs < 1e-6 }
+        and: { ((MeterAnalyzer.unitsOf(a) / a[\denominator])
+            - (MeterAnalyzer.unitsOf(b) / b[\denominator])).abs < 1e-6 }
 };
 // A reading against a reference: \yes, \grid, \no, or nil with no reference.
 verdict = { |r, ref|
@@ -114,7 +117,9 @@ findEvents = {
 
 // A synthetic set: two bars of 7/8 at 100 BPM as noise bursts, accented 2+2+3,
 // two seconds of silence before them, then two short empty takes — one undone,
-// one played on — so every outcome the label logic knows appears once. The
+// one played on — so every outcome the label logic knows appears once; then
+// 7+7+7+8 at 120 BPM that the stage could not read (length-anchored) and whose
+// bars were given by hand (Bars by hand), which makes the bars its label. The
 // log is written through the recorder's own writer.
 selfTest = {
     var srS = 48000;
@@ -123,12 +128,12 @@ selfTest = {
     var opened = tmpDir +/+ "selftest-tap.wav";
     var wav = tmpDir +/+ "selftest-100.00bpm-7-8-tap.wav";
     var ev  = tmpDir +/+ "selftest-events.jsonl";
-    var total = (11.5 * srS).asInteger;
+    var total = (20.5 * srS).asInteger;
     var sig = Signal.fill(total, { 1e-4.rand2 });
     var eighth = 0.3;
     var hits = List.new;
     var base = 1000.0;
-    var burst, sf, rec, r78, r74, empty;
+    var burst, sf, rec, r78, r74, empty, unevenHits, hand;
     burst = { |at, amp|
         var start = (at * srS).asInteger;
         var len = (0.1 * srS).asInteger;
@@ -144,6 +149,21 @@ selfTest = {
         burst.(t, if(#[0, 2, 4, 7, 9, 11].includes(i)) { 0.6 } { 0.3 });
         hits.add(t);
     };
+    // 7+7+7+8, an eighth of 0.25 s from 12.0: bar heads loud, beat-group
+    // heads (2+2+3, 2+2+2+2) less, the rest soft.
+    unevenHits = List.new;
+    { var pos = 0;
+      [7, 7, 7, 8].do { |len|
+          var heads = if(len == 7) { [0, 2, 4] } { [0, 2, 4, 6] };
+          len.do { |u|
+              var t = 12.0 + ((pos + u) * 0.25);
+              var amp = if(u == 0) { 0.8 } { if(heads.includes(u)) { 0.55 } { 0.3 } };
+              burst.(t, amp);
+              unevenHits.add([t - 11.9, amp]);
+          };
+          pos = pos + len;
+      };
+    }.value;
     if(File.exists(tmpDir).not) { File.mkdir(tmpDir) };
     // An older self-test's tap under the opened name would be found first.
     if(File.exists(opened)) { File.delete(opened) };
@@ -184,10 +204,18 @@ selfTest = {
     rec.logEvent(\recordStart, (threshold: 0.5), base + 10.0);
     rec.logEvent(\take, (start: 10.0, dur: 1.0, threshold: 0.5, firstOnset: 0, onsets: [],
         result: empty, candidates: [], loopDur: 1.0, applied: true), base + 11.0);
+    hand = MeterAnalyzer.readingOfBars(7.35, [7, 7, 7, 8], 8);
+    rec.logEvent(\recordStart, (threshold: 0.5), base + 11.9);
+    rec.logEvent(\take, (start: 11.9, dur: 7.35, threshold: 0.5, firstOnset: 0.1,
+        onsets: unevenHits.asArray, result: MeterAnalyzer.anchorToLength(7.35, 7, 8, 29),
+        candidates: [], loopDur: 7.35, applied: true), base + 19.25);
+    rec.logEvent(\readingArmed, (index: 1, of: 2, via: \hand, loops: 1, restart: false,
+        reading: Looper.resultForLog(hand)), base + 19.5);
+    rec.logEvent(\readingLanded, (index: 1, restart: false, reading: Looper.resultForLog(hand)), base + 26.6);
     rec.logEvent(\files, (files: (tap: wav.basename, events: ev.basename),
         liveHint: LooperSessionRecorder.liveHint((bpm: 100, numerator: 7, denominator: 8), nil),
-        tempo: (bpm: 100.0, numerator: 7, denominator: 8, from: \loop)), base + 11.4);
-    rec.logEvent(\sessionStop, (elapsed: 11.4), base + 11.4);
+        tempo: (bpm: 100.0, numerator: 7, denominator: 8, from: \loop)), base + 27.0);
+    rec.logEvent(\sessionStop, (elapsed: 27.0), base + 27.0);
     rec.prCloseLog;
     ~replaySelfTestHits = hits.asArray;
     ~replaySelfTestTap = wav;
@@ -271,7 +299,7 @@ analyse = { |tk, onsets|
     var first = if(onsets.isEmpty) { 0 } { onsets[0][0] };
     var rel = onsets.collect { |p| p[0] - first };
     var str = onsets.collect { |p| p[1] };
-    var r = MeterAnalyzer.analyze(tk[\dur] - first, rel, str);
+    var r = MeterAnalyzer.analyze(tk[\dur] - first, rel, str, leadIn: first);
     Looper.snapAnalysisToLoop(r, tk[\dur])
 };
 
@@ -628,9 +656,9 @@ if(~replaySelfTest == true) {
     "".postln;
     "=== Self-test ===".postln;
     check.("the tap was found under the name the stop gave it", tapPath == ~replaySelfTestTap, "got " ++ tapPath);
-    check.("three takes and the loop in force came out of the log", allTakes.size == 4, "got " ++ allTakes.size);
-    check.("their outcomes are accepted (in force), corrected, discarded, accepted",
-        outcomes == [\accepted, \corrected, \discarded, \accepted], "got " ++ outcomes);
+    check.("four takes and the loop in force came out of the log", allTakes.size == 5, "got " ++ allTakes.size);
+    check.("their outcomes are accepted (in force), corrected, discarded, accepted, corrected",
+        outcomes == [\accepted, \corrected, \discarded, \accepted, \corrected], "got " ++ outcomes);
     check.("the loop in force is its own kind", inForce.size == 1 and: { inForce[0][\kind] == \inForce },
         "got " ++ inForce.size);
     check.("its stage onsets through today's analyser read 7/8 in two bars",
@@ -652,6 +680,11 @@ if(~replaySelfTest == true) {
         "got " ++ cells[[1, j]][\onsets].size ++ " and " ++ cells[[2, j]][\onsets].size);
     check.("the analyser reads the clean 7/8 as 7/8 in two bars at 0.5",
         sameReading.(c[\reading], (numerator: 7, denominator: 8, k: 2)), "got " ++ fmtReading.(c[\reading]));
+    check.("the take whose bars were given by hand has them as its label: 7+7+7+8",
+        MeterAnalyzer.barsOf(allTakes[4][\label]) == [7, 7, 7, 8], "got " ++ fmtReading.(allTakes[4][\label]));
+    check.("...and today's analyser finds them in its audio at 0.5 (uneven bars, detected)",
+        sameReading.(cells[[3, j]][\reading], allTakes[4][\label]),
+        "got " ++ fmtReading.(cells[[3, j]][\reading]));
     "".postln;
     (if(failures == 0) { "SELF-TEST PASSED" } { "SELF-TEST FAILED — " ++ failures ++ " check(s)" }).postln;
 };
