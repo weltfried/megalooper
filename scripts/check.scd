@@ -74,7 +74,7 @@ var expected = [
     \saFxVariationsFile, \saLoadFxVariations, \saFxVariations, \saApplyVariation,
     \buildSARigSection, \saLevelSpec,
     \saDrumsKitDir, \saDrumsDefaultKits, \saDrumsStartKit, \saKeptDrumsPath, \saKeptDrumsBefore, \saAdoptKeptDrums, \saKeepDrums, \saLoadKeptDrums,
-    \saDrumsKitLine, \setupSADrums,
+    \saDrumsKitLine, \setupSADrums, \saDrumsNewLoopApply, \saDrumsNewLoopSet,
     \buildEffectsPane, \effectsBlurbs, \effectsFormat, \effectsMap, \effectsUnmap,
     \effectsKnobCell, \effectsTile, \effectsEditor, \effectsSelect, \effectsDraggable, \effectsDropAt, \effectsDropIndex,
     \effectsDragCancel,

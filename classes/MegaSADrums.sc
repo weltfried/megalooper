@@ -104,6 +104,14 @@ MegaSADrums {
     var <retrigAt = \barLine;
     // PC 17, the pattern in force now, and whether the transport plays.
     var <on = true, <breakActive = false, <playing = false;
+    // A new loop starts with the drums off: true switches PC 17 off as a
+    // first take starts recording, so the loop's Start runs the transport
+    // with the steps silent, and PC 17 (or the Drums view's switch) brings
+    // them in on the grid. Overdubs and loop chaining start no new loop and
+    // leave the switch as it is. The Setup view sets it, and settings.json
+    // keeps it (setup-sa.scd, ~saDrumsNewLoop). False plays them, as Live's
+    // set did.
+    var <>newLoopOff = false;
     // Beat Repeat's switch starts OFF: in Live's recordings of the set its
     // Beat Repeats stutter about once in twelve minutes, where this emulation
     // of their dice would about once a minute. The kits keep their pads'
@@ -1299,7 +1307,9 @@ MegaSADrums {
             .put(\breakEndsAt, { |obj, what, x| x !? { |v| this.breakEndsAt(v) } })
             .put(\reading, { |obj, what, p| if(p.notNil) { this.readingArmed(p) } { this.readingCleared } })
             .put(\reverse, { |obj, what, flag| this.prReversed(flag) })
-            .put(\state, { |obj, what, st| this.prCheckSpawn(wallClock.value) })
+            .put(\state, { |obj, what, st|
+                if((st == \recording) and: { newLoopOff } and: { on }) { this.setOn(false) };
+                this.prCheckSpawn(wallClock.value) })
             .put(\sessionRecording, { |obj, what, flag| this.prSessionRecording(flag) });
         aLooper.midiOut = transport;
         aLooper.onsetNoteSink = this;

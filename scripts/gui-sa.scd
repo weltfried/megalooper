@@ -131,6 +131,24 @@
     }
 };
 
+// Whether a new loop starts with the drums playing or off (PC 17 switched
+// off as the take starts: the transport still runs, PC 17 brings them in on
+// the grid). Kept in settings.json (~saDrumsNewLoopSet).
+~saNewLoopRow = { |d|
+    var tip = "What the drums do when you record a new loop.\n"
+        "Drums play: they start with the loop, as in Live's set.\n"
+        "Drums off: they keep time but stay silent until you switch them on\n"
+        "(PC 17, or the switch on the Drums view). Overdubs leave them as they are.";
+    ~saNewLoopSeg = ~guiSeg.(["Drums play", "Drums off"], (height: 28, font: ~guiSans.(13),
+        action: { |i| ~saDrumsNewLoopSet.(i == 1) }));
+    ~guiSegSet.(~saNewLoopSeg, (d.newLoopOff == true).binaryValue);
+    HLayout(
+        ~guiLabel.("New loop", 14).fixedWidth_(~rigLabelWidth ? 130).toolTip_(tip),
+        ~saNewLoopSeg[\view].fixedWidth_(220).toolTip_(tip),
+        nil
+    ).spacing_(10)
+};
+
 ~buildSARigSection = {
     var view = View();
     var m = ~megaSA;
@@ -143,6 +161,7 @@
         view.layout_(VLayout(*(
             [~guiCaption.("MEGALOOPER SA · LEVELS", 11)]
             ++ keys.collect { |k| ~saLevelRow.(m, k, ~saStripLabels[k], ~saRigLevels, ~rigLabelWidth ? 130) }
+            ++ (m.drums !? { |d| [~saNewLoopRow.(d)] } ? [])
             ++ [~guiHint.(if(keys.includes(\drums)) {
                 "The effects and their sounds are on the FX view (3), the drums on the Drums view (4)."
             } {

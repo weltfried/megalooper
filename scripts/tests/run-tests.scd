@@ -53,6 +53,7 @@ var files = [
     "test-megadrums.scd",
     "test-megadrums-sched.scd",
     "test-megadrums-fx.scd",
+    "test-megadrums-newloop.scd",
     "test-session-midi.scd",
     "test-midimap.scd",
     "test-miditargets.scd",

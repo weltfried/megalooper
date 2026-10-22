@@ -15,6 +15,7 @@
 //     ~saKeepSound.();                  // the next boot starts with this sound
 //     ~megaSA.saveSound(~saSoundsDir.(), "Warm"); // a sound under a name; loadSound recalls it
 //     ~megaSA.drums.toggleOn;           // the drums' steps on or off, as PC 17
+//     ~saDrumsNewLoopSet.(true);        // a new loop starts with the drums off (kept)
 //     ~megaSA.drums.setKit(\steps, 'core-909'); // or \onset; ~megaSA.drums.kitKeys
 //     ~saKeepDrums.();                  // the next boot starts with these drums
 (
@@ -515,6 +516,22 @@
         };
     };
     d
+};
+
+// Whether a new loop starts with the drums off (MegaSADrums.newLoopOff), as
+// settings.json keeps it: "gui": {"drumsNewLoop": "off"}, or "play", the
+// default. Read once the settings are (boot.scd, after ~setupMidiBindings);
+// set from the Setup view.
+~saDrumsNewLoopKey = "drumsNewLoop";
+~saDrumsNewLoopApply = {
+    ~megaSA !? { |m| m.drums !? { |d|
+        d.newLoopOff = (~guiPrefSaved !? { |f| f.value(~saDrumsNewLoopKey) }) == "off" } }
+};
+~saDrumsNewLoopSet = { |off|
+    ~megaSA !? { |m| m.drums !? { |d| d.newLoopOff = off == true } };
+    // The Setup view's switch shows what was set (it does not move itself).
+    ~saNewLoopSeg !? { |sg| ~guiSegSet !? { |f| f.value(sg, (off == true).binaryValue) } };
+    ~guiPrefSave !? { |f| f.value(~saDrumsNewLoopKey, if(off == true) { "off" } { "play" }, "the drums' new-loop switch") };
 };
 
 ~setupSA = {

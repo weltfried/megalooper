@@ -215,6 +215,8 @@ s.waitForBoot {
     // ~returnChannel and ~analysisChannel to decide what to disable.
     ~guiThemeName = ~guiThemeSaved.() ? ~guiThemeName;
     ~guiHelpShown = ~guiPrefSaved.("help") != "hidden";
+    // Whether a new loop starts with the drums off, as kept beside the theme.
+    if(~rp[\sa] == true) { ~saDrumsNewLoopApply.() };
     ~buildGuiWindow.();
 
     // Last: this one subscribes widgets from the header and EVERY pane.
