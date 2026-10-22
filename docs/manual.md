@@ -1364,6 +1364,24 @@ changed, not the threshold. A take whose tap peak sat 30 dB or more under the
 recorded input is marked **STARVED** and counted in the summary — the recorder
 warns about the same take live, and the threshold table means little for it.
 
+Under the sweep each take also gets rows that settle the threshold *after* the
+take rather than before the set, which the instrument could do on stage since
+the analyser only runs once the take is over. None of them changes what the
+instrument does yet; they show whether it should:
+
+| Row | reads |
+| --- | --- |
+| `auto` | the threshold whose reading the analyser scores highest (a reading that fit no grid is never picked) |
+| `vote` | the reading most thresholds of the sweep agree on |
+| `peak.15`, `peak.25` | the most liberal threshold's onsets without each one a hit within 0.15 / 0.25 s is clearly louder than (`~replayPeakRatio`, 1.4×): the accents, relative to the take, blind to the tap's level |
+| `gap.15`, `gap.2` | the same onsets with nothing for 0.15 / 0.2 s after each kept one: a "so many notes a second at most" rule, which keeps the first hit of a cluster however soft |
+
+The summary scores these rows like the thresholds and adds a grid of each
+labelled take against the sweep. A column right all the way down is a
+threshold to keep; rightness that wanders from column to column per take is a
+threshold to choose per take. `~replayPeakWindows`, `~replayPeakRatio` and
+`~replayGaps` set the filters.
+
 A set started over a playing loop still yields that loop. The log's header
 carries the take it came from — the raw length, the onsets from the press, the
 analyser's answer and its list, the reading in force — and the report lists it

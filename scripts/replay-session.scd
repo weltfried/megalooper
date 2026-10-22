@@ -25,7 +25,14 @@
 //     ~replaySelfTest = true;                            # a synthetic set, rendered and asserted
 //     ~replayTap = "/path/x-tap.wav";                    # a tap with no log...
 //     ~replayManual = [[startSec, durSec], ...];         # ...with the takes placed by hand
+//     ~replayPeakWindows = [0.15, 0.25];                 # the "peak" rows' windows, seconds
+//     ~replayPeakRatio = 1.4;                            # how much louder a neighbour must be
+//     ~replayGaps = [0.15, 0.2];                         # the "gap" rows' gaps, seconds
 //
+// Under the sweep each take gets rows that choose the threshold, or thin the
+// onsets, AFTER the take instead of before it: "auto" and "vote" pick among
+// the sweep's readings, "peak" and "gap" filter the most liberal threshold's
+// onsets (see "automatic thresholds" below). They are scored like the sweep.
 // Needs scsynth (found inside the SuperCollider app) but no audio device: the
 // render is non-realtime and touches no hardware, so it can run beside a
 // playing instrument. First takes only: an overdub detection folds its onsets
@@ -35,6 +42,9 @@
 var repo = thisProcess.nowExecutingPath !? { |p| p.dirname.dirname } ?? { Looper.repoRoot };
 var sessionsDir = ~replayDir ? (repo +/+ "sessions");
 var thresholds = (~replayThresholds ? [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]).asArray.collect(_.asFloat);
+var peakWindows = (~replayPeakWindows ? [0.15, 0.25]).asArray.collect(_.asFloat);
+var peakRatio = (~replayPeakRatio ? 1.4).asFloat;
+var gaps = (~replayGaps ? [0.15, 0.2]).asArray.collect(_.asFloat);
 var maxOnsets = 4096;
 // Beside SuperCollider's resources on macOS, on the shell's path on Linux.
 var scsynth = MegaSAPlugins.scsynthPath;
@@ -45,6 +55,7 @@ var pad, padR, fmtTime, fmtReading, sameReading, gridSame, verdict, labelWord, s
 var findEvents, selfTest, render, readSlots, readPitchSlots, analyse;
 var eventsPath, events, header, audio, allTakes, takes, overdubs, inForce, tapPath, sr, tapFrames, filesEv;
 var reanalysis, starvedOf, withInput;
+var peakFilter, gapFilter, scoreOf, stageIndexOf, variantKeys, variantName, variants, perVariant, scoreRow;
 var files, cells, savedFallback, stamp, changes, csv;
 var labelled, corrected, accepted, perThr, best, stageJ, fidelitySame, fidelityGrid, fidelityCount;
 
@@ -292,8 +303,10 @@ render = { |tap, takeList, thrs, audioT, rate|
     };
     score.add([t + 0.1, [\c_set, 0, 0]]);
     Score(score.asArray.sort { |a, b| a[0] <= b[0] }).writeOSCFile(osc);
+    // A port far from 57110-57130: even a non-realtime scsynth binds one, and
+    // a stuck render on the launcher's range would keep megalooper from booting.
     cmd = scsynth.quote ++ " -N " ++ osc.quote ++ " _ " ++ dummy.quote ++ " "
-        ++ rate.asInteger ++ " WAV int16 -o 1 -i 0 2>&1";
+        ++ rate.asInteger ++ " WAV int16 -o 1 -i 0 -u " ++ (58100 + 800.rand) ++ " 2>&1";
     said = cmd.unixCmdGetStdOut;
     if(said.contains("exception") or: { said.contains("ERROR") } or: { said.contains("FAILURE") }) {
         ("Replay: scsynth said:\n" ++ said).warn;
@@ -354,6 +367,33 @@ reanalysis = { |tk|
     if(tk[\dur].isNil or: { tk[\onsets].isNil } or: { tk[\fromOverdub] == true }) { nil } {
         analyse.(tk, tk[\onsets])
     }
+};
+
+// The onsets without every one that a hit within `w` seconds is `ratio` times
+// louder than: what is left are the hits that lead their neighbourhood. A run
+// of even hits keeps them all, a ghost or a double trigger beside a strong hit
+// goes. Strengths are the recorder's salience, so this is relative to the take
+// and blind to the tap's level.
+peakFilter = { |onsets, w, ratio|
+    onsets.select { |p|
+        onsets.every { |q| ((q[0] - p[0]).abs > w) or: { q[1] <= (p[1] * ratio) } }
+    }
+};
+// The onsets with nothing for `g` seconds after each one kept: a longer
+// mingap, applied after detection. It keeps the first hit of a cluster,
+// however soft.
+gapFilter = { |onsets, g|
+    var last = inf.neg;
+    onsets.select { |p| if((p[0] - last) >= g) { last = p[0]; true } { false } }
+};
+// A reading's score, or nil for one that fit no grid (length-anchored, too few
+// onsets): the analyser vouches for nothing there.
+scoreOf = { |r| if(r.isNil or: { r[\error].notNil } or: { r[\numerator].isNil }) { nil } { r[\score] } };
+// The sweep's index of the threshold in force for a take.
+stageIndexOf = { |tk|
+    var thr = (tk[\threshold] ? header[\threshold] ? 0.5).asFloat;
+    thresholds.detectIndex { |t| (t - thr).abs < 1e-6 }
+        ?? { thresholds.indexOf(thresholds.minItem { |t| (t - thr).abs }) }
 };
 
 // The same rule the recorder warns with, on the dB figures in the log.
@@ -500,6 +540,64 @@ takes.do { |tk, i|
     };
 };
 
+// --------------------------------------------------- automatic thresholds ----
+// The threshold chosen per take, after it, instead of set before the set; and
+// the onsets thinned after detection instead of by it. The take is over when
+// the analyser runs, so either could be done on stage. Each is a row:
+//   auto      the threshold whose reading the analyser scores highest, the
+//             lower on a tie; a reading that fit no grid has no score and is
+//             never picked (none scored: the stage threshold's)
+//   vote      the reading the most thresholds of the sweep agree on, the
+//             higher score breaking a tie: depends on the sweep's spacing
+//   peak W    the most liberal threshold's onsets through peakFilter, W the
+//             window in seconds
+//   gap G     the same onsets through gapFilter: the "no more than so many
+//             notes a second" rule, G the shortest gap
+// None of these changes what the instrument does; they ask whether it should.
+variantKeys = [[\auto], [\vote]]
+    ++ peakWindows.collect { |w| [\peak, w] } ++ gaps.collect { |g| [\gap, g] };
+variantName = { |key|
+    if(key.size == 1) { key[0].asString } { key[0].asString ++ key[1].asString.drop(1) } };
+variants = Dictionary.new;
+takes.do { |tk, i|
+    var row = thresholds.collect { |thr, j| cells[[i, j]] };
+    var stageJ = stageIndexOf.(tk);
+    var base = row[0][\onsets];
+    variantKeys.do { |key, v|
+        var j = 0, onsets, r, groups, top, rr, grp;
+        switch(key[0],
+            \auto, {
+                j = Array.series(thresholds.size)
+                    .select { |jj| scoreOf.(row[jj][\reading]).notNil }
+                    .maxItem { |jj| scoreOf.(row[jj][\reading]) } ? stageJ;
+            },
+            \vote, {
+                groups = List.new;
+                thresholds.size.do { |jj|
+                    rr = row[jj][\reading];
+                    if(scoreOf.(rr).notNil) {
+                        grp = groups.detect { |gr| sameReading.(row[gr[0]][\reading], rr) };
+                        if(grp.isNil) { groups.add(List[jj]) } { grp.add(jj) };
+                    };
+                };
+                top = groups.asArray.maxItem { |gr|
+                    gr.size + (gr.collect { |jj| scoreOf.(row[jj][\reading]) }.maxItem * 1e-3) };
+                j = top !? { |gr| gr.maxItem { |jj| scoreOf.(row[jj][\reading]) } } ? stageJ;
+            },
+            \peak, { onsets = peakFilter.(base, key[1], peakRatio) },
+            \gap,  { onsets = gapFilter.(base, key[1]) }
+        );
+        if(onsets.isNil) {
+            onsets = row[j][\onsets];
+            r = row[j][\reading];
+        } {
+            r = analyse.(tk, onsets, tk[\renderedPitches]);
+        };
+        variants[[i, v]] = (key: key, j: j, onsets: onsets, reading: r,
+            label: verdict.(r, tk[\label]), stage: verdict.(r, tk[\result]));
+    };
+};
+
 // ----------------------------------------------------------------- report ----
 takes.do { |tk, i|
     var margin = if(tk[\candidates].size >= 2) {
@@ -539,6 +637,16 @@ takes.do { |tk, i|
             ++ padR.(labelWord.(c[\label]), 7)
             ++ stageWord.(c[\stage])
             ++ (if(isStage) { "   * in force on stage" } { "" })).postln;
+    };
+    variantKeys.do { |key, v|
+        var c = variants[[i, v]];
+        ("  " ++ padR.(variantName.(key), 7)
+            ++ pad.(c[\onsets].size, 6) ++ "  "
+            ++ padR.(fmtReading.(c[\reading]), 42)
+            ++ padR.(labelWord.(c[\label]), 7)
+            ++ padR.(stageWord.(c[\stage]), 9)
+            ++ (if(key.size == 1) { "picked " ++ thresholds[c[\j]].round(0.001) }
+                { "of " ++ cells[[i, 0]][\onsets].size ++ " at " ++ thresholds[0].round(0.001) })).postln;
     };
 };
 
@@ -583,25 +691,53 @@ inForce.do { |tk|
 corrected = takes.select { |tk| tk[\outcome] == \corrected };
 accepted  = takes.select { |tk| tk[\outcome] == \accepted };
 labelled  = corrected ++ accepted;
+// One row of the summary: `cellOf` answers a take's cell in that row.
+scoreRow = { |cellOf|
+    var right     = corrected.count { |tk| cellOf.(tk)[\label] == \yes };
+    var rightGrid = corrected.count { |tk| cellOf.(tk)[\label] == \grid };
+    var agree     = accepted.count  { |tk| cellOf.(tk)[\label] == \yes };
+    var agreeGrid = accepted.count  { |tk| cellOf.(tk)[\label] == \grid };
+    var mean  = if(takes.isEmpty) { 0 } { takes.collect { |tk| cellOf.(tk)[\onsets].size }.sum / takes.size };
+    (right: right, rightGrid: rightGrid, agree: agree, agreeGrid: agreeGrid, mean: mean)
+};
 perThr = thresholds.collect { |thr, j|
-    var right     = corrected.count { |tk| cells[[takes.indexOf(tk), j]][\label] == \yes };
-    var rightGrid = corrected.count { |tk| cells[[takes.indexOf(tk), j]][\label] == \grid };
-    var agree     = accepted.count  { |tk| cells[[takes.indexOf(tk), j]][\label] == \yes };
-    var agreeGrid = accepted.count  { |tk| cells[[takes.indexOf(tk), j]][\label] == \grid };
-    var mean  = if(takes.isEmpty) { 0 } { takes.collect { |tk| cells[[takes.indexOf(tk), j]][\onsets].size }.sum / takes.size };
-    (thr: thr, right: right, rightGrid: rightGrid, agree: agree, agreeGrid: agreeGrid, mean: mean)
+    scoreRow.({ |tk| cells[[takes.indexOf(tk), j]] }).put(\thr, thr)
+};
+perVariant = variantKeys.collect { |key, v|
+    scoreRow.({ |tk| variants[[takes.indexOf(tk), v]] }).put(\name, variantName.(key))
 };
 "".postln;
 ("=== Summary: " ++ takes.size ++ " take" ++ (if(takes.size == 1) { "" } { "s" }) ++ " replayed, "
     ++ labelled.size ++ " labelled (" ++ corrected.size ++ " corrected, " ++ accepted.size ++ " accepted) ===").postln;
-("  " ++ padR.("thr", 7) ++ padR.("right on corrected", 21) ++ padR.("agrees on accepted", 21) ++ "mean onsets").postln;
+("  " ++ padR.("thr", 8) ++ padR.("right on corrected", 21) ++ padR.("agrees on accepted", 21) ++ "mean onsets").postln;
 perThr.do { |p|
-    ("  " ++ padR.(p[\thr].round(0.001), 7)
+    ("  " ++ padR.(p[\thr].round(0.001), 8)
         ++ padR.(p[\right].asString ++ "/" ++ corrected.size
             ++ (if(p[\rightGrid] > 0) { " +" ++ p[\rightGrid] ++ "≈" } { "" }), 21)
         ++ padR.(p[\agree].asString ++ "/" ++ accepted.size
             ++ (if(p[\agreeGrid] > 0) { " +" ++ p[\agreeGrid] ++ "≈" } { "" }), 21)
         ++ p[\mean].round(0.1)).postln;
+};
+perVariant.do { |p|
+    ("  " ++ padR.(p[\name], 8)
+        ++ padR.(p[\right].asString ++ "/" ++ corrected.size
+            ++ (if(p[\rightGrid] > 0) { " +" ++ p[\rightGrid] ++ "≈" } { "" }), 21)
+        ++ padR.(p[\agree].asString ++ "/" ++ accepted.size
+            ++ (if(p[\agreeGrid] > 0) { " +" ++ p[\agreeGrid] ++ "≈" } { "" }), 21)
+        ++ p[\mean].round(0.1)).postln;
+};
+// Whether one threshold suits every take: each labelled take against the
+// sweep. A column of y all the way down is a threshold to keep; a diagonal
+// is a threshold to choose per take.
+if(labelled.notEmpty) {
+    "  right per labelled take (y the label, ≈ its grid under another barring, . wrong):".postln;
+    ("  " ++ padR.("", 10) ++ thresholds.collect { |t| pad.(t.round(0.001), 6) }.join).postln;
+    takes.select { |tk| #[\corrected, \accepted].includes(tk[\outcome]) }.do { |tk|
+        var i = takes.indexOf(tk);
+        ("  " ++ padR.("take " ++ tk[\number] ++ (if(tk[\outcome] == \corrected) { "c" } { "a" }), 10)
+            ++ thresholds.collect { |t, j| pad.(switch(cells[[i, j]][\label], \yes, { "y" }, \grid, { "≈" }, { "." }), 6) }.join).postln;
+    };
+    "  (c corrected on stage, a accepted)".postln;
 };
 if(perThr.any { |p| (p[\rightGrid] + p[\agreeGrid]) > 0 }) {
     "  ≈ the same tempo and loop under another barring — 2/4 in two bars against 4/4 in one; Live's BPM and the pulse are the same".postln;
@@ -675,14 +811,22 @@ if(corrected.notEmpty) {
 ~replayCsv !? { |path|
     csv = File(path, "w");
     if(csv.isOpen) {
-        csv.write("set,take,start,dur,outcome,label,stage,threshold,onsets,numerator,denominator,k,bpm,error,matchesLabel,matchesStage\n");
+        // `method` is "threshold" for the sweep or a row of the automatic
+        // thresholds, `param` its threshold, window or gap; `threshold` the
+        // threshold whose onsets the row read.
+        csv.write("set,take,start,dur,outcome,label,stage,threshold,onsets,numerator,denominator,k,bpm,error,matchesLabel,matchesStage,method,param,tapPeakDb,inPeakDb\n");
         takes.do { |tk, i|
-            thresholds.do { |thr, j|
-                var c = cells[[i, j]], r = c[\reading];
+            var line = { |c, thr, method, param|
+                var r = c[\reading];
                 csv.write([stamp, tk[\number], tk[\start], tk[\dur], tk[\outcome],
                     fmtReading.(tk[\label]).quote, fmtReading.(tk[\result]).quote, thr, c[\onsets].size,
                     r[\numerator], r[\denominator], r[\k], r[\bpm] !? { |b| b.round(0.01) }, r[\error] ? "",
-                    c[\label] ? "", c[\stage] ? ""].join(",") ++ "\n");
+                    c[\label] ? "", c[\stage] ? "", method, param, tk[\tapPeakDb] ? "", tk[\inPeakDb] ? ""].join(",") ++ "\n");
+            };
+            thresholds.do { |thr, j| line.(cells[[i, j]], thr, "threshold", thr) };
+            variantKeys.do { |key, v|
+                var c = variants[[i, v]];
+                line.(c, thresholds[c[\j]], key[0], key[1] ? thresholds[c[\j]]);
             };
         };
         csv.close;
@@ -690,7 +834,8 @@ if(corrected.notEmpty) {
     };
 };
 
-~replayResult = (stamp: stamp, takes: takes, thresholds: thresholds, cells: cells, perThr: perThr);
+~replayResult = (stamp: stamp, takes: takes, thresholds: thresholds, cells: cells, perThr: perThr,
+    variantKeys: variantKeys, variants: variants, perVariant: perVariant);
 
 // --------------------------------------------------------------- self-test ---
 if(~replaySelfTest == true) {
@@ -730,6 +875,22 @@ if(~replaySelfTest == true) {
     check.("...and today's analyser finds them in its audio at 0.5 (uneven bars, detected)",
         sameReading.(cells[[3, j]][\reading], allTakes[4][\label]),
         "got " ++ fmtReading.(cells[[3, j]][\reading]));
+    check.("peakFilter drops a soft hit beside a loud one and keeps even ones",
+        peakFilter.([[0, 1], [0.05, 0.2], [0.3, 1], [0.4, 0.9]], 0.15, 1.4).collect { |p| p[0] } == [0, 0.3, 0.4],
+        "got " ++ peakFilter.([[0, 1], [0.05, 0.2], [0.3, 1], [0.4, 0.9]], 0.15, 1.4));
+    check.("gapFilter keeps the first hit of a cluster and measures from the kept one",
+        gapFilter.([[0, 0.2], [0.1, 1], [0.2, 1], [0.3, 1]], 0.15).collect { |p| p[0] } == [0, 0.2],
+        "got " ++ gapFilter.([[0, 0.2], [0.1, 1], [0.2, 1], [0.3, 1]], 0.15));
+    check.("auto reads the clean 7/8 as 7/8 in two bars",
+        sameReading.(variants[[0, 0]][\reading], (numerator: 7, denominator: 8, k: 2)),
+        "got " ++ fmtReading.(variants[[0, 0]][\reading]));
+    check.("vote reads it so too",
+        sameReading.(variants[[0, 1]][\reading], (numerator: 7, denominator: 8, k: 2)),
+        "got " ++ fmtReading.(variants[[0, 1]][\reading]));
+    check.("the peak and gap rows keep its even-spaced hits, 0.3 s apart",
+        variantKeys.every { |key, v| (key.size == 1)
+            or: { variants[[0, v]][\onsets].size == cells[[0, 0]][\onsets].size } },
+        "got " ++ variantKeys.collect { |key, v| variants[[0, v]][\onsets].size });
     "".postln;
     (if(failures == 0) { "SELF-TEST PASSED" } { "SELF-TEST FAILED — " ++ failures ++ " check(s)" }).postln;
 };
