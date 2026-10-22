@@ -424,7 +424,7 @@
 ~effectsEditor = { |key|
     var m = ~megaSA;
     var view = View();
-    var params, rows, variations, small, dev, reset, tip;
+    var params, rows, small, dev, reset, random, tip;
     small = { |label, width, action, tip|
         LooperTile().states_([[label, ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line]).cycles_(false)
             .font_(~guiSans.(13)).fixedHeight_(28).fixedWidth_(width).toolTip_(tip ? "").action_(action)
@@ -472,9 +472,6 @@
         ).margins_(0).spacing_(8));
       } {
         params = dev !? { |d| d.params } ? [];
-        // The racks' variations are the default devices' (they move their
-        // effect's settings by name, setFxParam's).
-        variations = (dev !? { |d| ~saFxVariations !? { |v| v[d.type] } }) ? [];
         rows = params.clump(~effectsPerRow).collect { |row|
             HLayout(*(row.collect { |p| ~effectsKnobCell.(p, key) } ++ [nil])).spacing_(30).margins_(0)
         };
@@ -484,36 +481,108 @@
         tip = "Every setting of this effect back to its starting value, which each\n"
             "bar's tip gives. A double-click does it for one bar.";
         if(~effectsHasTargets.(key)) { ~mapTag.(reset, ("sa.fxReset." ++ key).asSymbol, tip) } { reset.toolTip_(tip) };
+        // Random, beside it: every setting at once, to try sounds out.
+        random = small.("Random", 104, { ~megaSA !? { |mm| mm.randomizeFx(key) } });
+        tip = "Every setting of this effect at a random value, to try out sounds.\n"
+            "The levels it ends on (Output, the filter's Makeup) stay where they are.\n"
+            "Reset puts the starting values back; Save variation keeps one you like.";
+        if(~effectsHasTargets.(key)) { ~mapTag.(random, ("sa.fxRandom." ++ key).asSymbol, tip) } { random.toolTip_(tip) };
         view.layout_(VLayout(*([
             HLayout(*([
                 ~guiText.(~effectsTitle.(key) ++ " ·", 16, nil, true),
                 ~guiText.(dev !? { |d| ~effectsBlurbs[d.type] } ? "", 13, ~gt[\mute]),
-                nil
-            ] ++ (if(variations.isEmpty) { [] } { [
-                // The rack's states in the set, as Live's rack variations
-                // were: recalling one moves what that rack's macros drive.
-                // The first item is a label, so every variation stays one
-                // pick away, the one just recalled included.
-                PopUpMenu().canFocus_(false).fixedWidth_(190).font_(~guiSans.(13))
-                    .background_(~gt[\panel]).stringColor_(~gt[\ink])
-                    .toolTip_("This effect's variations, from the set this rig was built after.\n"
-                        "'as saved' is where these bars start. Recalling one moves only the\n"
-                        "settings that variation holds.")
-                    .items_(["Variation…"] ++ variations.collect { |v| v[0] })
-                    .action_({ |menu|
-                        var name;
-                        if(menu.value > 0) {
-                            name = variations[menu.value - 1][0];
-                            ~saApplyVariation.(key, name);
-                            menu.items = ["Recalled: " ++ name] ++ variations.collect { |v| v[0] };
-                            menu.value = 0;
-                        };
-                    })
-            ] }) ++ [reset])).spacing_(14).margins_(0)
-        ] ++ rows ++ [nil])).margins_(0).spacing_(10));
+                nil,
+                random, reset
+            ])).spacing_(14).margins_(0)
+        ] ++ (dev !? { |d| [~effectsVariationRow.(key, d, small)] } ? []) ++ rows ++ [nil])).margins_(0).spacing_(10));
       };
     };
     view
+};
+
+// An effect's variations: the menu, then a name and Save variation. The menu
+// holds the Live set's variations of the device's type (recalling one moves
+// only the settings that rack's macros drove), then yours (every setting),
+// then a Delete for each of yours. Its first item is a label, so every
+// variation stays one pick away, the one just recalled included. A Delay's
+// variations are every Delay's. Save variation keeps the device's settings
+// under the name typed (~saSaveVariation); on one of yours that name has, it
+// says Replace. The editor is built again after a save or a delete, so the
+// menu lists what is there.
+~effectsVariationRow = { |key, dev, small|
+    var list = (~saFxVariations !? { |v| v[dev.type] }) ? [];
+    var own = list.select { |v| v[2] == true };
+    var picks = list.collect { |v| [if(v[2] == true) { v[0] ++ "  · yours" } { v[0] }, \recall, v[0]] }
+        ++ own.collect { |v| ["Delete: " ++ v[0], \delete, v[0]] };
+    var menu, field, save, label, refresh;
+    label = { |name| if(own.any { |v| v[0] == name }) { "Replace" } { "Save variation" } };
+    refresh = { if(save.isClosed.not) { save.states_([[label.(field.string.stripWhiteSpace), ~gt[\ink], ~gt[\panel]]]) } };
+    menu = PopUpMenu().canFocus_(false).fixedWidth_(220).font_(~guiSans.(13))
+        .background_(~gt[\panel]).stringColor_(~gt[\ink])
+        .toolTip_("This effect's variations: the ones from the Live set this rig was built\n"
+            "after ('as saved' is where these bars start; one moves only the settings\n"
+            "its rack drove), then yours (every setting). Delete removes one of yours.")
+        .items_([if(list.isEmpty) { "No variations yet" } { "Variation…" }] ++ picks.collect { |x| x[0] })
+        .action_({ |mn|
+            var pick = if(mn.value > 0) { picks[mn.value - 1] };
+            case
+            { pick.isNil } { }
+            { pick[1] == \recall } {
+                ~saApplyVariation.(key, pick[2]);
+                field.string_(pick[2]);
+                refresh.();
+                mn.items = ["Recalled: " ++ pick[2]] ++ picks.collect { |x| x[0] };
+                mn.value = 0;
+            }
+            { pick[1] == \delete } {
+                ~saDeleteVariation.(dev.type, pick[2], { |ok, why|
+                    {
+                        if(ok) { ~guiSay.("Deleted the variation '" ++ pick[2] ++ "'", \info);
+                            ~effectsSelect.(~effectsSelected) } {
+                            ~guiSay.("The variation was not deleted: " ++ why, \bad);
+                            mn.value = 0 };
+                    }.defer;
+                });
+            };
+        });
+    field = TextField().font_(~guiSans.(14)).background_(~gt[\panel]).stringColor_(~gt[\ink])
+        .fixedWidth_(180)
+        .toolTip_("A name for these settings. Save variation keeps them under it, for every\n"
+            "effect of this type; a name of yours already there is replaced.")
+        .action_({ ~guiWindow !? { |w| w.view.focus(true) } })
+        .focusGainedAction_({ |v|
+            v.background_(~gt[\armed]).stringColor_(~gt[\onacc]);
+            ~guiSetTyping !? { |f| f.(true) };
+        })
+        .focusLostAction_({ |v|
+            v.background_(~gt[\panel]).stringColor_(~gt[\ink]);
+            ~guiSetTyping !? { |f| f.(false) };
+        })
+        .keyDownAction_({ |v, char, mods, uni|
+            if(uni == 27) { ~guiWindow !? { |w| w.view.focus(true) }; true } {
+                // Deferred, so it reads the string Qt has just changed.
+                { refresh.() }.defer(0);
+                nil
+            }
+        });
+    save = small.("Save variation", 130, {
+        var name = field.string.stripWhiteSpace;
+        ~saSaveVariation.(dev.id, name, { |ok, why|
+            {
+                if(ok) {
+                    ~guiSay.((if(why == \replaced) { "Replaced" } { "Saved" }) ++ " the variation '" ++ name
+                        ++ "' of " ++ MegaSAFx.title(dev.type), \info);
+                    ~effectsSelect.(~effectsSelected);
+                } { ~guiSay.("The variation was not saved: " ++ why, \bad) };
+            }.defer;
+        });
+    }, "Keep this effect's settings, every one as it stands, as a variation\n"
+        "under the name beside it. It is in your megalooper folder\n"
+        "(sa/fx-variations.json), and in this menu for every effect of this type.");
+    ~effectsVariationField = field;
+    ~effectsVariationSave = save;
+    ~effectsVariationMenu = menu;
+    HLayout(menu, field, save, nil).spacing_(14).margins_(0)
 };
 
 // Show `key` in the editor. The old editor's widgets go from the table first:
@@ -657,7 +726,7 @@
             action: { ~effectsScan.() })
     ]
 };
-// What ⋯ offers for a tile's device: moves, Remove, and Reset or, for a
+// What ⋯ offers for a tile's device: moves, Remove, and Random and Reset or, for a
 // plugin, its own window; then, device or none, Copy diagnostics.
 ~effectsDeviceItems = { |key|
     var m = ~megaSA, d = ~effectsDeviceOf.(key), chain = d !? { m.chainOf(d) }, at;
@@ -677,7 +746,8 @@
         ] ++ if(d.isPlugin) {
             [(label: "Open its window", section: \device, enabled: d.plugin.notNil, action: { d.plugin !? { |p| p.editor } })]
         } {
-            [(label: "Reset", section: \device, enabled: true, action: { m.resetFx(d.id) })]
+            [(label: "Random", section: \device, enabled: true, action: { m.randomizeFx(d.id) }),
+                (label: "Reset", section: \device, enabled: true, action: { m.resetFx(d.id) })]
         } ++ pane
     }
 };

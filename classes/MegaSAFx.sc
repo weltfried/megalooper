@@ -556,6 +556,18 @@ MegaSAFx {
         ^d
     }
 
+    // A random value for a setting, as an effect's Random draws it: one of
+    // its choices, or a point anywhere on its knob's travel, through the
+    // spec's own curve (so an exponential knob is as likely low as high)
+    // and held to its step.
+    *randomValue { |p| ^if(p[\choices].notNil) { p[\choices].choose[0] } { p[\spec].map(1.0.rand) } }
+
+    // What Random leaves where it is: the levels an effect ends on, and the
+    // Auto Filter's makeup gain (up to 26 dB), so a draw changes the sound
+    // and not how loud it leaves the effect. The feedbacks stop at 90 % and
+    // are softened, so none of them can run away.
+    *randomKeeps { ^#[\filterMakeup, \filterOutput, \pitchLoopOutput, \echoOutput, \saturatorOutput] }
+
     // A value held to a setting's range and step, or the nearest of its
     // choices. A name that is no setting passes through.
     *constrain { |name, value|

@@ -802,6 +802,19 @@ MegaSA {
         this.device(key) !? { |d| d.params.do { |p| this.prSetParam(d, p[\name], p[\spec].default) } };
     }
 
+    // Every setting of one device at a random value (MegaSAFx.randomValue),
+    // but the levels it ends on (MegaSAFx.randomKeeps), for trying sounds
+    // out; Reset brings the starting values back. A plugin's settings are in
+    // its own window, so a plugin's device has none to draw. Its switch is
+    // left as it is. Answers the device, or nil for no such id.
+    randomizeFx { |key|
+        ^this.device(key) !? { |d|
+            d.params.do { |p|
+                if(MegaSAFx.randomKeeps.includes(p[\name]).not) { this.prSetParam(d, p[\name], MegaSAFx.randomValue(p)) } };
+            d
+        }
+    }
+
     // Has any setting of this device moved off the Live set's value? Within a
     // millionth: a value that came back through a file or a 32-bit control is
     // not an edit.

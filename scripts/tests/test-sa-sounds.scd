@@ -317,6 +317,47 @@ before = sa.fxParam(\delayTimeR);
 ~tEq.("...the first Delay's by its own id, as before", [~saApplyVariation.(\delay, "short"), sa.fxParam(\delayTimeR).round(0.0001)], [true, 0.0843]);
 ~tEq.("...none for a device that is not there, or a name its type has not", [~saApplyVariation.(\nothing, "short"), ~saApplyVariation.(\delay, "no such")],
     [false, false]);
+
+// ---- your own variations: saved, replaced, refused, deleted -----------------------------------------
+{
+    var got, said = { |ok, why| got = [ok, why] }, path = ~saUserVariationsFile.();
+    ~saFxVariations = ~saLoadFxVariations.();
+    ~tEq.("with none saved, a type's variations are the Live set's alone", ~saFxVariations[\delay].collect { |v| v[2] }.asSet.asArray, [false]);
+    ~tAssert.("yours go to your folder's sa/fx-variations.json, never the repo's",
+        path.beginsWith(root) and: { path.endsWith("sa/fx-variations.json") } and: { ~saFxVariationsFile.() != path }, path);
+    sa.setParam(\delay, \delayMix, 0.25);
+    sa.setParam(\delay, \delayTimeR, 0.6);
+    ~saSaveVariation.(\delay, "  wide ", said);
+    ~tEq.("Save variation keeps the device's settings under the name typed, trimmed", [got, File.exists(path)], [[true, \saved], true]);
+    ~tEq.("...listed after the Live set's, as yours", ~saFxVariations[\delay].last.keep(1) ++ [~saFxVariations[\delay].last[2]], ["wide", true]);
+    ~tEq.("...with every setting", ~saFxVariations[\delay].last[1].keys.asArray.sort, sa.device(\delay).settings.keys.asArray.sort);
+    sa.resetFx(\delay);
+    ~tEq.("recalling it puts every setting back", [~saApplyVariation.(\delay, "wide"), sa.fxParam(\delayMix), sa.fxParam(\delayTimeR).round(1e-6)],
+        [true, 0.25, 0.6]);
+    ~tEq.("...on a further Delay too", [~saApplyVariation.(d.id, "wide"), sa.param(d.id, \delayMix)], [true, 0.25]);
+    sa.setParam(\delay, \delayMix, 0.5);
+    ~saSaveVariation.(\delay, "wide", said);
+    ~tEq.("saving under the same name replaces it", [got, ~saFxVariations[\delay].count { |v| v[0] == "wide" }, ~saFxVariations[\delay].last[1][\delayMix]],
+        [[true, \replaced], 1, 0.5]);
+    ~saSaveVariation.(\delay, "short", said);
+    ~tEq.("a name the Live set's variations of the type use is refused", got, [false, "'short' is a variation from the Live set"]);
+    ~saSaveVariation.(\delay, "   ", said);
+    ~tEq.("...and no name", got, [false, "it needs a name"]);
+    ~saSaveVariation.(\nothing, "x", said);
+    ~tEq.("...and no device", got[0], false);
+    ~saSaveVariation.(\shifter, "up", said);
+    ~tEq.("an effect the Live set has no variations of gets yours", [got, ~saFxVariations[\shifter].collect { |v| v[0] }], [[true, \saved], ["up"]]);
+    ~tEq.("the file reads back as saved, the Live set's first, then yours",
+        [~saLoadFxVariations.()[\delay].select { |v| v[2] }.collect { |v| [v[0], v[1][\delayMix]] }, ~saLoadFxVariations.()[\delay].first[2]],
+        [[["wide", 0.5]], false]);
+    ~saDeleteVariation.(\delay, "wide", said);
+    ~tEq.("Delete removes one of yours", [got[0], ~saFxVariations[\delay].any { |v| v[0] == "wide" }, ~saFxVariations[\shifter].size], [true, false, 1]);
+    ~saDeleteVariation.(\delay, "short", said);
+    ~tEq.("...never one of the Live set's", [got[0], ~saFxVariations[\delay].any { |v| v[0] == "short" }], [false, true]);
+    ~saDeleteVariation.(\shifter, "up", said);
+    ~tEq.("with the last one deleted the file holds none", [got[0], ~saOwnVariations.().values.every(_.isEmpty), ~saLoadFxVariations.()[\shifter]],
+        [true, true, nil]);
+}.value;
 // ---- a session's header and its log ---------------------------------------------------------------
 // The header carries the sound's name, both chains with every switch and
 // setting, each chain's delay and the build; the log every footswitch and

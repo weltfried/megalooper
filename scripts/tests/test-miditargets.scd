@@ -68,6 +68,7 @@ families = [
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 73],
     [\fxReset, "^sa\\.fxReset\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
+    [\fxRandom, "^sa\\.fxRandom\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
     [\level, "^sa\\.level\\.(guitar|bass|loop|drums|onsetKit|master)$", 6],
     [\mute, "^sa\\.mute\\.(guitar|bass|loop|drums|onsetKit)$", 5],
     [\drums, "^sa\\.drums\\.(on|breakPattern|repeats|reverbMix|livePattern\\.(main|break))$", 6],
@@ -422,7 +423,7 @@ protect {
             and: { ~drumsNoteItems.(d)[6] == ("42 Hat · " ++ ~midiNoteName.(42)) });
     v = [targets.size, count.(there)];
     ("  on SA: " ++ v[0] ++ " controls, " ++ v[1] ++ " there").postln;
-    ~tEq.("on SA every control is there: SA's 196 and its kits' 6 trims beside the Looper's and Live's "
+    ~tEq.("on SA every control is there: SA's 203 and its kits' 6 trims beside the Looper's and Live's "
         "(the views' 6 need the window)", v, [live[0] + 6, live[0]]);
 
     // ---------------------------------------------------- SA's, driven --
@@ -517,13 +518,13 @@ protect {
     // Delay's footswitch off any device but the first Delay.
     {
         var delayIds = targets.keys.asArray.select { |id|
-            (id == 'sa.fxOn.delay') or: { id == 'sa.fxReset.delay' } or: { MegaSAFx.param(id.asString.drop(6).asSymbol)
+            (id == 'sa.fxOn.delay') or: { id == 'sa.fxReset.delay' } or: { id == 'sa.fxRandom.delay' } or: { MegaSAFx.param(id.asString.drop(6).asSymbol)
                 !? { |q| id.asString.beginsWith("sa.fx.") and: { q[\fx] == \delay } } ? false } };
         var before = count.(there), n, d2;
-        ~tEq.("(the Delay's own controls: its switch, its 8 settings, its Live values)", delayIds.size, 10);
+        ~tEq.("(the Delay's own controls: its switch, its 8 settings, its Live values, its Random)", delayIds.size, 11);
         sa.removeDevice(\delay);
-        ~tEq.("a removed device's controls are not there: the Delay's 10, and no other",
-            [delayIds.select { |id| there.(targets[id]) }, before - count.(there)], [[], 10]);
+        ~tEq.("a removed device's controls are not there: the Delay's 11, and no other",
+            [delayIds.select { |id| there.(targets[id]) }, before - count.(there)], [[], 11]);
         n = stub[\msgs].size + stub[\bundles].size;
         got = heard.(sa, {
             act.('sa.fxOn.delay', [\flip]);
@@ -550,10 +551,10 @@ protect {
         ~tEq.("a moved device keeps its controls: they reach it where it is now",
             [got.collect(_.first), ~tLastSet.(sa, sa.fxNode(\delay), \delayMix)], [[\fxParam], sa.fxParam(\delayMix)]);
         d2 = sa.insertDevice(\guitar, nil, \delay);
-        ~tEq.("a second Delay has its own controls, built again after the insert: the effects' 87 and its ten",
+        ~tEq.("a second Delay has its own controls, built again after the insert: the effects' 94 and its eleven",
             { var now = ~midiTargetsBuild.();
               [now.keys.asArray.count { |id| id.asString.beginsWith("sa.fx") }, now.includesKey('sa.fxOn.delay2')] }.value,
-            [97, true]);
+            [105, true]);
         act.('sa.fx.delayTimeR', [\position, 0.75]);
         ~tAssert.("...and the Delay's settings still drive the first Delay, never the second",
             (d2.param(\delayTimeR) == MegaSAFx.param(\delayTimeR)[\spec].default)
@@ -631,7 +632,7 @@ protect {
         [before ++ " › " ++ t['sa.fx.delayMix'][\label], before, t['looper.trigger'][\label]]);
     ~megaSA = nil;
     ~tEq.("with no Megalooper SA the reason is that", ~midiTargetWhy.('sa.fxOn.delay'), "Megalooper SA is not running");
-    ~tEq.("...and the family is the default devices', from the table", ~midiTargetsBuild.(\effects).size, 87);
+    ~tEq.("...and the family is the default devices', from the table", ~midiTargetsBuild.(\effects).size, 94);
     ~megaSA = sa;
     sa.undo;
     ~midiTargets = keptTargets;

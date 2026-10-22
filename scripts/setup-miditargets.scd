@@ -127,7 +127,7 @@
     var slotNames = (steps: "Steps kit", onset: "Onset kit");
     var laneLabels = (note: "Note", altNote: "Alt", delay: "D (delay)", mute: "M (mute)", lock: "Lock");
     var looperFamily, effectsFamily, mixerFamily, drumsFamily, trimsFamily, windowFamily;
-    var addCount, addFx, addReset, fxFurther, fxPlugins, addLevel, addMute, addTiming, addLane, addTrims, addPadTrim, addGroupTrim;
+    var addCount, addFx, addReset, addRandom, fxFurther, fxPlugins, addLevel, addMute, addTiming, addLane, addTrims, addPadTrim, addGroupTrim;
     var stripLabel, inForce, trimLaw, trimText;
 
     // ---- Phase 1: the controls today's numbers drive ---------------------------
@@ -321,11 +321,12 @@
     // Each is named by its device ("Delay 2"), so no two rows read alike.
     effectsFamily = {
         MegaSAFx.params.do { |p| addFx.(p, nil, fxName.(p[\fx])) };
-        MegaSAFx.keys.do { |key| addReset.(key, fxName.(key)) };
+        MegaSAFx.keys.do { |key| addReset.(key, fxName.(key)); addRandom.(key, fxName.(key)) };
         fxFurther.value.do { |d|
             addSwitch.(d[\id], d[\name]);
             MegaSAFx.paramsOf(d[\type]).do { |p| addFx.(p, d[\id], d[\name]) };
             addReset.(d[\id], d[\name]);
+            addRandom.(d[\id], d[\name]);
         };
         fxPlugins.value.do { |d|
             (1..MegaSA.pluginSends).do { |n|
@@ -352,6 +353,11 @@
     addReset = { |id, name|
         add.(("sa.fxReset." ++ id).asSymbol, "Reset", "Effects", \trigger, (group: name,
             fire: { if(fxThere.(id)) { ~megaSA.resetFx(id) } }, available: { fxThere.(id) }, why: fxWhy.(id, name)));
+    };
+    // An effect's Random (MegaSA.randomizeFx): a footswitch draws a new sound.
+    addRandom = { |id, name|
+        add.(("sa.fxRandom." ++ id).asSymbol, "Random", "Effects", \trigger, (group: name,
+            fire: { if(fxThere.(id)) { ~megaSA.randomizeFx(id) } }, available: { fxThere.(id) }, why: fxWhy.(id, name)));
     };
     // One setting, as the Effects tab draws it (gui-effects.scd): one picked
     // from a list is a menu of its choices' labels, every other one a knob on

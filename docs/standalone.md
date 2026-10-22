@@ -74,6 +74,8 @@ Each chain is a row of tiles, played left to right.
 | Move an effect | Drag its tile along the chain, or onto the other chain. Esc lets go |
 | Move or remove it by menu | Click its tile, then press **⋯** |
 | Put a setting back to its default | Double-click it, or **Reset** for the whole effect |
+| Keep an effect's settings | Type a name beside **Save variation**, under the effect's title, and press it. The variation holds every setting, and the menu beside it lists it for every effect of that type (both Delays, say). The same name again replaces it; **Delete:** in the menu removes it |
+| Try out a random sound | **Random** beside Reset: every setting of the effect at a random value. Output levels (and the Auto Filter's Makeup) stay where they are, and **Reset** brings the starting values back. Random and Reset are also MIDI targets, so a footswitch can draw a new sound |
 | Undo an edit | Cmd+Z. Shift+Cmd+Z redoes |
 
 Edits are safe while a loop plays: the chain cross-fades to its new order.
@@ -90,9 +92,18 @@ spread breaks up a metallic sound). **FFT** keeps a steadier pitch and smears
 attacks a little less, about 8 ms later. Every switch crossfades, so you can
 change them while playing.
 
+### Variations
+
+Each effect's menu lists the variations from the Live set megalooper was built
+after (Delay, Filter, Pitch Loops, Drive and Crusher have some), then yours,
+marked **· yours**. A Live set variation sets only the settings its rack's
+macros drove; one of yours sets them all. Yours are kept in
+`sa/fx-variations.json` in your megalooper folder, apart from the sounds; a
+Live set variation's name cannot be taken for one of yours.
+
 ## Sounds
 
-A sound is the three chains as one file: which effects in which order, every switch
+A sound is all the chains as one file: which effects in which order, every switch
 and setting, and each plugin's own state.
 
 - **Save and recall.** The bar above the chains saves the sound under a name

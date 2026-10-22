@@ -127,7 +127,10 @@ Routine {
         var menu;
         ~effectsSelect.(\shifter);
         tick.();
-        ok.("an effect outside a rack has no variation menu", menuIn.(~effectsEditorHolder).isNil);
+        ok.("an effect outside a rack has no variations from the Live set: its menu says none yet",
+            menuIn.(~effectsEditorHolder).isNil and: { ~effectsVariationMenu.notNil }
+                and: { ~effectsVariationMenu.items.asArray == ["No variations yet"] },
+            (~effectsVariationMenu !? { |mm| mm.items }).asString);
         ~effectsSelect.(\delay);
         tick.();
         menu = menuIn.(~effectsEditorHolder);
@@ -284,9 +287,9 @@ Routine {
         ok.("picking one adds it at the end of that chain, with a tile of its own",
             (m.loopChain.devices.size == (n + 1)) and: { m.loopChain.devices.last.type == \filter } and: { ~effectsTiles[id].notNil }, id.asString);
         items = ~effectsDeviceItems.(id);
-        ok.("⋯ for the last device of a chain: left, not right, each other chain, Remove, Reset",
+        ok.("⋯ for the last device of a chain: left, not right, each other chain, Remove, Random, Reset",
             shown.(items) == [["Move left", true], ["Move right", false], ["Move to the guitar chain", true],
-                ["Move to the drums chain", true], ["Remove", true], ["Reset", true],
+                ["Move to the drums chain", true], ["Remove", true], ["Random", true], ["Reset", true],
                 ["Copy diagnostics", true]],
             shown.(items).asString);
         find.(items, "Move left")[\action].value;
@@ -687,6 +690,52 @@ Routine {
         ok.("a default device's Live values is tagged for the MIDI map, with its tip",
             ~mapTags.any { |e| (e[1] == 'sa.fxReset.delay') and: { e[0].isClosed.not }
                 and: { e[0].toolTip.contains("starting value") } });
+        // Random, beside it: tagged as its MIDI target, and a click draws
+        // the effect's settings, which its bars then show.
+        {
+            var tag = ~mapTags.detect { |e| (e[1] == 'sa.fxRandom.delay') and: { e[0].isClosed.not } };
+            var shownMix;
+            ok.("the editor has a Random beside Reset, tagged for the MIDI map, with its tip",
+                tag.notNil and: { tag[0].toolTip.contains("random value") });
+            m.resetFx(\delay);
+            tick.();
+            tag !? { |e| e[0].action.value(e[0]) };
+            tick.();
+            shownMix = ~effectsWidgets[\delayMix] !? { |w| w[\readout] ?? { w[\label] } } !? { |r| r.string };
+            ok.("...a click draws the Delay's settings (Reset puts them back), and the editor shows them",
+                m.fxEdited(\delay) and: { shownMix.isNil or: { shownMix == ~effectsFormat.(MegaSAFx.param(\delayMix), m.fxParam(\delayMix)) } },
+                [m.fxEdited(\delay), shownMix, m.fxParam(\delayMix)].asString);
+            m.resetFx(\delay);
+            tick.();
+        }.value;
+        // Save variation: the name typed, Save clicked, the menu lists it as
+        // yours with a Delete; picking that Delete takes it out again.
+        {
+            var items = { ~effectsVariationMenu.items.asArray }, file = ~saUserVariationsFile.(), at;
+            ok.("the editor has the variation menu, a name field and Save variation",
+                [~effectsVariationMenu, ~effectsVariationField, ~effectsVariationSave].every { |v| v.notNil and: { v.isClosed.not } });
+            ok.("(yours are saved in the check's own folder, never yours)", file.beginsWith(MegaFiles.userRoot)
+                and: { MegaFiles.userRoot != (Platform.userAppSupportDir +/+ "megalooper") }, file);
+            m.setFxParam(\delayMix, 0.3);
+            ~effectsVariationField.string_("check wide");
+            ~effectsVariationSave.action.value(~effectsVariationSave);
+            tick.();
+            ok.("Save variation keeps it: the menu, built again, lists it as yours, with its Delete",
+                items.().any { |x| x == "check wide  · yours" } and: { items.().any { |x| x == "Delete: check wide" } }, items.().asString);
+            m.resetFx(\delay);
+            at = items.().detectIndex { |x| x == "check wide  · yours" };
+            at !? { |i| ~effectsVariationMenu.valueAction_(i) };
+            tick.();
+            ok.("...picking it recalls its settings", (m.fxParam(\delayMix) - 0.3).abs < 1e-6, m.fxParam(\delayMix).asString);
+            at = items.().detectIndex { |x| x == "Delete: check wide" };
+            at !? { |i| ~effectsVariationMenu.valueAction_(i) };
+            tick.();
+            ok.("...and its Delete takes it out of the menu and the file",
+                items.().any { |x| x.contains("check wide") }.not and: { (File.readAllString(file) ? "").contains("check wide").not },
+                items.().asString);
+            m.resetFx(\delay);
+            tick.();
+        }.value;
         // A further device left in a chain for the teardown, its controller on.
         d2 = m.insertDevice(\loop, nil, \delay);
         tick.();

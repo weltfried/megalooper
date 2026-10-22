@@ -349,18 +349,19 @@
 // effect -> [[name, (setting -> value)], ...]; parseJSON hands numbers over as
 // strings, so they are converted here once.
 ~saFxVariationsFile = { (~megalooperRoot ?? { Looper.repoRoot }) +/+ "presets" +/+ "sa" +/+ "fx-variations.json" };
-~saLoadFxVariations = {
-    var path = ~saFxVariationsFile.();
+// One variations file read: type -> [[name, settings, own], ...], own true
+// for yours. A missing file is none; a broken one says so and is none.
+~saReadVariations = { |path, own|
     var out = IdentityDictionary.new;
     // A broken file must not stop the boot (this part loads on every rig).
     if(File.exists(path)) {
         try {
             (File.readAllString(path).parseJSON["effects"] ? ()).keysValuesDo { |fx, entry|
-                out.put(fx.asSymbol, entry["variations"].collect { |v|
+                out.put(fx.asSymbol, (entry["variations"] ? []).collect { |v|
                     var settings = IdentityDictionary.new;
                     // parseJSON hands numbers over as strings; one that is no
                     // number is left out, not read as 0.
-                    v["settings"].keysValuesDo { |k, x|
+                    (v["settings"] ? ()).keysValuesDo { |k, x|
                         if("^-?[0-9]+(\\.[0-9]*)?([eE][-+]?[0-9]+)?$".matchRegexp(x.asString)) {
                             settings.put(k.asSymbol, x.asFloat)
                         } {
@@ -368,16 +369,88 @@
                                 ++ k ++ " is no number (" ++ x ++ "); left out.").warn;
                         };
                     };
-                    [v["name"], settings]
+                    [v["name"].asString, settings, own == true]
                 });
             };
         } { |err|
-            ("megalooper: " ++ path.basename ++ " is unreadable (" ++ err.errorString
-                ++ "); the effects have no Live variations.").warn;
+            ("megalooper: " ++ path ++ " is unreadable (" ++ err.errorString
+                ++ "); its variations are left out.").warn;
             out = IdentityDictionary.new;
         };
     };
     out
+};
+// Every effect type's variations: the Live set's (presets/sa, read only),
+// then yours, saved from an effect's editor (~saSaveVariation), in your
+// megalooper folder, so the repo's file is never written and a pull never
+// touches yours.
+~saUserVariationsFile = { ~saUserDir.() +/+ "fx-variations.json" };
+~saLoadFxVariations = {
+    var out = ~saReadVariations.(~saFxVariationsFile.(), false);
+    ~saReadVariations.(~saUserVariationsFile.(), true).keysValuesDo { |fx, list|
+        out.put(fx, (out[fx] ? []) ++ list) };
+    out
+};
+// Your variations as a file: type -> list, in your order; a type with none
+// is left out.
+~saVariationsText = { |table|
+    var j = { |x| MegaFiles.jsonString(x) };
+    var types = table.keys.asArray.select { |t| table[t].notEmpty }.sort;
+    "{\"format\": \"megalooper fx variations\", \"version\": 1,\n \"effects\": {"
+        ++ types.collect { |t|
+            "\n  " ++ j.(t.asString) ++ ": {\"variations\": [" ++ table[t].collect { |v|
+                "\n   {\"name\": " ++ j.(v[0]) ++ ", \"settings\": {"
+                    ++ v[1].keys.asArray.sort.collect { |k| j.(k.asString) ++ ": " ++ MegaFiles.jsonNumber(v[1][k]) }.join(", ")
+                    ++ "}}"
+            }.join(",") ++ "]}"
+        }.join(",") ++ "}}\n"
+};
+// Yours alone, type -> [[name, settings, true], ...], from what is loaded.
+~saOwnVariations = {
+    var own = IdentityDictionary.new;
+    (~saFxVariations ? ()).keysValuesDo { |t, list| own.put(t, list.select { |v| v[2] == true }) };
+    own
+};
+// Write yours and read every variation again. `action` gets (ok, why).
+~saWriteOwnVariations = { |own, action|
+    MegaFiles.write(~saUserVariationsFile.(), ~saVariationsText.(own),
+        { |text| if(text.isNil or: { text.parseJSON["effects"].isNil }) { "it does not read back" } },
+        nil, { |ok, why|
+            if(ok) { ~saFxVariations = ~saLoadFxVariations.() };
+            action.value(ok, why);
+        }, true);
+};
+// Keep a device's settings, every one as it stands, as a variation of its
+// type called `name`, after the others: the Delay's for every Delay. One of
+// yours by that name is replaced, in its place; a name the Live set's
+// variations of that type use is refused, so the menu never holds one twice.
+// `action` gets (ok, why); with ok, why is \saved or \replaced.
+~saSaveVariation = { |id, name, action|
+    var d = ~megaSA !? { |m| m.device(id) };
+    var nm = (name ? "").asString.stripWhiteSpace;
+    var own, list, at, entry;
+    case
+    { d.isNil or: { d.isPlugin } } { action.value(false, "no effect to take its settings from") }
+    { nm.isEmpty } { action.value(false, "it needs a name") }
+    { (~saFxVariations[d.type] ? []).any { |v| (v[2] != true) and: { v[0] == nm } } } {
+        action.value(false, "'" ++ nm ++ "' is a variation from the Live set") }
+    {
+        own = ~saOwnVariations.();
+        list = (own[d.type] ? []).asArray;
+        entry = [nm, d.settings.copy, true];
+        at = list.detectIndex { |v| v[0] == nm };
+        own.put(d.type, if(at.notNil) { list.copy.put(at, entry) } { list ++ [entry] });
+        ~saWriteOwnVariations.(own, { |ok, why| action.value(ok, if(ok) { if(at.notNil) { \replaced } { \saved } } { why }) });
+    };
+};
+// Delete one of your variations of `type`. `action` gets (ok, why).
+~saDeleteVariation = { |type, name, action|
+    var own = ~saOwnVariations.();
+    var list = (own[type] ? []).asArray;
+    if(list.any { |v| v[0] == name }.not) { action.value(false, "there is no variation of yours called '" ++ name ++ "'") } {
+        own.put(type, list.reject { |v| v[0] == name });
+        ~saWriteOwnVariations.(own, action);
+    };
 };
 ~saFxVariations = ~saLoadFxVariations.();
 
