@@ -464,7 +464,7 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 // its own after the build, is run here at once, so the plugin has answered by
 // the time this returns. Attach a Looper with `Routine { sa.attachLooper(l) }.next`
 // (~tLooper), which adds the loop's effects. Free it when done.
-~tMegaSA = { |stub, plugin, pluginPath, sound, catalog, setup|
+~tMegaSA = { |stub, plugin, pluginPath, sound, catalog, setup, bassIn|
     var srv = stub ?? { ~tStubServer.() };
     var path = pluginPath ?? { plugin !? { "/Library/Audio/Plug-Ins/VST/BIAS FX 2.vst" } };
     var sa;
@@ -473,7 +473,7 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     // The \sa profile's real-time pool, which the chains' memory budget
     // reads (a test of the budget lowers it afterwards).
     srv[\options] !? { |o| o.memSize = 65536 };
-    sa = MegaSA(srv, 0, 0, path, nil, sound, catalog);
+    sa = MegaSA(srv, 0, 0, path, nil, sound, catalog, bassIn);
     sa.instVarAt(\builder) !? { |r| r.stop };
     // (`setup` gets the MegaSA before anything is built.)
     setup.value(sa);

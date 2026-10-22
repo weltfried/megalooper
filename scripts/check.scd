@@ -526,6 +526,24 @@ rigs.do { |p|
             ("  BAD ANALYSIS " ++ p ++ ": analysisChannel " ++ rp[\analysisChannel]
                 ++ " lands on outChannel/returnChannel").postln;
             bad = bad + 1 }
+        // bassChannel is SA's alone (Live plays the bass on the other rigs),
+        // one input channel the profile asks for, and never the guitar's
+        // input or the tap: that would play the guitar twice, once through
+        // each chain.
+        { rp[\bassChannel].notNil and: { rp[\sa] != true } } {
+            ("  BASS WITHOUT SA " ++ p ++ ": bassChannel is set, but only SA plays a bass").postln;
+            bad = bad + 1 }
+        { rp[\bassChannel].notNil
+            and: { rp[\bassChannel] >= (rp[\numInChans] ? rp[\numChans]) } } {
+            ("  OUT OF RANGE " ++ p ++ ": bassChannel " ++ rp[\bassChannel]
+                ++ " needs input channels >= " ++ (rp[\bassChannel] + 1)
+                ++ ", profile exposes " ++ (rp[\numInChans] ? rp[\numChans])).postln;
+            bad = bad + 1 }
+        { rp[\bassChannel].notNil and: {
+            [\inChannel, \analysisChannel].any { |k| rp[k].notNil and: { rp[\bassChannel] == rp[k] } } } } {
+            ("  BAD BASS " ++ p ++ ": bassChannel " ++ rp[\bassChannel]
+                ++ " is the guitar's input or the analysis tap").postln;
+            bad = bad + 1 }
         // A profile's calibrated sync offset has to be reachable on the bipolar
         // "Live sync" slider, or the GUI opens showing a value it cannot
         // represent and the first touch of the slider jumps the offset.

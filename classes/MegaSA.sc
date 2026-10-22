@@ -4,7 +4,9 @@
 //   [guitar group]   the guitar chain (guitarChain, a MegaSAChain): the
 //                    hardware input onto guitarBus, then each effect before
 //                    the amp and Bias FX (if there is a plugin), one synth per
-//                    device, each working on guitarBus in place
+//                    device, each working on guitarBus in place. Then the
+//                    bass chain (bassChain): the bass's input, if the rig has
+//                    one, onto bassBus, and its effects on it
 //   [default group]  every Looper synth, untouched: they all live here. After
 //                    the Looper's master synth, the loop's chain (loopChain,
 //                    attached once the Looper is up): loopBus copied onto
@@ -20,7 +22,8 @@
 //                    and the stems (stemSpecs)
 //
 // The guitar group runs BEFORE the default group, so the Looper records what
-// the chain made in the same block. The loop's chain runs right after the
+// the chain made in the same block. The bass chain is there for the same
+// reason, though nothing records it yet: the Looper records the guitar only. The loop's chain runs right after the
 // Looper's master synth, in a group of its own inside the default group, so
 // the loop-chain recorder, which the Looper adds to the tail of the default
 // group later, hears the processed loop as it did from Live. The drum group runs after the default group, so the drums' drift
@@ -44,6 +47,10 @@
 // nodes. Re-run boot.scd.
 MegaSA {
     var <server, <guitarIn, <hwOut, <pluginPath, <bankPath;
+    // The bass's hardware input (a SoundIn channel), or nil on a rig with
+    // none: its chain is then built all the same, on silence, so a sound's
+    // bass devices are kept, but there is no bass strip.
+    var <bassIn;
     // This Mac's plugins as the last scan found them (MegaSAPlugins' entries),
     // or nil: what a plugin's device is looked up in (prPluginTarget), and
     // what insertPlugin adds from. Set anew after a scan.
@@ -57,13 +64,13 @@ MegaSA {
     // is then still there at the next boot, which leaves that plugin closed,
     // says so, and removes the marker: the boot after tries it once more.
     var <>markerDir;
-    var <guitarBus, <loopBus, <loopFxBus, <masterBus, <recordBus;
+    var <guitarBus, <bassBus, <loopBus, <loopFxBus, <masterBus, <recordBus;
     // The drums' busses, stereo: what their voices play onto (stepsBus,
     // onsetBus) and what their effects hand the two strips (stepsOutBus,
     // onsetOutBus).
     var <stepsBus, <stepsOutBus, <onsetBus, <onsetOutBus;
     // Each strip's signal after its fader, stereo, by strip (\guitar, \loop,
-    // \drums, \onsetKit): the set's stems, which the session recorder records
+    // \drums, \onsetKit, and \bass on a rig with a bass input): the set's stems, which the session recorder records
     // beside the master (stemSpecs). Only its strip writes one, and they sum
     // to masterBus.
     var <stemBusses;
@@ -75,7 +82,7 @@ MegaSA {
     // the Saturator and Redux. Each default device's id is its effect's key
     // (MegaSAFx.keys). They start as the Live set left them: every effect
     // off, every setting at the set's value; the plugin on.
-    var <guitarChain, <loopChain, <drumsChain;
+    var <guitarChain, <loopChain, <drumsChain, <bassChain;
     var <strips, <masterSynth;
     // The chains' edits (insertDevice and the rest, below): removed plugins
     // parked in limboGroup, a paused group made at the first such removal,
@@ -153,14 +160,17 @@ MegaSA {
     // megalooper's default chains. With a sound the chains are its devices,
     // the plugin is hosted in its guitar chain's plugin device (none there,
     // none hosted) and opens with that device's state.
-    *new { |server, guitarIn = 0, hwOut = 0, pluginPath, bankPath, sound, catalog|
-        ^super.newCopyArgs(server, guitarIn, hwOut, pluginPath, bankPath).init(sound, catalog)
+    // bassIn: the bass's hardware input, or nil for none.
+    *new { |server, guitarIn = 0, hwOut = 0, pluginPath, bankPath, sound, catalog, bassIn|
+        ^super.newCopyArgs(server, guitarIn, hwOut, pluginPath, bankPath).init(sound, catalog, bassIn)
     }
 
     // The strips in mixer order, each with the bus it reads: the drums' and
-    // the onset kit's take their effects' output.
+    // the onset kit's take their effects' output. The bass's, after the
+    // guitar's, only on a rig with a bass input.
     stripBusses {
-        ^[\guitar, guitarBus, \loop, loopFxBus, \drums, stepsOutBus, \onsetKit, onsetOutBus]
+        ^[\guitar, guitarBus] ++ (if(bassIn.notNil) { [\bass, bassBus] } { [] })
+            ++ [\loop, loopFxBus, \drums, stepsOutBus, \onsetKit, onsetOutBus]
     }
 
     // The Looper reads every input with SoundIn, and SoundIn.ar(ch) is
@@ -184,9 +194,10 @@ MegaSA {
     // Every stem is its strip's two sides, the guitar's too: a stereo device
     // or plugin on its chain is recorded as it plays (today's chain is dual
     // mono, so its sides hold the same). The onset kit's strip is the onset
-    // stem. A strip whose bus did not allocate has no stem.
+    // stem. A strip whose bus did not allocate has no stem, nor has the bass
+    // on a rig without its input.
     stemSpecs {
-        ^[[\guitar, \guitar, 2], [\loop, \loop, 2], [\drums, \drums, 2], [\onset, \onsetKit, 2]].collect { |row|
+        ^[[\guitar, \guitar, 2], [\bass, \bass, 2], [\loop, \loop, 2], [\drums, \drums, 2], [\onset, \onsetKit, 2]].collect { |row|
             var bus = this.stemBus(row[1]);
             if(bus.notNil and: { bus.index.notNil }) {
                 (role: row[0], channel: this.soundInChannel(bus), numChannels: row[2])
@@ -194,8 +205,9 @@ MegaSA {
         }.reject(_.isNil)
     }
 
-    init { |sound, plugins|
+    init { |sound, plugins, bass|
         catalog = plugins;
+        bassIn = bass;
         // The drums' two strips start where Live's faders were: the drums
         // group at -10.6 dB, the One Hit Kit's track at -15.7 dB.
         levels = (guitar: 1, loop: 1, drums: 0.2951209247, onsetKit: 0.1640589684, master: 1);
@@ -204,6 +216,10 @@ MegaSA {
         // has answered: open, or failed, in which case dry is better than
         // nothing.
         mutes = (guitar: false, loop: false, drums: false, onsetKit: false);
+        // The bass has a strip only with an input to play it. A plugin
+        // opening on its chain holds nothing: until it is open its device
+        // passes the bass through, as the drums' and the loop's do.
+        if(bassIn.notNil) { levels.put(\bass, 1); mutes.put(\bass, false) };
         // Without VSTPlugin there is no plugin to host: the guitar plays its
         // built-in effects without it, and the post window says why.
         if(pluginPath.notNil and: { \VSTPlugin.asClass.isNil }) {
@@ -241,8 +257,11 @@ MegaSA {
         stepsOutBus = Bus.audio(server, 2);
         onsetBus    = Bus.audio(server, 2);
         onsetOutBus = Bus.audio(server, 2);
+        // After the others, so theirs stay where they were before the bass.
+        bassBus = Bus.audio(server, 2);
         stemBusses = IdentityDictionary.new;
-        [\guitar, \loop, \drums, \onsetKit].do { |k| stemBusses.put(k, Bus.audio(server, 2)) };
+        ([\guitar, \loop, \drums, \onsetKit] ++ (if(bassIn.notNil) { [\bass] } { [] }))
+            .do { |k| stemBusses.put(k, Bus.audio(server, 2)) };
         this.prMakeChains(sound);
         // The guitar is held while a plugin on its chain opens: only if one
         // will (prPluginTarget), whichever plugin that is.
@@ -254,17 +273,21 @@ MegaSA {
         builder = Routine { this.prBuild }.play;
     }
 
-    // The three chains, in the model only: the guitar's from the hardware
+    // The four chains, in the model only: the guitar's from the hardware
     // input, the loop's from the Looper's output, the drums' on the bus
-    // Rhythmic Steps' voices play onto. With no sound they are as the Live
-    // set had them: the guitar's four effects, then its plugin, dual mono
-    // 1->1 as the Live set hosts Bias FX (no plugin, no device), the loop's
-    // three effects, and nothing on the drums. With a sound they are the
+    // Rhythmic Steps' voices play onto, the bass's from its input (with none,
+    // a source that feeds nothing: its effects work on silence). With no
+    // sound they are as the Live set had them: the guitar's four effects,
+    // then its plugin, dual mono 1->1 as the Live set hosts Bias FX (no
+    // plugin, no device), the loop's three effects, and nothing on the drums
+    // or the bass. With a sound they are the
     // sound's devices, in its order, with its switches, settings and names.
     prMakeChains { |sound|
         guitarChain = MegaSAChain(\guitar, guitarBus, \megaSAChainIn, [\in, guitarIn]);
         loopChain = MegaSAChain(\loop, loopFxBus, \megaSAChainCopy, [\in, loopBus.index]);
         drumsChain = MegaSAChain(\drums, stepsBus, \megaSAChainOn, []);
+        bassChain = if(bassIn.notNil) { MegaSAChain(\bass, bassBus, \megaSAChainIn, [\in, bassIn]) }
+            { MegaSAChain(\bass, bassBus, \megaSAChainOn, []) };
         if(sound.isNil) {
             MegaSAFx.guitarKeys.do { |k| guitarChain.add(MegaSADevice(k, k)) };
             pluginPath !? { |p|
@@ -309,11 +332,14 @@ MegaSA {
         drumGroup   = Group.before(mixerGroup);
         recordGroup = Group.after(mixerGroup);
         guitarChain.build(guitarGroup, \addToHead, beatDur);
+        // After the guitar's, in the same group: before the Looper too.
+        bassChain.build(guitarGroup, \addToTail, beatDur);
         // The plugin is made now, in its device's synth, so it is there to
         // ask from the start; it is opened after the build (prOpenPlugin),
         // because its probe can hold the build for seconds on a first boot,
-        // and ready must not wait.
+        // and ready must not wait. The bass chain's open with the guitar's.
         this.prMakePlugins(guitarChain);
+        this.prMakePlugins(bassChain);
         this.prBuildDrums;
         this.prBuildDrumsChain;
         this.stripBusses.pairsDo { |key, bus|
@@ -614,7 +640,7 @@ MegaSA {
         };
     }
 
-    // key: a strip (\guitar, \loop, \drums, \onsetKit) or \master. Amplitude,
+    // key: a strip (\guitar, \bass, \loop, \drums, \onsetKit) or \master. Amplitude,
     // not dB.
     level { |key| ^levels[key] }
 
@@ -689,7 +715,7 @@ MegaSA {
     // ---- Devices ---------------------------------------------------------
     // The chains there are (none on a MegaSA made without its init), and
     // every device in them, the guitar's first.
-    chains { ^[guitarChain, loopChain, drumsChain].reject(_.isNil) }
+    chains { ^[guitarChain, loopChain, drumsChain, bassChain].reject(_.isNil) }
 
     devices { ^this.chains.collect { |c| c.devices.asArray }.flatten(1) }
 
@@ -834,6 +860,7 @@ MegaSA {
 
     chainFor { |track|
         ^case { track == \guitar } { guitarChain } { track == \loop } { loopChain } { track == \drums } { drumsChain }
+            { track == \bass } { bassChain }
     }
 
     chainOf { |device| ^this.chains.detect { |c| c.devices.includes(device) } }
@@ -854,7 +881,7 @@ MegaSA {
     memoryUsed { ^(this.devices ++ limbo).select { |d| d.node.notNil }.sum { |d| d.memBytes(this.sampleRate) } }
 
     // A new device of a built-in `type` at `index` (the end if nil) of the
-    // `track` chain (\guitar, \loop, \drums), with settings `given` on top of the
+    // `track` chain (\guitar, \loop, \drums, \bass), with settings `given` on top of the
     // type's defaults, switched on (it fades in). Answers the device, or nil
     // if it was refused.
     insertDevice { |track, index, type, given, on = true|
@@ -1203,12 +1230,13 @@ MegaSA {
     // What a session's header says of the chains as a set begins: the
     // sound's name and whether the chains are still as kept, both chains with
     // every device's switch and settings (so a take can be rendered through
-    // its own chain again), and each chain's delay in seconds (Lg, Ll, Ld).
+    // its own chain again), and each chain's delay in seconds (Lg, Ll, Ld, Lb).
     sessionInfo {
         var sr = this.sampleRate;
         ^(sound: soundName, soundKept: this.dirty.not,
             lg: (guitarChain !? { |c| c.latency(sr) / sr }) ? 0, ll: (loopChain !? { |c| c.latency(sr) / sr }) ? 0,
             ld: (drumsChain !? { |c| c.latency(sr) / sr }) ? 0,
+            lb: (bassChain !? { |c| c.latency(sr) / sr }) ? 0,
             chains: this.chains.collect { |c|
                 (track: c.track, devices: c.devices.collect { |d|
                     var e = (id: d.id, type: d.type, name: d.name, on: d.on);
@@ -1740,7 +1768,7 @@ MegaSA {
         strips.do(_.free);
         masterSynth !? (_.free);
         [guitarGroup, mixerGroup, drumGroup, recordGroup].do { |g| g !? (_.free) };
-        [guitarBus, loopBus, loopFxBus, masterBus, recordBus,
+        [guitarBus, bassBus, loopBus, loopFxBus, masterBus, recordBus,
             stepsBus, stepsOutBus, onsetBus, onsetOutBus].do { |b| b !? (_.free) };
         stemBusses.do { |b| b !? (_.free) };
         ready = false;

@@ -1,7 +1,7 @@
 # Megalooper SA: megalooper on its own
 
-Megalooper SA plays the guitar's effects, the loop's effects and the drums
-itself, so no Ableton Live is needed. This guide covers the effect chains,
+Megalooper SA plays the guitar's effects, the bass's, the loop's effects and
+the drums itself, so no Ableton Live is needed. This guide covers the effect chains,
 sounds and plugins. The looper, the cutter, the grains and the MIDI map work
 as [the manual](manual.md) says on every rig.
 
@@ -13,6 +13,16 @@ Pick a rig whose profile has SA switched on:
   and the mix on outputs 1 and 2. Nothing about your interface is changed.
 - A profile of your own, for an interface with more channels:
   [Rigs and routing](routing.md) says how to write one.
+
+**A bass.** On the duo's TSMEGA rig (`sa`), the bass goes into input 2. It
+plays through its own chain, the **BASS** row on the FX view, onto a strip of
+its own: **Bass** under Levels on the Setup and Perform views, with a MIDI
+target for its level and its mute. Recording the set (Record set) writes it
+as a stem of its own (`-bass.wav`). The loop records the guitar only; looping
+the bass is not there yet. saSystem has no bass input, because on a laptop
+input 2 is the microphone. For a bass on another interface, give your profile
+`bassChannel: 1` (input 2), as [Rigs and routing](routing.md#adding-a-rig)
+says.
 
 Then open the **FX** view (key **3**) for the effects. The drums have a view
 of their own, **Drums** (key **4**).
@@ -45,9 +55,11 @@ What you apply is kept for that rig in `calibration.json` in your megalooper
 folder, and every start begins with it. **Forget** on the Calibrate view goes
 back to the rig's own numbers.
 
-## The three chains
+## The chains
 
 - **The guitar chain** is what you play through. The loop records its output.
+- **The bass chain** is what the bass plays through, on a rig with a bass
+  input. It goes to the mix only: the loop does not record it.
 - **The loop chain** plays the recorded loop.
 - **The drums chain** plays the drums' steps, before their reverb. It starts
   empty. The onset kit does not pass through it.

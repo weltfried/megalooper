@@ -751,6 +751,55 @@ Routine {
     ok.("without SA the pane is a note", pane.children.any { |c|
         c.isKindOf(StaticText) and: { c.string.contains("SA profile") } });
 
+    "== a rig with a bass ==".postln;
+    {
+        var stubB = ~tStubServer.(), mb, lb, paneB, d, h0, h1, items;
+        // The height the pane wants without the bass's row, for the one it
+        // adds (measured on m's pane, built again for it).
+        ~megaSA = m;
+        h0 = ~buildEffectsPane.().minSizeHint.height;
+        ~guiTeardowns[\effects].value;
+        mb = ~tMegaSA.(stubB, nil, nil, nil, nil, nil, 1);
+        lb = ~tLooper.();
+        Routine { mb.attachLooper(lb) }.next;
+        ~megaSA = mb;
+        ~effectsSelected = nil;
+        paneB = ~buildEffectsPane.();
+        tick.();
+        ok.("with a bass input there is a BASS row, under the guitar's",
+            (~effectsTracks.() == [\guitar, \bass, \loop, \drums]) and: { ~effectsRowHolders[\bass].notNil }
+                and: { ~effectsRowHolders[\bass].isClosed.not }
+                and: { ~effectsRowHolders[\bass].absoluteBounds.top > ~effectsRowHolders[\guitar].absoluteBounds.top }
+                and: { ~effectsRowHolders[\bass].absoluteBounds.top < ~effectsRowHolders[\loop].absoluteBounds.top },
+            ~effectsTracks.().asString);
+        ok.("...ending in a + tile that adds to the bass chain", (~effectsPlusTiles ? ())[\bass].notNil
+            and: { ~effectsAddItems.(\bass).any { |it| it[\section] == \builtin } });
+        d = mb.insertDevice(\bass, nil, \saturator);
+        tick.();
+        ok.("an effect inserted there gets its tile in the bass row",
+            d.notNil and: { ~effectsTiles[d.id].notNil }
+                and: { ~effectsRowHolders[\bass].canvas.children.any { |v| v === ~effectsTiles[d.id][\select] } },
+            (d !? { |x| x.id }).asString);
+        items = ~effectsDeviceItems.(\delay).collect { |it| it[\label] };
+        ok.("a guitar effect's menu offers the bass chain", items.any { |x| x == "Move to the bass chain" }, items.asString);
+        h1 = paneB.minSizeHint.height;
+        ("  the pane wants " ++ h1 ++ " px high with the bass's row, " ++ h0 ++ " without").postln;
+        ok.("...and the pane still fits 1440 px wide", paneB.minSizeHint.width <= 1440, paneB.minSizeHint.width.asString);
+        // Perform's levels, side by side: six strips now.
+        {
+            var levels = ~buildSAPerformLevels.(), w = levels !? { |v| v.minSizeHint.width };
+            ("  Perform's levels want " ++ w ++ " px wide with the bass's strip").postln;
+            ok.("Perform's levels have the bass's strip, and fit 1440 px", ~saPerformLevels[\bass].notNil
+                and: { w.notNil and: { w <= 1440 } }, w.asString);
+            ok.("...whose slider sets the bass's level", { ~saPerformLevels[\bass][\slider].valueAction_(~saLevelSpec.unmap(-6));
+                (mb.level(\bass).ampdb - -6).abs < 1e-6 }.value, mb.level(\bass).ampdb.asString);
+            ~guiTeardowns[\saPerform].value;
+        }.value;
+        ~guiTeardowns[\effects].value;
+        ~megaSA = nil;
+        mb.free;
+    }.value;
+
     ~tRemoveTree.(tmp);
     ~tRemoveTree.(~tTrapRoot);
     "".postln;

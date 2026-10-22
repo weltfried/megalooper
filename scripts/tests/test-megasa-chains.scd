@@ -324,8 +324,8 @@ lIds = MegaSAFx.loopKeys;
 ~tEq.("the guitar chain: its four effects, then the plugin (with VSTPlugin)", sa.guitarChain.ids, gIds);
 ~tEq.("the loop chain: its three", sa.loopChain.ids, lIds);
 ~tEq.("MegaSA knows them all, the guitar's first", sa.devices.collect(_.id), gIds ++ lIds);
-~tEq.("the guitar chain is a group of its own, the guitar group's one child",
-    (t[\children][sa.guitarGroup.nodeID] ? []).asArray, [sa.guitarChain.group.nodeID]);
+~tEq.("the guitar chain is a group of its own, the guitar group's first child, the bass chain's after it",
+    (t[\children][sa.guitarGroup.nodeID] ? []).asArray, [sa.guitarChain.group.nodeID, sa.bassChain.group.nodeID]);
 ~tEq.("...holding the input first, then a synth per device in chain order",
     (t[\children][sa.guitarChain.group.nodeID] ? []).asArray,
     [sa.guitarChain.source.nodeID] ++ sa.guitarChain.devices.collect { |x| x.node.nodeID });
@@ -523,7 +523,7 @@ sa.setTempo(120);
 sent = stub[\msgs].copyToEnd(before).asArray;
 ~tEq.("a tempo is one n_set of the beat to each chain's group", sent,
     [[15, sa.guitarChain.group.nodeID, \beatDur, 0.5], [15, sa.loopChain.group.nodeID, \beatDur, 0.5],
-        [15, sa.drumsChain.group.nodeID, \beatDur, 0.5]]);
+        [15, sa.drumsChain.group.nodeID, \beatDur, 0.5], [15, sa.bassChain.group.nodeID, \beatDur, 0.5]]);
 if(vst.notNil) { ~tEq.("...and the plugin's own tempo, which it reads instead of a control", fake[\tempo], 120) };
 ~tAssert.("...which reaches every device that reads the beat, each in one of those groups",
     sa.devices.select(_.followsTempo).notEmpty and: { sa.devices.select(_.followsTempo).every { |x|

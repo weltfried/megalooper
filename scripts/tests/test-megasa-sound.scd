@@ -59,7 +59,7 @@ raws = (
     member: "\"#ff0000\"",
     setting: "0.250",
     wah: "{\"id\": \"wah1\", \"type\": \"wah\", \"on\": true, \"sweep\": 3.0e1, \"settings\": {\"wahQ\": 2}}",
-    bass: "{\"track\": \"bass\", \"devices\": [], \"x\": 1}",
+    keys: "{\"track\": \"keys\", \"devices\": [], \"x\": 1}",
     stateMore: "[1,2,  3]",
     identity: "{\"key\": \"BIAS FX 2\", \"vendor\": \"Positive Grid\",  \"format\": \"vst2\", \"uid\": \"12345678\", \"version\": \"1200\"}",
     pluginSettings: "{\"gain\": 0.5}"
@@ -72,7 +72,7 @@ text = "{\"format\": \"megalooper sound\", \"version\": 1, \"name\": \"odd\", \"
     ++ "  {\"id\": \"plugin1\", \"type\": \"plugin\", \"name\": \"BIAS FX 2\", \"on\": true, \"layout\": [1, 1], \"plugin\": "
         ++ raws[\identity] ++ ", \"state\": {\"kind\": \"program\", \"file\": \"plugin1-a.fxp\", \"crc\": " ++ raws[\stateMore]
         ++ "}, \"settings\": " ++ raws[\pluginSettings] ++ "}]},\n"
-    ++ " " ++ raws[\bass] ++ ",\n {\"track\": \"loop\", \"devices\": []}]}";
+    ++ " " ++ raws[\keys] ++ ",\n {\"track\": \"loop\", \"devices\": []}]}";
 s = MegaSASound.parse(text);
 ~tAssert.("a sound with entries this build does not know still reads", s.isKindOf(MegaSASound), s.asString);
 again = s.fileString;
@@ -85,7 +85,7 @@ d = s.device(\wah1);
 ~tEq.("a device of a type this build has not is kept, in its place, with its id, type and switch",
     [s.devices(\guitar).collect { |x| x[\id] }, d[\type], d[\on], d[\raw]], [[\delay, \wah1, \plugin1], \wah, true, raws[\wah]]);
 ~tEq.("a track it has not is kept, and is none of its chains", [s.tracks.collect { |x| x[\track] }, s.devices.size],
-    [[\guitar, \bass, \loop, \drums], 3]);
+    [[\guitar, \keys, \loop, \drums, \bass], 3]);
 ~tEq.("the known setting beside an unknown one is read", s.device(\delay)[\settings][\delayMix], 0.5);
 ~tEq.("a plugin's state: its kind and its file", s.device(\plugin1)[\state], (kind: \program, file: "plugin1-a.fxp"));
 ~tEq.("...in the sound's own list of state files", s.stateFiles, ["plugin1-a.fxp"]);

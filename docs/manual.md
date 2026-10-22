@@ -561,7 +561,7 @@ footer.
 │ ...  │ ...    │ ...    │ ...     │ ...   │ Dissolve Rec next loop Undo  Clear  │
 │      │        │        │         │       │ MACROS · Master  Arc  Onset         │
 ├──────┴────────┴────────┴─────────┴───────┤                                     │
-│ LEVELS · Guitar Loop Drums Onset kit Master (SA only, as on Setup)             │
+│ LEVELS · Guitar Bass Loop Drums Onset kit Master (SA only, as on Setup)        │
 ├──────────────────────────────────────────┴─────────────────────────────────────┤
 │ R trigger  S stop  M multiply  …                          Refused: nothing playing │  the footer
 └────────────────────────────────────────────────────────────────────────────────┘

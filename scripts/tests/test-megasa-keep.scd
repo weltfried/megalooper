@@ -47,7 +47,7 @@ text = "{\"format\": \"megalooper sound\", \"version\": 1,\n \"name\": \"kept\",
     ++ "   " ++ MegaSASound.default(nil).prDeviceString(MegaSASound.deviceOfType(\redux, \redux)) ++ ",\n"
     ++ "   " ++ MegaSASound.default(nil).prDeviceString(MegaSASound.deviceOfType(\echo, \echo).put(\on, true)) ++ ",\n"
     ++ "   {\"id\": \"wah1\", \"type\": \"wah\", \"on\": true, \"sweep\": 3.0e1}]},\n"
-    ++ "  {\"track\": \"bass\", \"devices\": []}],\n \"theme\": {\"a\": [1, 2.50]}}\n";
+    ++ "  {\"track\": \"keys\", \"devices\": []}],\n \"theme\": {\"a\": [1, 2.50]}}\n";
 File.mkdir(states);
 File.use(kept, "w", { |f| f.write(text) });
 File.use(states +/+ "plugin1-a.fxp", "w", { |f| f.write("state a") });
@@ -298,7 +298,7 @@ said = heard.(sa, { n = sa.applySound(target, { |ok, notes| got = [ok, notes] })
     [sa.fx(\delay), ~tStartArgs.(stub, sa.fxNode(\delay))[\delayOn], ~tStartArgs.(stub, sa.fxNode(\delay))[\delayMix]],
     [false, 0, MegaSAFx.param(\delayMix)[\spec].default]);
 ~tEq.("...said as \\chain \\recall for each chain; undo starts anew",
-    [said.select { |x| (x[0] == \chain) and: { x[2] == \recall } }.collect { |x| x[1] }, sa.canUndo, sa.canRedo], [[\guitar, \loop, \drums], false, false]);
+    [said.select { |x| (x[0] == \chain) and: { x[2] == \recall } }.collect { |x| x[1] }, sa.canUndo, sa.canRedo], [[\guitar, \loop, \drums, \bass], false, false]);
 ~tEq.("...the ids' marks never go down: after delay3 came and went, the next Delay is delay4", sa.nextIds[\delay], 4);
 ~tEq.("...and the sound had no state to load", got, [true, []]);
 

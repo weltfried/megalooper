@@ -121,7 +121,7 @@
             set: { |on| if(fxThere.(id)) { ~megaSA.setFx(id, on) } }, available: { fxThere.(id) },
             why: fxWhy.(id, name)));
     };
-    var stripNames = (guitar: "Guitar", loop: "Loop", drums: "Drums", onsetKit: "Onset kit", master: "Master");
+    var stripNames = (guitar: "Guitar", bass: "Bass", loop: "Loop", drums: "Drums", onsetKit: "Onset kit", master: "Master");
     var patternNames = (main: "Main", break: "Break");
     var pageNames = (chance: "Chance", alt: "Alt", velo: "Velo", roll: "Roll");
     var slotNames = (steps: "Steps kit", onset: "Onset kit");
@@ -385,10 +385,11 @@
 
     // The mixer, as the Rig tab's Megalooper SA section shows it (gui-sa.scd),
     // in its order: every strip's level, and the mute of every strip but the
-    // master's. The drums' two strips are on the Drums tab too.
+    // master's. The drums' two strips are on the Drums tab too. The bass's
+    // are there only on a rig with a bass input.
     mixerFamily = {
-        [\guitar, \loop, \drums, \onsetKit, \master].do { |k| addLevel.(k) };
-        [\guitar, \loop, \drums, \onsetKit].do { |k| addMute.(k) };
+        [\guitar, \bass, \loop, \drums, \onsetKit, \master].do { |k| addLevel.(k) };
+        [\guitar, \bass, \loop, \drums, \onsetKit].do { |k| addMute.(k) };
     };
     stripLabel = { |k| ((~saStripLabels !? { |names| names[k] }) ? stripNames[k] ? k).asString.replace(":", "") };
     // A level as its slider moves it (~saLevelRow): in dB on ~saLevelSpec's

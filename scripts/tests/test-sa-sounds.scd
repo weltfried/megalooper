@@ -327,9 +327,9 @@ before = sa.fxParam(\delayTimeR);
 ctx = ~looper.prSessionContext;
 ~tEq.("a session's header names the sound and the build, and says whether the chains are as kept",
     [ctx[\sound], ctx[\build], ctx[\soundKept]], [sa.soundName, "git test-build", sa.dirty.not]);
-~tEq.("...and carries the three chains, a device each, in order",
+~tEq.("...and carries the four chains, a device each, in order",
     [ctx[\chains].collect { |c| c[\track] }, ctx[\chains].collect { |c| c[\devices].collect { |x| x[\id] } }],
-    [[\guitar, \loop, \drums], [sa.guitarChain.ids, sa.loopChain.ids, sa.drumsChain.ids]]);
+    [[\guitar, \loop, \drums, \bass], [sa.guitarChain.ids, sa.loopChain.ids, sa.drumsChain.ids, sa.bassChain.ids]]);
 d = ctx[\chains][0][\devices].detect { |x| x[\id] == \delay };
 ~tEq.("...each with its type, switch and every setting", [d[\type], d[\on], d[\settings]], [\delay, sa.fx(\delay), sa.device(\delay).settings]);
 d = ctx[\chains][0][\devices].detect { |x| x[\type] == \plugin };

@@ -68,7 +68,8 @@ File.mkdir(~saDrumsPresetDir);
 // make way for the ones below.
 stub = ~tStubServer.();
 msgs = stub[\msgs];
-m = ~tMegaSA.(stub, ~tFakePlugin.(\failed));
+// With a bass input, as on the duo's rig, so the bass's strip has its widgets.
+m = ~tMegaSA.(stub, ~tFakePlugin.(\failed), nil, nil, nil, nil, 1);
 Routine { m.attachLooper(~looper) }.next;
 m.drums.free;
 sstub = ~tStubServer.();

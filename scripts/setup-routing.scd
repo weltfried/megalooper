@@ -46,6 +46,13 @@
 // dry tap alone and the Perform tab says so. See "Recording the set" in
 // docs/routing.md.
 //
+// bassChannel (SA rigs only) is the bass's hardware input, a SINGLE (mono)
+// channel like the analysis tap: Megalooper SA plays it through a chain of its
+// own (the FX view's BASS row) onto a strip of its own. nil (or absent) on a
+// rig with no bass; the bass then has no strip and its row is not shown. It
+// must be an input the profile asks for, and neither the guitar's input nor
+// the analysis tap. Nothing records it into the loop yet.
+//
 // numInChans is optional and defaults to numChans. It exists because the
 // analysis tap is the one thing SC needs from the HARDWARE block above the
 // virtual device, and asking for those channels on the OUTPUT side too would
@@ -308,6 +315,8 @@
     // lines, PitchLoop's memory) beside the Looper's own, against a default of
     // 8 MB; a failed allocation silences a synth, so SA asks for 64 MB, which
     // also leaves room for the devices a chain edit adds (MegaSA.memoryBudget).
+    // bassChannel 1: the bass on the interface's input 2, through the bass
+    // chain onto its own strip.
     // inChannelCount 2: the Looper records both sides of the guitar chain
     // (docs/dev/device-chains.md, decision 5). Today's chain is dual mono, so the
     // loop holds the same samples; a stereo device or plugin on the guitar
@@ -319,6 +328,7 @@
         inChannel: 0, outChannel: nil, returnChannel: nil,
         analysisChannel: 0,
         sessionChannel: nil,
+        bassChannel: 1,
         inChannelCount: 2, latencyMs: 9, chainRecOffsetMs: 20,
         sampleRate: 48000, setSampleRate: true, hardwareBufferSize: 64, memSize: 65536,
         sa: true, live: false),
@@ -335,6 +345,8 @@
     // 128 frames. Run the Calibrate view's latency step, or dial it by ear.
     // memSize: the effects' delay lines and PitchLoop's memory need the 64 MB
     // pool, as on \sa. Both sides of the guitar chain are recorded, as on \sa.
+    // No bassChannel: on a laptop the system's input 2 is its microphone. A
+    // rig with a bass on input 2 says bassChannel: 1 in a profile of its own.
     saSystem: (
         device: \systemDefault, numChans: 2, numInChans: 2,
         inChannel: 0, outChannel: nil, returnChannel: nil,
@@ -420,6 +432,7 @@
     ~returnChannel   = rp[\returnChannel];
     ~analysisChannel = rp[\analysisChannel];
     ~sessionChannel  = rp[\sessionChannel];
+    ~bassChannel     = rp[\bassChannel];
 
     // \systemDefault means "whatever CoreAudio is defaulting to". Setting the
     // option to nil makes SC omit -H, so scsynth opens the default INPUT and the
@@ -720,6 +733,12 @@
                 ~analysisChannel = nil;
                 s.options.numInputBusChannels = dev[\in].min(wantIn);
                 notes.add("analysis tap disabled");
+                if(~bassChannel.notNil and: { ~bassChannel >= dev[\in] }) {
+                    ("!!! The bass's input (" ++ (~bassChannel + 1) ++ ") is not there either: "
+                        ++ "the bass has no strip this time.").postln;
+                    ~bassChannel = nil;
+                    notes.add("bass input disabled");
+                };
             };
 
             // ---- sample rate, BEFORE the boot rather than after ------------

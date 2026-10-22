@@ -147,7 +147,7 @@
 ~definePresetFamily.(\saFx, (
     label:      "Sounds",
     caption:    "sound",
-    statusIdle: "Pick a sound to recall it · Save keeps the three chains, every knob and each plugin's sound",
+    statusIdle: "Pick a sound to recall it · Save keeps every chain, every knob and each plugin's sound",
     dirKey:     \saFxPresetDir,
     names:      \soundNames,
     slug:       \fxPresetSlug,
@@ -542,8 +542,15 @@
 ~effectsFirstKey = {
     ~megaSA !? { |m| m.devices.detect { |d| d.isPlugin.not } } !? { |d| d.id } ? \bias
 };
-// The chains the pane shows a row for, in the order of their rows.
-~effectsTracks = { MegaSASound.trackNames };
+// The chains the pane shows a row for, in the order of their rows: the bass's
+// under the guitar's, the two inputs together, and only on a rig with a bass
+// input (without one its chain plays silence, and its row would offer
+// effects nobody hears).
+~effectsTracks = {
+    [\guitar, \bass, \loop, \drums].select { |t|
+        MegaSASound.trackNames.includes(t) and: { (t != \bass) or: { (~megaSA !? { |m| m.bassIn }).notNil } } }
+};
+~effectsRowCaptions = (guitar: "GUITAR", bass: "BASS", loop: "LOOP", drums: "DRUMS");
 
 // ---- The status line ------------------------------------------------------------
 // Under the rows: the drum hits the language had to drop, and every plugin
@@ -944,19 +951,19 @@
             HLayout(~guiCaption.(caption).fixedWidth_(70), ~effectsRowHolders[track]).spacing_(6).margins_(0)
         };
         preset = ~guiPresetParts.(\saFx, (
-            menu: "Saved sounds: the three chains, every setting and each plugin's sound.\n"
+            menu: "Saved sounds: every chain, every setting and each plugin's sound.\n"
                 "Choosing one recalls it at once. One with other effects, or\n"
                 "another order, changes the chains. The guitar mutes for a\n"
                 "moment while a plugin on its chain loads its part.",
             name: "File name for Save. Anything but letters and digits becomes '-', "
                 "so \"Warm Wah\" saves as warm-wah.json, in your megalooper folder.",
-            save: "Write the three chains and every setting to sa/sounds/<name>.json in your megalooper\n"
+            save: "Write every chain and every setting to sa/sounds/<name>.json in your megalooper\n"
                 "folder, and each plugin's sound beside it if the loop is stopped (else the\n"
                 "one last kept). 'Overwrite' asks for a second click."
         ));
         ~effectsKeepButton = LooperTile().states_([["Start with this", ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line])
             .cycles_(false).font_(~guiSans.(14)).fixedSize_(Size(140, 30))
-            .toolTip_("Keep the three chains, every setting and each plugin's sound as they are now:\n"
+            .toolTip_("Keep every chain, every setting and each plugin's sound as they are now:\n"
                 "the next boot starts with them. A dot says there is something not kept\n"
                 "yet. While the loop plays, a plugin's own sound stays as last kept.")
             .action_({
@@ -1013,9 +1020,7 @@
                 ).spacing_(16).margins_(0),
                 preset[\edit],
                 // ---- the chains ------------------------------------------------
-                rowOf.(\guitar, "GUITAR"),
-                rowOf.(\loop, "LOOP"),
-                rowOf.(\drums, "DRUMS"),
+                VLayout(*~effectsTracks.().collect { |t| rowOf.(t, ~effectsRowCaptions[t]) }).spacing_(10).margins_(0),
                 ~effectsStatusText = ~guiMonoText.("", 12, ~gt[\mute]),
                 // ---- the editor --------------------------------------------------
                 ~effectsEditorHolder = View().layout_(VLayout().margins_([0, 4, 0, 0])),

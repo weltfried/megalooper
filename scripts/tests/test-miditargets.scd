@@ -68,8 +68,8 @@ families = [
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 73],
     [\fxReset, "^sa\\.fxReset\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
-    [\level, "^sa\\.level\\.(guitar|loop|drums|onsetKit|master)$", 5],
-    [\mute, "^sa\\.mute\\.(guitar|loop|drums|onsetKit)$", 4],
+    [\level, "^sa\\.level\\.(guitar|bass|loop|drums|onsetKit|master)$", 6],
+    [\mute, "^sa\\.mute\\.(guitar|bass|loop|drums|onsetKit)$", 5],
     [\drums, "^sa\\.drums\\.(on|breakPattern|repeats|reverbMix|livePattern\\.(main|break))$", 6],
     [\timing, "^sa\\.drums\\.(main|break)\\.(" ++ MegaSASteps.paramSpecs.collect { |x| x[\name] }.join("|") ++ ")$", 28],
     [\lane, "^sa\\.drums\\.(main|break)\\.lane[1-4]\\.(note|altNote|delay|mute|lock)$", 40],
@@ -144,7 +144,8 @@ writeKit.("mt-other", "{ \"version\": 1, \"key\": \"mt-other\", \"name\": \"MT O
 // check-gui-effects.scd make one, its drums (MegaSADrums) holding the two
 // kits ----
 stub = ~tStubServer.();
-sa = ~tMegaSA.(stub);
+// With a bass input, as on the duo's rig, so the bass's strip is there.
+sa = ~tMegaSA.(stub, nil, nil, nil, nil, nil, 1);
 d = sa.drums;
 d.kitDir = tmp;
 d.kitReader = reader;
@@ -280,7 +281,7 @@ protect {
         MegaSAFx.params.select { |q| targets[("sa.fx." ++ q[\name]).asSymbol][\kind] == \step }.collect { |q| q[\name] },
         [\shifterCoarse, \pitchLoopPitchL, \pitchLoopPitchR, \reduxBits]);
     ~tEq.("a strip's level is in dB on ~saLevelSpec and reads as ~saLevelText",
-        [\guitar, \loop, \drums, \onsetKit, \master].reject { |k|
+        [\guitar, \bass, \loop, \drums, \onsetKit, \master].reject { |k|
             t = targets[("sa.level." ++ k).asSymbol];
             [0, 0.3, 1].every { |c| t[\fromPos].value(c) == ~saLevelSpec.map(c) }
                 and: { t[\format].value(-10.5) == ~saLevelText.((-10.5).dbamp) }
@@ -421,7 +422,7 @@ protect {
             and: { ~drumsNoteItems.(d)[6] == ("42 Hat · " ++ ~midiNoteName.(42)) });
     v = [targets.size, count.(there)];
     ("  on SA: " ++ v[0] ++ " controls, " ++ v[1] ++ " there").postln;
-    ~tEq.("on SA every control is there: SA's 194 and its kits' 6 trims beside the Looper's and Live's "
+    ~tEq.("on SA every control is there: SA's 196 and its kits' 6 trims beside the Looper's and Live's "
         "(the views' 6 need the window)", v, [live[0] + 6, live[0]]);
 
     // ---------------------------------------------------- SA's, driven --

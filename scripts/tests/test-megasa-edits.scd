@@ -273,11 +273,11 @@ n = stub[\msgs].size + stub[\bundles].size;
 refused = List.new;
 sa.addDependant({ |o, what ... more| if(what == \refused) { refused.add(more[0]) } });
 sa.insertDevice(\guitar, nil, \wah);
-sa.insertDevice(\bass, nil, \delay);
+sa.insertDevice(\keys, nil, \delay);
 sa.insertDevice(\guitar, nil, \plugin);
 sa.removeDevice(\nothing);
 sa.moveDevice(\nothing, \loop, 0);
-sa.moveDevice(\delay, \bass, 0);
+sa.moveDevice(\delay, \keys, 0);
 sa.copyDevice(\nothing);
 sa.renameDevice(\nothing, "x");
 ~tEq.("every refusal is said, and none sends anything",

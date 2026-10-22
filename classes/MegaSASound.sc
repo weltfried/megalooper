@@ -44,9 +44,10 @@ MegaSASound {
 
     *formatName { ^"megalooper sound" }
     *formatVersion { ^1 }
-    *trackNames { ^[\guitar, \loop, \drums] }
-    // The chains a sound has had since there were sounds. The drums' came
-    // later: a sound without it is no fault, and its drums chain is empty.
+    *trackNames { ^[\guitar, \loop, \drums, \bass] }
+    // The chains a sound has had since there were sounds. The drums' and the
+    // bass's came later: a sound without one is no fault, and that chain is
+    // empty.
     *firstTrackNames { ^[\guitar, \loop] }
 
     // tracks: [(track: a Symbol, devices: [device, …], extras: […]), …]; a
@@ -303,9 +304,9 @@ MegaSASound {
     }
 
     // The tracks as a file has them: every one but a chain of a later build
-    // (the drums') that holds nothing. So a sound with no effect on the drums
-    // is the file it was before the drums had a chain, to this build and to
-    // an older one alike.
+    // (the drums', the bass's) that holds nothing. So a sound with no effect
+    // on the drums or the bass is the file it was before they had a chain,
+    // to this build and to an older one alike.
     prWrittenTracks {
         ^tracks.reject { |t|
             t[\raw].isNil and: { this.class.firstTrackNames.includes(t[\track]).not }

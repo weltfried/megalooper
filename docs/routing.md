@@ -410,6 +410,7 @@ switch below.
 | `outChannel` | the mixer's loop bus | the loop. The profile's 0 is replaced at boot by `scripts/setup-sa.scd` |
 | outputs 1/2 | 0, 1 | the mix: guitar, loop, master level, a hard clip as the last safety |
 | `returnChannel`, `analysisChannel`, `sessionChannel` | nil | no Live to return anything; analysis reads the recorded (dry) input |
+| `bassChannel` | 1 (TSMEGA input 2) | the bass, dry, into the bass chain and onto its own strip. The looper does not record it |
 
 Two things the profile does that no other one does:
 
@@ -445,6 +446,12 @@ the profile is updated. `sampleRate`, `numInChans`, `analysisChannel` and
 `abletonSyncMs` are all optional — omit `analysisChannel` on a rig where SC cannot
 see the guitar's own input, and the analysis falls back to reading `inChannel`.
 Then set `~routingProfile = \myRig` in [`scripts/boot.scd`](../scripts/boot.scd).
+
+On an SA profile (`sa: true`), `bassChannel: 1` says a bass is on the
+interface's input 2. Megalooper SA then plays it through the bass chain onto a
+strip of its own. Leave it out on a rig without a bass. The static check
+(`scripts/check.scd`) refuses one that is out of the profile's inputs, the
+guitar's input or the analysis tap, or set on a profile without SA.
 
 ### The four calibrated values
 

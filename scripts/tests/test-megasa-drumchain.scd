@@ -32,8 +32,8 @@ dc = sa.drumsChain;
 // ---- there, empty, built before the drums' effects ---------------------------
 ~tEq.("the drums have a chain from the start: the third, empty, on the bus the steps' voices play onto",
     [sa.chains.collect(_.track), dc.track, dc.ids, dc.bus.index, sa.chainFor(\drums) === dc],
-    [[\guitar, \loop, \drums], \drums, [], sa.stepsBus.index, true]);
-~tEq.("a sound's chains are the same three", MegaSASound.trackNames, [\guitar, \loop, \drums]);
+    [[\guitar, \loop, \drums, \bass], \drums, [], sa.stepsBus.index, true]);
+~tEq.("a sound's chains are the same four", MegaSASound.trackNames, [\guitar, \loop, \drums, \bass]);
 ~tAssert.("it is built with the others", dc.built and: { sa.chains.every(_.built) });
 t = ~tNodeTree.(stub);
 kids = (t[\children][sa.drumGroup.nodeID] ? []).asArray;
@@ -50,7 +50,7 @@ at = kids.indexOf(dc.group.nodeID);
 ~tEq.("...started on the steps' bus", ~tStartArgs.(stub, dc.source), (bus: sa.stepsBus.index));
 ~tAssert.("the onset kit's bus is another: its hits do not pass through the chain", sa.onsetBus.index != dc.bus.index);
 ~tEq.("a session's header has the drums' chain and its delay", [sa.sessionInfo[\chains].collect { |c| c[\track] }, sa.sessionInfo[\ld]],
-    [[\guitar, \loop, \drums], 0]);
+    [[\guitar, \loop, \drums, \bass], 0]);
 
 // ---- edits, as on the other chains --------------------------------------------
 n = stub[\bundles].size;

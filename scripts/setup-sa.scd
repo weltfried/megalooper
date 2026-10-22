@@ -8,8 +8,8 @@
 // mixer's, and both are made here.
 //
 // From the IDE once it runs (levels are amplitudes, 1 = unity):
-//     ~megaSA.setLevel(\guitar, 0.8);   // \guitar, \loop, \drums, \onsetKit or \master
-//     ~megaSA.setMute(\guitar, true);   // \guitar, \loop, \drums or \onsetKit
+//     ~megaSA.setLevel(\guitar, 0.8);   // \guitar, \bass, \loop, \drums, \onsetKit or \master
+//     ~megaSA.setMute(\guitar, true);   // \guitar, \bass, \loop, \drums or \onsetKit
 //     ~megaSA.setFxParam(\filterFreq, 800); // any of MegaSAFx.params
 //     ~megaSA.guitarEditor;             // Bias FX's own window
 //     ~saKeepSound.();                  // the next boot starts with this sound
@@ -556,7 +556,8 @@
     };
     // The chain reads the guitar's own hardware input, which is also the
     // dry tap the onset analysis keeps reading (the profile's analysisChannel).
-    ~megaSA = MegaSA(s, ~inChannel, 0, plugin, bank, sound, ~saPlugins);
+    // The bass chain reads the profile's bassChannel, if it has one.
+    ~megaSA = MegaSA(s, ~inChannel, 0, plugin, bank, sound, ~saPlugins, ~bassChannel);
     ~megaSA.statesAllowed = { ~saLoopStopped.() };
     // A plugin that crashed megalooper while it opened stays closed at the next boot.
     ~megaSA.markerDir = ~saPluginsDir.() +/+ "opening";

@@ -15,7 +15,7 @@ MegaSAChain {
     var <track, <bus, <sourceDef, <sourceArgs, <devices;
     var <group, <source;
 
-    // track: \guitar, \loop or \drums. bus: a two-channel audio Bus.
+    // track: \guitar, \loop, \drums or \bass. bus: a two-channel audio Bus.
     // sourceDef and sourceArgs: the source's SynthDef (\megaSAChainIn,
     // \megaSAChainCopy, \megaSAChainOn) and its controls but the bus.
     *new { |track, bus, sourceDef, sourceArgs|
