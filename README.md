@@ -24,11 +24,13 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   overdubs shifted by your measured round-trip latency so they land in time.
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
   with presets.
-- **Effect chains (SA).** Three chains, for the guitar, the loop and the drums,
-  with seven built-in effects and your VST2 and VST3 plugins. Add, drag
-  and remove effects while a loop plays. A sound is one file: the chains,
-  every setting and each plugin's state.
+- **Effect chains (SA).** Chains for the guitar, the loop and the drums, and
+  for a bass on a second input, with seven built-in effects and your VST2
+  and VST3 plugins. Add, drag and remove effects while a loop plays. Random
+  throws new settings at an effect, and a variation keeps the ones you like.
+  A sound is one file: the chains, every setting and each plugin's state.
 - **Drums (SA).** Step patterns and a kit triggered by the loop's own onsets.
+  They start with a new loop, or wait until you switch them on.
 - **MIDI.** Every control can be mapped to your controller by clicking it and
   moving a knob. MIDI clock and transport go out to other gear.
 - **Records the set.** The audio of a whole set and a log of everything
