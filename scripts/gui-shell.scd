@@ -45,14 +45,15 @@
 // when the window is built, since that is when the rig is known.
 ~guiPaneOrderFor = { |sa = false|
     if(sa == true) {
-        [\perform, \cutter, \grains, \effects, \drums, \synth, \analysis, \rig, \calibrate]
+        [\perform, \cutter, \grains, \effects, \drums, \synth, \analysis, \rig, \midi, \calibrate]
     } {
-        [\perform, \cutter, \grains, \analysis, \rig, \calibrate]
+        [\perform, \cutter, \grains, \analysis, \rig, \midi, \calibrate]
     }
 };
 ~guiPaneOrder  = ~guiPaneOrderFor.(false);
 ~guiPaneLabels = (perform: "Perform", cutter: "Cutter", grains: "Grains",
-    effects: "Effects", drums: "Drums", synth: "Synth", analysis: "Analysis", rig: "Rig", calibrate: "Calibrate");
+    effects: "Effects", drums: "Drums", synth: "Synth", analysis: "Analysis", rig: "Rig", midi: "MIDI & AI",
+    calibrate: "Calibrate");
 
 ~guiViewOrderFor = { |sa = false|
     if(sa == true) { [\perform, \sound, \fx, \drums, \synth, \setup, \calibrate] } { [\perform, \sound, \setup, \calibrate] }
@@ -77,11 +78,49 @@
 // everywhere: 3 and 4 are simply not there without SA.
 ~guiViewNumbers = (perform: 1, sound: 2, fx: 3, drums: 4, setup: 5, calibrate: 6, synth: 7);
 ~guiViewPanes = (perform: [\perform], sound: [\cutter, \grains], fx: [\effects], drums: [\drums], synth: [\synth],
-    setup: [\analysis, \rig], calibrate: [\calibrate]);
+    setup: [\rig, \analysis, \midi], calibrate: [\calibrate]);
 // The Calibrate wizard is reached from Setup and goes back to it: its tab is
 // Setup's.
 ~guiViewTab = (calibrate: \setup);
 ~guiView = \perform;
+
+// ---- Setup's pages -------------------------------------------------------------------
+// Setup is one view and one tab, key 5, with three pages, one pane each:
+// Rig (the routing, timing, levels and calibration), Analysis, and MIDI & AI
+// (the MIDI map and monitor, AI apps). The tab opens a menu of them; key 5
+// on Setup goes to the next. The page last shown is the one Setup opens on.
+~guiSetupPages = #[\rig, \analysis, \midi];
+~guiSetupPage = ~guiSetupPage ? \rig;
+~guiSetupShow = { |page|
+    if(~guiSetupPages.includes(page)) {
+        ~guiSetupPage = page;
+        ~guiSetupStack !? { |st| st.index = ~guiSetupPages.indexOf(page) };
+        if(~guiView == \setup) {
+            ~midiMonitorDirty = true;
+            ~analysisDirty = true;
+            ~guiRefreshTabs.();
+        } { ~guiSelectView.(\setup) };
+    };
+};
+~guiSetupNext = {
+    ~guiSetupShow.(~guiSetupPages.wrapAt((~guiSetupPages.indexOf(~guiSetupPage) ? -1) + 1))
+};
+// The menu, and the menu put up at the pointer (the tab's click).
+~guiSetupMenuOf = {
+    Menu(*~guiSetupPages.collect { |p|
+        MenuAction(~guiPaneLabels[p], { ~guiSetupShow.(p) }).checkable_(true)
+            .checked_((~guiView == \setup) and: { ~guiSetupPage == p })
+    })
+};
+~guiSetupMenu = { ~guiSetupMenuOf.().front };
+// Whether a pane can be seen now: its view showing, and on Setup its page.
+// What the panes' repaint timers ask.
+~guiPaneSeen = { |pane|
+    ~guiStack.isNil or: {
+        (~guiStack.index == ~guiTabIndex.(pane))
+            and: { ~guiSetupPages.includes(pane).not or: { ~guiSetupPage == pane } }
+    }
+};
 
 // The view a pane is in, and that view's place in the stack. What the timers
 // of a pane ask ("is my pane showing?"), as they did of the old tabs.
@@ -146,23 +185,29 @@
 // Compact (~guiTopBarFit, in a narrow window): no number, a narrower margin.
 // The dots stay: they say which parts are running.
 ~guiTabCompact = false;
+~guiTabLabel = { |key| ~guiViewLabels[key] ? key.asString };
+// Setup's tab says it opens a menu: a small triangle after its name, 6 px
+// wider than its gap alone (the bar has 8 to spare at 1440).
+~guiTabMenu = { |key| key == \setup };
 ~guiTabWidth = { |key, compact|
     var n = ~guiViewNumbers[key].asString.bounds(~guiMono.(11)).width;
-    var label = (~guiViewLabels[key] ? key.asString).bounds(~guiTabFont.(true)).width;
+    var label = ~guiTabLabel.(key).bounds(~guiTabFont.(true)).width
+        + if(~guiTabMenu.(key)) { 6 } { 0 };
     var dots = (~guiViewDots[key] ? []).size;
     var tail = if(dots > 0) { 10 + (dots * 11) } { 0 };
     if((compact ? ~guiTabCompact) == true) { (28 + label + tail).ceil } { (44 + n + 10 + label + tail).ceil }
 };
 ~guiTab = { |key|
     var tab = UserView().canFocus_(false).fixedWidth_(~guiTabWidth.(key))
-        .toolTip_(~guiViewLabels[key] ++ " · key " ++ ~guiViewNumbers[key])
+        .toolTip_(~guiViewLabels[key] ++ " · key " ++ ~guiViewNumbers[key]
+            ++ if(key == \setup) { "\nA menu: Rig, Analysis, or MIDI & AI. Key 5 again: the next of them." } { "" })
         .drawFunc_({ |v|
             var b = v.bounds, h = b.height;
             var current = (~guiViewTab[~guiView] ? ~guiView) == key;
             var ink = if(current) { ~gt[\bg] } { ~gt[\ink] };
             var compact = ~guiTabCompact == true;
             var x = if(compact) { 14 } { 22 }, nfont = ~guiMono.(11), font = ~guiTabFont.(current);
-            var label = ~guiViewLabels[key] ? key.asString;
+            var label = ~guiTabLabel.(key);
             var num = ~guiViewNumbers[key].asString;
             var active;
             if(current) { Pen.fillColor = ~gt[\ink]; Pen.addRect(Rect(0, 0, b.width, h)); Pen.fill };
@@ -172,7 +217,17 @@
                 x = x + num.bounds(nfont).width + 10;
             };
             Pen.stringInRect(label, Rect(x, 0, b.width - x, h), font, ink, QAlignment(\left));
-            x = x + label.bounds(~guiTabFont.(true)).width + 10;
+            x = x + label.bounds(~guiTabFont.(true)).width;
+            if(~guiTabMenu.(key)) {
+                Pen.fillColor = ink;
+                Pen.moveTo(Point(x + 4, (h / 2) - 1.5));
+                Pen.lineTo(Point(x + 10, (h / 2) - 1.5));
+                Pen.lineTo(Point(x + 7, (h / 2) + 2));
+                Pen.lineTo(Point(x + 4, (h / 2) - 1.5));
+                Pen.fill;
+                x = x + 6;
+            };
+            x = x + 10;
             (~guiViewDots[key] ? []).do { |d|
                 active = ~guiPaneActive[d[0]] !? { |f| f.value } ? false;
                 if(active) {
@@ -188,7 +243,7 @@
                 x = x + 11;
             };
         })
-        .mouseDownAction_({ ~guiSelectView.(key); true });
+        .mouseDownAction_({ if(key == \setup) { ~guiSetupMenu.() } { ~guiSelectView.(key) }; true });
     ~guiTabButtons[key] = tab;
     tab
 };
@@ -232,7 +287,9 @@
     };
 };
 // A pane's view, shown: what the older code asks for ("show the Cutter").
-~guiSelectTab = { |key| ~guiSelectView.(~guiViewOf.(key)) };
+~guiSelectTab = { |key|
+    if(~guiSetupPages.includes(key)) { ~guiSetupShow.(key) } { ~guiSelectView.(~guiViewOf.(key)) }
+};
 
 // ---- The footer: the keys, and one line of status ---------------------------------------
 // The status line shows one thing, in this order: the typing indicator; a
@@ -319,8 +376,8 @@
         true
     }
     { held } { nil }
-    { view.notNil } { ~guiSelectView.(view); true }
-    { (key == ~guiKeyEscape) and: { ~guiView == \calibrate } } { ~guiSelectView.(\setup); true }
+    { view.notNil } { if((view == \setup) and: { ~guiView == \setup }) { ~guiSetupNext.() } { ~guiSelectView.(view) }; true }
+    { (key == ~guiKeyEscape) and: { ~guiView == \calibrate } } { ~guiSetupShow.(\rig); true }
     { char == $t } { { ~guiThemeToggle.() }.defer(0); true }
     { char == $h } { ~guiHelpToggle.(); true }
     { char == $r } { ~looper !? { |l| l.trigger } }
@@ -657,7 +714,7 @@
 // `show` false builds the window without showing it: the headless checks
 // (check-gui-maptags.scd) read its views, and must not take the screen.
 ~buildGuiWindow = { |show = true|
-    var topBar, gen, views, viewsHolder, footer, holder, scroll, row, sideRow;
+    var topBar, gen, views, viewsHolder, footer, holder, scroll, row, sideRow, setupPages;
     var winRect = Rect(0, 0, 1440, 900);
     // A rebuild (the theme) opens where the player had put the window.
     var oldBounds = ~guiWindow !? { |w| if(w.isClosed.not) { w.bounds } };
@@ -709,6 +766,28 @@
         ~guiSideRows.add([canvas, cols]);
         ScrollView().hasBorder_(false).hasVerticalScroller_(false).background_(~gt[\bg]).canvas_(canvas)
     };
+    // Setup's pages, one stack inside its view (~guiSetupShow). Rig: the
+    // routing, timing and levels beside the calibration. Analysis alone. MIDI
+    // & AI: the map, and AI apps over the monitor.
+    setupPages = (
+        rig: sideRow.([
+            [~guiPaneHolders[\rig], 100],
+            [View().background_(~gt[\bg]).layout_(VLayout(
+                ~buildCalibrateSummary !? { |f| f.value } ?? { View() }, nil
+            ).margins_(0).spacing_(0)), 70]
+        ]),
+        analysis: sideRow.([[~guiPaneHolders[\analysis], 100]]),
+        midi: sideRow.([
+            [~guiPaneHolders[\midi], 110],
+            [View().background_(~gt[\bg]).layout_(VLayout(
+                View().layout_(VLayout(~rigAiSection.()).margins_([22, 20, 22, 20])),
+                ~guiRule.(),
+                [~buildMidiMonitorPanel.(), stretch: 1]
+            ).margins_(0).spacing_(0)), 90]
+        ])
+    );
+    ~guiSetupStack = StackLayout(*~guiSetupPages.collect { |p| setupPages[p] });
+    ~guiSetupStack.index = ~guiSetupPages.indexOf(~guiSetupPage) ? 0;
     views = ~guiViewOrder.collect { |v|
         switch(v,
             \perform, { View().layout_(VLayout(scroll.(\perform)).margins_(0).spacing_(0)) },
@@ -724,15 +803,7 @@
             // height must stay small. Qt can count a view's minimum against the
             // band of the view before it while views switch fast, and the
             // window grows past the screen and never shrinks.
-            \setup, { View().layout_(VLayout(sideRow.([
-                [~guiPaneHolders[\analysis], 110],
-                [~guiPaneHolders[\rig], 100],
-                [View().background_(~gt[\bg]).layout_(VLayout(
-                    ~buildCalibrateSummary !? { |f| f.value } ?? { View() },
-                    ~guiRule.(),
-                    [~buildMidiMonitorPanel.(), stretch: 1]
-                ).margins_(0).spacing_(0)), 90]
-            ])).margins_(0).spacing_(0)) },
+            \setup, { View().layout_(~guiSetupStack) },
             \calibrate, { View().layout_(VLayout(scroll.(\calibrate)).margins_(0).spacing_(0)) }
         )
     };
@@ -802,6 +873,7 @@
     if(~guiPaneOrder.includes(\synth)) { ~buildSynthPane !? { |f| f.value } };
     ~buildAnalysisPane.();
     ~buildRigPane.();
+    ~buildMidiPane.();
     ~buildCalibratePane.();
     // A MIDI map that could not be loaded says so from the first moment.
     ~guiHintRowRefresh.();

@@ -34,7 +34,7 @@ line, with its keys in a fixed order, so two versions of a map compare well.
 | `msg` | `note`, `cc`, `program`, `bend` | required |
 | `chan` | 0–15 (megalooper's screens show 1–16) | any channel |
 | `num` | 0–127 | (bend has none) |
-| `device`, `port` | the MIDI input's two names, as the Setup view lists them | any listening input |
+| `device`, `port` | the MIDI input's two names, as Setup's MIDI & AI page lists them | any listening input |
 | `target` | the control's id, such as `looper.trigger` or `sa.fx.echoMix`; the shipped maps in `presets/midi/` use most of them | required |
 | `min`, `max` | in the control's own units; min above max turns it round | the full range |
 | `inLo`, `inHi` | the controller's own range | 0, 127 |

@@ -628,6 +628,52 @@ Routine {
         ~guiLoopPhase = wasP;
     });
 
+    // Setup: one tab, three pages, a menu to pick one (gui-shell.scd).
+    section.("Setup's pages", {
+        var seen = { [\rig, \analysis, \midi].collect { |p| ~guiPaneSeen.(p) } };
+        var keyFive = { ~guiKeyDown.($5, nil, 0) };
+        ~guiSelectView.(\perform);
+        ~guiSetupPage = \rig;
+        ~guiSetupStack.index = 0;
+        tick.();
+        ok.("on Perform none of Setup's panes is seen", seen.() == [false, false, false], seen.().asString);
+        keyFive.();
+        tick.();
+        ok.("key 5 shows Setup on the page it was left on, Rig, and only Rig is seen",
+            (~guiView == \setup) and: { ~guiSetupStack.index == 0 } and: { seen.() == [true, false, false] }, seen.().asString);
+        keyFive.();
+        tick.();
+        ok.("key 5 again: the next page, Analysis", (~guiSetupPage == \analysis) and: { ~guiSetupStack.index == 1 }
+            and: { seen.() == [false, true, false] });
+        keyFive.();
+        keyFive.();
+        tick.();
+        ok.("...then MIDI & AI, then round to Rig", ~guiSetupPage == \rig);
+        ~guiSelectTab.(\midi);
+        tick.();
+        ok.("a pane asked for by name shows its page", (~guiView == \setup) and: { ~guiSetupPage == \midi }
+            and: { ~guiSetupStack.index == 2 });
+        ok.("MIDI & AI holds the MIDI map, AI apps and the MIDI monitor",
+            [~midiGui[\list], ~remoteSeg[\view], ~midiMonitorPanel].every { |v| v.notNil and: { v.isClosed.not } });
+        ~guiSelectView.(\calibrate);
+        ~guiKeyDown.(nil, nil, ~guiKeyEscape);
+        tick.();
+        ok.("Esc on the wizard goes back to Setup's Rig page, where its summary is",
+            (~guiView == \setup) and: { ~guiSetupPage == \rig });
+        ok.("the Setup tab is still one tab, its width with the menu's mark",
+            ~guiTabButtons.keys.includes(\setup) and: { ~guiTabButtons.keys.includes(\midi).not }
+                and: { ~guiTabWidth.(\setup, false) == (~guiTabWidth.(\perform, false) - "Perform".bounds(~guiTabFont.(true)).width
+                    + "Setup".bounds(~guiTabFont.(true)).width + 6 + 21) });
+        {
+            // Made, not put up: the tab's click puts it up at the pointer.
+            var menu = ~guiSetupMenuOf.value, names;
+            names = menu.actions.collect { |a| [a.string, a.checked] };
+            try { menu.destroy };
+            ok.("the tab's menu: the three pages, the one showing ticked",
+                names == [["Rig", true], ["Analysis", false], ["MIDI & AI", false]], names.asString);
+        }.value;
+    });
+
     ~guiWindow.close;
     tick.();
     ~tRemoveTree.(tmp);

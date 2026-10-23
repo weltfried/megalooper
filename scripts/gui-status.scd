@@ -666,7 +666,7 @@
             // — it is plain data, already bounded at ~midiMonitorMax — so
             // there is nothing to catch up on but one repaint on return.
             if(~midiMonitorDirty and: {
-                ~guiStack.isNil or: { ~guiStack.index == ~guiTabIndex.(\rig) }
+                ~guiPaneSeen.(\midi)
             }) {
                 ~midiMonitorDirty = false;
                 // The newest lines only, and their length from here rather

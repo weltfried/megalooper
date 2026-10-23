@@ -188,13 +188,6 @@
 
         // Megalooper SA's levels; hidden on every other rig.
         ~buildSARigSection !? { |f| f.value } ?? { View().visible_(false) },
-
-        // AI apps: the switch that lets one in.
-        ~rigAiSection.(),
-
-        // ---- The MIDI map: inputs, map, bindings, learning ----------------
-        ~guiRule.(),
-        ~buildMidiMapSection !? { |f| f.value } ?? { View().visible_(false) },
         nil
     ).margins_([22, 20, 22, 20]).spacing_(14));
 
@@ -205,6 +198,19 @@
     ~transportModeMenu = ~transportModeSeg !? { |s| s[\view] };
     ~rigPane = pane;
     ~guiSwapPane.(\rig, pane);
+    pane
+};
+
+// Setup's MIDI & AI page, its left column: the MIDI map, its inputs,
+// bindings and learning (gui-midimap.scd). The page's right column, AI APPS
+// over the MIDI monitor, is the window's (gui-shell.scd).
+~buildMidiPane = {
+    var pane = View().background_(~gt[\bg]);
+    pane.layout_(VLayout(
+        ~buildMidiMapSection !? { |f| f.value } ?? { View().visible_(false) },
+        nil
+    ).margins_([22, 20, 22, 20]).spacing_(14));
+    ~guiSwapPane.(\midi, pane);
     pane
 };
 )

@@ -359,7 +359,7 @@ MIDI goes on driving everything until you click a control; while one waits,
 every message goes to it, and no footswitch acts nor anything reaches Live
 (15 s at most).
 
-Everything else is in the **MIDI map** section of the Setup view, including
+Everything else is in the **MIDI map** section of Setup's MIDI & AI page, including
 the controls that have no widget, such as Live's arrangement record and the
 views themselves (Show Perform, Show Sound, …, to put them on footswitches):
 
@@ -547,7 +547,7 @@ from playing distance: a top bar, Perform's status band, four views and a
 footer.
 
 ```
-┌ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX □ │ 4 Drums □ │ 5 Setup □ │ CPU 14% │ ◐ │ ? │ RIG SA MIDI ● │ ■ MIDI MAP ⌘M │ ● SET REC 12:04 ┐
+┌ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX □ │ 4 Drums □ │ 5 Setup ▾ □ │ CPU 14% │ ◐ │ ? │ RIG SA MIDI ● │ ■ MIDI MAP ⌘M │ ● SET REC 12:04 ┐
 ├────────────────┬──────────────────────────────────────────┬────────────────────┤
 │ LOOPER STATE   │ TAKE · DETECTED                          │ INPUT              │
 │ ▶ PLAYING      │ 7/8   103.2   2   Dm                     │ ▇▇▇▇▇▇▇▇▇░░ -9 dB  │  the status band
@@ -596,8 +596,8 @@ footer.
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | Megalooper SA only: the **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | Megalooper SA only: the **drums** (step sequencer, timing, kits, mix) |
-| **Setup** | 5 | **Analysis** (monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, export) · **Rig** (profile, device, analysis input, input, Live transport, the three timing bars, SA's levels, the MIDI map) · **Calibrate** (where the wizard is) and **MIDI in** |
-| **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup |
+| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Live transport, the three timing bars, SA's levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, and **AI apps** ([AI apps](ai.md)) |
+| **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
 - **The footer**: the keys, and one status line — `Refused: …` in red when the
   looper would not do what was asked (from a key, a click or a footswitch),
@@ -623,16 +623,16 @@ at the same sizes.
 
 The controls, by view:
 
-- **Live transport** *(Setup)* — how the looper drives Live's transport:
+- **Live transport** *(Setup › Rig)* — how the looper drives Live's transport:
   - *Start + Stop* (default): send MIDI Start on play, MIDI Stop on stop.
   - *Start only*: send MIDI Start, never send Stop. Live keeps running after the
     looper stops. MIDI Clock keeps flowing so Live's external sync stays alive.
   - *Don't touch*: send nothing. Live is fully decoupled.
-- **Input** *(Setup)* — *Mono* (default) or *Stereo*. In mono mode the looper
+- **Input** *(Setup › Rig)* — *Mono* (default) or *Stereo*. In mono mode the looper
   reads `inChannel` only and duplicates it to both buffer channels so the
   output is audible on both ears. In stereo mode it reads `inChannel` and
   `inChannel + 1` independently. Takes effect on the next record or play.
-- **Listen for onsets on** *(Setup)* — which input the onset and pitch detection listens
+- **Listen for onsets on** *(Setup › Rig)* — which input the onset and pitch detection listens
   to. *Clean tap* reads the guitar's **dry hardware input** directly off the
   shared audio device, with Live nowhere in the path; *Same as input* analyses
   the processed guitar being recorded, as older versions always did. Only the
@@ -649,9 +649,9 @@ The controls, by view:
 - **Morph** *(Perform's Grains column)* — between frozen drone (0) and pulsed scan
   locked to the detected pulse (1). Mirrors the Grains' Morph on Sound (CC 118 in the
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.
-- **Overdub latency** *(Setup)* — round-trip latency compensation (0–100 ms).
+- **Overdub latency** *(Setup › Rig)* — round-trip latency compensation (0–100 ms).
   See "Calibrating overdub latency" below.
-- **Live sync** *(Setup)* — bipolar MIDI-clock offset (±150 ms, centre 0).
+- **Live sync** *(Setup › Rig)* — bipolar MIDI-clock offset (±150 ms, centre 0).
   Shifts when the MIDI Start/clock is sent so Live's downbeat lines up with the
   loop instead of lagging ~10–20 ms; negative pulls Live earlier. See "Live
   integration" below.
@@ -699,7 +699,7 @@ notifications, so nothing here can be clicked into a state you didn't intend.
 **MIDI in** (Setup) is a scrolling monitor of incoming note / CC / program
 messages, the same lines the post window shows. **Pause** freezes it while you
 read; **Clear** empties it. It keeps the last 200 lines and repaints at 10 Hz
-while Setup shows, so a CC sweep can't stall the GUI. `~midiLog` silences only
+while its page shows, so a CC sweep can't stall the GUI. `~midiLog` silences only
 the **post window** — the monitor always receives, which is the point: you can
 stop the post spam and still watch the controller. The top bar's lamp lights on
 every message, whichever view shows.
@@ -712,7 +712,7 @@ anchored fallback meter. That is the documented root cause of straight 4/4 takes
 coming out 7/8, and the **onset threshold** is the lever. Tuning it is something
 you do *while playing*, so the two controls that matter are on Perform — the
 lamp in the status band, the threshold among the macros — and the rest is in
-Setup's Analysis column (`scripts/gui-analysis.scd`).
+Setup's Analysis page (`scripts/gui-analysis.scd`).
 
 On **Perform**:
 
@@ -730,7 +730,7 @@ On **Perform**:
   the first tenth of the travel. The trade is a coarser top end, which is the
   end nobody tunes in; the default 0.5 sits at about three quarters across.
 
-In **Setup's Analysis column**:
+In **Setup's Analysis page**:
 
 - **Monitor** toggle — a free-running detection chain that mirrors the recorder's
   exactly (same input, odf type, `mingap`, threshold). It needs no loop and no

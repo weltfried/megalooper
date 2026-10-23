@@ -172,7 +172,7 @@
     left = View().fixedWidth_(330).layout_(VLayout(*([
         View().layout_(HLayout(~guiTitle.("Calibrate", 24), nil,
             LooperTile().states_([["Esc · back", ~gt[\mute], nil]]).cycles_(false).font_(~guiMono.(12, true))
-                .fixedSize_(Size(96, 26)).action_({ ~guiSelectView.(\setup) })
+                .fixedSize_(Size(96, 26)).action_({ ~guiSetupShow !? { |f| f.value(\rig) } ?? { ~guiSelectView.(\setup) } })
         ).margins_([22, 20, 22, 10]))
     ] ++ ~calStepRows.collect { |r| [~guiRule.(), r] }.flatten(1) ++ [
         ~guiRule.(), nil, ~guiRule.(), ~calResetButton

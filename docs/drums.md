@@ -10,7 +10,7 @@ Megalooper SA has two drum parts, on the **Drums** view (key **4**):
 Each part plays a **kit**: a set of samples on pads.
 
 The steps start with every new loop you record. To have them wait instead,
-set **New loop** to **Drums off** on the Setup view, under Megalooper SA's
+set **New loop** to **Drums off** on the Setup view's Rig page, under Megalooper SA's
 levels. A new loop then keeps the drums in time but silent, until you switch
 them on: Program Change 17, or the switch on the Drums view. Overdubs leave
 them as they are. megalooper keeps the choice for the next start.

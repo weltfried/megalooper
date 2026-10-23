@@ -549,7 +549,7 @@
             // lamp depend on it — but these numbers are only worth rebuilding
             // when someone can see them.
             if(~analysisDirty and: {
-                ~guiStack.isNil or: { ~guiStack.index == ~guiTabIndex.(\analysis) }
+                ~guiPaneSeen.(\analysis)
             }) {
                 ~analysisDirty = false;
                 // Silence is a dash, as everywhere else, not -99.0.

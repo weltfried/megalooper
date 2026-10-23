@@ -53,9 +53,9 @@ macOS has a `python3` once its command line tools are in
 
 ## Setting it up
 
-**1. Let AI apps in.** In megalooper's Setup view (5), under **AI APPS**,
-switch **Let AI apps in** to **On**. It stays on across restarts. While it
-is off, no app can reach megalooper at all.
+**1. Let AI apps in.** In megalooper's Setup view (5), on its **MIDI & AI**
+page, under **AI APPS**, switch **Let AI apps in** to **On**. It stays on
+across restarts. While it is off, no app can reach megalooper at all.
 
 **2. Connect the app.**
 
@@ -141,7 +141,7 @@ small files in `remote/`, beside it, in megalooper's folder
 
 | The app says | What to do |
 |---|---|
-| megalooper is not running, or AI apps are not let in | Start megalooper, and switch AI APPS on in the Setup view |
+| megalooper is not running, or AI apps are not let in | Start megalooper, and switch AI APPS on (Setup › MIDI & AI) |
 | megalooper did not answer in 10 s | megalooper is busy or stuck: restart it |
 | The megalooper tool is missing, or shows an error | Claude Desktop: Settings → Extensions shows whether megalooper is installed and on; install it again with the button. Another app: check the two paths in its config, then restart it |
 | `python3` is not found (other apps) | Put its full path in `command` (`which python3`), or install it (`xcode-select --install`) |

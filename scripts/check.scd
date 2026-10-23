@@ -79,6 +79,7 @@ var expected = [
     \saKeptSynthPath, \saKeepSynth, \saLoadKeptSynth,
     \saDrumsKitLine, \setupSADrums, \saDrumsNewLoopApply, \saDrumsNewLoopSet,
     \remoteApply, \remoteSet, \remoteOn, \remoteRevert, \remoteSource, \rigAiSection, \guiAiPaint, \guiAiTileMake,
+    \buildMidiPane, \guiSetupShow, \guiSetupNext, \guiSetupMenu, \guiSetupMenuOf, \guiPaneSeen, \guiTabLabel, \guiTabMenu,
     \remotePython, \remoteConfigText, \remoteCopyConfig, \remoteInstallExtension, \remoteRepo,
     \buildEffectsPane, \effectsBlurbs, \effectsFormat, \effectsMap, \effectsUnmap,
     \effectsKnobCell, \effectsTile, \effectsEditor, \effectsSelect, \effectsDraggable, \effectsDropAt, \effectsDropIndex,

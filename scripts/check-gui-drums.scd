@@ -1252,7 +1252,7 @@ Routine {
         var views = ~guiViewOrderFor.(true), tabs, total;
         ~guiPaneOrder = ~guiPaneOrderFor.(true);
         ok.("SA's panes put Drums after Effects, the Synth after them", ~guiPaneOrder
-            == [\perform, \cutter, \grains, \effects, \drums, \synth, \analysis, \rig, \calibrate]);
+            == [\perform, \cutter, \grains, \effects, \drums, \synth, \analysis, \rig, \midi, \calibrate]);
         ok.("labelled Drums", ~guiPaneLabels[\drums] == "Drums");
         ok.("SA's views put FX, Drums and the Synth between Sound and Setup",
             views == [\perform, \sound, \fx, \drums, \synth, \setup, \calibrate], views.asString);

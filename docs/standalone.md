@@ -16,7 +16,7 @@ Pick a rig whose profile has SA switched on:
 
 **A bass.** On the duo's TSMEGA rig (`sa`), the bass goes into input 2. It
 plays through its own chain, the **BASS** row on the FX view, onto a strip of
-its own: **Bass** under Levels on the Setup and Perform views, with a MIDI
+its own: **Bass** under Levels on Setup's Rig page and on Perform, with a MIDI
 target for its level and its mute. Recording the set (Record set) writes it
 as a stem of its own (`-bass.wav`). The loop records the guitar only; looping
 the bass is not there yet. saSystem has no bass input, because on a laptop
@@ -33,7 +33,7 @@ overdubs will land late or early.
 
 ## Calibrate
 
-Once per rig, open **Calibrate** (key 6, or from the Setup view). Without
+Once per rig, open **Calibrate** (key 6, or from Setup's Rig page). Without
 Ableton Live it has four steps:
 
 1. **Check the rig.** What megalooper found: the interface, its rate and
@@ -42,13 +42,13 @@ Ableton Live it has four steps:
    interface's input gain until the loudest hit comes in between -12 and
    -3 dBFS. Too quiet and soft notes go unnoticed; clipped and every hit
    looks the same.
-3. **Onset threshold.** Set it under Analysis on the Setup view while you
+3. **Onset threshold.** Set it on Setup's Analysis page while you
    play, then press Done.
 4. **Overdub round trip.** Stop the loop. With an interface, patch a cable
    from output 1 into the guitar input (the guitar is muted while it
    measures, so there is no feedback); on a computer's own speakers and
    microphone there is nothing to patch. Press Measure, then Apply. If it
-   cannot be measured, set Overdub latency by ear on the Setup view and
+   cannot be measured, set Overdub latency by ear on Setup's Rig page and
    press **Start with this**.
 
 What you apply is kept for that rig in `calibration.json` in your megalooper
