@@ -31,6 +31,10 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   A sound is one file: the chains, every setting and each plugin's state.
 - **Drums (SA).** Step patterns and a kit triggered by the loop's own onsets.
   They start with a new loop, or wait until you switch them on.
+- **AI apps (SA, optional).** Ask an AI app such as Claude Desktop for a
+  groove that fits your 7/8, a synth line over the chords you played, or a
+  dubbier echo, and hear it at once; one click reverts it. Off until you
+  switch it on. See [AI apps](docs/ai.md).
 - **MIDI.** Every control can be mapped to your controller by clicking it and
   moving a knob. MIDI clock and transport go out to other gear.
 - **Records the set.** The audio of a whole set and a log of everything
@@ -50,6 +54,9 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
 - **VSTPlugin 0.6.2**, only if you want plugins in the chains. The installer
   fetches it. [Plugins](docs/standalone.md#plugins) says how to add it by
   hand.
+
+Optional, for [AI apps](docs/ai.md) only: **Python 3.9 or later**, which
+runs the bridge between the AI app and megalooper.
 
 SuperCollider, sc3-plugins and BBCut are needed for the class library to
 compile. Without any one of them nothing runs, not even the tests.
@@ -113,6 +120,7 @@ folder:
 | `sa/kept.json`, `sa/sounds/` | The sound a boot starts with, and the sounds you saved |
 | `sa/drum-presets/`, `sa/kept-drums/` | The drums' presets, and the drums a boot starts with |
 | `sa/plugins/` | The list of plugins megalooper found |
+| `remote.json`, `remote/` | While AI apps are let in: how one reaches megalooper ([AI apps](docs/ai.md)) |
 
 Recorded sets go to `sessions/` in this folder, which git ignores.
 
@@ -126,6 +134,7 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 | [Rigs and routing](docs/routing.md) | Profiles for an audio interface, and for Live |
 | [The manual](docs/manual.md) | Every control, the MIDI map, the cutter, the grains, calibration, how the meter is found |
 | [MIDI map files](docs/midi-maps.md) | The JSON a map is kept in, to write or share one |
+| [AI apps](docs/ai.md) | Letting an AI app such as Claude Desktop read the set and change the drums, the synth and the effects |
 
 ## Known limits
 
@@ -157,6 +166,6 @@ SuperCollider's class library, if the meter detection is the part you want.
 ## Trademarks
 
 Ableton and Live are trademarks of Ableton AG. BIAS FX is a trademark of
-Positive Grid. VST is a trademark of Steinberg Media Technologies GmbH. They
-are named here only to say what megalooper works with; megalooper is not
+Positive Grid. VST is a trademark of Steinberg Media Technologies GmbH.
+Claude is a trademark of Anthropic, PBC. They are named here only to say what megalooper works with; megalooper is not
 affiliated with, or endorsed by, any of them.
