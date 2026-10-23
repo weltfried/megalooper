@@ -85,7 +85,7 @@ d = s.device(\wah1);
 ~tEq.("a device of a type this build has not is kept, in its place, with its id, type and switch",
     [s.devices(\guitar).collect { |x| x[\id] }, d[\type], d[\on], d[\raw]], [[\delay, \wah1, \plugin1], \wah, true, raws[\wah]]);
 ~tEq.("a track it has not is kept, and is none of its chains", [s.tracks.collect { |x| x[\track] }, s.devices.size],
-    [[\guitar, \keys, \loop, \drums, \bass], 3]);
+    [[\guitar, \keys, \loop, \drums, \bass, \synth], 3]);
 ~tEq.("the known setting beside an unknown one is read", s.device(\delay)[\settings][\delayMix], 0.5);
 ~tEq.("a plugin's state: its kind and its file", s.device(\plugin1)[\state], (kind: \program, file: "plugin1-a.fxp"));
 ~tEq.("...in the sound's own list of state files", s.stateFiles, ["plugin1-a.fxp"]);

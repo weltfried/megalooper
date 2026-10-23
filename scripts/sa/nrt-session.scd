@@ -1155,10 +1155,10 @@ checkRun = { |ctx|
     var label = ctx[\label], rec = ctx[\rec], rig = ctx[\rig], r = rig[\rendered], st = rig[\starts].last, fr, dumped;
     check.(label ++ ": the recorder started (inline) and stopped", (rig[\recOk] == true) and: { rec.recording.not },
         [rig[\recOk], rec.recording].asString);
-    check.(label ++ ": ~setupSALooper handed the recorder SA's four stems (MegaSA.stemSpecs) and put it after the mixer",
+    check.(label ++ ": ~setupSALooper handed the recorder SA's five stems (MegaSA.stemSpecs) and put it after the mixer",
         (rec.stems.collect { |s| [s[\role], s[\channel], s[\numChannels]] }
             == rig[\sa].stemSpecs.collect { |s| [s[\role], s[\channel], s[\numChannels]] })
-        and: { rec.stems.collect(_[\role]) == [\guitar, \loop, \drums, \onset] }
+        and: { rec.stems.collect(_[\role]) == [\guitar, \loop, \drums, \onset, \synth] }
         and: { rec.target === rig[\sa].recordGroup },
         rec.stems.asString);
     check.(label ++ ": the stop's first half waited until the WAVs end (the start latency, " ++ latency ++ " s) and closeWait ("
@@ -1193,9 +1193,9 @@ checkRun = { |ctx|
 
 checkFiles = { |ctx|
     var label = ctx[\label], rec = ctx[\rec], rig = ctx[\rig], stamp = rec.stamp, tag = ctx[\tag];
-    var roles = [\master, \tap, \guitar, \loop, \drums, \onset, \events, \midi];
+    var roles = [\master, \tap, \guitar, \loop, \drums, \onset, \synth, \events, \midi];
     var parts = [["master", "wav"], ["tap", "wav"], ["guitar", "wav"], ["loop", "wav"], ["drums", "wav"], ["onset", "wav"],
-        ["events", "jsonl"], ["drums", "mid"]];
+        ["synth", "wav"], ["events", "jsonl"], ["drums", "mid"]];
     var want = parts.collect { |p| stamp ++ "-" ++ tag ++ "-" ++ p[0] ++ "." ++ p[1] };
     var dir = ctx[\cfg][\setDir], other = ctx[\otherNames] ? [], got, log, filesEv, header, left, found, stems, events;
     got = roles.collect { |r| (rec.finalPaths ? ())[r] !? { |p| p.basename } };
@@ -1218,7 +1218,7 @@ checkFiles = { |ctx|
         filesEv.notNil and: { roles.every { |r, i| ((filesEv["files"] ? ())[r.asString]) == want[i] } },
         filesEv !? { |f| f["files"].asString });
     stems = header["stems"] ? [];
-    check.(label ++ ": the header lists the four stems (role, SoundIn channel, channels) at the stamp paths they were opened at",
+    check.(label ++ ": the header lists the five stems (role, SoundIn channel, channels) at the stamp paths they were opened at",
         stems.collect { |s| [s["role"], s["channel"].asInteger, s["numChannels"].asInteger, s["path"].basename] }
             == rig[\sa].stemSpecs.collect { |s| [s[\role].asString, s[\channel], s[\numChannels], stamp ++ "-" ++ s[\role] ++ ".wav"] },
         stems.asString);

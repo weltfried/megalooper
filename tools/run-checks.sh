@@ -1,7 +1,7 @@
 #!/bin/bash
 # Run megalooper's offline checks, one sclang at a time, and say which passed.
 #
-#   ./tools/run-checks.sh          # all fifteen, about six minutes
+#   ./tools/run-checks.sh          # all eighteen, about six minutes
 #   ./tools/run-checks.sh quick    # the unit tests and the static check
 #
 # Nothing here opens an audio device or touches MIDI, and megalooper may be
@@ -40,8 +40,8 @@ if [ -z "$SCLANG" ]; then
 fi
 
 QUICK="scripts/tests/run-tests.scd scripts/check.scd"
-PANES="scripts/check-gui-effects.scd scripts/check-gui-maptags.scd scripts/check-gui-drums.scd scripts/check-gui-midimap.scd"
-RENDERS="scripts/sa/nrt-chains.scd scripts/sa/nrt-drums.scd scripts/sa/nrt-session.scd scripts/sa/nrt-drum-voices.scd scripts/sa/nrt-drums-fx.scd scripts/sa/nrt-plugin-scan.scd scripts/sa/nrt-pitchloop.scd scripts/sa/nrt-drumchain.scd scripts/sa/nrt-shifter.scd"
+PANES="scripts/check-gui-effects.scd scripts/check-gui-maptags.scd scripts/check-gui-drums.scd scripts/check-gui-synth.scd scripts/check-gui-midimap.scd"
+RENDERS="scripts/sa/nrt-chains.scd scripts/sa/nrt-drums.scd scripts/sa/nrt-session.scd scripts/sa/nrt-drum-voices.scd scripts/sa/nrt-drums-fx.scd scripts/sa/nrt-plugin-scan.scd scripts/sa/nrt-pitchloop.scd scripts/sa/nrt-drumchain.scd scripts/sa/nrt-shifter.scd scripts/sa/nrt-noteseq.scd scripts/sa/nrt-wave.scd"
 
 case "${1:-all}" in
     quick) CHECKS="$QUICK" ;;

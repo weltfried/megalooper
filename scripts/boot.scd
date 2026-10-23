@@ -26,6 +26,7 @@
 //   gui-effects.scd    ~buildEffectsPane: SA's effects, Bias FX and presets
 //   gui-drums.scd      ~buildDrumsPane: SA's drums, their patterns, kits and
 //                      presets
+//   gui-synth.scd      ~buildSynthPane: SA's note sequencer and Wave synth
 //   gui-rig.scd        ~buildRigPane: routing, timing, levels, MIDI (Setup)
 //   gui-calibrate.scd  ~buildCalibratePane: the wizard, and its summary
 //   gui-shell.scd      ~buildGuiWindow: THE window — the top bar, the status
@@ -95,11 +96,15 @@ if(~midiUserRootOverride.notNil) {
 //                        Effects pane's bar; setup-sa.scd's ~saSoundsDir)
 //   sa/drum-presets/     its drums' presets (the Drums tab). What that tab's
 //                        Keep keeps is ~saKeptDrumsPath (setup-sa.scd).
+//   sa/synth-presets/    the synth's (the Synth tab: the note sequencer's
+//                        pattern and the Wave synth's sound); its Keep keeps
+//                        ~saKeptSynthPath.
 ~userRoot          = ~midiUserRootOverride ?? { MegaFiles.userRoot };
 ~bbcutPresetDir    = ~userRoot +/+ "bbcut";
 ~granularPresetDir = ~userRoot +/+ "granular";
 ~saFxPresetDir     = ~userRoot +/+ "sa" +/+ "sounds";
 ~saDrumsPresetDir  = ~userRoot +/+ "sa" +/+ "drum-presets";
+~saSynthPresetDir  = ~userRoot +/+ "sa" +/+ "synth-presets";
 if(File.exists(~trainingDataDir).not) { File.mkdir(~trainingDataDir) };
 if(File.exists(~sessionDir).not) { File.mkdir(~sessionDir) };
 // Until the release these presets lay in the repo's presets/ folder. The
@@ -143,6 +148,7 @@ if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };
     "gui-mapmode.scd",
     "gui-effects.scd",
     "gui-drums.scd",
+    "gui-synth.scd",
     "gui-rig.scd",
     "gui-calibrate.scd",
     "gui-shell.scd",

@@ -298,7 +298,7 @@ said = heard.(sa, { n = sa.applySound(target, { |ok, notes| got = [ok, notes] })
     [sa.fx(\delay), ~tStartArgs.(stub, sa.fxNode(\delay))[\delayOn], ~tStartArgs.(stub, sa.fxNode(\delay))[\delayMix]],
     [false, 0, MegaSAFx.param(\delayMix)[\spec].default]);
 ~tEq.("...said as \\chain \\recall for each chain; undo starts anew",
-    [said.select { |x| (x[0] == \chain) and: { x[2] == \recall } }.collect { |x| x[1] }, sa.canUndo, sa.canRedo], [[\guitar, \loop, \drums, \bass], false, false]);
+    [said.select { |x| (x[0] == \chain) and: { x[2] == \recall } }.collect { |x| x[1] }, sa.canUndo, sa.canRedo], [[\guitar, \loop, \drums, \bass, \synth], false, false]);
 ~tEq.("...the ids' marks never go down: after delay3 came and went, the next Delay is delay4", sa.nextIds[\delay], 4);
 ~tEq.("...and the sound had no state to load", got, [true, []]);
 

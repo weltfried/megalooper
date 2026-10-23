@@ -83,6 +83,12 @@
 // the Session log section), so a set's log, and the MIDI file made from it,
 // hold exactly what was played.
 //
+// ---- The note sequencer ----
+// A third part of the pump (see The note sequencer below): MegaSANoteSeq's
+// pattern stepped on the same grid, epochs and segments, its notes hits of
+// their own slot (\synth) with cancel busses as the drums' have, judged by
+// its own switch (notesOn) instead of PC 17 and the break.
+//
 // Like MegaSA it does not survive Cmd-period: nothing re-creates its nodes or
 // its routine. Re-run boot.scd.
 MegaSADrums {
@@ -148,7 +154,7 @@ MegaSADrums {
     // Where hits go: per slot the cancel ring's first bus, the choke block's
     // first bus, the output bus, and the groups' node IDs.
     var ringBases, chokeBases, outBusses, groupIds, ringSerials, hitSerials;
-    var <drumGroup, <stepsGroup, <repeatGroup, <onsetGroup, <fxSynth, <onsetFxSynth;
+    var <drumGroup, <stepsGroup, <repeatGroup, <onsetGroup, <synthGroup, <fxSynth, <onsetFxSynth;
     var ringBusses, chokeBusses, pumpRoutine, probeResp, <built = false;
     // The drift probe.
     var probes, probeSerial = 0, nextProbeAt, spawnCount = 0, reverseCount = 0;
@@ -173,6 +179,11 @@ MegaSADrums {
     // what the log was last told of the transport (logState: nil until a
     // recording's first look); when a failing log was last posted.
     var logQueue, logState, lastLogError;
+    // The note sequencer (MegaSANoteSeq, docs/dev/synth.md): its pattern,
+    // its switch (and that as a condition history), its cursor, its log of
+    // decided steps and their playheads, and noteVoice.(rec, where), the
+    // OSC messages that play one note (nil: the test tone, \megaSANoteTone).
+    var <notes, <notesOn = false, notesHist, noteCursor, noteLog, noteHeads, <>noteVoice;
 
     // megaSA: anything that answers `server` (MegaSA; a test passes an Event).
     *new { |megaSA| ^super.newCopyArgs(megaSA).init }
@@ -212,8 +223,8 @@ MegaSADrums {
         playHist = [[inf.neg, false]];
         jobs = List.new;
         queuedNotes = List.new;
-        ringSerials = (steps: 0, onset: 0);
-        hitSerials = (steps: 0, onset: 0);
+        ringSerials = (steps: 0, onset: 0, synth: 0);
+        hitSerials = (steps: 0, onset: 0, synth: 0);
         probes = IdentityDictionary.new;
         captures = List.new;
         repeatMemory = List.new;
@@ -221,6 +232,10 @@ MegaSADrums {
         repeatChance = MegaSADrumsFx.beatRepeatChance;
         lockedRepeats = Dictionary.new;
         logQueue = List.new;
+        notes = MegaSANoteSeq.defaultPattern;
+        notesHist = [[inf.neg, false]];
+        noteLog = List.new;
+        noteHeads = List.new;
         transport = MegaSATransport(this);
         // Never on a stub, never in NRT: there is no loop to measure, and no
         // server to read the impulse responses.
@@ -395,6 +410,25 @@ MegaSADrums {
         // \megaSADrumsFx (the steps' reverb) and \megaSAOnsetFx (the onset
         // kit's chain).
         MegaSADrumsFx.loadSynthDefs;
+        SynthDef(\megaSANoteTone, this.prToneFunc).add;
+    }
+
+    // The note sequencer's test tone (until the Wave synth plays it): one
+    // note, a filtered saw, mono by the drums' choke (any newer note of the
+    // sequencer releases it) and cancelled by its hit's bus as a drum voice
+    // is. dur: seconds the note is held.
+    *prToneFunc {
+        ^{ |out, freq = 440, amp = 0.2, dur = 0.1, cancelBus, chokeBus, hitId = 1, release = 0.02|
+            var first = Impulse.kr(0);
+            var ok = Latch.kr(In.kr(cancelBus) < 0.5, first);
+            var choked, env, sig;
+            ReplaceOut.kr(chokeBus, Select.kr(first * ok, [In.kr(chokeBus), hitId]));
+            choked = SetResetFF.kr(((In.kr(chokeBus) - hitId).abs > 0.5) * (1 - first), 0);
+            env = EnvGen.ar(Env.asr(0.003, 1, release), (1 - choked) * (Sweep.kr(0, 1) < dur), doneAction: 2);
+            sig = LPF.ar(Saw.ar(freq) + SinOsc.ar(freq * 0.5, 0, 0.5), (freq * 6).clip(200, 12000));
+            OffsetOut.ar(out, (sig * ((amp * ok) * env)).dup);
+            FreeSelf.kr(1 - ok);
+        }
     }
 
     // One layer of one hit, mono or stereo sample, stereo out.
@@ -671,6 +705,92 @@ MegaSADrums {
     }
 
     toggleOn { |now| this.setOn(on.not, now) }
+
+    // ---- The note sequencer (MegaSANoteSeq) --------------------------------
+    // Its pattern is `notes`; edit it through these, which notify. Edits
+    // reach the steps decided from then on (the lead, 100 ms, is already
+    // decided), as the drums' do.
+
+    // The sequencer on or off, from the moment heard. Notifies \notesOn.
+    setNotesOn { |flag, now|
+        var edge;
+        if(alive.not) { ^this };
+        now = now ?? { thisThread.seconds };
+        edge = now - this.class.loopAudioDelay;
+        notesOn = flag == true;
+        notesHist = this.class.historyFrom(notesHist, edge, notesOn);
+        this.prRequest([\cut, edge]);
+        this.prNotify(\notesOn, notesOn);
+    }
+
+    // A setting of the pattern (MegaSANoteSeq.settingNames). Notifies
+    // \noteSetting, name, value.
+    setNoteSetting { |name, v|
+        var old = notes[name], stored = MegaSANoteSeq.putSetting(notes, name, v);
+        if(stored.isNil) {
+            ("MegaSADrums: the note sequencer has no setting " ++ name ++ " taking " ++ v.asCompileString).warn;
+            ^this
+        };
+        if((stored != old) and: { MegaSANoteSeq.timingSettings.includes(name) }) { this.prNoteRetime };
+        this.prNotify(\noteSetting, name, stored);
+    }
+
+    // A lane's setting (MegaSANoteSeq.laneSettingNames). Notifies
+    // \noteLaneSetting, lane, name, value.
+    setNoteLaneSetting { |lane, name, v|
+        var stored = MegaSANoteSeq.putLaneSetting(notes, lane, name, v);
+        if(stored.isNil) {
+            ("MegaSADrums: the note lane " ++ lane ++ " has no setting " ++ name ++ " taking " ++ v.asCompileString).warn;
+            ^this
+        };
+        this.prNotify(\noteLaneSetting, lane, name, stored);
+    }
+
+    // One step's value of a lane, i 0..15. Notifies \noteValue, lane, i, v.
+    setNoteValue { |lane, i, v|
+        var stored = MegaSANoteSeq.putValue(notes, lane, i, v);
+        if(stored.isNil) { ("MegaSADrums: no note lane value " ++ [lane, i, v]).warn; ^this };
+        this.prNotify(\noteValue, lane, i, stored);
+    }
+
+    // A lane's 16 values at once (an edit tool's). Notifies \noteValues, lane.
+    setNoteValues { |lane, values|
+        if(MegaSANoteSeq.laneSpecs[lane].isNil or: { values.size != 16 }) {
+            ("MegaSADrums: no note lane " ++ lane ++ " for " ++ values.size ++ " values").warn;
+            ^this
+        };
+        values.do { |v, i| MegaSANoteSeq.putValue(notes, lane, i, v) };
+        this.prNotify(\noteValues, lane);
+    }
+
+    // A step on or off, i 0..15. Notifies \noteStep, i, flag.
+    setNoteStep { |i, flag|
+        if(i.isInteger.not or: { i < 0 } or: { i > 15 } or: { flag.isKindOf(Boolean).not }) {
+            ("MegaSADrums: no note step " ++ [i, flag]).warn;
+            ^this
+        };
+        notes[\steps][i] = flag;
+        this.prNotify(\noteStep, i, flag);
+    }
+
+    // A whole pattern (a copy of it). Notifies \notes.
+    setNotes { |pat|
+        var timing = MegaSANoteSeq.timingSettings.any { |k| pat[k] != notes[k] };
+        notes = MegaSANoteSeq.copyPattern(pat);
+        MegaSANoteSeq.keepRange(notes);
+        if(timing) { this.prNoteRetime };
+        this.prNotify(\notes);
+    }
+
+    // Where the sequencer is at grid time t (default: heard now), as (n:,
+    // main:, lanes:), or nil where the transport does not play.
+    notePlayheadAt { |t|
+        var found;
+        t = t ?? { this.gridNow };
+        if(this.prPlayingAt(t).not) { ^nil };
+        found = noteHeads.reverse.detect { |e| e[\time] <= (t + 1e-9) };
+        ^found !? { |e| (n: e[\n], main: e[\main], lanes: e[\lanes]) }
+    }
 
     // The step the patterns are on at grid time t (default: the one heard now),
     // as (which:, n:, ls:): the pattern in force there (or `which`'s), its step
@@ -1717,6 +1837,8 @@ MegaSADrums {
         if(cand.notNil and: { best.isNil or: { this.prBefore(cand, best) } }) { best = cand };
         cand = this.prBeatRepeatNext;
         if(cand.notNil and: { best.isNil or: { this.prBefore(cand, best) } }) { best = cand };
+        cand = this.prPeekNote;
+        if(cand.notNil and: { best.isNil or: { this.prBefore(cand, best) } }) { best = cand };
         ^best
     }
 
@@ -1730,7 +1852,8 @@ MegaSADrums {
             \step, { this.prDecideStep(ev, wall) },
             \record, { this.prProcessRecord(ev[\rec], wall) },
             \onset, { this.prProcessOnset(ev, wall) },
-            \repeat, { this.prBeatRepeatProcess(ev, wall) }
+            \repeat, { this.prBeatRepeatProcess(ev, wall) },
+            \note, { this.prDecideNote(ev, wall) }
         );
     }
 
@@ -1903,6 +2026,10 @@ MegaSADrums {
 
     prWants { |rec|
         var g = rec[\grid], ep, lane = rec[\lane];
+        if(rec[\slot] == \synth) {
+            ep = this.prEpochAt(g);
+            ^(ep.notNil and: { ep[\id] == rec[\epoch] }) and: { this.prNotesOnAt(g) } and: { this.prPlayingAt(g) }
+        };
         if(rec[\slot] != \steps) { ^true };
         ep = this.prEpochAt(g);
         ^(ep.notNil and: { ep[\id] == rec[\epoch] })
@@ -1931,6 +2058,7 @@ MegaSADrums {
     prEmit { |rec|
         var slot = rec[\slot], kit, pad, layers, ring, hitId, msgs;
         if(rec[\kind] == \repeat) { ^this.prEmitRepeat(rec) };
+        if(slot == \synth) { ^this.prEmitNote(rec) };
         kit = kitObjects[slot];
         if(kit.isNil or: { kit.isPlayable.not } or: { groupIds.isNil }) { ^false };
         pad = kit.pad(rec[\note]);
@@ -2028,6 +2156,144 @@ MegaSADrums {
             this.prEvaluate(rec, wall);
             decided.add(rec);
         };
+    }
+
+    // ---- The note sequencer in the pump ------------------------------------
+    // MegaSANoteSeq's steps on the drums' grid. A cursor is (epoch:, n:, s:,
+    // n0:, tick0:, offset:, lastKey:, seq:): step n of the epoch (from 0) is
+    // at tick tick0 + (n - n0) * s, s ticks a step (a rate change starts a
+    // new n0 and tick0, prNoteRetime), plus its swing; offset is the step of
+    // the last restart and lastKey what that restart followed (the bar, or
+    // the loop's pass); seq is what MegaSANoteSeq.decide carries from step to
+    // step. Its dice are a pure function of the epoch's seed and n, so a step
+    // decided again after a rewind decides the same way.
+
+    prFreshNoteCursor { |ep|
+        ^(epoch: ep[\id], n: 0, s: MegaSANoteSeq.stepTicks(notes), n0: 0, tick0: 0, offset: 0,
+            lastKey: nil, seq: nil)
+    }
+
+    // Step n's place on the grid of its rate, from the epoch's origin (whole
+    // steps: the swing's even and odd).
+    prNoteIndex { |cur| ^((cur[\tick0] / cur[\s]).round.asInteger + (cur[\n] - cur[\n0])) }
+
+    prNoteNominal { |cur| ^cur[\tick0] + ((cur[\n] - cur[\n0]) * cur[\s]) }
+
+    // The sequencer's next step to decide, or nil, as prPeekStep's.
+    prPeekNote {
+        var cur, ep, nextEp, tick, t, guard = 0;
+        if(epochs.isEmpty) { ^nil };
+        cur = noteCursor ?? { this.prFreshNoteCursor(epochs.first) };
+        while { guard < 64 } {
+            guard = guard + 1;
+            ep = this.prEpoch(cur[\epoch]);
+            if(ep.isNil) {
+                cur = this.prFreshNoteCursor(this.prEpochAt(wallClock.value) ?? { epochs.first });
+                ep = this.prEpoch(cur[\epoch]);
+            };
+            tick = this.prNoteNominal(cur) + MegaSANoteSeq.swingTicks(notes, this.prNoteIndex(cur), cur[\s]);
+            t = this.prTimeOfTick(ep, tick);
+            nextEp = this.prEpochAfter(ep);
+            case
+            { nextEp.notNil and: { t >= (nextEp[\t0] - 1e-6) } } { cur = this.prFreshNoteCursor(nextEp) }
+            { this.prPlayingAt(t).not } {
+                if(nextEp.isNil) { ^nil };
+                cur = this.prFreshNoteCursor(nextEp);
+            }
+            {
+                ^(type: \note, order: 0.75, time: t, prior: noteCursor, cursor: cur, tick: tick, epoch: ep,
+                    seg: this.prSegAtTick(ep, tick))
+            };
+        };
+        ^nil
+    }
+
+    // What restarts the sequence at its nominal tick: the bar it is in, the
+    // loop's pass, or nothing.
+    prNoteRestartKey { |ep, nominal|
+        var seg = this.prSegAtTick(ep, nominal), rel;
+        ^switch(notes[\restart],
+            \bar, { this.prBarAt(seg, nominal) },
+            \loop, {
+                rel = ((nominal - seg[\tick0]) + 1e-6).max(0);
+                [seg[\t0], (rel / (seg[\loopTicks] ? 1920).max(1)).floor]
+            },
+            { 0 })
+    }
+
+    // Decide one step and queue its note's hits (one, or a ratchet's), each
+    // at the step's time plus its shift, held for its length.
+    prDecideNote { |pk, wall|
+        var cur = pk[\cursor], ep = pk[\epoch], seg = pk[\seg], n = cur[\n], nominal, key, offset;
+        var out, rec, delta, stepDur, nt, times, last;
+        nominal = this.prNoteNominal(cur);
+        key = this.prNoteRestartKey(ep, nominal);
+        offset = if(key != cur[\lastKey]) { n } { cur[\offset] };
+        out = MegaSANoteSeq.decide(notes, n - offset, cur[\seq],
+            { |slot, kind| MegaSASteps.uniform(ep[\seed], \notes, n, slot, kind) });
+        stepSerial = stepSerial + 1;
+        delta = this.prStampDelta;
+        stepDur = (cur[\s] / 120) * seg[\s16];
+        rec = (id: stepSerial, which: \notes, epoch: ep[\id], n: n, time: pk[\time], tick: pk[\tick],
+            nominal: nominal, prior: pk[\prior], count: n - offset, main: out[\main], delta: delta);
+        noteLog.add(rec);
+        noteHeads.add((time: pk[\time], n: n, main: out[\main], lanes: out[\lanes], epoch: ep[\id]));
+        nt = out[\note];
+        last = cur[\last];
+        if(nt.notNil) {
+            times = MegaSANoteSeq.ratchetTimes(nt[\ratchet]);
+            times.do { |f, j|
+                var grid = pk[\time] + ((nt[\shift] + f) * stepDur), gate = nt[\length] * stepDur;
+                // The note before (the sequence's, decided in time order), and
+                // whether this is legato: another pitch while that one is
+                // still held, or ends just as this starts (100 % long). A
+                // ratchet's repeats and a repeated pitch attack again, as
+                // SQ's retriggering notes do.
+                this.prQueue((kind: \note, slot: \synth, which: \notes, step: rec[\id], epoch: ep[\id], n: n,
+                    j: j, grid: grid, note: nt[\note], vel: nt[\vel], gate: gate, delta: delta,
+                    from: last !? { |l| l[\note] }, legato: (j == 0) and: { last.notNil } and: { last[\note] != nt[\note] } and: { last[\end] > (grid - 1e-6) }));
+                last = (note: nt[\note], end: grid + gate);
+            };
+        };
+        noteCursor = (epoch: ep[\id], n: n + 1, s: cur[\s], n0: cur[\n0], tick0: cur[\tick0],
+            offset: offset, lastKey: key, seq: out[\state], last: last);
+    }
+
+    // A rate edit: the count carries on from the first step of the new rate
+    // after the last one decided.
+    prNoteRetime {
+        var cur = noteCursor, last = noteLog.last, s, k;
+        if(cur.isNil or: { last.isNil } or: { last[\epoch] != cur[\epoch] }) { ^this };
+        s = MegaSANoteSeq.stepTicks(notes);
+        k = ((last[\nominal] + 1e-6) / s).floor + 1;
+        noteCursor = cur.copy.put(\s, s).put(\n0, cur[\n]).put(\tick0, k * s);
+    }
+
+    // One note to the instrument: its cancel bus cleared at once, then its
+    // voice at its stamp.
+    prEmitNote { |rec|
+        var ring, hitId, msgs, voice;
+        if(groupIds.isNil) { ^false };
+        ring = this.prRingBus(\synth);
+        hitId = this.prHitId(\synth);
+        voice = noteVoice ? { |r, where| this.class.toneMsgs(r, where) };
+        msgs = voice.value(rec, (ring: ring, hitId: hitId, choke: chokeBases[\synth],
+            out: outBusses[\synth], group: groupIds[\synth])) ? [];
+        if(msgs.isEmpty) { ^false };
+        this.prSend(nil, [[\c_set, ring, 0]]);
+        if(outBusses[\synth] == outBusses[\steps]) { this.prWakeFx(\steps, (rec[\stamp] + rec[\gate]) + 0.1) };
+        this.prSend(rec[\stamp], msgs);
+        rec[\emitted] = true;
+        rec[\ring] = ring;
+        rec[\hitId] = hitId;
+        ^true
+    }
+
+    // The test tone's message for one note.
+    *toneMsgs { |rec, where|
+        ^[[\s_new, \megaSANoteTone, -1, 1, where[\group], \out, where[\out],
+            \freq, rec[\note].midicps, \amp, 0.25 * ((rec[\vel] / 127).squared), \dur, rec[\gate],
+            \cancelBus, where[\ring], \chokeBus, where[\choke], \hitId, where[\hitId]]]
     }
 
     // ---- Beat Repeat --------------------------------------------------------
@@ -2422,7 +2688,8 @@ MegaSADrums {
         var cancel = List.new, send = List.new;
         decided.do { |rec|
             var want;
-            if((rec[\slot] == \steps) and: { rec[\kind] != \repeat } and: { rec[\status] == \done }
+            if(((rec[\slot] == \steps) or: { rec[\slot] == \synth }) and: { rec[\kind] != \repeat }
+                and: { rec[\status] == \done }
                 and: { rec[\grid] >= (t - 1e-9) }
                 and: { rec[\stamp].notNil } and: { rec[\stamp] > (wall + margin) }) {
                 want = this.prWants(rec);
@@ -2445,7 +2712,7 @@ MegaSADrums {
     // note cuts their rolls again (prCutRolls).
     prRewindNow { |t, wall|
         var removed = IdentitySet.new, dead = IdentitySet.new, cancel = List.new, back = List.new;
-        var gone;
+        var gone, i;
         [\main, \break].do { |which|
             var log = stepLogs[which], i;
             i = log.detectIndex { |s| s[\time] >= (t - 1e-9) };
@@ -2456,8 +2723,16 @@ MegaSADrums {
                 playheads[which] = List.newFrom(playheads[which].reject { |e| e[\time] >= (t - 1e-9) });
             };
         };
+        i = noteLog.detectIndex { |s| s[\time] >= (t - 1e-9) };
+        if(i.notNil) {
+            noteCursor = noteLog[i][\prior];
+            (i .. (noteLog.size - 1)).do { |k| removed.add(noteLog[k][\id]) };
+            noteLog = List.newFrom(noteLog.copyRange(0, i - 1));
+            noteHeads = List.newFrom(noteHeads.reject { |e| e[\time] >= (t - 1e-9) });
+        };
         if(removed.isEmpty) { ^this };
-        gone = { |r| (r[\slot] == \steps) and: { r[\step].notNil } and: { removed.includes(r[\step]) } };
+        gone = { |r| ((r[\slot] == \steps) or: { r[\slot] == \synth }) and: { r[\step].notNil }
+            and: { removed.includes(r[\step]) } };
         (decided ++ pending).do { |r| if(gone.(r) and: { r[\kind] == \step }) { dead.add(r[\id]) } };
         decided.do { |r|
             if(gone.(r) and: { r[\emitted] == true } and: { r[\stamp] > (wall + margin) }) { cancel.add(r) };
@@ -2509,6 +2784,7 @@ MegaSADrums {
     prPatternAt { |g| ^this.class.historyAt(breakHist, g) }
     prOnAt { |g| ^this.class.historyAt(onHist, g) }
     prPlayingAt { |g| ^this.class.historyAt(playHist, g) }
+    prNotesOnAt { |g| ^this.class.historyAt(notesHist, g) }
 
     prEpoch { |id| ^epochs.detect { |e| e[\id] == id } }
 
@@ -2589,6 +2865,9 @@ MegaSADrums {
             while { (log.size > 1) and: { log[0][\time] < before } } { log.removeAt(0) };
             while { ring.size > 64 } { ring.removeAt(0) };
         };
+        while { (noteLog.size > 1) and: { noteLog[0][\time] < before } } { noteLog.removeAt(0) };
+        while { noteHeads.size > 64 } { noteHeads.removeAt(0) };
+        notesHist = this.class.historyPruned(notesHist, before);
         breakHist = this.class.historyPruned(breakHist, before);
         onHist = this.class.historyPruned(onHist, before);
         playHist = this.class.historyPruned(playHist, before);
@@ -2621,6 +2900,8 @@ MegaSADrums {
     // tempos under about 96 BPM, after the old epoch would otherwise go.
     prEpochUsed { |id|
         ^cursors.values.any { |c| c.notNil and: { c[\epoch] == id } }
+            or: { noteCursor.notNil and: { noteCursor[\epoch] == id } }
+            or: { noteLog.any { |s| s[\epoch] == id } }
             or: { captureCursor.notNil and: { captureCursor[\epoch] == id } }
             or: { pending.any { |r| r[\epoch] == id } }
             or: { stepLogs.values.any { |log| log.any { |s| s[\epoch] == id } } }
@@ -2885,7 +3166,7 @@ MegaSADrums {
     // responder, then the reverb's impulse responses, read in a routine of
     // their own: until they are in, the steps' effects pass their input dry.
     // A failure is posted and SA runs on without drums.
-    build { |aDrumGroup, stepsBus, stepsOutBus, onsetBus, onsetOutBus|
+    build { |aDrumGroup, stepsBus, stepsOutBus, onsetBus, onsetOutBus, synthBus|
         try {
             // A drum group that is no node on the drums' own server is
             // refused before anything is taken. Group.tail(nil) is
@@ -2898,8 +3179,10 @@ MegaSADrums {
                 Error("no drum group on the drums' own server (" ++ aDrumGroup.asString ++ ")").throw
             };
             drumGroup = aDrumGroup;
-            ringBusses = (steps: Bus.control(server, 1024), onset: Bus.control(server, 1024));
-            chokeBusses = (steps: Bus.control(server, 33), onset: Bus.control(server, 33));
+            ringBusses = (steps: Bus.control(server, 1024), onset: Bus.control(server, 1024),
+                synth: Bus.control(server, 1024));
+            chokeBusses = (steps: Bus.control(server, 33), onset: Bus.control(server, 33),
+                synth: Bus.control(server, 1));
             (ringBusses.values ++ chokeBusses.values).do { |b|
                 server.sendBundle(nil, [\c_setn, b.index, b.numChannels] ++ Array.fill(b.numChannels, 0));
             };
@@ -2915,10 +3198,17 @@ MegaSADrums {
             fxSynth = Synth.tail(drumGroup, \megaSADrumsFx, this.prReverbArgs);
             onsetFxSynth = Synth.tail(drumGroup, \megaSAOnsetFx,
                 [\in, this.class.prIndex(onsetBus), \out, this.class.prIndex(onsetOutBus)]);
+            // The note sequencer's voices, after the drums' effects: onto the
+            // synth's bus, which its chain (MegaSA's, after this group) works
+            // on. With no synth bus they play into the steps' bus.
+            synthGroup = Group.tail(drumGroup);
             this.prUseBusses(ringBusses[\steps].index, ringBusses[\onset].index,
                 chokeBusses[\steps].index, chokeBusses[\onset].index,
                 this.class.prIndex(stepsBus), this.class.prIndex(onsetBus),
-                stepsGroup.nodeID, repeatGroup.nodeID, onsetGroup.nodeID, drumGroup.nodeID);
+                stepsGroup.nodeID, repeatGroup.nodeID, onsetGroup.nodeID, drumGroup.nodeID,
+                synthRing: ringBusses[\synth].index, synthChoke: chokeBusses[\synth].index,
+                synthBus: (synthBus !? { |b| this.class.prIndex(b) }) ?? { this.class.prIndex(stepsBus) },
+                synthGrp: synthGroup.nodeID);
             probeResp = OSCFunc({ |msg| this.probeReply(msg[4].asInteger, msg[3]) },
                 '/megaSADrumsProbe', server.addr);
             if(thisThread.isKindOf(Routine)) { server.sync };
@@ -3026,11 +3316,12 @@ MegaSADrums {
     // Where hits go, by bus and node ID, without building anything: build's
     // last step, and a stub test's first.
     prUseBusses { |stepsRing = 1000, onsetRing = 2024, stepsChoke = 3048, onsetChoke = 3081,
-        stepsBus = 20, onsetBus = 22, stepsGrp = 1001, repeatGrp = 1002, onsetGrp = 1003, drumGrp = 1000|
-        ringBases = (steps: stepsRing, onset: onsetRing);
-        chokeBases = (steps: stepsChoke, onset: onsetChoke);
-        outBusses = (steps: stepsBus, onset: onsetBus);
-        groupIds = (steps: stepsGrp, repeat: repeatGrp, onset: onsetGrp, drum: drumGrp);
+        stepsBus = 20, onsetBus = 22, stepsGrp = 1001, repeatGrp = 1002, onsetGrp = 1003, drumGrp = 1000,
+        synthRing = 3114, synthChoke = 4138, synthBus = 24, synthGrp = 1004|
+        ringBases = (steps: stepsRing, onset: onsetRing, synth: synthRing);
+        chokeBases = (steps: stepsChoke, onset: onsetChoke, synth: synthChoke);
+        outBusses = (steps: stepsBus, onset: onsetBus, synth: synthBus);
+        groupIds = (steps: stepsGrp, repeat: repeatGrp, onset: onsetGrp, drum: drumGrp, synth: synthGrp);
     }
 
     prStartPump {
@@ -3086,7 +3377,7 @@ MegaSADrums {
         pumpRoutine = nil;
         probeResp !? { |r| r.free };
         probeResp = nil;
-        [fxSynth, onsetFxSynth, stepsGroup, repeatGroup, onsetGroup].do { |n| n !? { n.free } };
+        [fxSynth, onsetFxSynth, stepsGroup, repeatGroup, onsetGroup, synthGroup].do { |n| n !? { n.free } };
         fxSynth = nil;
         onsetFxSynth = nil;
         fxAsleep.clear;
@@ -3094,6 +3385,7 @@ MegaSADrums {
         stepsGroup = nil;
         repeatGroup = nil;
         onsetGroup = nil;
+        synthGroup = nil;
         // A load still on its way frees what it brings (prReverbLoaded).
         irSerial = irSerial + 1;
         irBuffers.do { |b| b.free };

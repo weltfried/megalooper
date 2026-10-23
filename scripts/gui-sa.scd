@@ -20,7 +20,7 @@
 ~saLevelHeld = nil;
 
 ~saStripLabels = (guitar: "Guitar:", bass: "Bass:", loop: "Loop:", drums: "Drums:", onsetKit: "Onset kit:",
-    master: "Master:");
+    synth: "Synth:", master: "Master:");
 
 ~saLevelText = { |amp| (amp ? 0).ampdb.max(-60).round(0.5).asString ++ " dB" };
 
@@ -116,7 +116,7 @@
     var m = ~megaSA, keys;
     ~guiTeardowns[\saPerform].value;
     if(~rp.notNil and: { ~rp[\sa] == true } and: { m.notNil }) {
-        keys = [\guitar, \bass, \loop, \drums, \onsetKit, \master].select { |k| m.level(k).notNil };
+        keys = [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].select { |k| m.level(k).notNil };
         ~saPerformControllers = [
             SimpleController(m)
                 .put(\level, { |obj, what, key, amp| { ~saPaintLevel.(~saPerformLevels, key, amp) }.defer })
@@ -157,7 +157,7 @@
     if(~rp.notNil and: { ~rp[\sa] == true } and: { m.notNil }) {
         // In mixer order, the master last. The drums' two strips are there
         // only on a MegaSA that has them, the bass's on a rig with its input.
-        keys = [\guitar, \bass, \loop, \drums, \onsetKit, \master].select { |k| m.level(k).notNil };
+        keys = [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].select { |k| m.level(k).notNil };
         view.layout_(VLayout(*(
             [~guiCaption.("MEGALOOPER SA · LEVELS", 11)]
             ++ keys.collect { |k| ~saLevelRow.(m, k, ~saStripLabels[k], ~saRigLevels, ~rigLabelWidth ? 130) }

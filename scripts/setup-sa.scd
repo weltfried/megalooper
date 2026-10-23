@@ -8,8 +8,8 @@
 // mixer's, and both are made here.
 //
 // From the IDE once it runs (levels are amplitudes, 1 = unity):
-//     ~megaSA.setLevel(\guitar, 0.8);   // \guitar, \bass, \loop, \drums, \onsetKit or \master
-//     ~megaSA.setMute(\guitar, true);   // \guitar, \bass, \loop, \drums or \onsetKit
+//     ~megaSA.setLevel(\guitar, 0.8);   // \guitar, \bass, \loop, \drums, \onsetKit, \synth or \master
+//     ~megaSA.setMute(\guitar, true);   // \guitar, \bass, \loop, \drums, \onsetKit or \synth
 //     ~megaSA.setFxParam(\filterFreq, 800); // any of MegaSAFx.params
 //     ~megaSA.guitarEditor;             // Bias FX's own window
 //     ~saKeepSound.();                  // the next boot starts with this sound
@@ -561,6 +561,25 @@
     }
 };
 
+// The synth kept for the next boot (the Synth view's Keep): the note
+// sequencer's pattern and the Wave synth's sound (MegaSA.keepSynth). `action`
+// gets true once written, false if not; it answers the same.
+~saKeptSynthPath = { ~saUserDir.() +/+ "kept-synth" +/+ "synth.json" };
+~saKeepSynth = { |action|
+    var ok = (~megaSA !? { |m| try { m.keepSynth(~saKeptSynthPath.()) } { |err|
+        ("megalooper: the synth was not kept (" ++ err.errorString ++ ").").warn; false } }) == true;
+    action.value(ok);
+    ok
+};
+// At boot, once MegaSA is ready: the kept synth, if there is one. Fail-soft.
+~saLoadKeptSynth = {
+    var ok = (~megaSA !? { |m| try { m.loadKeptSynth(~saKeptSynthPath.()) } { |err|
+        ("megalooper: the kept synth did not load (" ++ err.errorString ++ "); it starts as it ships.").warn;
+        false } }) == true;
+    if(ok) { "megalooper: the synth starts as kept.".postln };
+    ok
+};
+
 // The drums at boot, once MegaSA is ready: the kit folder, the kept drums if
 // there are any, then the default kit in every slot they did not name (or
 // gave a kit that is no longer there); a slot they kept empty ("none") stays
@@ -575,6 +594,7 @@
             d.kitDir = ~saDrumsKitDir.();
             ~saAdoptKeptDrums.();
             ~saLoadKeptDrums.();
+            ~saLoadKeptSynth.();
             [\steps, \onset].do { |slot|
                 if((d.respondsTo(\kitEmptied) and: { d.kitEmptied(slot) }).not
                     and: { d.kit(slot).isNil or: { d.kitState(slot) == \missing } }) {

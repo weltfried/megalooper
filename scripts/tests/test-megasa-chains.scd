@@ -523,7 +523,8 @@ sa.setTempo(120);
 sent = stub[\msgs].copyToEnd(before).asArray;
 ~tEq.("a tempo is one n_set of the beat to each chain's group", sent,
     [[15, sa.guitarChain.group.nodeID, \beatDur, 0.5], [15, sa.loopChain.group.nodeID, \beatDur, 0.5],
-        [15, sa.drumsChain.group.nodeID, \beatDur, 0.5], [15, sa.bassChain.group.nodeID, \beatDur, 0.5]]);
+        [15, sa.drumsChain.group.nodeID, \beatDur, 0.5], [15, sa.bassChain.group.nodeID, \beatDur, 0.5],
+        [15, sa.synthChain.group.nodeID, \beatDur, 0.5]]);
 if(vst.notNil) { ~tEq.("...and the plugin's own tempo, which it reads instead of a control", fake[\tempo], 120) };
 ~tAssert.("...which reaches every device that reads the beat, each in one of those groups",
     sa.devices.select(_.followsTempo).notEmpty and: { sa.devices.select(_.followsTempo).every { |x|

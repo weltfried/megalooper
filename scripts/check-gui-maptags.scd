@@ -44,7 +44,7 @@ var noWidget = IdentityDictionary[
     "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd",
     "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-status.scd", "gui-perform.scd",
     "gui-bbcut.scd", "gui-granular.scd", "gui-analysis.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd",
-    "gui-effects.scd", "gui-drums.scd", "gui-rig.scd", "gui-calibrate.scd",
+    "gui-effects.scd", "gui-drums.scd", "gui-synth.scd", "gui-rig.scd", "gui-calibrate.scd",
     "gui-shell.scd", "gui-wiring.scd"
 ].do { |f| (scripts +/+ f).load };
 tmp = ~tTempPath.("check-gui-maptags");
@@ -53,6 +53,7 @@ File.mkdir(tmp);
 ~midiWriteSync = true;
 ~saFxPresetDir = tmp +/+ "fx";
 ~saDrumsPresetDir = tmp +/+ "drum-presets";
+~saSynthPresetDir = tmp +/+ "synth-presets";
 File.mkdir(~saFxPresetDir);
 File.mkdir(~saDrumsPresetDir);
 ~midiNow = { now };
@@ -109,8 +110,8 @@ Routine {
         { var shared = { |a, b|
               var pa = ~guiPaneHolders[a].parents ? [], pb = ~guiPaneHolders[b].parents ? [];
               pa.count { |p| pb.includes(p) } };
-          ok.("SA's views: Perform, Sound, FX, Drums, Setup and the wizard",
-              ~guiViewOrder == [\perform, \sound, \fx, \drums, \setup, \calibrate], ~guiViewOrder.asString);
+          ok.("SA's views: Perform, Sound, FX, Drums, Synth, Setup and the wizard",
+              ~guiViewOrder == [\perform, \sound, \fx, \drums, \synth, \setup, \calibrate], ~guiViewOrder.asString);
           ok.("a tab for each but the wizard", ~guiViewOrder.reject { |v| v == \calibrate }.every { |v| ~guiTabButtons[v].notNil }
               and: { ~guiTabButtons[\calibrate].isNil });
           ok.("the Drums pane is on a page of its own, apart from the Effects' as Perform's is",
@@ -462,7 +463,10 @@ Routine {
         ~guiCpuPaint.();
         ok.("...and 100% fits in it", ("CPU 100%".bounds(~guiMono.(13, true)).width + 8) <= ~guiCpuTile.bounds.width,
             [~guiCpuTile.bounds.width, "CPU 100%".bounds(~guiMono.(13, true)).width].asString);
-        ok.("the top bar keeps its wordmark at the 1440 it is laid out for", (~guiTopBarFull ? 99999) <= 1440, ~guiTopBarFull.asString);
+        // SA's six tabs take the wordmark's name at 1440 (gui-shell.scd): the
+        // rest stays.
+        ok.("at the 1440 it is laid out for the top bar holds everything but the wordmark's name",
+            ((~guiTopBarFull ? 99999) - 124) <= 1440, ~guiTopBarFull.asString);
         srv[\avgCPU] = nil;
         srv[\peakCPU] = nil;
         ~guiCpuPaint.();
@@ -505,7 +509,7 @@ Routine {
             [menus.size, widest].asString);
         ok.("the Drums preset bar's resting line reads as words", ~presetFamilies[\saDrums][\statusIdle].contains("— none —").not);
         ok.("the footer names the keys the tabs have, and the wizard's",
-            ~guiKeysHint.() == "keys 1–5 views · 6 calibrate · T theme · H help", ~guiKeysHint.());
+            ~guiKeysHint.() == "keys 1–5 7 views · 6 calibrate · T theme · H help", ~guiKeysHint.());
         was = ~guiViewOrder;
         ~guiViewOrder = ~guiViewOrderFor.(false);
         ok.("...without SA too", ~guiKeysHint.() == "keys 1 2 5 views · 6 calibrate · T theme · H help", ~guiKeysHint.());
@@ -550,7 +554,7 @@ Routine {
         ok.("...a sound, on the effects' bar", ~presetFamilies[\saFx][\nameField].getProperty(\placeholderText)
             == "Name a new sound, then Save new");
         ok.("MIDI MAP, off, has the bar's own outline, not the blue one", ~mapButton.border == ~gt[\line]);
-        ok.("the top bar keeps its wordmark with the help switch in it", (~guiTopBarFull ? 99999) <= 1440, ~guiTopBarFull.asString);
+        ok.("...with the help switch in it too", ((~guiTopBarFull ? 99999) - 124) <= 1440, ~guiTopBarFull.asString);
         // A window never shown answers false to every view's visible: a
         // stand-in among the help lines says what each of them was told.
         shown = (isClosed: false, said: nil, visible_: { |self, flag| self[\said] = flag; self });

@@ -1251,11 +1251,11 @@ Routine {
     section.("SA's view in the top bar", {
         var views = ~guiViewOrderFor.(true), tabs, total;
         ~guiPaneOrder = ~guiPaneOrderFor.(true);
-        ok.("SA's panes put Drums after Effects", ~guiPaneOrder
-            == [\perform, \cutter, \grains, \effects, \drums, \analysis, \rig, \calibrate]);
+        ok.("SA's panes put Drums after Effects, the Synth after them", ~guiPaneOrder
+            == [\perform, \cutter, \grains, \effects, \drums, \synth, \analysis, \rig, \calibrate]);
         ok.("labelled Drums", ~guiPaneLabels[\drums] == "Drums");
-        ok.("SA's views put FX and Drums between Sound and Setup",
-            views == [\perform, \sound, \fx, \drums, \setup, \calibrate], views.asString);
+        ok.("SA's views put FX, Drums and the Synth between Sound and Setup",
+            views == [\perform, \sound, \fx, \drums, \synth, \setup, \calibrate], views.asString);
         ok.("each holds one pane: the drums have a view of their own, with its whole height",
             (~guiViewPanes[\fx] == [\effects]) and: { ~guiViewPanes[\drums] == [\drums] });
         ok.("a rig without SA has neither", ~guiViewOrderFor.(false) == [\perform, \sound, \setup, \calibrate]);
@@ -1270,10 +1270,11 @@ Routine {
         ok.("each tab dots its own part", (~guiViewDots[\fx] == [[\effects, \fx]]) and: { ~guiViewDots[\drums] == [[\drums, \drum]] });
         ok.("the tabs read FX and Drums", [~guiViewLabels[\fx], ~guiViewLabels[\drums]] == ["FX", "Drums"]);
         tabs = views.reject { |v| v == \calibrate };
-        // The tabs, the logo and wordmark, CPU, ◐, ?, the rig's lamp, MIDI
-        // MAP, SET REC and their rules.
-        total = tabs.sum { |v| ~guiTabWidth.(v) } + 190 + 80 + 52 + 52 + 104 + 150 + 200 + (tabs.size + 7);
-        ok.("the tabs and the top bar's tiles fit 1440 pt", total <= 1440, total.asString);
+        // The tabs, the logo (its name, 124 pt, gives way to the Synth's tab
+        // at 1440: gui-shell.scd), CPU, ◐, ?, the rig's lamp, MIDI MAP, SET
+        // REC and their rules.
+        total = tabs.sum { |v| ~guiTabWidth.(v) } + (190 - 124) + 80 + 52 + 52 + 104 + 150 + 200 + (tabs.size + 7);
+        ok.("the tabs and the top bar's tiles fit 1440 pt, the wordmark's name given up", total <= 1440, total.asString);
         ok.("each tab holds its number, its name and its dots", tabs.every { |v|
             ~guiTabWidth.(v) >= ((~guiViewLabels[v].bounds(~guiTabFont.(true)).width)
                 + ((~guiViewDots[v] ? []).size * 11) + 44) },

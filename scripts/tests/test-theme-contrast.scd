@@ -8,7 +8,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 
 {
 var scripts = thisProcess.nowExecutingPath.dirname.dirname;
-var fills = #[\loop, \cut, \grain, \fx, \drum, \rec, \play, \dub, \armed, \map];
+var fills = #[\loop, \cut, \grain, \fx, \drum, \synth, \rec, \play, \dub, \armed, \map];
 // A colour's relative luminance, and the contrast of two (WCAG 2).
 var lum = { |c|
     var lin = { |v| if(v <= 0.03928) { v / 12.92 } { ((v + 0.055) / 1.055) ** 2.4 } };

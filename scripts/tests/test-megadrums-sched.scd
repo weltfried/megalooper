@@ -1686,11 +1686,11 @@ Routine { d.build(group, 16, 18, 20, 22) }.next;
 msgs = stub[\msgs];
 clears = stub[\bundles].collect { |b| b[1] }.flatten(1).select { |m| m[0] == \c_setn };
 ~tEq.("build: built", d.built, true);
-~tEq.("...two cancel rings of 1024 and two choke blocks of 33 busses, all cleared to 0",
+~tEq.("...cancel rings of 1024 and choke blocks of 33 busses for the steps and the onset kit, a ring and one choke bus for the note sequencer, all cleared to 0",
     clears.collect { |m| [m[2], m.copyToEnd(3).every(_ == 0)] }.asArray.sort { |a, b| a[0] <= b[0] },
-    [[33, true], [33, true], [1024, true], [1024, true]]);
+    [[1, true], [33, true], [33, true], [1024, true], [1024, true], [1024, true]]);
 news = msgs.select { |m| (m[0] == 21) or: { m[0] == "/g_new" } or: { m[0] == \g_new } };
-~tEq.("...three voice groups at the tail of the drum group", news.size, 3);
+~tEq.("...four voice groups at the tail of the drum group (the note sequencer's last)", news.size, 4);
 ~tAssert.("...the two effects at its tail, from the drum busses to the strips' busses",
     msgs.any { |m| (m.includes(\megaSADrumsFx)) and: { m.includes(16) } and: { m.includes(18) } }
         and: { msgs.any { |m| (m.includes(\megaSAOnsetFx)) and: { m.includes(20) } and: { m.includes(22) } } });

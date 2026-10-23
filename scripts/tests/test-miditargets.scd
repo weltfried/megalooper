@@ -57,7 +57,7 @@ count = { |test| targets.values.count(test) };
 there = { |x| x[\available].value != false };
 
 kinds = #[\trigger, \toggle, \continuous, \step, \choice];
-tabs = ["Perform", "Grains", "Cutter", "Analysis", "Effects", "Drums", "Rig", "Live", "Window"];
+tabs = ["Perform", "Grains", "Cutter", "Analysis", "Effects", "Drums", "Synth", "Rig", "Live", "Window"];
 // Dotted lower camel: words that start lower case, or a number (a pad's note).
 idShape = "^[a-z][a-zA-Z0-9]*(\\.([a-z][a-zA-Z0-9]*|[0-9]+))+$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
@@ -69,15 +69,17 @@ families = [
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 73],
     [\fxReset, "^sa\\.fxReset\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
     [\fxRandom, "^sa\\.fxRandom\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
-    [\level, "^sa\\.level\\.(guitar|bass|loop|drums|onsetKit|master)$", 6],
-    [\mute, "^sa\\.mute\\.(guitar|bass|loop|drums|onsetKit)$", 5],
+    [\level, "^sa\\.level\\.(guitar|bass|loop|drums|onsetKit|synth|master)$", 7],
+    [\mute, "^sa\\.mute\\.(guitar|bass|loop|drums|onsetKit|synth)$", 6],
     [\drums, "^sa\\.drums\\.(on|breakPattern|repeats|reverbMix|livePattern\\.(main|break))$", 6],
     [\timing, "^sa\\.drums\\.(main|break)\\.(" ++ MegaSASteps.paramSpecs.collect { |x| x[\name] }.join("|") ++ ")$", 28],
     [\lane, "^sa\\.drums\\.(main|break)\\.lane[1-4]\\.(note|altNote|delay|mute|lock)$", 40],
     [\length, "^sa\\.drums\\.(main|break)\\.lane[1-4]\\.length\\.(chance|alt|velo|roll)$", 32],
     [\trim, "^sa\\.drums\\.trim\\.(steps|onset)\\.[0-9]+$", 0],
     [\groupTrim, "^sa\\.drums\\.groupTrim\\.(steps|onset)\\.[a-zA-Z0-9]+$", 0],
-    [\window, "^gui\\.view\\.(perform|sound|fx|drums|setup|calibrate)$", 6]
+    [\synth, "^sa\\.synth\\.(on|random|reset|division|root|scale|swing|" ++ MegaSAWave.params.collect { |x| x[\name] }.join("|") ++ ")$",
+        7 + MegaSAWave.params.size],
+    [\window, "^gui\\.view\\.(perform|sound|fx|drums|synth|setup|calibrate)$", 7]
 ];
 familyOf = { |id| families.select { |f| f[1].matchRegexp(id.asString) }.collect { |f| f[0] } };
 // The Looper's, as table 4.2 lists them: the transport, the switches, the
@@ -282,7 +284,7 @@ protect {
         MegaSAFx.params.select { |q| targets[("sa.fx." ++ q[\name]).asSymbol][\kind] == \step }.collect { |q| q[\name] },
         [\shifterCoarse, \pitchLoopPitchL, \pitchLoopPitchR, \reduxBits]);
     ~tEq.("a strip's level is in dB on ~saLevelSpec and reads as ~saLevelText",
-        [\guitar, \bass, \loop, \drums, \onsetKit, \master].reject { |k|
+        [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].reject { |k|
             t = targets[("sa.level." ++ k).asSymbol];
             [0, 0.3, 1].every { |c| t[\fromPos].value(c) == ~saLevelSpec.map(c) }
                 and: { t[\format].value(-10.5) == ~saLevelText.((-10.5).dbamp) }
@@ -423,8 +425,8 @@ protect {
             and: { ~drumsNoteItems.(d)[6] == ("42 Hat · " ++ ~midiNoteName.(42)) });
     v = [targets.size, count.(there)];
     ("  on SA: " ++ v[0] ++ " controls, " ++ v[1] ++ " there").postln;
-    ~tEq.("on SA every control is there: SA's 203 and its kits' 6 trims beside the Looper's and Live's "
-        "(the views' 6 need the window)", v, [live[0] + 6, live[0]]);
+    ~tEq.("on SA every control is there: SA's and its kits' 6 trims beside the Looper's and Live's "
+        "(the views' 7 need the window)", v, [live[0] + 6, (live[0] + 6) - 7]);
 
     // ---------------------------------------------------- SA's, driven --
     p = MegaSAFx.param(\filterFreq);

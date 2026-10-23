@@ -272,7 +272,7 @@ Routine {
         var items, n, id, keep = ~guiView, was = ~saPlugins;
         var find = { |list, label| list.detect { |it| it[\label] == label } };
         var shown = { |list| list.collect { |it| [it[\label], it[\enabled]] } };
-        ok.("there are three rows: the guitar's, the loop's and the drums'", ~effectsTracks.() == [\guitar, \loop, \drums]
+        ok.("there are four rows: the guitar's, the loop's, the drums' and the synth's", ~effectsTracks.() == [\guitar, \loop, \drums, \synth]
             and: { ~effectsTracks.().every { |t| ~effectsRowHolders[t].notNil and: { ~effectsRowHolders[t].isClosed.not } } });
         ok.("each row ends in a + tile", ~effectsTracks.().every { |t|
             (~effectsPlusTiles ? ())[t].notNil and: { ~effectsPlusTiles[t].isClosed.not } });
@@ -289,7 +289,7 @@ Routine {
         items = ~effectsDeviceItems.(id);
         ok.("⋯ for the last device of a chain: left, not right, each other chain, Remove, Random, Reset",
             shown.(items) == [["Move left", true], ["Move right", false], ["Move to the guitar chain", true],
-                ["Move to the drums chain", true], ["Remove", true], ["Random", true], ["Reset", true],
+                ["Move to the drums chain", true], ["Move to the synth chain", true], ["Remove", true], ["Random", true], ["Reset", true],
                 ["Copy diagnostics", true]],
             shown.(items).asString);
         find.(items, "Move left")[\action].value;
@@ -369,7 +369,7 @@ Routine {
             [~effectsSelected, ~effectsPluginTiles[\plugin2].sub].asString);
         ok.("...and ⋯ acts on it: it can be moved and removed, and has its window, not Reset",
             ~effectsDeviceItems.(\plugin2).collect { |it| it[\label] }
-                == ["Move left", "Move right", "Move to the guitar chain", "Move to the drums chain", "Remove", "Open its window",
+                == ["Move left", "Move right", "Move to the guitar chain", "Move to the drums chain", "Move to the synth chain", "Remove", "Open its window",
                     "Copy diagnostics"],
             ~effectsDeviceItems.(\plugin2).collect { |it| it[\label] }.asString);
         m.undo;
@@ -479,8 +479,8 @@ Routine {
         ok.("dragged onto the empty drums row it goes onto the drums' chain, with its tile in that row",
             (ids.(\drums) == [before[1]]) and: { ids.(\guitar).includes(before[1]).not } and: { took == true }
                 and: { ~effectsRowTiles[\drums].size == 1 }, [ids.(\guitar), ids.(\drums)].asString);
-        ok.("...and ⋯ offers it the way to the other two", ~effectsDeviceItems.(before[1]).collect { |it| it[\label] }
-            .select { |l| l.beginsWith("Move to") } == ["Move to the guitar chain", "Move to the loop chain"]);
+        ok.("...and ⋯ offers it the way to the other three", ~effectsDeviceItems.(before[1]).collect { |it| it[\label] }
+            .select { |l| l.beginsWith("Move to") } == ["Move to the guitar chain", "Move to the loop chain", "Move to the synth chain"]);
         m.undo;
         tick.();
         ok.("...and Cmd+Z takes it back to the guitar's", (ids.(\guitar) == before) and: { ids.(\drums).isEmpty }
@@ -816,7 +816,7 @@ Routine {
         paneB = ~buildEffectsPane.();
         tick.();
         ok.("with a bass input there is a BASS row, under the guitar's",
-            (~effectsTracks.() == [\guitar, \bass, \loop, \drums]) and: { ~effectsRowHolders[\bass].notNil }
+            (~effectsTracks.() == [\guitar, \bass, \loop, \drums, \synth]) and: { ~effectsRowHolders[\bass].notNil }
                 and: { ~effectsRowHolders[\bass].isClosed.not }
                 and: { ~effectsRowHolders[\bass].absoluteBounds.top > ~effectsRowHolders[\guitar].absoluteBounds.top }
                 and: { ~effectsRowHolders[\bass].absoluteBounds.top < ~effectsRowHolders[\loop].absoluteBounds.top },

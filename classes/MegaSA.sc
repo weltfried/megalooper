@@ -14,9 +14,11 @@
 //   [drum group]     the drums (MegaSADrums): Rhythmic Steps' voices onto
 //                    stepsBus and the onset kit's onto onsetBus, then the
 //                    drums' chain (drumsChain) on stepsBus, then their
-//                    effects, onto stepsOutBus and onsetOutBus
-//   [mixer group]    one strip per source (the guitar, the loop, the drums
-//                    and the onset kit), each also onto its own stem bus,
+//                    effects, onto stepsOutBus and onsetOutBus; then the
+//                    note sequencer's voices (the Wave synth, wave) onto
+//                    synthBus and the synth's chain (synthChain) on it
+//   [mixer group]    one strip per source (the guitar, the loop, the drums,
+//                    the onset kit and the synth), each also onto its own stem bus,
 //                    then the master to the interface and to recordBus
 //   [record group]   the session recorder's synths, which record recordBus
 //                    and the stems (stemSpecs)
@@ -65,6 +67,9 @@ MegaSA {
     // says so, and removes the marker: the boot after tries it once more.
     var <>markerDir;
     var <guitarBus, <bassBus, <loopBus, <loopFxBus, <masterBus, <recordBus;
+    // What the note sequencer's instrument plays onto, stereo, and its chain
+    // works on before the synth's strip.
+    var <synthBus;
     // The drums' busses, stereo: what their voices play onto (stepsBus,
     // onsetBus) and what their effects hand the two strips (stepsOutBus,
     // onsetOutBus).
@@ -82,7 +87,9 @@ MegaSA {
     // the Saturator and Redux. Each default device's id is its effect's key
     // (MegaSAFx.keys). They start as the Live set left them: every effect
     // off, every setting at the set's value; the plugin on.
-    var <guitarChain, <loopChain, <drumsChain, <bassChain;
+    var <guitarChain, <loopChain, <drumsChain, <bassChain, <synthChain;
+    // The Wave synth (MegaSAWave): its tables, its settings, its notes.
+    var <wave;
     var <strips, <masterSynth;
     // The chains' edits (insertDevice and the rest, below): removed plugins
     // parked in limboGroup, a paused group made at the first such removal,
@@ -170,7 +177,7 @@ MegaSA {
     // guitar's, only on a rig with a bass input.
     stripBusses {
         ^[\guitar, guitarBus] ++ (if(bassIn.notNil) { [\bass, bassBus] } { [] })
-            ++ [\loop, loopFxBus, \drums, stepsOutBus, \onsetKit, onsetOutBus]
+            ++ [\loop, loopFxBus, \drums, stepsOutBus, \onsetKit, onsetOutBus, \synth, synthBus]
     }
 
     // The Looper reads every input with SoundIn, and SoundIn.ar(ch) is
@@ -197,7 +204,8 @@ MegaSA {
     // stem. A strip whose bus did not allocate has no stem, nor has the bass
     // on a rig without its input.
     stemSpecs {
-        ^[[\guitar, \guitar, 2], [\bass, \bass, 2], [\loop, \loop, 2], [\drums, \drums, 2], [\onset, \onsetKit, 2]].collect { |row|
+        ^[[\guitar, \guitar, 2], [\bass, \bass, 2], [\loop, \loop, 2], [\drums, \drums, 2], [\onset, \onsetKit, 2],
+            [\synth, \synth, 2]].collect { |row|
             var bus = this.stemBus(row[1]);
             if(bus.notNil and: { bus.index.notNil }) {
                 (role: row[0], channel: this.soundInChannel(bus), numChannels: row[2])
@@ -210,12 +218,13 @@ MegaSA {
         bassIn = bass;
         // The drums' two strips start where Live's faders were: the drums
         // group at -10.6 dB, the One Hit Kit's track at -15.7 dB.
-        levels = (guitar: 1, loop: 1, drums: 0.2951209247, onsetKit: 0.1640589684, master: 1);
+        // The synth's at -6 dB.
+        levels = (guitar: 1, loop: 1, drums: 0.2951209247, onsetKit: 0.1640589684, synth: 0.5011872336, master: 1);
         // Every strip starts with the player's mute off. The guitar's is held
         // while its plugin opens (holds, above), and let go once the plugin
         // has answered: open, or failed, in which case dry is better than
         // nothing.
-        mutes = (guitar: false, loop: false, drums: false, onsetKit: false);
+        mutes = (guitar: false, loop: false, drums: false, onsetKit: false, synth: false);
         // The bass has a strip only with an input to play it. A plugin
         // opening on its chain holds nothing: until it is open its device
         // passes the bass through, as the drums' and the loop's do.
@@ -245,6 +254,9 @@ MegaSA {
         // PC 17's switch exist before anything is built, so setup-sa.scd and
         // the Drums tab can talk to it from here on.
         drums = MegaSADrums(this);
+        // Its settings exist at once too; its tables go up in prBuild.
+        wave = MegaSAWave(server);
+        drums.noteVoice = { |rec, where| wave.voiceMsgs(rec, where) };
         // Busses are allocated in the language, so they exist the moment this
         // returns: setup-sa.scd points the Looper at them before the Looper's
         // own synths start.
@@ -259,8 +271,9 @@ MegaSA {
         onsetOutBus = Bus.audio(server, 2);
         // After the others, so theirs stay where they were before the bass.
         bassBus = Bus.audio(server, 2);
+        synthBus = Bus.audio(server, 2);
         stemBusses = IdentityDictionary.new;
-        ([\guitar, \loop, \drums, \onsetKit] ++ (if(bassIn.notNil) { [\bass] } { [] }))
+        ([\guitar, \loop, \drums, \onsetKit] ++ (if(bassIn.notNil) { [\bass] } { [] }) ++ [\synth])
             .do { |k| stemBusses.put(k, Bus.audio(server, 2)) };
         this.prMakeChains(sound);
         // The guitar is held while a plugin on its chain opens: only if one
@@ -288,6 +301,7 @@ MegaSA {
         drumsChain = MegaSAChain(\drums, stepsBus, \megaSAChainOn, []);
         bassChain = if(bassIn.notNil) { MegaSAChain(\bass, bassBus, \megaSAChainIn, [\in, bassIn]) }
             { MegaSAChain(\bass, bassBus, \megaSAChainOn, []) };
+        synthChain = MegaSAChain(\synth, synthBus, \megaSAChainOn, []);
         if(sound.isNil) {
             MegaSAFx.guitarKeys.do { |k| guitarChain.add(MegaSADevice(k, k)) };
             pluginPath !? { |p|
@@ -342,6 +356,7 @@ MegaSA {
         this.prMakePlugins(bassChain);
         this.prBuildDrums;
         this.prBuildDrumsChain;
+        this.prBuildSynth;
         this.stripBusses.pairsDo { |key, bus|
             strips.put(key, Synth.tail(mixerGroup, \megaSAStrip, [
                 \in, bus.index, \out, masterBus.index,
@@ -530,7 +545,7 @@ MegaSA {
     // it for ever. build posts its own failures; this catches what gets past.
     prBuildDrums {
         try {
-            drums.build(drumGroup, stepsBus, stepsOutBus, onsetBus, onsetOutBus);
+            drums.build(drumGroup, stepsBus, stepsOutBus, onsetBus, onsetOutBus, synthBus);
         } { |err|
             ("MegaSA: the drums were not built (" ++ err.errorString
                 ++ "); SA plays on without them.").warn;
@@ -552,6 +567,18 @@ MegaSA {
         // hit, so the drums' reverb stays awake for it (MegaSADrums.prRestFx).
         // Read at each pump: a sound may bring another chain.
         drums !? { |d| d.stepsHeld = { drumsChain.notNil and: { drumsChain.devices.any(_.on) } } };
+    }
+
+    // The Wave synth's tables, and the synth's chain at the drum group's
+    // tail: after the sequencer's voices, which have written synthBus by
+    // then, and before the mixer. Its plugins are made here and opened with
+    // the guitar's. A failure costs the synth only.
+    prBuildSynth {
+        try { wave.build } { |err|
+            ("MegaSA: the Wave synth's tables were not made (" ++ err.errorString ++ "); the synth stays silent.").warn;
+        };
+        synthChain.build(drumGroup, \addToTail, beatDur);
+        this.prMakePlugins(synthChain);
     }
 
     // The second half of the setup, once the Looper is up: the loop's chain
@@ -615,8 +642,10 @@ MegaSA {
             Out.ar(out, sig);
             Out.ar(rec, sig);
         }).add;
-        // The drums' voices, their drift probe and their effects.
+        // The drums' voices, their drift probe and their effects, and the
+        // Wave synth's voice.
         MegaSADrums.loadSynthDefs;
+        MegaSAWave.loadSynthDefs;
     }
 
     // In a Routine. A build that stopped (an error, posted above) would
@@ -712,10 +741,74 @@ MegaSA {
         strips !? { |s| s[key] !? { |n| n.set(\mute, this.muted(key).binaryValue) } };
     }
 
+    // ---- The synth: presets and Keep ---------------------------------------
+    // The note sequencer's pattern (drums.notes) and the Wave synth's
+    // settings together, as one file (MegaSASynthFile): the Synth view's
+    // presets, <dir>/<slug>.json, and what Keep writes for the next boot. The
+    // sequencer's switch and the Synth strip are not in it.
+
+    *defaultKeptSynthPath { ^MegaFiles.userRoot +/+ "sa" +/+ "kept-synth" +/+ "synth.json" }
+
+    synthPresetSlug { |name| ^Looper.presetSlug(name) }
+
+    synthPresetNames { |dir|
+        if(dir.isNil or: { File.exists(dir).not }) { ^[] };
+        ^(dir +/+ "*.json").pathMatch.collect { |p| PathName(p).fileNameWithoutExtension }.sort
+    }
+
+    // Answers the slug, or nil if nothing was written.
+    saveSynthPreset { |dir, name|
+        var slug;
+        if(dir.isNil or: { drums.isNil }) { "MegaSA synth preset: no directory given.".warn; ^nil };
+        slug = this.synthPresetSlug(name);
+        ^if(this.prWriteSynth(dir +/+ slug ++ ".json", name)) { slug }
+    }
+
+    // True once applied; false, with nothing changed, if the file is missing
+    // or is no synth file.
+    loadSynthPreset { |dir, slug, warnings|
+        if(dir.isNil) { ^false };
+        ^this.prReadSynth(dir +/+ slug ++ ".json", warnings)
+    }
+
+    deleteSynthPreset { |dir, slug|
+        var path = dir !? { dir +/+ slug ++ ".json" };
+        if(path.isNil or: { File.exists(path).not }) { ^false };
+        File.delete(path);
+        ^true
+    }
+
+    // Keep the synth for the next boot. True once written.
+    keepSynth { |path| ^this.prWriteSynth(path ?? { this.class.defaultKeptSynthPath }, "kept") }
+
+    // The kept synth, at boot: false (and nothing said) when nothing was kept.
+    loadKeptSynth { |path, warnings|
+        path = path ?? { this.class.defaultKeptSynthPath };
+        if(File.exists(path).not) { ^false };
+        ^this.prReadSynth(path, warnings)
+    }
+
+    prWriteSynth { |path, name|
+        var why;
+        if(drums.isNil or: { wave.isNil }) { ^false };
+        why = MegaFiles.writeNow(path, MegaSASynthFile.text(name, drums.notes, wave.settings),
+            { |text| if(MegaFiles.parseObject(text).isString) { "it does not read back" } });
+        if(why.notNil) { ("MegaSA: the synth was not written to " ++ path ++ " (" ++ why ++ ").").warn; ^false };
+        ^true
+    }
+
+    prReadSynth { |path, warnings|
+        var data = MegaSASynthFile.read(path, warnings);
+        if(data.isNil or: { drums.isNil }) { ^false };
+        drums.setNotes(data[\notes]);
+        wave.setAll(data[\wave]);
+        ^true
+    }
+
     // ---- Devices ---------------------------------------------------------
     // The chains there are (none on a MegaSA made without its init), and
     // every device in them, the guitar's first.
-    chains { ^[guitarChain, loopChain, drumsChain, bassChain].reject(_.isNil) }
+    chains { ^[guitarChain, loopChain, drumsChain, bassChain, synthChain].reject(_.isNil) }
 
     devices { ^this.chains.collect { |c| c.devices.asArray }.flatten(1) }
 
@@ -873,7 +966,7 @@ MegaSA {
 
     chainFor { |track|
         ^case { track == \guitar } { guitarChain } { track == \loop } { loopChain } { track == \drums } { drumsChain }
-            { track == \bass } { bassChain }
+            { track == \bass } { bassChain } { track == \synth } { synthChain }
     }
 
     chainOf { |device| ^this.chains.detect { |c| c.devices.includes(device) } }
@@ -1250,6 +1343,7 @@ MegaSA {
             lg: (guitarChain !? { |c| c.latency(sr) / sr }) ? 0, ll: (loopChain !? { |c| c.latency(sr) / sr }) ? 0,
             ld: (drumsChain !? { |c| c.latency(sr) / sr }) ? 0,
             lb: (bassChain !? { |c| c.latency(sr) / sr }) ? 0,
+            ls: (synthChain !? { |c| c.latency(sr) / sr }) ? 0,
             chains: this.chains.collect { |c|
                 (track: c.track, devices: c.devices.collect { |d|
                     var e = (id: d.id, type: d.type, name: d.name, on: d.on);
@@ -1781,7 +1875,8 @@ MegaSA {
         strips.do(_.free);
         masterSynth !? (_.free);
         [guitarGroup, mixerGroup, drumGroup, recordGroup].do { |g| g !? (_.free) };
-        [guitarBus, bassBus, loopBus, loopFxBus, masterBus, recordBus,
+        wave !? { |w| w.free };
+        [guitarBus, bassBus, synthBus, loopBus, loopFxBus, masterBus, recordBus,
             stepsBus, stepsOutBus, onsetBus, onsetOutBus].do { |b| b !? (_.free) };
         stemBusses.do { |b| b !? (_.free) };
         ready = false;

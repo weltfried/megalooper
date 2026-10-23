@@ -44,7 +44,7 @@ MegaSASound {
 
     *formatName { ^"megalooper sound" }
     *formatVersion { ^1 }
-    *trackNames { ^[\guitar, \loop, \drums, \bass] }
+    *trackNames { ^[\guitar, \loop, \drums, \bass, \synth] }
     // The chains a sound has had since there were sounds. The drums' and the
     // bass's came later: a sound without one is no fault, and that chain is
     // empty.

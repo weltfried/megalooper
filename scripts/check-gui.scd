@@ -45,7 +45,7 @@
     "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd",
     "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-status.scd", "gui-perform.scd",
     "gui-bbcut.scd", "gui-granular.scd", "gui-analysis.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd",
-    "gui-effects.scd", "gui-drums.scd", "gui-rig.scd", "gui-calibrate.scd",
+    "gui-effects.scd", "gui-drums.scd", "gui-synth.scd", "gui-rig.scd", "gui-calibrate.scd",
     "gui-shell.scd", "gui-wiring.scd"
 ].do { |f| (~megalooperScripts +/+ f).load };
 // It sends nothing back to a controller, whatever settings.json says

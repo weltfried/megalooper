@@ -187,7 +187,7 @@ m.setMute(\guitar, true);
 ~tCheck.("an unknown strip warns rather than throws",
     { m.setLevel(\theremin, 1); m.setMute(\master, true) });
 ~tEq.("and adds nothing", m.levels.keys.asArray.collect(_.asString).sort,
-    ["drums", "guitar", "loop", "master", "onsetKit"]);
+    ["drums", "guitar", "loop", "master", "onsetKit", "synth"]);
 
 // ------------------------------------------------------- effect switches --
 ~tEq.("the guitar's effects, in the Live set's order",
@@ -659,33 +659,34 @@ master = SynthDescLib.global[\megaSAMaster];
     ~tEq.("and are not muted", [sa.mute(\drums), sa.mute(\onsetKit)], [false, false]);
     ~tEq.("every strip has a level and a mute, the master a level only",
         [sa.levels, sa.mutes].collect { |t| t.keys.asArray.collect(_.asString).sort },
-        [["drums", "guitar", "loop", "master", "onsetKit"], ["drums", "guitar", "loop", "onsetKit"]]);
+        [["drums", "guitar", "loop", "master", "onsetKit", "synth"], ["drums", "guitar", "loop", "onsetKit", "synth"]]);
     busses = [sa.stepsBus, sa.stepsOutBus, sa.onsetBus, sa.onsetOutBus];
     ~tAssert.("its four drum busses are stereo audio busses on its server, there at once",
         busses.every { |b| b.isKindOf(Bus) and: { b.rate == \audio } and: { b.numChannels == 2 }
             and: { b.server === stub } });
     ids = (busses ++ [sa.guitarBus, sa.loopBus, sa.loopFxBus, sa.masterBus, sa.recordBus]).collect(_.index);
     ~tEq.("...each a bus of its own", ids.asSet.size, 9);
-    ~tEq.("the strips in mixer order", sa.stripBusses.clump(2).collect(_[0]), [\guitar, \loop, \drums, \onsetKit]);
+    ~tEq.("the strips in mixer order, the synth's last", sa.stripBusses.clump(2).collect(_[0]), [\guitar, \loop, \drums, \onsetKit, \synth]);
     ~tAssert.("each with its bus: the drums' strips read their effects' output",
-        [sa.guitarBus, sa.loopFxBus, sa.stepsOutBus, sa.onsetOutBus].every { |b, i| sa.stripBusses[(i * 2) + 1] === b });
+        [sa.guitarBus, sa.loopFxBus, sa.stepsOutBus, sa.onsetOutBus, sa.synthBus].every { |b, i| sa.stripBusses[(i * 2) + 1] === b });
 
     // ---- the stems ------------------------------------------------------------
     // Each strip after its fader, for the session recorder (stemSpecs, which
     // setup-sa.scd hands it): the set's guitar, loop, drums and onset kit as
     // heard, beside its master.
-    stems = [\guitar, \loop, \drums, \onsetKit].collect { |k| sa.stemBus(k) };
+    stems = [\guitar, \loop, \drums, \onsetKit, \synth].collect { |k| sa.stemBus(k) };
     ~tAssert.("a stem bus per strip, a stereo audio bus on its server, there at once",
         stems.every { |b| b.isKindOf(Bus) and: { b.rate == \audio } and: { b.numChannels == 2 }
             and: { b.server === stub } });
-    ~tEq.("...each a bus of its own, apart from the nine", (ids ++ stems.collect(_.index)).asSet.size, 13);
+    ~tEq.("...each a bus of its own, apart from the nine", (ids ++ stems.collect(_.index)).asSet.size, 14);
     specs = sa.stemSpecs;
-    ~tEq.("the stems: the guitar, the loop, the drums and the onset kit, every one stereo, each from its strip's bus",
+    ~tEq.("the stems: the guitar, the loop, the drums, the onset kit and the synth, every one stereo, each from its strip's bus",
         specs, [
             (role: \guitar, channel: sa.soundInChannel(stems[0]), numChannels: 2),
             (role: \loop, channel: sa.soundInChannel(stems[1]), numChannels: 2),
             (role: \drums, channel: sa.soundInChannel(stems[2]), numChannels: 2),
-            (role: \onset, channel: sa.soundInChannel(stems[3]), numChannels: 2)
+            (role: \onset, channel: sa.soundInChannel(stems[3]), numChannels: 2),
+            (role: \synth, channel: sa.soundInChannel(stems[4]), numChannels: 2)
         ]);
     ~tAssert.("...each channel a SoundIn channel that lands on that bus (In.ar(numOutputs + channel))",
         specs.notEmpty and: { specs.every { |sp, i| (sp[\channel] + stub.options.numOutputBusChannels) == stems[i].index } });
@@ -702,9 +703,9 @@ master = SynthDescLib.global[\megaSAMaster];
         ~tAssert.("the drums' voices are in the drum group",
             [d.stepsGroup, d.repeatGroup, d.onsetGroup].every { |g|
                 g.notNil and: { (kids[sa.drumGroup.nodeID] ? []).includes(g.nodeID) } });
-        ~tEq.("the mixer runs the four strips in order, then the master",
+        ~tEq.("the mixer runs the five strips in order, then the master",
             (kids[sa.mixerGroup.nodeID] ? []).asArray,
-            ([\guitar, \loop, \drums, \onsetKit].collect { |k| sa.strips[k] } ++ [sa.masterSynth])
+            ([\guitar, \loop, \drums, \onsetKit, \synth].collect { |k| sa.strips[k] } ++ [sa.masterSynth])
                 .collect { |x| x !? (_.nodeID) });
     };
     ~tEq.("the drums' strip starts at -10.6 dB, unmuted, on stepsOutBus",
@@ -712,7 +713,7 @@ master = SynthDescLib.global[\megaSAMaster];
     ~tEq.("the onset kit's at -15.7 dB on onsetOutBus",
         [\in, \amp, \mute].collect { |k| argsOf.(sa.strips[\onsetKit])[k] }, [sa.onsetOutBus.index, 0.1640589684, 0]);
     ~tEq.("every strip starts writing its own stem bus",
-        [\guitar, \loop, \drums, \onsetKit].collect { |k| argsOf.(sa.strips[k])[\stem] }, stems.collect(_.index));
+        [\guitar, \loop, \drums, \onsetKit, \synth].collect { |k| argsOf.(sa.strips[k])[\stem] }, stems.collect(_.index));
     ~tEq.("...and the master none", argsOf.(sa.masterSynth)[\stem], nil);
 
     // ---- the strips, a reading -----------------------------------------------
@@ -935,12 +936,12 @@ master = SynthDescLib.global[\megaSAMaster];
         sa.drums.free;
         sa.instVarPut(\drums, (build: { |self ... args| calls.add(args); Error("a drum kit on fire").throw }));
         ~tCheck.("drums whose build throws do not stop it", { Routine { sa.prBuild }.next });
-        want = [sa.drumGroup, sa.stepsBus, sa.stepsOutBus, sa.onsetBus, sa.onsetOutBus];
-        ~tAssert.("the build was given the drum group and the four drum busses, in its order",
-            (calls.size == 1) and: { calls[0].size == 5 } and: { calls[0].every { |x, i| x === want[i] } },
+        want = [sa.drumGroup, sa.stepsBus, sa.stepsOutBus, sa.onsetBus, sa.onsetOutBus, sa.synthBus];
+        ~tAssert.("the build was given the drum group, the four drum busses and the synth's, in its order",
+            (calls.size == 1) and: { calls[0].size == 6 } and: { calls[0].every { |x, i| x === want[i] } },
             calls.asString);
-        ~tEq.("and it is ready, its four strips and its master up",
-            [sa.ready, sa.strips.size, sa.masterSynth.notNil], [true, 4, true]);
+        ~tEq.("and it is ready, its five strips and its master up",
+            [sa.ready, sa.strips.size, sa.masterSynth.notNil], [true, 5, true]);
         sa.instVarPut(\drums, nil);
         sa.free;
     };
@@ -977,7 +978,7 @@ master = SynthDescLib.global[\megaSAMaster];
         ~tAssert.("...and never a negative or a missing bus", sa.strips.values.every { |s|
             argsOf.(s)[\stem].isNil or: { argsOf.(s)[\stem] > 0 } });
         sa.stemBusses.removeAt(\onsetKit);
-        ~tEq.("the recorder is told only the stems there are", sa.stemSpecs.collect(_[\role]), [\guitar, \drums]);
+        ~tEq.("the recorder is told only the stems there are", sa.stemSpecs.collect(_[\role]), [\guitar, \drums, \synth]);
         ~tCheck.("...and it frees", { sa.free });
     };
     ~tEq.("a MegaSA made without its init has no stems and says so",

@@ -37,8 +37,8 @@ t = ~tNodeTree.(stub);
     (t[\children][bc.group.nodeID] ? []).asArray.collect { |x| t[\defs][x] }, [\megaSAChainOn]);
 ~tEq.("...and no strip, level, mute or stem",
     [sa.strips[\bass], sa.level(\bass), sa.mute(\bass), sa.stemBus(\bass), sa.stemSpecs.collect { |x| x[\role] }],
-    [nil, nil, nil, nil, [\guitar, \loop, \drums, \onset]]);
-~tEq.("the strips are the four of before", sa.stripBusses.clump(2).collect(_[0]), [\guitar, \loop, \drums, \onsetKit]);
+    [nil, nil, nil, nil, [\guitar, \loop, \drums, \onset, \synth]]);
+~tEq.("the strips are the others", sa.stripBusses.clump(2).collect(_[0]), [\guitar, \loop, \drums, \onsetKit, \synth]);
 sa.free;
 
 // ---- a rig with one ---------------------------------------------------------------
@@ -60,14 +60,14 @@ t = ~tNodeTree.(stub);
     .includes(sa.bassBus.index).not);
 ~tEq.("the Looper still records the guitar chain alone", sa.looperInChannel, sa.soundInChannel(sa.guitarBus));
 ~tEq.("the strips in mixer order, the bass's after the guitar's",
-    sa.stripBusses.clump(2).collect(_[0]), [\guitar, \bass, \loop, \drums, \onsetKit]);
+    sa.stripBusses.clump(2).collect(_[0]), [\guitar, \bass, \loop, \drums, \onsetKit, \synth]);
 ~tEq.("...the bass's reading its bus, at 0 dB, unmuted, onto its own stem bus",
     [\in, \amp, \mute, \stem].collect { |k| argsOf.(sa.strips[\bass])[k] },
     [sa.bassBus.index, 1, 0, sa.stemBus(\bass).index]);
 ~tEq.("...into the master with the others", argsOf.(sa.strips[\bass])[\out], sa.masterBus.index);
 ~tEq.("the set records a bass stem, after the guitar's",
     sa.stemSpecs.collect { |x| [x[\role], x[\numChannels]] },
-    [[\guitar, 2], [\bass, 2], [\loop, 2], [\drums, 2], [\onset, 2]]);
+    [[\guitar, 2], [\bass, 2], [\loop, 2], [\drums, 2], [\onset, 2], [\synth, 2]]);
 ~tEq.("...from its strip's stem bus", sa.stemSpecs[1][\channel], sa.soundInChannel(sa.stemBus(\bass)));
 ~tAssert.("...which the session recorder takes", LooperSessionRecorder.stemProblem(sa.stemSpecs[1], nil).isNil);
 said = heard.(sa, { sa.setLevel(\bass, 0.5) });
@@ -98,7 +98,7 @@ sa.setTempo(100);
     stub[\msgs].any { |x| (x[0] == 15) and: { x[1] == bc.group.nodeID } and: { x[2] == \beatDur } });
 ~tEq.("a session's header has the bass chain and its delay",
     [sa.sessionInfo[\chains].collect { |c| c[\track] }, sa.sessionInfo[\chains][3][\devices].collect { |x| x[\id] }, sa.sessionInfo[\lb]],
-    [[\guitar, \loop, \drums, \bass], [d.id], bc.latency(sa.sampleRate) / sa.sampleRate]);
+    [[\guitar, \loop, \drums, \bass, \synth], [d.id], bc.latency(sa.sampleRate) / sa.sampleRate]);
 
 // ---- in a sound ----------------------------------------------------------------
 sound = sa.sound("with bass");

@@ -45,34 +45,38 @@
 // when the window is built, since that is when the rig is known.
 ~guiPaneOrderFor = { |sa = false|
     if(sa == true) {
-        [\perform, \cutter, \grains, \effects, \drums, \analysis, \rig, \calibrate]
+        [\perform, \cutter, \grains, \effects, \drums, \synth, \analysis, \rig, \calibrate]
     } {
         [\perform, \cutter, \grains, \analysis, \rig, \calibrate]
     }
 };
 ~guiPaneOrder  = ~guiPaneOrderFor.(false);
 ~guiPaneLabels = (perform: "Perform", cutter: "Cutter", grains: "Grains",
-    effects: "Effects", drums: "Drums", analysis: "Analysis", rig: "Rig", calibrate: "Calibrate");
+    effects: "Effects", drums: "Drums", synth: "Synth", analysis: "Analysis", rig: "Rig", calibrate: "Calibrate");
 
 ~guiViewOrderFor = { |sa = false|
-    if(sa == true) { [\perform, \sound, \fx, \drums, \setup, \calibrate] } { [\perform, \sound, \setup, \calibrate] }
+    if(sa == true) { [\perform, \sound, \fx, \drums, \synth, \setup, \calibrate] } { [\perform, \sound, \setup, \calibrate] }
 };
 ~guiViewOrder = ~guiViewOrderFor.(false);
 // The footer's resting line, on every view: the tabs' keys as the rig has
-// them (1, 2, 5 without SA), Calibrate's, which has no tab, and the theme's.
+// them (1 2 5 without SA; 1–5 7 with: the Synth's 7 came after Calibrate's
+// 6), Calibrate's, which has no tab, and the theme's. Runs of three or more
+// keys as a–b.
 ~guiKeysHint = {
-    var tabs = ~guiViewOrder.reject { |k| k == \calibrate }.collect { |k| ~guiViewNumbers[k] };
-    var run = if(tabs.size > 1 and: { tabs == (tabs.first..tabs.last) }) { tabs.first.asString ++ "–" ++ tabs.last }
-        { tabs.join(" ") };
+    var tabs = ~guiViewOrder.reject { |k| k == \calibrate }.collect { |k| ~guiViewNumbers[k] }.sort;
+    var runs = List.new, run;
+    tabs.do { |n| if(runs.notEmpty and: { runs.last.last == (n - 1) }) { runs.last.add(n) } { runs.add(List[n]) } };
+    run = runs.collect { |r| if(r.size > 2) { r.first.asString ++ "–" ++ r.last } { r.join(" ") } }.join(" ");
     "keys " ++ run ++ " views"
         ++ (if(~guiViewOrder.includes(\calibrate)) { " · " ++ ~guiViewNumbers[\calibrate] ++ " calibrate" } { "" })
         ++ " · T theme · H help"
 };
-~guiViewLabels = (perform: "Perform", sound: "Sound", fx: "FX", drums: "Drums", setup: "Setup", calibrate: "Calibrate");
+~guiViewLabels = (perform: "Perform", sound: "Sound", fx: "FX", drums: "Drums", synth: "Synth", setup: "Setup",
+    calibrate: "Calibrate");
 // Fixed whatever the rig, so a key and a program change mean the same view
 // everywhere: 3 and 4 are simply not there without SA.
-~guiViewNumbers = (perform: 1, sound: 2, fx: 3, drums: 4, setup: 5, calibrate: 6);
-~guiViewPanes = (perform: [\perform], sound: [\cutter, \grains], fx: [\effects], drums: [\drums],
+~guiViewNumbers = (perform: 1, sound: 2, fx: 3, drums: 4, setup: 5, calibrate: 6, synth: 7);
+~guiViewPanes = (perform: [\perform], sound: [\cutter, \grains], fx: [\effects], drums: [\drums], synth: [\synth],
     setup: [\analysis, \rig], calibrate: [\calibrate]);
 // The Calibrate wizard is reached from Setup and goes back to it: its tab is
 // Setup's.
@@ -96,6 +100,8 @@
     // SA's drums sounding: the steps on (PC 17) AND the transport playing.
     // `on` alone is true from boot, so it would light the tab all the time.
     drums:    { ((~drumsModel !? { |f| f.value }) !? { |d| d.on and: { d.playing } }) ? false },
+    // The note sequencer sounding: on, and the transport playing.
+    synth:    { ((~synthModel !? { |f| f.value }) !? { |d| d.notesOn and: { d.playing } }) ? false },
     // Lit while a calibration is part-done, so a wizard abandoned halfway
     // through says so from whichever view you are looking at.
     calibrate: { ~calibrator !? { |c|
@@ -103,6 +109,7 @@
 );
 // Each view's dots: a pane and the colour it lights in.
 ~guiViewDots = (sound: [[\cutter, \cut], [\grains, \grain]], fx: [[\effects, \fx]], drums: [[\drums, \drum]],
+    synth: [[\synth, \synth]],
     setup: [[\calibrate, \armed]]);
 
 ~guiPaneHolders = ~guiPaneHolders ? IdentityDictionary.new;
@@ -202,6 +209,7 @@
     if(i.isNil) {
         if(key == \fx) { ~guiSay.("No FX on this rig: Live has them", \info) };
         if(key == \drums) { ~guiSay.("No Drums on this rig: Live has them", \info) };
+        if(key == \synth) { ~guiSay.("No Synth on this rig: it is Megalooper SA's", \info) };
     } {
         ~guiView = key;
         ~guiStack !? { |st| st.index = i };
@@ -294,7 +302,7 @@
 // MIDI Map mode's come first (gui-mapmode.scd): Cmd+M, and while it is on Esc,
 // Delete and Cmd+Z. A letter with Cmd or Ctrl held is no shortcut, so Cmd+M
 // can't multiply nor Cmd+C clear. `key` is Qt's key code; the letters go by the
-// character, as they always have. 1-6 show the views, T switches the theme,
+// character, as they always have. 1-7 show the views, T switches the theme,
 // and Esc on the wizard goes back to Setup.
 ~guiKeyEscape = 16r1000000;
 ~guiKeyDown = { |char, modifiers, key|
@@ -445,7 +453,9 @@
     // and brings them back. The tabs, the theme, the MIDI map and the SET REC
     // tile stay: the last says a set is being written, so it is never hidden.
     // The Möbius loop, then the name: 190 together. A narrow window takes
-    // the name away and the loop stays.
+    // the name away and the loop stays. With SA's six tabs that is already so
+    // at the 1440 the bar was laid out for (the Synth's tab took the name's
+    // place); a wider screen has both.
     ~guiLogo = UserView().fixedSize_(Size(56, 52)).acceptsMouse_(false).drawFunc_({ |v| ~guiLogoPaint.(v) });
     wordmarkText = ~guiMonoText.("MEGALOOPER", 15, ~gt[\ink]).align_(\left).fixedWidth_(116);
     wordmark = View().layout_(HLayout(~guiLogo, wordmarkText).margins_([6, 0, 4, 0]).spacing_(8));
@@ -690,6 +700,7 @@
             // scrolling: together the drums had too little height to edit.
             \fx, { View().layout_(VLayout(scroll.(\effects)).margins_(0).spacing_(0)) },
             \drums, { View().layout_(VLayout(scroll.(\drums)).margins_(0).spacing_(0)) },
+            \synth, { View().layout_(VLayout(scroll.(\synth)).margins_(0).spacing_(0)) },
             // The third column scrolls too, though it fits: a view's minimum
             // height must stay small. Qt can count a view's minimum against the
             // band of the view before it while views switch fast, and the
@@ -767,6 +778,7 @@
     ~buildGranularPane.();
     if(~guiPaneOrder.includes(\effects)) { ~buildEffectsPane !? { |f| f.value } };
     if(~guiPaneOrder.includes(\drums)) { ~buildDrumsPane !? { |f| f.value } };
+    if(~guiPaneOrder.includes(\synth)) { ~buildSynthPane !? { |f| f.value } };
     ~buildAnalysisPane.();
     ~buildRigPane.();
     ~buildCalibratePane.();

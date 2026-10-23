@@ -614,12 +614,12 @@
 // The chains the pane shows a row for, in the order of their rows: the bass's
 // under the guitar's, the two inputs together, and only on a rig with a bass
 // input (without one its chain plays silence, and its row would offer
-// effects nobody hears).
+// effects nobody hears); the synth's last, after the drums'.
 ~effectsTracks = {
-    [\guitar, \bass, \loop, \drums].select { |t|
+    [\guitar, \bass, \loop, \drums, \synth].select { |t|
         MegaSASound.trackNames.includes(t) and: { (t != \bass) or: { (~megaSA !? { |m| m.bassIn }).notNil } } }
 };
-~effectsRowCaptions = (guitar: "GUITAR", bass: "BASS", loop: "LOOP", drums: "DRUMS");
+~effectsRowCaptions = (guitar: "GUITAR", bass: "BASS", loop: "LOOP", drums: "DRUMS", synth: "SYNTH");
 
 // ---- The status line ------------------------------------------------------------
 // Under the rows: the drum hits the language had to drop, and every plugin

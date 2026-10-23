@@ -121,12 +121,12 @@
             set: { |on| if(fxThere.(id)) { ~megaSA.setFx(id, on) } }, available: { fxThere.(id) },
             why: fxWhy.(id, name)));
     };
-    var stripNames = (guitar: "Guitar", bass: "Bass", loop: "Loop", drums: "Drums", onsetKit: "Onset kit", master: "Master");
+    var stripNames = (guitar: "Guitar", bass: "Bass", loop: "Loop", drums: "Drums", onsetKit: "Onset kit", synth: "Synth", master: "Master");
     var patternNames = (main: "Main", break: "Break");
     var pageNames = (chance: "Chance", alt: "Alt", velo: "Velo", roll: "Roll");
     var slotNames = (steps: "Steps kit", onset: "Onset kit");
     var laneLabels = (note: "Note", altNote: "Alt", delay: "D (delay)", mute: "M (mute)", lock: "Lock");
-    var looperFamily, effectsFamily, mixerFamily, drumsFamily, trimsFamily, windowFamily;
+    var looperFamily, effectsFamily, mixerFamily, drumsFamily, trimsFamily, windowFamily, synthFamily;
     var addCount, addFx, addReset, addRandom, fxFurther, fxPlugins, addLevel, addMute, addTiming, addLane, addTrims, addPadTrim, addGroupTrim;
     var stripLabel, inForce, trimLaw, trimText;
 
@@ -394,8 +394,8 @@
     // master's. The drums' two strips are on the Drums tab too. The bass's
     // are there only on a rig with a bass input.
     mixerFamily = {
-        [\guitar, \bass, \loop, \drums, \onsetKit, \master].do { |k| addLevel.(k) };
-        [\guitar, \bass, \loop, \drums, \onsetKit].do { |k| addMute.(k) };
+        [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].do { |k| addLevel.(k) };
+        [\guitar, \bass, \loop, \drums, \onsetKit, \synth].do { |k| addMute.(k) };
     };
     stripLabel = { |k| ((~saStripLabels !? { |names| names[k] }) ? stripNames[k] ? k).asString.replace(":", "") };
     // A level as its slider moves it (~saLevelRow): in dB on ~saLevelSpec's
@@ -581,13 +581,65 @@
                     (inForce.(slot) !? { |k| k.groupKeys.includes(group) }) == true } }));
     };
 
+    // The synth, as the Synth view shows it (gui-synth.scd): the note
+    // sequencer's switch, its rate, swing, root and scale, the Wave synth's
+    // Random and Reset, and every one of its settings on its knob's spec.
+    synthFamily = {
+        var wave = { ~megaSA !? { |m| if(m.respondsTo(\wave)) { m.wave } } };
+        var hasWave = { wave.value.notNil };
+        // The drums with a note sequencer (an Event standing in has none).
+        var drums = { ~megaSA !? { |m| if(m.respondsTo(\drums)) { m.drums } } !? { |d| if(d.respondsTo(\notes)) { d } } };
+        var hasDrums = { drums.value.notNil };
+        var seqChoice = { |name, label, items|
+            add.(("sa.synth." ++ name).asSymbol, label, "Synth", \choice, choice.((group: "Sequence",
+                items: { items },
+                get: { drums.value !? { |d| d.notes[name] } },
+                set: { |i| drums.value !? { |d| d.setNoteSetting(name, i) } },
+                available: hasDrums)));
+        };
+        add.('sa.synth.on', "Synth", "Synth", \toggle, (
+            flip: { drums.value !? { |d| d.setNotesOn(d.notesOn.not) } },
+            get: { drums.value !? { |d| d.notesOn } },
+            set: { |on| drums.value !? { |d| d.setNotesOn(on == true) } },
+            available: hasDrums));
+        seqChoice.(\division, "Rate", MegaSANoteSeq.divisionNames);
+        seqChoice.(\root, "Root", MegaSANoteSeq.rootNames);
+        seqChoice.(\scale, "Scale", MegaSANoteSeq.scales.collect(_[0]));
+        add.('sa.synth.swing', "Swing", "Synth", \continuous, (group: "Sequence",
+            get: { drums.value !? { |d| d.notes[\swing] } },
+            set: { |v| drums.value !? { |d| d.setNoteSetting(\swing, v) } },
+            fromPos: { |c| c }, toPos: { |v| v },
+            format: shown.({ |v| (v * 100).round.asInteger.asString ++ " %" }), available: hasDrums));
+        add.('sa.synth.random', "Random sound", "Synth", \trigger, (group: "Wave synth",
+            fire: { wave.value !? { |w| w.randomize } }, available: hasWave));
+        add.('sa.synth.reset', "Reset sound", "Synth", \trigger, (group: "Wave synth",
+            fire: { wave.value !? { |w| w.reset } }, available: hasWave));
+        MegaSAWave.params.do { |p|
+            var name = p[\name], id = ("sa.synth." ++ name).asSymbol, fields;
+            fields = (group: "Wave synth", available: hasWave);
+            if(p[\choices].notNil) {
+                fields.put(\items, p[\choices].collect(_[1]));
+                fields.put(\get, { wave.value !? { |w| p[\choices].collect(_[0]).indexOfEqual(w[name]) } });
+                fields.put(\set, { |i| wave.value !? { |w| p[\choices][i] !? { |c| w.set(name, c[0]) } } });
+                add.(id, p[\label], "Synth", \choice, choice.(fields));
+            } {
+                fields.put(\get, { wave.value !? { |w| w[name] } });
+                fields.put(\set, { |v| wave.value !? { |w| w.set(name, v) } });
+                fields.put(\fromPos, { |c| p[\spec].map(c) });
+                fields.put(\toPos, { |v| p[\spec].unmap(v) });
+                fields.put(\format, shown.({ |v| ~synthFormat !? { |f| f.(p, v) } ? v }));
+                add.(id, p[\label], "Synth", if(p[\spec].step >= 1) { \step } { \continuous }, fields);
+            };
+        };
+    };
+
     // The views of the stage window (docs/dev/stage-ui.md): a press shows one, as
-    // keys 1-6 do. Ids by the view's name, not its number, so a mapping
+    // keys 1-7 do. Ids by the view's name, not its number, so a mapping
     // survives a renumbering. FX and Drums are there only where the window
     // has them (Megalooper SA). The window is the GUI's: the press is deferred to
     // AppClock, as every view change must be.
     windowFamily = {
-        [[\perform, "Perform"], [\sound, "Sound"], [\fx, "FX"], [\drums, "Drums"], [\setup, "Setup"],
+        [[\perform, "Perform"], [\sound, "Sound"], [\fx, "FX"], [\drums, "Drums"], [\synth, "Synth"], [\setup, "Setup"],
             [\calibrate, "Calibrate"]].do { |v|
             add.(("gui.view." ++ v[0]).asSymbol, "Show " ++ v[1], "Window", \trigger, (group: "Views",
                 fire: { { ~guiSelectView !? { |f| f.(v[0]) } }.defer },
@@ -598,7 +650,7 @@
 
     [
         [\looper, looperFamily], [\effects, effectsFamily], [\mixer, mixerFamily],
-        [\drums, drumsFamily], [\trims, trimsFamily], [\window, windowFamily]
+        [\drums, drumsFamily], [\trims, trimsFamily], [\synth, synthFamily], [\window, windowFamily]
     ].do { |pair|
         if(only.isNil or: { only == pair[0] }) { try { pair[1].value } { |err|
             ("megalooper: MIDI controls: the " ++ pair[0] ++ " family could not be made ("
