@@ -1,9 +1,10 @@
 // megalooper as a tool for an AI app (MegaRemote, docs/dev/ai-tool.md, Phase 0):
 // who may ask (127.0.0.1 and this boot's token, an id that names nothing
 // but its own two files), what is answered (ping, the context, what every
-// setting means), the drums and the synth it may change and take back (a
-// pattern merged over the one playing, the steps' kit, the note sequence,
-// the Wave synth, the sequencer's switch, revert across both, presets
+// setting means), the drums, the synth and the chains it may change and
+// take back (a pattern merged over the one playing, the steps' kit, the note
+// sequence, the Wave synth, the sequencer's switch, built-in effects in, out,
+// moved, set and switched, revert across all of them, presets and sounds
 // saved), and that
 // every answer is JSON that reads back. The OSC
 // round trip itself is tools/megalooper-mcp.py's check
@@ -27,7 +28,7 @@ got = ask.(r, "{\"command\": \"ping\"}");
     [true, "megalooper remote", 1, thisProcess.pid]);
 got = ask.(r, "{\"command\": \"tune the guitar\"}");
 ~tEq.("a command there is not is refused, naming those there are",
-    [got.at("ok"), got.at("error").contains("ping, context, describe, set_drum_pattern, set_synth")], [false, true]);
+    [got.at("ok"), got.at("error").contains("ping, context, describe, set_drum_pattern, set_synth, set_chain")], [false, true]);
 got = ask.(r, "tune the guitar");
 ~tEq.("...as is a request that is not JSON", [got.at("ok"), got.at("error").contains("not JSON")], [false, true]);
 got = ask.(r, nil);
@@ -345,3 +346,103 @@ protect {
     other !? { |x| x.stop };
 };
 }.value;
+
+// ---- the chains, changed and taken back -------------------------------------------------
+{
+var vst = \VSTPlugin.asClass, stub, sa, l, r, got, o, src, sounds, said, lp, g, before, onBefore, onNow, refusals;
+var ask = { |remote, text| MegaFiles.parseObject(MegaFiles.json(remote.handle(text))) };
+MegaSA.loadSynthDefs;
+stub = ~tStubServer.();
+sa = ~tMegaSA.(stub, if(vst.notNil) { ~tFakePlugin.(\open) });
+Synth.tail(stub[\defaultGroup], \looperMaster);
+l = ~tLooper.();
+Routine { sa.attachLooper(l) }.next;
+g = sa.guitarChain;
+lp = sa.loopChain;
+sounds = ~tTempPath.("megaremote-sounds");
+said = List.new;
+src = (sa: sa, soundDir: sounds, say: { |m| said.add(m) });
+r = MegaRemote({ src });
+before = sa.sound.contentString;
+onNow = { sa.devices.collect { |d| [d.id, d.on] } };
+onBefore = onNow.();
+
+got = ask.(r, "{\"command\": \"set_chain\", \"args\": {\"insert\": [{\"track\": \"loop\", \"type\": \"delay\", \"index\": 1, "
+    "\"settings\": {\"delayFeedback\": 0.3, \"delayMix\": 7}}]}}");
+~tEq.("an insert puts a built-in effect where asked, with its settings, and says its id and place",
+    [got.at("ok"), lp.ids, got.at("result").at("inserted")[0].at("id"), got.at("result").at("inserted")[0].at("index"),
+        sa.param(\delay2, \delayFeedback), sa.fx(\delay2)],
+    [true, [\echo, \delay2, \saturator, \redux], "delay2", 1, 0.3, true]);
+~tEq.("...a setting held to its range is said", [sa.param(\delay2, \delayMix), got.at("result").at("corrections")],
+    [1.0, ["delay2.delayMix 7 -> 1.0"]]);
+
+got = ask.(r, "{\"command\": \"set_chain\", \"args\": {\"remove\": [\"redux\"], \"move\": [{\"id\": \"saturator\", \"index\": 0}], "
+    "\"settings\": {\"shifter\": {\"shifterCoarse\": 7}}, \"on\": {\"shifter\": true, \"echo\": false}}}");
+~tEq.("remove, move, settings and switches in one change, in that order",
+    [got.at("ok"), lp.ids, sa.param(\shifter, \shifterCoarse), sa.fx(\shifter), sa.fx(\echo), got.at("result").at("corrections")],
+    [true, [\saturator, \echo, \delay2], 7, true, false, []]);
+~tEq.("...the answer holds the chains as they now stand",
+    got.at("result").at("chains").detect { |c| c.at("track") == "loop" }.at("devices").collect { |d| d.at("id") },
+    ["saturator", "echo", "delay2"]);
+
+refusals = [
+    "{\"command\": \"set_chain\", \"args\": {}}",
+    "{\"command\": \"set_chain\", \"args\": {\"remove\": [\"nothing\"]}}",
+    "{\"command\": \"set_chain\", \"args\": {\"remove\": \"echo\"}}",
+    "{\"command\": \"set_chain\", \"args\": {\"insert\": [{\"track\": \"loop\", \"type\": \"flanger\"}]}}",
+    "{\"command\": \"set_chain\", \"args\": {\"insert\": [{\"track\": \"vocals\", \"type\": \"delay\"}]}}",
+    "{\"command\": \"set_chain\", \"args\": {\"insert\": [{\"track\": \"loop\", \"type\": \"delay\", \"index\": -1}]}}",
+    "{\"command\": \"set_chain\", \"args\": {\"insert\": [{\"track\": \"loop\", \"type\": \"delay\", \"settings\": {\"echoMix\": 1}}]}}",
+    "{\"command\": \"set_chain\", \"args\": {\"settings\": {\"echo\": {\"echoMix\": \"loud\"}}}}",
+    "{\"command\": \"set_chain\", \"args\": {\"settings\": {\"echo\": {\"shifterCoarse\": 3}}}}",
+    "{\"command\": \"set_chain\", \"args\": {\"on\": {\"echo\": 1}}}",
+    "{\"command\": \"set_chain\", \"args\": {\"remove\": [\"echo\"], \"move\": [{\"id\": \"echo\", \"index\": 0}]}}",
+    // Valid but for its last part: nothing of it may happen.
+    "{\"command\": \"set_chain\", \"args\": {\"settings\": {\"echo\": {\"echoMix\": 0.1}}, \"on\": {\"nothing\": true}}}"
+].collect { |t| ask.(r, t) };
+~tEq.("refused whole, changing nothing: nothing given, a device, a type, a track, an index, a setting, a value or a switch that is none, a device moved after it is removed, or one part wrong",
+    refusals.collect { |x| x.at("ok") } ++ [r.changeCount, lp.ids, sa.param(\echo, \echoMix) != 0.1],
+    (false ! refusals.size) ++ [2, [\saturator, \echo, \delay2], true]);
+~tAssert.("...each saying why", refusals.every { |x| x.at("error").isString and: { x.at("error").size > 10 } },
+    refusals.collect { |x| x.at("error") }.join(" | "));
+if(vst.notNil) {
+    ~tEq.("a plugin is never taken out, nor its own settings set",
+        [ask.(r, "{\"command\": \"set_chain\", \"args\": {\"remove\": [\"plugin1\"]}}").at("error").contains("plugin"),
+            ask.(r, "{\"command\": \"set_chain\", \"args\": {\"settings\": {\"plugin1\": {\"x\": 1}}}}").at("error").contains("plugin"),
+            sa.device(\plugin1).notNil],
+        [true, true, true]);
+} { ~tSkip.("a plugin is never taken out", "VSTPlugin is not installed") };
+
+got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 2}}");
+~tEq.("revert puts the chains back: devices, places, settings and every switch",
+    [got.at("ok"), got.at("result").at("reverted"), lp.ids, sa.sound.contentString == before, onNow.() == onBefore],
+    [true, ["chains (removed, moved, settings, switches)", "chains (inserted)"], [\echo, \saturator, \redux], true, true]);
+r.handle("{\"command\": \"set_chain\", \"args\": {\"on\": {\"shifter\": true}, \"settings\": {\"delay\": {\"delayFeedback\": 0.5}}}}");
+r.handle("{\"command\": \"revert\"}");
+~tEq.("...a change of switches and settings alone too (a recall of the same devices flips no switch)",
+    [sa.sound.contentString == before, onNow.() == onBefore], [true, true]);
+
+protect {
+    MegaFiles.alwaysSync = true;
+    // Without the plugin's own state, which the fake plugin would answer
+    // only when stepped: the sound's file is then written at once.
+    sa.statesAllowed = { false };
+    got = ask.(r, "{\"command\": \"save_sound\", \"args\": {\"name\": \"AI Wash\"}}");
+    ~tEq.("save_sound writes the chains as a sound in the Effects view's folder",
+        [got.at("ok"), got.at("result").at("saved"), sa.soundNames(sounds)], [true, "ai-wash", ["ai-wash"]]);
+    ~tEq.("...a name taken is refused unless overwrite is true",
+        [ask.(r, "{\"command\": \"save_sound\", \"args\": {\"name\": \"AI Wash\"}}").at("ok"),
+            ask.(r, "{\"command\": \"save_sound\", \"args\": {\"name\": \"AI Wash\", \"overwrite\": true}}").at("ok")],
+        [false, true]);
+} { MegaFiles.alwaysSync = false };
+~tEq.("every chain change and revert was said in the status line",
+    said.select { |m| m.contains("chains") }.size, 3 + 2 + 2);
+~tEq.("with no SA the chains are refused",
+    ["set_chain", "save_sound"].collect { |c|
+        MegaRemote({ () }).handle("{\"command\": \"" ++ c ++ "\", \"args\": {\"name\": \"x\", \"on\": {}}}").at(\error)
+            .contains("without Megalooper SA") },
+    [true, true]);
+~tRemoveTree.(sounds);
+sa.free;
+}.value;
+

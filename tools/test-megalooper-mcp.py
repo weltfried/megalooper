@@ -123,12 +123,12 @@ class Protocol(unittest.TestCase):
     def test_tools_are_listed_with_schemas_and_say_which_change_things(self):
         tools = call("tools/list")["result"]["tools"]
         self.assertEqual([t["name"] for t in tools],
-                         ["get_context", "describe", "set_drum_pattern", "set_synth", "revert",
-                          "save_synth_preset", "save_drum_preset"])
+                         ["get_context", "describe", "set_drum_pattern", "set_synth", "set_chain", "revert",
+                          "save_synth_preset", "save_sound", "save_drum_preset"])
         for t in tools:
             self.assertEqual(t["inputSchema"]["type"], "object")
         self.assertEqual({t["name"] for t in tools if t["annotations"]["readOnlyHint"]}, {"get_context", "describe"})
-        self.assertEqual({t["name"] for t in tools if t["annotations"].get("destructiveHint")}, {"save_drum_preset", "save_synth_preset"})
+        self.assertEqual({t["name"] for t in tools if t["annotations"].get("destructiveHint")}, {"save_drum_preset", "save_synth_preset", "save_sound"})
 
     def test_notifications_get_no_answer_and_ping_an_empty_one(self):
         self.assertIsNone(mcp.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}))
@@ -220,6 +220,9 @@ class Asking(unittest.TestCase):
         self.assertEqual(json.loads(tool("set_synth", given)[0])["args"], given)
         self.assertEqual(json.loads(tool("save_synth_preset", {"name": "y", "overwrite": True})[0])["args"],
                          {"name": "y", "overwrite": True})
+        given = {"insert": [{"track": "loop", "type": "echo"}], "on": {"echo": False}}
+        self.assertEqual(json.loads(tool("set_chain", given)[0])["args"], given)
+        self.assertEqual(json.loads(tool("save_sound", {"name": "z"})[0])["args"], {"name": "z"})
 
     def test_a_refusal_is_the_tools_error(self):
         self.start({"describe": {"ok": False, "error": "no such topic"}})
@@ -375,6 +378,23 @@ class RoundTrip(unittest.TestCase):
         self.assertFalse(tool("revert")[1])
         after = json.loads(tool("get_context", {"parts": ["synth"]})[0])["synth"]
         self.assertEqual(after, before)
+
+    def test_a_chain_change_over_osc_and_back(self):
+        before = json.loads(tool("get_context", {"parts": ["chains"]})[0])["chains"]
+        guitar = before[0]["devices"][0]
+        text, err = tool("set_chain", {"settings": {guitar["id"]: {"shifterCoarse": 99}},
+                                       "on": {guitar["id"]: not guitar["on"]}})
+        self.assertFalse(err, text)
+        got = json.loads(text)
+        self.assertEqual(got["chains"][0]["devices"][0]["settings"]["shifterCoarse"], 24)
+        self.assertEqual(got["chains"][0]["devices"][0]["on"], not guitar["on"])
+        self.assertEqual(len(got["corrections"]), 1)
+        self.assertRegex(got["corrections"][0], r"^%s\.shifterCoarse 99 -> 24(\.0)?$" % guitar["id"])
+        text, err = tool("set_chain", {"remove": ["nothing"]})
+        self.assertTrue(err)
+        self.assertIn("no device nothing", text)
+        self.assertFalse(tool("revert")[1])
+        self.assertEqual(json.loads(tool("get_context", {"parts": ["chains"]})[0])["chains"], before)
 
     def test_several_asks_in_a_row(self):
         for _ in range(5):

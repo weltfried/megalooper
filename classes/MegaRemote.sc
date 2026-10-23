@@ -11,21 +11,22 @@
 // Reading: \ping, \context (what is playing and how it is set) and
 // \describe (what every setting means). Writing: \set_drum_pattern (a
 // pattern, the steps' kit), \set_synth (the note sequencer's pattern, the
-// Wave synth's settings, the sequencer's switch), \revert (the AI's own
-// changes, newest first), \save_drum_preset and \save_synth_preset. Every
-// change is snapshotted before it lands, so it can be taken back. The
-// effects are read only.
+// Wave synth's settings, the sequencer's switch), \set_chain (built-in
+// effects in, out and moved, settings, switches), \revert (the AI's own
+// changes, newest first), \save_drum_preset, \save_synth_preset and
+// \save_sound. Every change is snapshotted before it lands, so it can be
+// taken back. A plugin is never put in or taken out by the AI.
 //
 // Everything a request reads or changes comes from `source`, a function
 // answering an Event (looper:, sa:, profile:, drumsPresetDir:,
-// synthPresetDir:, say:), so a test hands it stubs; boot.scd hands it the
+// synthPresetDir:, soundDir:, say:), so a test hands it stubs; boot.scd hands it the
 // running ~looper and ~megaSA, the presets' folders, and the window's status
 // line (say: a function of a String).
 MegaRemote {
     var <source, <token, <port, responder, onShutDown, <started = false;
     // The AI's changes, oldest first: (part:, label:, data:), data the part as
-    // it was just before the change: the drums' presetData, or the synth's
-    // (notes:, wave:, on:).
+    // it was just before the change: the drums' presetData, the synth's
+    // (notes:, wave:, on:), or the chains' (sound:, on: [[id, flag] ...]).
     var changes;
 
     *new { |source| ^super.newCopyArgs(source) }
@@ -157,13 +158,15 @@ MegaRemote {
             { command == "save_drum_preset" } { this.saveDrumPreset(args) }
             { command == "set_synth" } { this.setSynth(args) }
             { command == "save_synth_preset" } { this.saveSynthPreset(args) }
+            { command == "set_chain" } { this.setChain(args) }
+            { command == "save_sound" } { this.saveSound(args) }
             { this.class.failure("no command " ++ command.asString.quote ++ "; there are "
                 ++ this.class.commands.join(", ")) }
         } { |err| this.class.failure("megalooper failed to answer: " ++ err.errorString) }
     }
 
-    *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "revert",
-        "save_drum_preset", "save_synth_preset"] }
+    *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "set_chain", "revert",
+        "save_drum_preset", "save_synth_preset", "save_sound"] }
 
     *success { |result| ^this.obj([\ok, true, \result, result]) }
     *failure { |why| ^this.obj([\ok, false, \error, why]) }
@@ -241,7 +244,7 @@ MegaRemote {
         if(this.changeCount == 0) { ^this.class.failure("nothing to revert: the AI has changed nothing since megalooper started") };
         count = count.min(this.changeCount);
         taken = changes.asArray.drop(changes.size - count);
-        parts = [\drums, \synth].select { |part| taken.any { |c| c[\part] == part } };
+        parts = [\drums, \synth, \chains].select { |part| taken.any { |c| c[\part] == part } };
         parts.do { |part|
             why = why ?? { this.prRestore(src, part, taken.detect { |c| c[\part] == part }[\data], notes) };
         };
@@ -254,7 +257,16 @@ MegaRemote {
 
     // A part put back as a snapshot holds it: nil when done, else why not.
     prRestore { |src, part, data, notes|
-        var drums = this.prDrums(src), wave = src !? { |s| s[\sa] } !? { |m| m.wave };
+        var drums = this.prDrums(src), sa = src !? { |s| s[\sa] }, wave = sa !? { |m| m.wave };
+        if(part == \chains) {
+            // A recall (applySound) without the plugins' own sounds: the
+            // structure on the cross-fade, the settings and the names. It
+            // flips no switch of a device that stays, so the switches go back
+            // here.
+            if(sa.applySound(data[\sound], nil, false).not) { ^"the chains could not be put back: a chain is not built yet" };
+            data[\on].do { |pair| sa.device(pair[0]) !? { |d| if(d.on != pair[1]) { sa.setFx(pair[0], pair[1]) } } };
+            ^nil
+        };
         if(part == \drums) {
             ^if(drums.applyPresetData(data, notes)) { nil } { "the drums could not be put back: " ++ notes.join("; ") }
         };
@@ -329,6 +341,190 @@ MegaRemote {
         slug = sa.saveSynthPreset(dir, name);
         if(slug.isNil) { ^this.class.failure("the preset was not written (the post window says why)") };
         this.prSay(src, "The AI saved the synth as " ++ slug.quote);
+        ^this.class.success(this.class.obj([\saved, slug, \path, path]))
+    }
+
+    // ---- the chains --------------------------------------------------------------------
+
+    prNoChains { ^this.class.failure("there are no chains: this megalooper runs without Megalooper SA") }
+
+    // Built-in effects taken out (remove: [id ...]), put in (insert: [(track:,
+    // type:, index:, on:, settings:) ...]), moved (move: [(id:, track:,
+    // index:) ...]), set (settings: (id: (name: value))) and switched (on:
+    // (id: flag)), in that order, as the Effects view's own edits are: on
+    // the cross-fade, while a loop plays. Everything is checked first; one
+    // thing wrong refuses it all, changing nothing. An edit MegaSA refuses
+    // then (no room, the CPU busy, a chain not built yet) is said in the
+    // answer, as is a value held to its range. A plugin may be moved and
+    // switched, never put in or taken out, and its own settings are its own.
+    setChain { |args|
+        var src = source.value, sa = src !? { |s| s[\sa] }, why, label, notes = List.new, inserted = List.new;
+        var removes, inserts, moves, settings, switches, heard, listener;
+        if(sa.isNil) { ^this.prNoChains };
+        removes = args !? { |a| a.at("remove") };
+        inserts = args !? { |a| a.at("insert") };
+        moves = args !? { |a| a.at("move") };
+        settings = args !? { |a| a.at("settings") };
+        switches = args !? { |a| a.at("on") };
+        if([removes, inserts, moves, settings, switches].every(_.isNil)) {
+            ^this.class.failure("nothing to change: give remove, insert, move, settings, on, or several")
+        };
+        why = this.class.chainWhy(sa, removes, inserts, moves, settings, switches);
+        if(why.notNil) { ^this.class.failure(why) };
+        label = "chains (" ++ [removes !? { "removed" }, inserts !? { "inserted" }, moves !? { "moved" },
+            settings !? { "settings" }, switches !? { "switches" }].reject(_.isNil).join(", ") ++ ")";
+        this.prSnapshot(\chains, label, (sound: sa.sound("before the AI's change"),
+            on: sa.devices.collect { |d| [d.id, d.on] }));
+        heard = List.new;
+        listener = { |obj, what, op, reason| if(what == \refused) { heard.add(op.asString ++ " refused: " ++ reason) } };
+        sa.addDependant(listener);
+        protect {
+            (removes ? []).do { |id| sa.removeDevice(id.asSymbol) };
+            (inserts ? []).do { |x| this.prInsert(sa, x, inserted, notes) };
+            (moves ? []).do { |x| sa.moveDevice(x.at("id").asSymbol, x.at("track") !? { |t| t.asSymbol }, x.at("index")) };
+            settings !? { |set| set.keysValuesDo { |id, values|
+                values.keysValuesDo { |k, v|
+                    sa.setParam(id.asSymbol, k.asSymbol, v);
+                    this.class.corrections(v, sa.param(id.asSymbol, k.asSymbol), id ++ "." ++ k, notes);
+                };
+            } };
+            switches !? { |set| set.keysValuesDo { |id, flag| sa.setFx(id.asSymbol, flag) } };
+        } { sa.removeDependant(listener) };
+        notes = heard ++ notes;
+        this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
+        ^this.class.success(this.class.obj([
+            \inserted, inserted.asArray, \corrections, notes.asArray, \chains, sa.sessionInfo[\chains],
+            \aiChanges, this.changeCount
+        ]))
+    }
+
+    // One insert of set_chain's: the new device's id and place to `inserted`,
+    // its settings held to their ranges to `notes`.
+    prInsert { |sa, x, inserted, notes|
+        var given = x.at("settings") !? { |set| this.class.settingsOf(set) };
+        var d = sa.insertDevice(x.at("track").asSymbol, x.at("index"), x.at("type").asSymbol, given, x.at("on") != false);
+        if(d.isNil) { ^this };
+        inserted.add(this.class.obj([\id, d.id, \track, x.at("track"), \index, sa.chainOf(d).indexOf(d)]));
+        given !? { |g| g.keysValuesDo { |k, v| this.class.corrections(v, d.param(k), d.id ++ "." ++ k, notes) } };
+    }
+
+    // A JSON object of settings as a device takes them: name -> number.
+    *settingsOf { |set|
+        var out = IdentityDictionary.new;
+        set.keysValuesDo { |k, v| out.put(k.asSymbol, v) };
+        ^out
+    }
+
+    // Why the settings `set` (a JSON object) can't go on a device of `type`
+    // (`who` in the words), or nil.
+    *settingsWhy { |type, set, who|
+        var names = MegaSAFx.paramsOf(type).collect { |p| p[\name].asString }, found;
+        if(set.isKindOf(MegaJsonObject).not) { ^who ++ ": settings must be an object" };
+        set.keysValuesDo { |k, v|
+            if(found.isNil) {
+                if(names.includesEqual(k).not) {
+                    found = who ++ " (" ++ type ++ ") has no setting " ++ k ++ "; it has " ++ names.join(", ")
+                } {
+                    if(v.isNumber.not) { found = who ++ "." ++ k ++ " must be a number" };
+                };
+            };
+        };
+        ^found
+    }
+
+    // Why the device named `id` can't be edited, or nil: `removed` are those
+    // this same request takes out.
+    *deviceWhy { |sa, id, removed|
+        var ids = sa.devices.collect { |d| d.id.asString };
+        if(id.isString.not) { ^"a device is named by its id, a string" };
+        if(ids.includesEqual(id).not) { ^"there is no device " ++ id ++ "; there are " ++ ids.join(", ") };
+        if(removed.includesEqual(id)) { ^id ++ " is removed in this same change" };
+        ^nil
+    }
+
+    // Why a set_chain request can't be done as it stands, or nil.
+    *chainWhy { |sa, removes, inserts, moves, settings, switches|
+        var removed = List.new, tracks = sa.chains.collect { |c| c.track.asString };
+        var types = MegaSAFx.types.collect { |t| t[\key].asString };
+        var index = { |x| x.isNil or: { x.isInteger and: { x >= 0 } } };
+        var w;
+        if(removes.notNil) {
+            if(removes.isKindOf(Array).not) { ^"remove must be a list of device ids" };
+            removes.do { |id|
+                w = this.deviceWhy(sa, id, removed);
+                if(w.notNil) { ^"remove: " ++ w };
+                if(sa.device(id.asSymbol).isPlugin) { ^id ++ " is a plugin: the player takes plugins out, not the AI" };
+                removed.add(id);
+            };
+        };
+        if(inserts.notNil) {
+            if(inserts.isKindOf(Array).not) { ^"insert must be a list of objects" };
+            inserts.do { |x|
+                if(x.isKindOf(MegaJsonObject).not) { ^"each insert is an object (track, type, index, on, settings)" };
+                if(tracks.includesEqual(x.at("track")).not) {
+                    ^"insert: there is no track " ++ x.at("track").asString ++ "; there are " ++ tracks.join(", ") };
+                if(types.includesEqual(x.at("type")).not) {
+                    ^"insert: there is no effect type " ++ x.at("type").asString ++ "; there are " ++ types.join(", ") };
+                if(index.(x.at("index")).not) { ^"insert: index is a whole number from 0" };
+                if(x.at("on").notNil and: { x.at("on").isKindOf(Boolean).not }) { ^"insert: on is true or false" };
+                x.at("settings") !? { |set|
+                    w = this.settingsWhy(x.at("type").asSymbol, set, "insert " ++ x.at("type"));
+                    if(w.notNil) { ^w };
+                };
+            };
+        };
+        if(moves.notNil) {
+            if(moves.isKindOf(Array).not) { ^"move must be a list of objects" };
+            moves.do { |x|
+                if(x.isKindOf(MegaJsonObject).not) { ^"each move is an object (id, track, index)" };
+                w = this.deviceWhy(sa, x.at("id"), removed);
+                if(w.notNil) { ^"move: " ++ w };
+                if(x.at("track").notNil and: { tracks.includesEqual(x.at("track")).not }) {
+                    ^"move: there is no track " ++ x.at("track").asString };
+                if(index.(x.at("index")).not) { ^"move: index is a whole number from 0" };
+            };
+        };
+        if(settings.notNil) {
+            if(settings.isKindOf(MegaJsonObject).not) { ^"settings must be an object: device id -> (setting -> value)" };
+            settings.keysValuesDo { |id, set|
+                if(w.isNil) {
+                    w = this.deviceWhy(sa, id, removed) !? { |x| "settings: " ++ x };
+                    if(w.isNil and: { sa.device(id.asSymbol).isPlugin }) {
+                        w = id ++ " is a plugin: its own settings are in its window, not here" };
+                    if(w.isNil) { w = this.settingsWhy(sa.device(id.asSymbol).type, set, id) };
+                };
+            };
+            if(w.notNil) { ^w };
+        };
+        if(switches.notNil) {
+            if(switches.isKindOf(MegaJsonObject).not) { ^"on must be an object: device id -> true or false" };
+            switches.keysValuesDo { |id, flag|
+                if(w.isNil) {
+                    w = this.deviceWhy(sa, id, removed) !? { |x| "on: " ++ x };
+                    if(w.isNil and: { flag.isKindOf(Boolean).not }) { w = "on: " ++ id ++ " is true or false" };
+                };
+            };
+            if(w.notNil) { ^w };
+        };
+        ^nil
+    }
+
+    // The chains as they stand, as a sound in the Effects view's menu (the
+    // plugin's own sound with it). A name taken is refused unless
+    // `overwrite` is true.
+    saveSound { |args|
+        var src = source.value, sa = src !? { |s| s[\sa] }, dir = src !? { |s| s[\soundDir] }, name, slug, path;
+        if(sa.isNil) { ^this.prNoChains };
+        name = args !? { |a| a.at("name") };
+        if(name.isKindOf(String).not or: { name.stripWhiteSpace.isEmpty }) { ^this.class.failure("name the sound") };
+        if(dir.isNil) { ^this.class.failure("there is no folder for sounds") };
+        path = sa.soundPath(dir, name);
+        if(File.exists(path) and: { (args.at("overwrite") == true).not }) {
+            ^this.class.failure("there is a sound " ++ sa.fxPresetSlug(name).quote ++ " already; overwrite: true replaces it")
+        };
+        slug = sa.saveSound(dir, name);
+        if(slug.isNil) { ^this.class.failure("the sound was not written (the post window says why)") };
+        this.prSay(src, "The AI saved the chains as the sound " ++ slug.quote);
         ^this.class.success(this.class.obj([\saved, slug, \path, path]))
     }
 
@@ -574,9 +770,13 @@ MegaRemote {
     // and its settings.
     *describeEffects {
         ^this.obj([
-            \about, "Effects sit in chains (guitar, loop, drums, bass, synth) as devices: a device "
-                "has an id, a type (one of these keys), a name, an on switch and settings by name. "
-                "Plugins (VST) are devices too; their own settings are not listed here.",
+            \about, "Effects sit in chains as devices, in order: guitar (the guitar's input, before "
+                "the looper records it), loop (what the loop plays back), drums, bass and synth (each "
+                "after its source). A device has an id, a type (one of these keys), a name, an on "
+                "switch and settings by name. Any type may go in any chain; track says what it was "
+                "made for. A further device of a type gets the next id (delay2). Plugins (VST, e.g. "
+                "an amp) are devices too: they may be moved and switched, their own settings are in "
+                "their window, and only the player puts them in or takes them out.",
             \effects, MegaSAFx.types.collect { |t|
                 this.obj([\key, t[\key], \track, t[\track], \about, t[\blurb],
                     \settings, MegaSAFx.paramsOf(t[\key]).collect { |r| this.rowOf(r) }])

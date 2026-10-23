@@ -228,14 +228,14 @@ s.waitForBoot {
     // Last: this one subscribes widgets from the header and EVERY pane.
     ~wireLooperController.();
 
-    // An AI app may read the set from here on, and change the drums and the synth, through
+    // An AI app may read the set from here on, and change the drums, the synth and the chains, through
     // tools/megalooper-mcp.py (MegaRemote): from this Mac only, with the token
     // this boot writes to remote.json. What it changes it says in the status
     // line. A boot run again takes over from the one before.
     ~megaRemote !? { |r| r.stop };
     ~megaRemote = MegaRemote({
         (looper: ~looper, sa: ~megaSA, profile: ~routingProfile, drumsPresetDir: ~saDrumsPresetDir,
-            synthPresetDir: ~saSynthPresetDir, say: { |msg| ~guiSay.(msg) }.inEnvir)
+            synthPresetDir: ~saSynthPresetDir, soundDir: ~saFxPresetDir, say: { |msg| ~guiSay.(msg) }.inEnvir)
     }.inEnvir).start;
 
     "Boot complete. R=trigger S=stop M=multiply U=undo V=reverse G=granular B=bbcut K=break D=dissolve C=clear N=next-loop A=reading".postln;
@@ -247,7 +247,7 @@ s.waitForBoot {
         ++ ~looper.bbcutPresetNames(~bbcutPresetDir).size ++ " saved).").postln;
     ("Granular presets in " ++ ~granularPresetDir ++ " ("
         ++ ~looper.granularPresetNames(~granularPresetDir).size ++ " saved).").postln;
-    ("AI apps: tools/megalooper-mcp.py lets one read the set and change the drums and the synth (" ++ MegaRemote.handshakePath ++ ").").postln;
+    ("AI apps: tools/megalooper-mcp.py lets one read the set and change the drums, the synth and the effects (" ++ MegaRemote.handshakePath ++ ").").postln;
     if(~rp[\sa] == true) {
         // ~inChannel is the Looper's (the guitar chain's bus) by now; the
         // guitar's own input is the profile's.

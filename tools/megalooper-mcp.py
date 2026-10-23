@@ -28,7 +28,7 @@ import time
 import uuid
 
 SERVER_NAME = "megalooper"
-SERVER_VERSION = "0.3.0"
+SERVER_VERSION = "0.4.0"
 # MCP revisions whose tools part is all this server uses; a client asking for
 # one of them gets it, any other gets the newest.
 PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
@@ -41,10 +41,11 @@ INSTRUCTIONS = (
     "what is playing and how it is set (the loop's meter, which may be uneven "
     "bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the "
     "chains). Call describe for what the settings mean before changing them. "
-    "The drums (set_drum_pattern) and the synth (set_synth) can be changed "
-    "and every change taken back (revert); the player hears a change at once, "
-    "so change what was asked for, say what you changed, and offer to revert. "
-    "The effects can only be read so far: suggest changes to them in words."
+    "The drums (set_drum_pattern), the synth (set_synth) and the effect chains "
+    "(set_chain) can be changed and every change taken back (revert); the "
+    "player hears a change at once, so change what was asked for, say what "
+    "you changed, and offer to revert. Plugins (an amp, say) are the "
+    "player's: you may move or switch them, not add, remove or set them."
 )
 
 TOOLS = [
@@ -151,10 +152,52 @@ TOOLS = [
                         "openWorldHint": False},
     },
     {
+        "name": "set_chain",
+        "title": "Change the effect chains",
+        "description": (
+            "Change the effect chains (get_context's chains; describe with "
+            "topic effects says every type and setting). In one call, done in "
+            "this order: remove (device ids), insert (built-in effects: track, "
+            "type, index from 0 or the end if left out, on, settings), move "
+            "(id, track, index), settings (device id -> setting -> value) and "
+            "on (device id -> true or false). For example {\"insert\": "
+            "[{\"track\": \"loop\", \"type\": \"echo\", \"settings\": "
+            "{\"echoMix\": 0.4}}], \"on\": {\"saturator\": true}}. Everything "
+            "is checked first: one thing wrong refuses the whole call and "
+            "changes nothing. The answer lists new devices' ids, edits "
+            "megalooper refused (no room, the CPU busy) and values held to "
+            "their range, and holds the chains as they now stand. Plugins may "
+            "be moved and switched only. Every change can be taken back with "
+            "revert."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "remove": {"type": "array", "items": {"type": "string"}},
+                "insert": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {"track": {"type": "string"}, "type": {"type": "string"},
+                                   "index": {"type": "integer", "minimum": 0}, "on": {"type": "boolean"},
+                                   "settings": {"type": "object"}},
+                    "required": ["track", "type"]}},
+                "move": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "track": {"type": "string"},
+                                   "index": {"type": "integer", "minimum": 0}},
+                    "required": ["id"]}},
+                "settings": {"type": "object", "description": "Device id -> {setting: number}."},
+                "on": {"type": "object", "description": "Device id -> true or false."},
+            },
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
+                        "openWorldHint": False},
+    },
+    {
         "name": "revert",
         "title": "Take back changes",
         "description": (
-            "Put the drums and the synth back as they were before your newest "
+            "Put the drums, the synth and the chains back as they were before your newest "
             "change, or before the newest `count` changes. get_context's "
             "aiChanges says how many can be taken back (at most 32 are kept)."
         ),
@@ -187,6 +230,25 @@ TOOLS = [
                         "openWorldHint": False},
     },
     {
+        "name": "save_sound",
+        "title": "Save the chains as a sound",
+        "description": (
+            "Save the effect chains as they stand (devices, settings, the "
+            "plugin's own sound) as a sound in megalooper's Effects view. A "
+            "name already taken is refused unless overwrite is true: ask the "
+            "player first."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"},
+                           "overwrite": {"type": "boolean", "description": "Replace a sound of that name."}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True,
+                        "openWorldHint": False},
+    },
+    {
         "name": "save_drum_preset",
         "title": "Save the drums as a preset",
         "description": (
@@ -207,7 +269,8 @@ TOOLS = [
 ]
 
 # The tools that hand their arguments to megalooper as they are.
-PASSED_ON = {"set_drum_pattern", "set_synth", "revert", "save_drum_preset", "save_synth_preset"}
+PASSED_ON = {"set_drum_pattern", "set_synth", "set_chain", "revert", "save_drum_preset", "save_synth_preset",
+             "save_sound"}
 
 
 class NotReachable(Exception):
