@@ -90,6 +90,11 @@ MegaSA {
     var <guitarChain, <loopChain, <drumsChain, <bassChain, <synthChain;
     // The Wave synth (MegaSAWave): its tables, its settings, its notes.
     var <wave;
+    // What plays the note sequencer: nil for the Wave synth, else the
+    // catalog key of an instrument plugin (setInstrument), hosted by
+    // `instrument` (a MegaSAPlugin) in instrumentSynth, at the head of the
+    // drums' synth group, onto synthBus.
+    var <instrumentKey, <instrument, instrumentSynth;
     var <strips, <masterSynth;
     // The chains' edits (insertDevice and the rest, below): removed plugins
     // parked in limboGroup, a paused group made at the first such removal,
@@ -620,6 +625,7 @@ MegaSA {
         // plugin.
         MegaSAFx.addDeviceDefs;
         MegaSAPlugin.addSynthDefs;
+        MegaSAPlugin.addInstrumentDef;
         // One mixer strip: level and mute onto the master bus, lagged so a
         // fader move or a mute never clicks, and the same signal onto its
         // stem bus, `stem`, for the session recorder: the strip as it reaches
@@ -749,6 +755,64 @@ MegaSA {
 
     *defaultKeptSynthPath { ^MegaFiles.userRoot +/+ "sa" +/+ "kept-synth" +/+ "synth.json" }
 
+    // ---- The instrument ------------------------------------------------------
+    // The Wave synth (key nil) or an instrument plugin of the catalog (its
+    // key): the plugin is made in a synth of its own, opened (with `state`,
+    // (kind:, path:), if given) and from then on the sequencer's notes go to
+    // it as MIDI, note-on at the note's stamp and note-off at its end, on
+    // channel 1. Until it is open the notes are not sent. Notifies
+    // \instrument, key (and again with the open's answer). Answers whether
+    // it was taken.
+    instrumentEntries { ^(catalog ? []).select { |e| (e[\synth] == true) and: { e[\bridged] != true } } }
+
+    setInstrument { |key, state|
+        var synthGroup = drums !? { |d| d.synthGroup };
+        if(key.notNil and: { key.asString.isEmpty }) { key = nil };
+        instrumentSynth !? { |x| x.free };
+        instrumentSynth = nil;
+        instrument !? { |p| p.removeDependant(this) };
+        instrument = nil;
+        instrumentKey = key;
+        if(key.notNil) {
+            if(synthGroup.isNil or: { (\VSTPlugin.asClass.isNil and: { pluginMaker.isNil }) }) {
+                ("MegaSA: " ++ key ++ " cannot be hosted here (no VSTPlugin, or no synth group); the Wave synth plays.").warn;
+                instrumentKey = nil;
+            } {
+                instrumentSynth = Synth.head(synthGroup, \megaSAInstrument, [\out, synthBus.index]);
+                instrument = try {
+                    (pluginMaker ? { |synth, id, pth| MegaSAPlugin(synth, id, pth) }).value(instrumentSynth, \plugin, key)
+                } { |err| ("MegaSA: " ++ key ++ " could not be made (" ++ err.errorString ++ ").").warn; nil };
+                if(instrument.isNil) {
+                    instrumentSynth.free;
+                    instrumentSynth = nil;
+                    instrumentKey = nil;
+                } {
+                    tempo !? { |t| instrument.setTempo(t) };
+                    instrument.open(state, { |p, ok| if(alive) { tempo !? { |t| p.setTempo(t) }; this.changed(\instrument, key, ok) } });
+                };
+            };
+        };
+        drums !? { |d| d.noteVoice = if(instrumentKey.isNil) { { |rec, where| wave.voiceMsgs(rec, where) } }
+            { { |rec, where| this.prInstrumentMsgs(rec, where) } } };
+        this.changed(\instrument, instrumentKey);
+        ^instrumentKey == key
+    }
+
+    // A note for the plugin: (msgs:, after:, cancel:), as MegaSADrums.prEmitNote
+    // takes it. Nothing until it is open. A note held to its very end (100 %)
+    // lets go 2 ms after the next one starts, so a mono patch hears legato.
+    prInstrumentMsgs { |rec, where|
+        var p = instrument, on, off;
+        if(p.isNil or: { p.state != \open }) { ^[] };
+        on = p.midiMsg(144, rec[\note].asInteger, rec[\vel].asInteger.clip(1, 127));
+        off = p.midiMsg(128, rec[\note].asInteger, 0);
+        if(on.isNil or: { off.isNil }) { ^[] };
+        ^(msgs: [on], after: [[rec[\gate] + (if(rec[\tie] == true) { 0.002 } { 0 }), [off]]], cancel: [off])
+    }
+
+    // The instrument's window, if it has one.
+    instrumentEditor { instrument !? { |p| p.editor } }
+
     synthPresetSlug { |name| ^Looper.presetSlug(name) }
 
     synthPresetNames { |dir|
@@ -789,9 +853,18 @@ MegaSA {
     }
 
     prWriteSynth { |path, name|
-        var why;
+        var why, statePath, inst = instrument;
         if(drums.isNil or: { wave.isNil }) { ^false };
-        why = MegaFiles.writeNow(path, MegaSASynthFile.text(name, drums.notes, wave.settings),
+        // The instrument's own sound beside the file, written by the plugin
+        // (a moment later: the plugin answers on its own).
+        if(inst.notNil and: { inst.state == \open }) {
+            File.mkdir(path.dirname);
+            statePath = path.splitext[0] ++ inst.stateExtension;
+            inst.saveState(\program, statePath, { |p, ok|
+                if(ok.not) { ("MegaSA: the instrument's sound was not written to " ++ statePath ++ ".").warn } });
+        };
+        why = MegaFiles.writeNow(path, MegaSASynthFile.text(name, drums.notes, wave.settings, wave.tableName,
+            instrumentKey, statePath !? { |p| p.basename }),
             { |text| if(MegaFiles.parseObject(text).isString) { "it does not read back" } });
         if(why.notNil) { ("MegaSA: the synth was not written to " ++ path ++ " (" ++ why ++ ").").warn; ^false };
         ^true
@@ -802,6 +875,18 @@ MegaSA {
         if(data.isNil or: { drums.isNil }) { ^false };
         drums.setNotes(data[\notes]);
         wave.setAll(data[\wave]);
+        // The instrument, with its sound from beside the file if it kept one.
+        if((data[\instrument] != instrumentKey) or: { data[\instrumentState].notNil }) {
+            this.setInstrument(data[\instrument], data[\instrumentState] !? { |n|
+                (kind: \program, path: path.dirname +/+ n) });
+        };
+        // Your table, by its name in your wavetables folder; one gone from
+        // there leaves the set Analog's, and says so.
+        if(data[\table] != wave.tableName) {
+            (wave.loadTableNamed(data[\table]) !? { |r| if(r.isString) {
+                ("MegaSA: the synth's table " ++ data[\table] ++ " did not load (" ++ r ++ "); Your table plays Analog's.").warn;
+                wave.clearTable } });
+        };
         ^true
     }
 

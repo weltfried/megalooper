@@ -2109,6 +2109,8 @@ MegaSADrums {
             r[\cancelled] = true;
         };
         this.prSend(nil, [msg]);
+        // A plugin's note: its note-off at its own stamp, after its note-on.
+        recs.do { |r| r[\cancelMsgs] !? { |m| if(m.notEmpty) { this.prSend(r[\stamp], m) } } };
     }
 
     prSend { |absTime, msgs| sender.value(absTime, msgs) }
@@ -2251,6 +2253,7 @@ MegaSADrums {
                 // SQ's retriggering notes do.
                 this.prQueue((kind: \note, slot: \synth, which: \notes, step: rec[\id], epoch: ep[\id], n: n,
                     j: j, grid: grid, note: nt[\note], vel: nt[\vel], gate: gate, delta: delta,
+                    tie: (nt[\length] >= 0.999) and: { j == (times.size - 1) },
                     from: last !? { |l| l[\note] }, legato: (j == 0) and: { last.notNil } and: { last[\note] != nt[\note] } and: { last[\end] > (grid - 1e-6) }));
                 last = (note: nt[\note], end: grid + gate);
             };
@@ -2270,19 +2273,29 @@ MegaSADrums {
     }
 
     // One note to the instrument: its cancel bus cleared at once, then its
-    // voice at its stamp.
+    // voice at its stamp. noteVoice answers the messages to send at the
+    // stamp, or (msgs:, after: [[seconds after the stamp, msgs], ...],
+    // cancel: msgs): a plugin's note-on, its note-off after the gate, and
+    // what undoes it, sent at its stamp if it is cancelled (a note-off: a
+    // MIDI message sent cannot be taken back as a voice's cancel bus can).
     prEmitNote { |rec|
-        var ring, hitId, msgs, voice;
+        var ring, hitId, msgs, voice, res, after = [];
         if(groupIds.isNil) { ^false };
         ring = this.prRingBus(\synth);
         hitId = this.prHitId(\synth);
         voice = noteVoice ? { |r, where| this.class.toneMsgs(r, where) };
-        msgs = voice.value(rec, (ring: ring, hitId: hitId, choke: chokeBases[\synth],
+        res = voice.value(rec, (ring: ring, hitId: hitId, choke: chokeBases[\synth],
             out: outBusses[\synth], group: groupIds[\synth])) ? [];
+        if(res.isKindOf(Dictionary)) {
+            msgs = res[\msgs] ? [];
+            after = res[\after] ? [];
+            rec[\cancelMsgs] = res[\cancel];
+        } { msgs = res };
         if(msgs.isEmpty) { ^false };
         this.prSend(nil, [[\c_set, ring, 0]]);
         if(outBusses[\synth] == outBusses[\steps]) { this.prWakeFx(\steps, (rec[\stamp] + rec[\gate]) + 0.1) };
         this.prSend(rec[\stamp], msgs);
+        after.do { |a| this.prSend(rec[\stamp] + a[0], a[1]) };
         rec[\emitted] = true;
         rec[\ring] = ring;
         rec[\hitId] = hitId;

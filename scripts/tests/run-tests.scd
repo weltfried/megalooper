@@ -49,6 +49,7 @@ var files = [
     "test-megasa-random.scd",
     "test-megasa-noteseq.scd",
     "test-megasa-wave.scd",
+    "test-megasa-instrument.scd",
     "test-megasa-keep.scd",
     "test-sa-sounds.scd",
     "test-megasa-plugins.scd",

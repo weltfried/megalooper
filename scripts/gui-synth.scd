@@ -496,10 +496,56 @@
     ["LFOs", [\waveLfoRate, \waveLfoPos, \waveLfo2Rate, \waveVibrato, \waveLfo2Cutoff]],
     ["Glide and level", [\waveGlide, \waveLevel]]
 ];
+// Your table: a wavetable WAV of yours (Serum's or Vital's 2048-sample
+// cycles), copied into sa/wavetables/ and played as the set "Your table".
+~synthTableText = { ~synthWave.() !? { |w| w.tableName } ?? { "none: the set plays Analog's" } };
+~synthImportTable = { |path|
+    var w = ~synthWave.(), r;
+    if(w.notNil and: { path.notNil }) {
+        r = w.importTable(path);
+        if(r.isString) { ~guiSay !? { |f| f.("Your table: " ++ PathName(path).fileName ++ " — " ++ r, \rec) } }
+            { ~guiSay !? { |f| f.("Your table: " ++ w.tableName) } };
+    };
+    r
+};
+~synthTableRow = {
+    var text = ~guiMonoText.("", 12, ~gt[\ink]);
+    ~synthWidgets.put(\tableName, (kind: \text, view: text, get: ~synthTableText));
+    HLayout(
+        ~synthRowLabel.("Your table", "A wavetable WAV of yours, as Serum and Vital write them: cycles of 2048\n"
+            "samples one after another. Eight of them, spread through the file, are the set's eight\n"
+            "positions. Choose \"Your table\" as A's or B's table to play it."),
+        text,
+        ~synthTool.("Load table…", 110, "Choose a WAV; it is copied into sa/wavetables/ in your megalooper folder\n"
+            "and kept with the sound in presets and Start with this.",
+            { Dialog.openPanel({ |path| ~synthImportTable.(path) }) }),
+        ~synthTool.("None", 60, "No table of yours: the set plays Analog's.", { ~synthWave.() !? { |w| w.clearTable } }),
+        nil
+    ).spacing_(8)
+};
+// What plays the notes: the Wave synth, or an instrument plugin from your
+// scanned plugins (MegaSA.setInstrument). Its window from here.
+~synthInstrumentRow = {
+    var m = ~megaSA, entries = (m !? { |x| if(x.respondsTo(\instrumentEntries)) { x.instrumentEntries } } ? []);
+    var keys = [nil] ++ entries.collect { |e| e[\key] };
+    var menu = ~synthMenu.(PopUpMenu()).fixedWidth_(260)
+        .items_(["Wave synth"] ++ entries.collect { |e| e[\name] ? e[\key] })
+        .toolTip_("What plays the notes: the Wave synth below, or one of your instrument plugins\n"
+            "(scan your plugins on the FX view to list them). A plugin plays its own sound: set it\n"
+            "in its window; presets and Start with this keep it.")
+        .action_({ |mn| ~megaSA !? { |x| x.setInstrument(keys[mn.value]) } });
+    var open = ~synthTool.("Open its window", 140, "The instrument plugin's own window.", { ~megaSA !? { |x| x.instrumentEditor } });
+    var line = ~guiMonoText.("", 12, ~gt[\mute]);
+    ~synthWidgets.put(\instrument, (kind: \menu, view: menu, get: { ~megaSA !? { |x| x.instrumentKey } },
+        index: { |v| keys.indexOfEqual(v) ? 0 }));
+    ~synthWidgets.put(\instrumentLine, (kind: \text, view: line, get: {
+        ~megaSA !? { |x| x.instrument !? { |p| p.state.asString } } ? (if(entries.isEmpty) { "no instrument plugins scanned" } { "" }) }));
+    HLayout(~synthRowLabel.("Instrument"), menu, open, line, nil).spacing_(8)
+};
 ~synthWaveRows = {
     var group = { |g| VLayout(~synthTitle.(g[0]), HLayout(*(g[1].collect { |n| ~synthWaveCell.(n) } ++ [nil])).spacing_(2)).spacing_(4) };
     var gs = ~synthWaveGroups;
-    [~synthTitle.("Wave synth · a mono wavetable synth"),
+    [~synthInstrumentRow.(), ~synthTitle.("Wave synth · a mono wavetable synth"), ~synthTableRow.(),
         HLayout(group.(gs[0]), View().fixedWidth_(24), group.(gs[1]), View().fixedWidth_(24), group.(gs[2]), nil),
         HLayout(group.(gs[3]), View().fixedWidth_(24), group.(gs[4]), nil),
         HLayout(group.(gs[5]), View().fixedWidth_(24), group.(gs[6]), View().fixedWidth_(24), group.(gs[7]), nil)]
@@ -530,10 +576,12 @@
     ];
     w !? { ctls = ctls.add(SimpleController(w)
         .put(\waveSetting, { |obj, what, name| { ~synthPaint.(("wave_" ++ name).asSymbol) }.defer })
-        .put(\waveSettings, { { ~synthPaintAll.() }.defer })) };
+        .put(\waveSettings, { { ~synthPaintAll.() }.defer })
+        .put(\waveTable, { { ~synthPaint.(\tableName) }.defer })) };
     m !? { ctls = ctls.add(SimpleController(m)
         .put(\level, { |obj, what, key, amp| { ~saPaintLevel !? { |f| f.(~synthLevels, key, amp) } }.defer })
-        .put(\mute, { |obj, what, key| { ~saPaintMute !? { |f| f.(~synthLevels, key, ~saMutedOf.(m, key)) } }.defer })) };
+        .put(\mute, { |obj, what, key| { ~saPaintMute !? { |f| f.(~synthLevels, key, ~saMutedOf.(m, key)) } }.defer })
+        .put(\instrument, { { ~synthPaint.(\instrument); ~synthPaint.(\instrumentLine) }.defer })) };
     ctls
 };
 

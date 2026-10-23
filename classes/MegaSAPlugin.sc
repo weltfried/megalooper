@@ -87,9 +87,25 @@ MegaSAPlugin {
         };
     }
 
+    // The synth's instrument (docs/dev/synth.md, Phase 4): a plugin that
+    // takes MIDI and no audio, onto `out` (stereo), added there, not
+    // replacing it. Heard once ready, as a device's plugin is; Sanitized.
+    *addInstrumentDef {
+        var vst = \VSTPlugin.asClass;
+        if(vst.isNil) { ^this };
+        SynthDef(\megaSAInstrument, { |out, ready = 0, bypass = 0|
+            var sig = Sanitize.ar(vst.ar(nil, 2, bypass, id: \plugin));
+            Out.ar(out, sig * Lag.kr(ready, 0.01));
+        }).add;
+    }
+
     // What a synth of those SynthDefs is sent when the plugin is ready to be
     // heard, or no longer is.
     *readyArgs { |flag| ^[\bypass, if(flag == true) { 0 } { 2 }, \ready, (flag == true).binaryValue] }
+
+    // One MIDI message to the plugin as an OSC message (VSTPluginController.
+    // sendMidiMsg), to send in a bundle at a stamp; nil without a controller.
+    midiMsg { |status, data1 = 0, data2 = 0| ^controller !? { |c| c.sendMidiMsg(status, data1, data2) } }
 
     init {
         // Through asClass: without VSTPlugin installed the class library still

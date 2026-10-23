@@ -7,7 +7,12 @@
 //   {"format": "megalooper synth", "version": 1, "name": "…",
 //    "notes": {"stepCount": 16, "first": 1, …, "steps": [true, …],
 //              "lanes": {"pitch": {"values": [0, …], "own": false, …}, …}},
-//    "wave": {"waveASet": 0, …}}
+//    "wave": {"waveASet": 0, …}, "waveTable": "my-table.wav" or null}
+//
+// waveTable names your table (MegaSAWave.loadTable) in your wavetables folder
+// (MegaSAWave.tableDir), or null for none. instrument is the catalog key of
+// the instrument plugin that plays the notes (MegaSA.setInstrument), or null
+// for the Wave synth; instrumentState its sound, a file beside this one.
 //
 // Read fail-soft, field by field: a value out of its range is held to it, one
 // that is no value of its field (or a field this build has not) is left out
@@ -19,7 +24,7 @@ MegaSASynthFile {
     *formatVersion { ^1 }
 
     // The file's text for a pattern and settings (name -> value).
-    *text { |name, notes, wave|
+    *text { |name, notes, wave, table, instrument, instrumentState|
         var j = { |x| MegaFiles.json(x) };
         var settings = MegaSANoteSeq.settingNames.collect { |k| j.(k.asString) ++ ": " ++ j.(notes[k]) };
         var lanes = MegaSANoteSeq.laneNames.collect { |k|
@@ -32,7 +37,8 @@ MegaSASynthFile {
             ++ " \"notes\": {" ++ settings.join(", ") ++ ",\n  \"steps\": " ++ j.(notes[\steps]) ++ ",\n"
             ++ "  \"lanes\": {\n" ++ lanes.join(",\n") ++ "}},\n"
             ++ " \"wave\": {" ++ MegaSAWave.params.collect { |p| j.(p[\name].asString) ++ ": " ++ j.(wave[p[\name]]) }.join(", ")
-            ++ "}}\n"
+            ++ "},\n \"waveTable\": " ++ j.(table) ++ ",\n \"instrument\": " ++ j.(instrument)
+            ++ ", \"instrumentState\": " ++ j.(instrumentState) ++ "}\n"
     }
 
     // (name:, notes:, wave:) from a file, or nil (said in `warnings`, a List,
@@ -96,6 +102,9 @@ MegaSASynthFile {
             };
         };
         MegaSANoteSeq.keepRange(notes);
-        ^(name: obj.at("name") !? { |x| x.asString }, notes: notes, wave: wave)
+        ^(name: obj.at("name") !? { |x| x.asString }, notes: notes, wave: wave,
+            table: obj.at("waveTable") !? { |x| if(x.isString) { x } },
+            instrument: obj.at("instrument") !? { |x| if(x.isString) { x } },
+            instrumentState: obj.at("instrumentState") !? { |x| if(x.isString) { x } })
     }
 }

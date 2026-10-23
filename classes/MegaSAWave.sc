@@ -5,14 +5,15 @@
 // drum hit (MegaSADrums.noteVoice).
 //
 // ---- The tables ----
-// Four sets of eight tables each (sets): an oscillator's position (0..1)
+// Four sets of eight tables each (sets), and a fifth of yours: an oscillator's position (0..1)
 // morphs through a set's eight, VOsc crossfading between neighbours. Every
 // table is made for nine octave bands (bandTops: the highest fundamental of
 // each) with only the partials that stay under 20 kHz there, so a high note
 // does not alias: a voice reads the band of the pitch it plays now. The
 // server makes them itself (b_gen sine3: partial, amplitude, phase), so no
-// sample data crosses the network: 288 buffers of 2048 points in wavetable
-// form (4096 floats), about 4.7 MB. Their numbers are consecutive from
+// sample data crosses the network: 360 buffers of 2048 points in wavetable
+// form (4096 floats), about 5.9 MB, the last 72 the fifth set's, Your table
+// (see Your table). Their numbers are consecutive from
 // `base`, set by set, band by band (bufnum).
 //
 // ---- A note ----
@@ -33,6 +34,10 @@
 MegaSAWave {
     classvar paramList, paramIndex;
     var <server, <base, <settings, <built = false;
+    // Your table (set 4, "Your table"): its partials, eight lists of
+    // [partial, amplitude, phase] from a WAV (loadTable), and its name in
+    // tableDir; nil until one is loaded, when the set plays Analog's.
+    var <userPartials, <tableName;
 
     *new { |server| ^super.newCopyArgs(server).init }
 
@@ -48,7 +53,8 @@ MegaSAWave {
     *bandTops { ^#[55, 110, 220, 440, 880, 1760, 3520, 7040, 14080] }
     *topPartialHz { ^20000 }
 
-    *setNames { ^#["Analog", "Harmonics", "Vowels", "Organ"] }
+    *setNames { ^#["Analog", "Harmonics", "Vowels", "Organ", "Your table"] }
+    *userSet { ^4 }
 
     *numBuffers { ^(this.setNames.size * this.bandTops.size) * this.morphs }
 
@@ -57,9 +63,15 @@ MegaSAWave {
 
     // The partials of table k (0..7) of a set, as [partial, amplitude,
     // phase] triples, every partial under `limit`.
-    *partials { |set, k, limit|
+    // `user`: your table's eight lists (set 4), else it is Analog's.
+    *partials { |set, k, limit, user|
         var out = List.new, add, vowels, regs, d;
         limit = limit.asInteger.clip(1, 1000);
+        if(set == this.userSet) {
+            if(user.isNil) { ^this.partials(0, k, limit) };
+            out = user[k].select { |p| p[0] <= limit };
+            ^if(out.isEmpty) { [[1, 1, 0]] } { out }
+        };
         add = { |n, amp, phase = 0| if((n <= limit) and: { amp.abs > 1e-5 }) { out.add([n, amp, phase]) } };
         switch(set,
             // Sine, triangle, saw, square, then narrowing pulses.
@@ -105,23 +117,127 @@ MegaSAWave {
 
     // Each set's octave as the voice plays its tables: the organ's
     // fundamental is its 16' bar, an octave under the note.
-    *setOctaves { ^#[0, 0, 0, -1] }
+    *setOctaves { ^#[0, 0, 0, -1, 0] }
 
-    // Every table's /b_alloc and /b_gen, from base.
-    *tableMsgs { |base|
+    // Every table's /b_alloc and /b_gen, from base (`sets`: only those;
+    // `alloc` false: the /b_gen alone, over buffers already there).
+    *tableMsgs { |base, user, sets, alloc = true|
         var msgs = List.new, n, limit;
-        this.setNames.size.do { |set|
+        (sets ?? { (0 .. (this.setNames.size - 1)) }).do { |set|
             this.bandTops.do { |top, band|
                 limit = (this.topPartialHz / top).floor.asInteger.min((this.tableSize / 2).asInteger - 1);
                 this.morphs.do { |k|
                     n = this.bufnum(base, set, band, k);
-                    msgs.add([\b_alloc, n, this.tableSize * 2, 1]);
+                    if(alloc) { msgs.add([\b_alloc, n, this.tableSize * 2, 1]) };
                     // 1 normalize + 2 wavetable form + 4 clear first.
-                    msgs.add([\b_gen, n, \sine3, 7] ++ this.partials(set, k, limit).flat);
+                    msgs.add([\b_gen, n, \sine3, 7] ++ this.partials(set, k, limit, user).flat);
                 };
             };
         };
         ^msgs.asArray
+    }
+
+    // ---- Your table ---------------------------------------------------------
+    // A wavetable WAV as Serum and Vital write them: one cycle of 2048 samples
+    // after another (256 at most), the first channel read. Eight of its
+    // cycles, spread evenly from the first to the last, become the set's
+    // eight positions; a file of one cycle is all eight. A file shorter than
+    // 2048 samples is one cycle, stretched to 2048. Each cycle is taken apart
+    // into its partials (an FFT), and goes through the same bands as the
+    // built-in tables, so it does not alias either.
+
+    *tableDir { ^MegaFiles.userRoot +/+ "sa" +/+ "wavetables" }
+
+    // The cycles of a file, as Signals of 2048, or a String saying why not.
+    *cyclesOf { |path|
+        var sf = SoundFile.new, n = this.tableSize, data, chans, frames, mono, count, sig;
+        if(path.isNil or: { File.exists(path).not }) { ^"there is no such file" };
+        if(sf.openRead(path).not) { ^"it is not a sound file SuperCollider can read" };
+        chans = sf.numChannels;
+        frames = sf.numFrames;
+        if(frames < 16) { sf.close; ^"it is too short to hold a cycle" };
+        data = FloatArray.newClear(frames.min(n * 256) * chans);
+        sf.readData(data);
+        sf.close;
+        mono = Signal.fill(data.size div: chans, { |i| data[i * chans] });
+        if(mono.size < n) {
+            // One cycle, stretched (linear) to the table's size.
+            sig = Signal.fill(n, { |i| var x = (i / n) * mono.size, a = x.floor.asInteger;
+                mono[a % mono.size].blend(mono[(a + 1) % mono.size], x - a) });
+            ^[sig]
+        };
+        count = mono.size div: n;
+        ^Array.fill(count, { |c| Signal.fill(n, { |i| mono[(c * n) + i] }) })
+    }
+
+    // Eight lists of [partial, amplitude, phase] from the cycles: the
+    // positions 0..7 read cycles spread evenly through them. A partial under
+    // 1/10000 of its cycle's strongest is left out; a silent cycle is a sine.
+    *analyse { |cycles|
+        var n = this.tableSize, cos = Signal.fftCosTable(n);
+        ^Array.fill(this.morphs, { |k|
+            var c = cycles[((k * (cycles.size - 1)) / (this.morphs - 1)).round.asInteger];
+            var spec = c.fft(Signal.newClear(n), cos), parts, top;
+            // x = sum of (2/N)|X_m| sin(m t + phase), phase = atan2(re, -im).
+            parts = (1 .. ((n / 2).asInteger - 1)).collect { |m|
+                [m, (spec.real[m].squared + spec.imag[m].squared).sqrt * 2 / n, atan2(spec.real[m], spec.imag[m].neg)] };
+            top = parts.collect(_[1]).maxItem;
+            if(top <= 0) { [[1, 1, 0]] } { parts.select { |p| p[1] > (top * 1e-4) } }
+        })
+    }
+
+    // Your table from a WAV: answers true, or a String saying why not (the
+    // table is then as it was). Its tables on the server are made again at
+    // once, if they are built. `name` is what it is kept as (the file's own
+    // name by default). Notifies \waveTable, name.
+    loadTable { |path, name|
+        var cycles = this.class.cyclesOf(path);
+        if(cycles.isString) { ^cycles };
+        userPartials = this.class.analyse(cycles);
+        tableName = name ?? { PathName(path).fileName };
+        this.prSendUserTables;
+        this.changed(\waveTable, tableName);
+        ^true
+    }
+
+    // A WAV of yours, copied into tableDir (under its own name, or with a
+    // number added if another file has it there; the same file again is not
+    // copied twice) and loaded. Answers true, or
+    // why not.
+    importTable { |path|
+        var dir = this.class.tableDir, base = PathName(path ? "").fileNameWithoutExtension, dst, n = 1, cycles;
+        cycles = this.class.cyclesOf(path);
+        if(cycles.isString) { ^cycles };
+        File.mkdir(dir);
+        dst = dir +/+ base ++ ".wav";
+        // A file there by that name with the same bytes is this one again.
+        while { File.exists(dst) and: { ("/usr/bin/cmp -s " ++ dst.shellQuote ++ " " ++ path.shellQuote).systemCmd != 0 } } {
+            n = n + 1;
+            dst = dir +/+ base ++ "-" ++ n ++ ".wav";
+        };
+        if(File.exists(dst).not) { File.copy(path, dst) };
+        ^this.loadTable(dst, PathName(dst).fileName)
+    }
+
+    // A table kept in tableDir by its name: true, or why not.
+    loadTableNamed { |name|
+        if(name.isNil) { this.clearTable; ^true };
+        ^this.loadTable(this.class.tableDir +/+ name, name)
+    }
+
+    // Your table back to none: the set plays Analog's. Notifies \waveTable.
+    clearTable {
+        userPartials = nil;
+        tableName = nil;
+        this.prSendUserTables;
+        this.changed(\waveTable, nil);
+    }
+
+    prSendUserTables {
+        if(built and: { base.notNil }) {
+            this.class.tableMsgs(base, userPartials, [this.class.userSet], false).clump(16).do { |ms|
+                server.sendBundle(nil, *ms) };
+        };
     }
 
     // The tables on the server: a block of consecutive buffer numbers, then
@@ -132,7 +248,7 @@ MegaSAWave {
         if(built) { ^this };
         base = server.bufferAllocator.alloc(this.class.numBuffers);
         if(base.isNil) { "MegaSAWave: no room for the wavetables; the Wave synth stays silent.".warn; ^this };
-        msgs = this.class.tableMsgs(base);
+        msgs = this.class.tableMsgs(base, userPartials);
         msgs.clump(16).do { |ms| server.sendBundle(nil, *ms) };
         if(thisThread.isKindOf(Routine)) { server.sync };
         built = true;
@@ -300,9 +416,10 @@ MegaSAWave {
             (fx: \wave, name: name, label: label, spec: spec, units: units).putAll(extra ? ())
         };
         ^[
-            p.(\waveASet, "A table", ControlSpec(0, 3, \lin, 1, 0), nil, (choices: sets,
+            p.(\waveASet, "A table", ControlSpec(0, sets.size - 1, \lin, 1, 0), nil, (choices: sets,
                 tip: "Oscillator A's set of tables: Analog (sine, triangle, saw, square, pulses),\n"
-                    "Harmonics (a saw's partials, more and more), Vowels, Organ (drawbars).")),
+                    "Harmonics (a saw's partials, more and more), Vowels, Organ (drawbars), or\n"
+                    "Your table: a wavetable WAV of yours (Load table…).")),
             p.(\waveAPos, "A position", ControlSpec(0, 1, \lin, 0, 0.3), " %", (scale: 100,
                 tip: "Where in its set A plays: the tables crossfade from one end to the other.")),
             p.(\waveAOctave, "A octave", ControlSpec(-2, 2, \lin, 1, 0), nil, (centered: true,
@@ -310,7 +427,7 @@ MegaSAWave {
             p.(\waveALevel, "A level", ControlSpec(0, 1, \lin, 0, 1), " %", (scale: 100)),
             p.(\waveSpread, "A unison", ControlSpec(0, 50, \lin, 0, 0), " ct", (
                 tip: "Two more copies of A, this many cents above and below: 0 is one voice.")),
-            p.(\waveBSet, "B table", ControlSpec(0, 3, \lin, 1, 1), nil, (choices: sets)),
+            p.(\waveBSet, "B table", ControlSpec(0, sets.size - 1, \lin, 1, 1), nil, (choices: sets)),
             p.(\waveBPos, "B position", ControlSpec(0, 1, \lin, 0, 0.5), " %", (scale: 100)),
             p.(\waveBSemis, "B semitones", ControlSpec(-24, 24, \lin, 1, 0), " st", (centered: true)),
             p.(\waveBDetune, "B detune", ControlSpec(-50, 50, \lin, 0, 7), " ct", (centered: true)),

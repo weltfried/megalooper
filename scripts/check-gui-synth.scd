@@ -201,6 +201,52 @@ Routine {
         ok.("...and a boot starts with them", ~saLoadKeptSynth.() and: { d.notes[\lanes][\pitch][\values][2] == 7 });
     });
 
+    section.("the instrument", {
+        var menu = ~synthWidgets[\instrument][\view], fake;
+        ok.("the instrument menu starts on the Wave synth", (menu.items[0] == "Wave synth") and: { menu.value == 0 });
+        sa.catalog = [(key: "Fake Synth", name: "Fake Synth", synth: true, bridged: false)];
+        fake = ~tFakePlugin.(\open, "Fake Synth");
+        fake[\midiMsg] = { |self, st, a, b| [\midi, st, a, b] };
+        sa.pluginMaker = { fake };
+        pane = ~buildSynthPane.();
+        tick.();
+        menu = ~synthWidgets[\instrument][\view];
+        ok.("with an instrument scanned, it is in the menu", menu.items == ["Wave synth", "Fake Synth"], menu.items.asString);
+        menu.valueAction_(1);
+        tick.();
+        ok.("choosing it plays it", sa.instrumentKey == "Fake Synth");
+        ok.("...and the line says it is open", ~synthWidgets[\instrumentLine][\view].string == "open",
+            ~synthWidgets[\instrumentLine][\view].string);
+        sa.setInstrument(nil);
+        tick.();
+        ok.("back to the Wave synth from elsewhere: the menu follows", menu.value == 0);
+    });
+
+    section.("your table", {
+        var dir = tmp +/+ "tables", sf = SoundFile.new.headerFormat_("WAV").sampleFormat_("float").numChannels_(1);
+        File.mkdir(dir);
+        sf.openWrite(dir +/+ "mine.wav");
+        sf.writeData(Signal.fill(2048, { |i| sin(2pi * i / 2048) }).as(FloatArray));
+        sf.close;
+        ok.("with none, the row says the set plays Analog's", ~synthWidgets[\tableName][\view].string.contains("Analog"));
+        MegaFiles.rootOverride = tmp +/+ "user";
+        ~synthImportTable.(dir +/+ "mine.wav");
+        tick.();
+        ok.("a table loaded: the row names it", ~synthWidgets[\tableName][\view].string == "mine.wav",
+            ~synthWidgets[\tableName][\view].string);
+        fam = ~presetFamily.(\saSynth);
+        fam[\nameField].string_("With Table");
+        ~presetSave.(\saSynth);
+        wv.clearTable;
+        tick.();
+        ok.("None: back to none", wv.tableName.isNil and: { ~synthWidgets[\tableName][\view].string.contains("Analog") });
+        ~presetLoad.(\saSynth, "with-table");
+        tick.();
+        ok.("a preset brings its table back", (wv.tableName == "mine.wav") and: { ~synthWidgets[\tableName][\view].string == "mine.wav" },
+            wv.tableName.asString);
+        ok.("a file that is no table: refused, said", ~synthImportTable.(dir +/+ "missing.wav").isString);
+    });
+
     section.("the view", {
         var views = ~guiViewOrderFor.(true);
         ok.("SA's views: the Synth after the Drums", views == [\perform, \sound, \fx, \drums, \synth, \setup, \calibrate], views.asString);

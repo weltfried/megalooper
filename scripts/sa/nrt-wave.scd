@@ -15,7 +15,10 @@
 //   4. legato: a note started legato keeps the level where the one before
 //      was (no new attack); started anew it attacks to full level again;
 //   5. a cancelled note writes nothing; every sample is a number, under full
-//      scale.
+//      scale;
+//   6. your table: a square's cycle (odd partials to 49), read as a WAV is
+//      (MegaSAWave.analyse), played at 220 Hz: its odd partials at 1/n,
+//      nothing at the even ones.
 //
 //     /Applications/SuperCollider.app/Contents/MacOS/sclang scripts/sa/nrt-wave.scd
 //
@@ -23,7 +26,7 @@
 // this run's own, deleted at the end. Prints PASS or FAIL per check and NRT
 // WAVE PASSED at the end; exits 1 on any failure.
 (
-var sr = 48000, endT = 5.0, numOut = 14;
+var sr = 48000, endT = 5.0, numOut = 16;
 var scsynth = MegaSAPlugins.scsynthPath;
 var tmpDir = (Platform.defaultTempDir ? "/tmp") +/+ "megalooper-sa"
     +/+ ("nrt-wave-" ++ Date.getDate.stamp ++ "-" ++ thisProcess.pid);
@@ -33,7 +36,7 @@ var group = 1000, fails = 0, passes = 0, hit = 0;
 var check, tail, w, note, score, cmd, said, sf, data, frames, sample, chan, aliasDb, zc, pitchAt, goertzel, peaks;
 var aliasNotes = #[40, 64, 88, 100, 105, 106], aliasAt, aliasDbs, naiveDb, floorDb = -60;
 var gA = 0.3, gB = 0.7, mC = 0.3, mD = 0.6, lE = 0.3, lF = 0.6, nG = 0.3, nH = 0.6;
-var pitches, mid, rest, before, levels, flat, bump, finite, peak;
+var pitches, mid, rest, before, levels, flat, bump, finite, peak, mine;
 
 check = { |label, ok, detail|
     if(ok == true) { passes = passes + 1; ("  PASS  " ++ label).postln } {
@@ -50,6 +53,9 @@ try {
     w = MegaSAWave((sampleRate: sr));
     w.instVarPut(\base, 0);
     w.instVarPut(\built, true);
+    // Your table: one square cycle.
+    w.instVarPut(\userPartials, MegaSAWave.analyse([Signal.fill(2048, { |i|
+        (1, 3 .. 49).sum { |m| sin(m * 2pi * i / 2048) / m } })]));
     // One note's message at time t onto `out`, with a cancel bus of its own
     // and the choke bus of its channel: rec as MegaSADrums makes it.
     note = { |t, out, midi, dur, from, legato = false, settings|
@@ -66,7 +72,7 @@ try {
         [0.0, [\g_new, group, 0, 0]],
         [0.0, [\c_setn, 100, 120] ++ Array.fill(120, 0)],
         [0.0, [\c_setn, 200, 10] ++ Array.fill(10, 0)]]
-        ++ MegaSAWave.tableMsgs(0).collect { |m| [0.0, m] };
+        ++ MegaSAWave.tableMsgs(0, w.userPartials).collect { |m| [0.0, m] };
     // 1: the saw (Analog, table 2) held, its filter wide open, no envelope to speak of.
     aliasAt = aliasNotes.collect { |n, i| 0.2 + (i * 0.6) };
     aliasNotes.do { |n, i|
@@ -85,6 +91,9 @@ try {
     score = score.add(note.(lF, 4, 64, 0.4, 57, true, (waveAPos: 0, waveCutoff: 18000, waveSustain: 0.5, waveDecay: 0.05)));
     score = score.add(note.(nG, 5, 57, 0.4, nil, false, (waveAPos: 0, waveCutoff: 18000, waveSustain: 0.5, waveDecay: 0.05)));
     score = score.add(note.(nH, 5, 57, 0.4, 57, false, (waveAPos: 0, waveCutoff: 18000, waveSustain: 0.5, waveDecay: 0.05)));
+    // 6: your table, filter open, held.
+    score = score.add(note.(3.5, 7, 57, 0.6, nil, false, (waveASet: 4, waveAPos: 0, waveCutoff: 18000, waveResonance: 0,
+        waveKeyTrack: 0, waveFilterEnv: 0, waveSustain: 1, waveAttack: 0.001, waveLevel: 0)));
     // 5: cancelled.
     score = score.add(note.(1.0, 6, 60, 0.3, nil, false));
     score = score.add([0.9, [\c_set, 100 + hit, 1]]);
@@ -176,6 +185,12 @@ try {
     bump = peaks.(5, nH, 0.02).maxItem / peaks.(5, nH - 0.03, 0.02).maxItem.max(1e-9);
     check.("legato: the level holds across the change to the next pitch, within 30 %", flat < 1.3, "max/min " ++ flat.round(0.001));
     check.("...where a note started anew attacks to full level again", bump > 1.5, "peak after/before " ++ bump.round(0.01));
+    // 6
+    mine = (1 .. 6).collect { |k| goertzel.(7, 3.7, 0.3, 220 * k) };
+    check.("your table plays its cycle: the odd partials at 1/n of the first",
+        [3, 5].every { |k| ((mine[k - 1] / mine[0]) - (1 / k)).abs < 0.03 }, (mine / mine[0]).round(0.001).asString);
+    check.("...and nothing at the even ones (60 dB down)", [2, 4, 6].every { |k| (mine[k - 1] / mine[0]) < 0.001 },
+        (mine / mine[0]).round(0.0001).asString);
     // 5
     check.("a cancelled note writes nothing", (0 .. frames - 1).every { |i| sample.(6, i) == 0 });
     peak = 0;
