@@ -4127,6 +4127,14 @@ Looper {
         };
     }
 
+    // What the take being played was heard to hold, for an AI app
+    // (MegaRemote.takeOf): its onsets, [seconds from the record press,
+    // strength], and its pitch readings, [seconds, Hz, amplitude], as the
+    // analysis read them. A copy; empty before a first take, and from a new
+    // record press on.
+    takeOnsets { ^onsets.asArray.copy }
+    takePitches { ^pitchSamples.asArray.copy }
+
     // Whether Undo has something to drop: the window says "nothing to undo"
     // rather than offering it.
     canUndo { ^undoState.notNil }

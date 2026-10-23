@@ -95,6 +95,37 @@ o = MegaRemote.loopOf(looper).at("reading");
 looper.instVarPut(\lastResult, (numerator: nil, denominator: nil, bpm: nil, error: \insufficientOnsets));
 ~tEq.("...a reading that found nothing is none", MegaRemote.loopOf(looper).at("reading"), nil);
 
+// ---- the take, on the bar grid ---------------------------------------------------------------
+// 7+7+7+8/8 at 120 quarter notes a minute: an eighth is 0.25 s, a sixteenth
+// 0.125 s, the bars 14, 14, 14 and 16 sixteenths, the loop 7.25 s.
+looper.instVarPut(\lastResult, (numerator: 7, denominator: 8, bpm: 120, k: 4, sub: 1, tau: 0.25, loopDur: 7.25,
+    bars: [7, 7, 7, 8], chordSegments: [(start: 0, rootName: "E", scaleName: "Minor"), (start: 3.5, rootName: "A", scaleName: "Minor")]));
+~tEq.("no take before its onsets", MegaRemote.loopOf(looper).at("take"), nil);
+looper.instVarPut(\onsets, List[[0.0, 1.0], [0.37, 0.4], [1.75, 0.9], [5.26, 0.5], [7.24, 0.3]]);
+looper.instVarPut(\pitchSamples, List[[0.02, 82.41, 0.5], [0.05, 82.0, 0.5], [0.06, 440, 0], [1.78, 110.0, 0.4]]);
+o = MegaRemote.loopOf(looper).at("take");
+~tEq.("the take: a grid of sixteenths per bar, X strong, x a hit; a hit at the loop's very end is its start",
+    [o.at("sixteenthsPerBar"), o.at("bars").collect { |b| b.at("grid") }],
+    [[14, 14, 14, 16], ["X..x..........", "X.............", "..............", "x..............."]]);
+~tEq.("...each bar's hits: where, how strong against the loudest, and the pitch heard (sounding readings only)",
+    [o.at("bars")[0].at("hits").collect { |h| [h.at("at"), h.at("strength"), h.at("note")] },
+        o.at("bars")[1].at("hits").collect { |h| [h.at("at"), h.at("note")] }, o.at("bars")[2].at("hits")],
+    [[[0, 1.0, "E2"], [3, 0.4, nil], [0, 0.3, nil]], [[0, "A2"]], []]);
+~tEq.("...and the chords heard, by bar and sixteenth",
+    o.at("chords").collect { |c| [c.at("bar"), c.at("at"), c.at("chord")] }, [[1, 0, "E Minor"], [3, 0, "A Minor"]]);
+looper.instVarPut(\lastResult, (numerator: 7, denominator: 8, bpm: 120, k: 4, sub: 1, tau: 0.25, loopDur: 14.5,
+    bars: [7, 7, 7, 8], downbeatPhase: 0.25));
+o = MegaRemote.loopOf(looper).at("take");
+// From a downbeat 0.25 s (two sixteenths) in: the hit at 0 s is two
+// sixteenths before beat one, the last bar's 15th; 1.75 s is bar 1's 13th.
+~tEq.("a loop grown to two cycles counts both; an overdub's reading counts from its downbeat, a hit before it wrapping to the end",
+    [o.at("sixteenthsPerBar"), o.at("bars")[0].at("grid"), o.at("bars").last.at("grid")],
+    [[14, 14, 14, 16, 14, 14, 14, 16], ".x..........X.", "..............X."]);
+looper.instVarPut(\lastResult, (numerator: 7, denominator: 32, bpm: 120, k: 1, sub: 1, tau: 0.0625, loopDur: 0.4375));
+~tEq.("...a reading in 32nds has no sixteenth grid", MegaRemote.loopOf(looper).at("take"), nil);
+looper.instVarPut(\onsets, List.new);
+looper.instVarPut(\pitchSamples, List.new);
+
 stub = ~tStubServer.();
 sa = ~tCheck.("a MegaSA is made on the stub", { MegaSA(stub) });
 if(sa.notNil) {

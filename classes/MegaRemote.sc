@@ -641,9 +641,74 @@ MegaRemote {
                     \bpm, r[\bpm], \loopSeconds, r[\loopDur],
                     \byHand, r[\from] == \hand
                 ])
-            }
+            },
+            \take, this.takeOf(looper)
         ])
     }
+
+    // What the take was heard to play, on the reading's bar grid, in
+    // sixteenths from the record press (the transport's beat one; an
+    // overdub's reading counts from its downbeatPhase): per bar a grid, "X"
+    // a strong hit (two thirds of the loudest or more), "x" a hit, "." none,
+    // and the hits with their strength (0..1 of the loudest) and their pitch
+    // where the pitch tracker heard one; and the chords it heard, where they
+    // start. nil without a reading, or before a take with onsets, or when a
+    // sixteenth is no whole share of the denominator's unit (x/32).
+    *takeOf { |looper|
+        var r = looper !? { |l| l.lastResult }, onsets, pitches, den, beatDur, six, units, cycles, barSix, starts;
+        var rows, loudest, total, bar, at, q, strength, chords;
+        onsets = (looper !? { |l| l.takeOnsets }) ? [];
+        if(r.isNil or: { r[\error].notNil } or: { r[\denominator].isNil } or: { r[\tau].isNil }
+            or: { r[\loopDur].isNil } or: { onsets.isEmpty }) { ^nil };
+        den = r[\denominator].asInteger;
+        if((den < 1) or: { (16 % den) != 0 }) { ^nil };
+        pitches = looper.takePitches;
+        beatDur = r[\tau] * (r[\sub] ? 1);
+        six = beatDur * den / 16;
+        units = MeterAnalyzer.barsOf(r);
+        cycles = (((r[\loopDur] / beatDur).round / units.sum).round.asInteger).max(1);
+        barSix = (units ! cycles).flatten.collect { |b| (b * 16 / den).round.asInteger };
+        total = barSix.sum;
+        starts = [0] ++ barSix.integrate.drop(-1);
+        rows = barSix.collect { |n| (grid: String.fill(n, $.), hits: List.new) };
+        loudest = onsets.collect { |o| o[1] ? 0 }.maxItem.max(1e-9);
+        onsets.do { |o|
+            q = (((o[0] - (r[\downbeatPhase] ? 0)) / six).round.asInteger).mod(total);
+            bar = starts.lastIndexForWhich { |s0| s0 <= q } ? 0;
+            at = q - starts[bar];
+            strength = ((o[1] ? 0) / loudest).clip(0, 1);
+            if(strength >= (2/3)) { rows[bar][\grid][at] = $X } {
+                if(rows[bar][\grid][at] != $X) { rows[bar][\grid][at] = $x } };
+            rows[bar][\hits].add(this.obj([\at, at, \strength, strength.round(0.01),
+                \note, this.noteName(this.pitchAt(pitches, o[0]))]));
+        };
+        chords = (r[\chordSegments] ? []).collect { |c|
+            q = (((c[\start] - (r[\downbeatPhase] ? 0)) / six).round.asInteger).mod(total);
+            bar = starts.lastIndexForWhich { |s0| s0 <= q } ? 0;
+            this.obj([\bar, bar + 1, \at, q - starts[bar],
+                \chord, [c[\rootName], c[\scaleName]].reject(_.isNil).join(" ")])
+        };
+        ^this.obj([
+            \about, "What the first take played, on the bar grid in sixteenths from the downbeat: "
+                "X a strong hit, x a hit, . nothing. at counts sixteenths from the bar's start (0). "
+                "note is the pitch heard at a hit, where one was. Overdubs are not in it.",
+            \sixteenthsPerBar, barSix,
+            \bars, rows.collect { |row, i| this.obj([\bar, i + 1, \grid, row[\grid], \hits, row[\hits].asArray]) },
+            \chords, chords
+        ])
+    }
+
+    // The pitch heard at a hit at `t` (seconds from the press): the median of
+    // the pitch readings in the 100 ms after it, as a MIDI note, or nil.
+    *pitchAt { |pitches, t|
+        var hz = (pitches ? []).select { |p| (p[0] >= t) and: { p[0] <= (t + 0.1) }
+            and: { (p[2] ? 0) > 0 } and: { p[1].notNil } and: { p[1] > 30 } and: { p[1] < 2000 } }
+            .collect { |p| p[1] }.sort;
+        ^if(hz.isEmpty) { nil } { hz[hz.size div: 2].cpsmidi.round.asInteger }
+    }
+
+    // "E2" for MIDI 40, nil for nil.
+    *noteName { |midi| ^midi !? { |m| MegaSANoteSeq.rootNames[m % 12] ++ ((m div: 12) - 1) } }
 
     // Both step patterns, which is in force, the kits and their pads.
     *drumsOf { |d|

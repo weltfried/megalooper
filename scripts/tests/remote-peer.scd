@@ -12,6 +12,8 @@ var stop = thisProcess.argv[0], ready = thisProcess.argv[1], looper = ~tLooper.(
 looper.instVarPut(\lastResult, (numerator: 7, denominator: 8, bpm: 132.5, k: 4, sub: 1, n: 29,
     tau: 0.2264, loopDur: 6.566, bars: [7, 7, 7, 8], phase: 0, onsetCount: 40));
 looper.instVarPut(\state, \playing);
+// A take: hits on beat one of the first two bars (a sixteenth is 0.2264 / 2 s).
+looper.instVarPut(\onsets, List[[0.0, 1.0], [1.5848, 0.5]]);
 remote = MegaRemote({ (looper: looper, sa: sa, profile: \sa) }).start;
 // The reader waits for the whole path: it ends in remote.json.
 ready !? { |p| File.use(p, "w", { |f| f.write(MegaRemote.handshakePath) }) };

@@ -347,6 +347,9 @@ class RoundTrip(unittest.TestCase):
         self.assertEqual(len(ctx["drums"]["patterns"]["main"]["steps"]["chance"]), 4)
         self.assertEqual(ctx["chains"][0]["track"], "guitar")
         self.assertIn("lanes", ctx["synth"]["notes"])
+        take = ctx["loop"]["take"]
+        self.assertEqual(take["sixteenthsPerBar"], [14, 14, 14, 16])
+        self.assertEqual([b["grid"][0] for b in take["bars"]], ["X", "x", ".", "."])
 
     def test_describe_over_osc(self):
         for topic in ["drums", "synth", "effects"]:

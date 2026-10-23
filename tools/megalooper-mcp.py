@@ -28,7 +28,7 @@ import time
 import uuid
 
 SERVER_NAME = "megalooper"
-SERVER_VERSION = "0.4.0"
+SERVER_VERSION = "0.5.0"
 # MCP revisions whose tools part is all this server uses; a client asking for
 # one of them gets it, any other gets the newest.
 PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
@@ -40,7 +40,10 @@ INSTRUCTIONS = (
     "sequencer with a synth, and effect chains. Call get_context first to see "
     "what is playing and how it is set (the loop's meter, which may be uneven "
     "bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the "
-    "chains). Call describe for what the settings mean before changing them. "
+    "chains), and loop.take: what the player played, per bar a grid of "
+    "sixteenths with the hits' pitches and the chords heard. Fit drums and "
+    "synth lines to it when asked for something that goes with the loop. "
+    "Call describe for what the settings mean before changing them. "
     "The drums (set_drum_pattern), the synth (set_synth) and the effect chains "
     "(set_chain) can be changed and every change taken back (revert); the "
     "player hears a change at once, so change what was asked for, say what "
@@ -53,9 +56,12 @@ TOOLS = [
         "name": "get_context",
         "title": "What megalooper is playing",
         "description": (
-            "The running megalooper's state: the loop (state, and the meter "
+            "The running megalooper's state: the loop (state; the meter "
             "reading: signature, bars in units of 1/denominator, bpm in "
-            "quarter notes, length in seconds), the drums (both step patterns, "
+            "quarter notes, length in seconds; and take, what the first take "
+            "played: per bar a grid of sixteenths, X a strong hit, x a hit, . "
+            "none, the hits with their strength and pitch, the chords heard), "
+            "the drums (both step patterns, "
             "main and break, the kits and their pads), the synth (the note "
             "sequencer's pattern and the Wave synth's settings) and every "
             "effect chain (devices in order, their switches and settings). "
