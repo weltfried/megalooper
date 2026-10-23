@@ -128,6 +128,25 @@ Routine {
             ~guiWindow.bounds.width <= 1440, ~guiWindow.bounds.width.asString);
     });
 
+    section.("Perform's Synth column", {
+        var w = ~megaSA.wave, d = ~megaSA.drums, cut = MegaSAWave.param(\waveCutoff);
+        ok.("Perform has a column for the synth, after the drums'", ~performColumns[\synth].notNil
+            and: { ~performSynthTile.notNil } and: { ~performSynthTile.isClosed.not });
+        d.setNotesOn(false);
+        ~performSynthTile.valueAction_(1);
+        ok.("its tile switches the note sequencer", d.notesOn == true);
+        ~performSynthCutoff.valueAction_(cut[\spec].unmap(1000));
+        ok.("its Cutoff bar sets the Wave synth", (w[\waveCutoff] - 1000).abs < 1, w[\waveCutoff].asString);
+        ~performPaintSynth.();
+        ok.("...and reads it back", ~performSynthCutoffLabel.string == "1000 Hz", ~performSynthCutoffLabel.string);
+        ok.("its line says the key, the rate and what plays", ~performColumns[\synth][\note].string == "C Minor · 1/16 · Wave synth",
+            ~performColumns[\synth][\note].string);
+        w.reset;
+        d.setNotesOn(false);
+        ~performPaintSynth.();
+        ok.("switched off, its tile is dark", ~performSynthTile.value == 0);
+    });
+
     section.("every tag names a control", {
         tags = ~mapLiveTags.();
         ("  " ++ tags.size ++ " views tagged").postln;

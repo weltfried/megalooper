@@ -12,7 +12,7 @@
 // stopped is on Sound, FX or Drums.
 //
 // Left, a column per LAYER — Loop, Cutter, Grains and, on Megalooper SA,
-// Effects and Drums — each under a bar in its colour, with its switch, the two
+// Effects, Drums and the Synth — each under a bar in its colour, with its switch, the two
 // values worth grabbing, and a line saying what it is doing. A layer that is
 // off loses its colour (the switch goes dark and dashed, the bar and the
 // values fade), so a glance across the five says what is sounding. A name
@@ -70,6 +70,8 @@
         .action_({ p[\view] !? { |v| ~guiSelectView.(v) } });
     var sw = ~guiMonoText.("", 11, ~gt[\mute]).align_(\right);
     var note = ~guiText.("", 13, ~gt[\mute]);
+    // One line, however narrow the column (six on SA): it keeps to its corner.
+    sw.setProperty(\wordWrap, false);
     p[\sw] !? { |f| ~midiWatch.(sw, { |t| t.string_(f.value) }) };
     ~performColumns[p[\key]] = (band: band, note: note);
     View().background_(~gt[\panel]).layout_(VLayout(*([
@@ -117,6 +119,17 @@
     };
 };
 
+// A Wave synth setting as a bar to drag (0..1 along its knob's spec), held
+// while the hand is on it so the four-a-second repaint leaves it be.
+~performSynthBar = { |name, tip|
+    var p = MegaSAWave.param(name);
+    ~mapTag.(~guiBar.(\synth)
+        .action_({ |sl| ~megaSA !? { |m| m.wave.set(name, p[\spec].map(sl.value)); ~performPaintSynth.() } })
+        .mouseDownAction_({ |sl| ~performSynthHeld = name; nil })
+        .mouseUpAction_({ |sl| ~performSynthHeld = nil; ~performPaintSynth.(); nil }),
+        ("sa.synth." ++ name).asSymbol, tip)
+};
+
 // A macro row: the name, the bar, the value.
 ~performMacro = { |label, bar, value|
     HLayout(
@@ -131,7 +144,7 @@
     var pane = View().background_(~gt[\bg]);
     var l = ~looper;
     var sa = ~rp.notNil and: { ~rp[\sa] == true } and: { ~megaSA.notNil };
-    var columns, loopCol, cutCol, grainCol, fxCol, drumCol, right, steppers;
+    var columns, loopCol, cutCol, grainCol, fxCol, drumCol, synthCol, right, steppers;
     var stepper, levels;
     ~performColumns = IdentityDictionary.new;
     ~performActions = IdentityDictionary.new;
@@ -253,11 +266,39 @@
                 ~performParam.("Pattern", ~performDrumsPatternLabel, ~performDrumsPattern),
                 ~performParam.("Kit", ~performDrumsKitLabel, ~performDrumsKit)
             ]));
+        // The synth (gui-synth.scd): its switch, two of the Wave synth's
+        // settings to play with, a new sound. With a plugin playing instead,
+        // those three are the Wave synth's and grey.
+        if(~megaSA.respondsTo(\wave)) {
+            ~performSynthTile = ~midiTip.(~guiLayerTile.(\synth)
+                .action_({ ~synthModel !? { |f| f.value !? { |d| d.setNotesOn(d.notesOn.not); ~performPaintSynth.() } } }),
+                'sa.synth.on', "The note sequencer on or off, from the moment you hear it, as its footswitch does.");
+            ~performSynthCutoff = ~performSynthBar.(\waveCutoff,
+                "The Wave synth's filter: drag it while the line plays. Each note takes the cutoff\n"
+                    "it starts with.");
+            ~performSynthCutoffLabel = ~performValue.("—");
+            ~performSynthPos = ~performSynthBar.(\waveAPos,
+                "Oscillator A's place in its table: the sound's colour. Each note takes it as it starts.");
+            ~performSynthPosLabel = ~performValue.("—");
+            ~performSynthRandom = ~midiTip.(LooperTile().states_([["Random", ~gt[\ink], nil]]).cycles_(false)
+                .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
+                .action_({ ~megaSA !? { |m| m.wave.randomize; ~performPaintSynth.() } }),
+                'sa.synth.random', "Every setting of the Wave synth at random but its level and glide.");
+            synthCol = ~performColumn.((key: \synth, name: "Synth", view: \synth,
+                sw: { ~performSw.(nil, 'sa.synth.on') },
+                toggle: ~performSynthTile,
+                rows: [
+                    ~performParam.("Cutoff", ~performSynthCutoffLabel, ~performSynthCutoff),
+                    ~performParam.("Position", ~performSynthPosLabel, ~performSynthPos)
+                ],
+                extra: [~performSynthRandom]));
+        } { ~performSynthTile = nil };
     } {
         ~performFxTile = nil;
         ~performDrumsTile = nil;
+        ~performSynthTile = nil;
     };
-    columns = [loopCol, cutCol, grainCol] ++ (if(sa) { [fxCol, drumCol] } { [] });
+    columns = [loopCol, cutCol, grainCol] ++ (if(sa) { [fxCol, drumCol] ++ (synthCol !? { [synthCol] } ? []) } { [] });
 
     // ---- Actions ---------------------------------------------------------------------------
     ~performAction.(\trigger, "Trigger", "R", 'looper.trigger', { |lp| lp.trigger },
@@ -587,7 +628,36 @@
     };
 };
 
+~performPaintSynth = {
+    var m = ~megaSA, d = ~synthModel !? { |f| f.value }, w, on, plugin, n, bar, p;
+    if(~performSynthTile.notNil and: { ~performSynthTile.isClosed.not } and: { m.notNil } and: { d.notNil }) {
+        w = m.wave;
+        on = d.notesOn == true;
+        plugin = m.instrumentKey;
+        ~performSynthTile.states_(~guiLayerStates.(\synth, "ON", "OFF"));
+        ~guiLayerPaint.(~performSynthTile, on, \synth);
+        ~performPaintBand.(\synth, on);
+        [[\waveCutoff, ~performSynthCutoff, ~performSynthCutoffLabel], [\waveAPos, ~performSynthPos, ~performSynthPosLabel]].do { |row|
+            p = MegaSAWave.param(row[0]);
+            bar = row[1];
+            if(bar.notNil and: { bar.isClosed.not }) {
+                if(~performSynthHeld != row[0]) { bar.value_(p[\spec].unmap(w[row[0]])) };
+                bar.dim_(if(on and: { plugin.isNil }) { 1 } { 0.3 });
+                row[2].string_(if(plugin.isNil) { ~synthFormat !? { |f| f.(p, w[row[0]]) } ? w[row[0]].asString } { "—" });
+            };
+        };
+        ~performSynthRandom !? { |t| if(t.isClosed.not) { t.enabled_(plugin.isNil) } };
+        n = d.notes;
+        ~performNote.(\synth, MegaSANoteSeq.rootNames[n[\root]]
+            ++ (if(n[\scaleOn] == true) { " " ++ MegaSANoteSeq.scales[n[\scale]][0] } { "" })
+            ++ " · " ++ MegaSANoteSeq.divisionNames[n[\division]]
+            ++ (if(n[\triplet] == true) { "T" } { "" }) ++ (if(n[\dotted] == true) { "." } { "" })
+            ++ " · " ++ (plugin !? { |k| PathName(k.asString).fileNameWithoutExtension } ? "Wave synth"));
+    };
+};
+
 ~performRefreshAll = {
+    ~performPaintSynth.();
     ~performPaintLoop.();
     ~performPaintCutter.();
     ~performPaintGrains.();
