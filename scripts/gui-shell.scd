@@ -401,6 +401,25 @@
     }
 };
 
+// ---- AI apps -----------------------------------------------------------------------------
+// The footer's Revert while an AI app's change can be taken back, with how
+// many; and the Setup view's switch, as the switch stands.
+~guiAiTileMake = {
+    LooperTile().cycles_(false).font_(~guiMono.(12, true)).fixedHeight_(22).pad_(10)
+        .states_([["↶ Revert AI change", ~gt[\ink], nil]]).visible_(false)
+        .toolTip_("Takes back the newest change an AI app made: the drums, the synth or the effects\n"
+            "as they were before it. Click again for the one before.")
+        .action_({ ~remoteRevert !? { |f| f.value } })
+};
+~guiAiPaint = {
+    var n = (~megaRemote !? { |r| r.changeCount }) ? 0, tile = ~guiAiTile;
+    if(tile.notNil and: { tile.isClosed.not }) {
+        tile.states_([["↶ Revert AI change" ++ (if(n > 1) { " (" ++ n ++ ")" } { "" }), ~gt[\ink], nil]]);
+        if(tile.visible != (n > 0)) { tile.visible_(n > 0) };
+    };
+    ~guiSegSet.(~remoteSeg, (~megaRemote.notNil).binaryValue);
+};
+
 // ---- The top bar ----------------------------------------------------------------------
 // The server's load, as the CPU tile says it: [average, peak], whole percent,
 // or nil while no server answers. Past ~guiCpuWarn the tile turns red: the
@@ -740,8 +759,10 @@
     ~guiFooterStatus = LooperTile().cycles_(false).font_(~guiMono.(12, true)).fixedHeight_(22).pad_(10)
         .states_([[""]]);
     ~guiFooterPainted = nil;
+    // Revert, beside the line that says what an AI app changed.
+    ~guiAiTile = ~guiAiTileMake.();
     footer = View().background_(~gt[\bg]).fixedHeight_(32).layout_(HLayout(
-        [~keyHintText, stretch: 1], ~guiFooterStatus
+        [~keyHintText, stretch: 1], ~guiFooterStatus, ~guiAiTile
     ).margins_([24, 0, 24, 0]).spacing_(20));
 
     topBar = ~guiTopBar.();
@@ -921,6 +942,8 @@
     ~statusRefreshAll.();
     ~guiSessionRecPaint.();
     ~guiRefreshTabs.();
+    // A window built again (the theme) shows Revert if there is one to do.
+    ~guiAiPaint.();
     ~guiWindow
 };
 )

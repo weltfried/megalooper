@@ -28,7 +28,7 @@
 var dir = thisProcess.nowExecutingPath !? { |p| p.dirname }
     ?? { Looper.repoRoot +/+ "scripts" };
 var parts = [
-    "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd",
+    "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd", "setup-remote.scd",
     "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-status.scd", "gui-perform.scd",
     "gui-bbcut.scd", "gui-granular.scd", "gui-analysis.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd", "gui-effects.scd",
     "gui-drums.scd", "gui-synth.scd",
@@ -57,7 +57,7 @@ var parts = [
 var alsoParse = [
     "boot.scd", "check.scd", "launcher.scd", "check-onset-notes.scd",
     "check-chain-align.scd", "check-loop-phase.scd", "check-gui.scd", "check-gui-effects.scd",
-    "check-gui-drums.scd", "check-gui-midimap.scd", "check-gui-maptags.scd",
+    "check-gui-drums.scd", "check-gui-midimap.scd", "check-gui-maptags.scd", "check-gui-ai.scd",
     "eval_meter_analyzer.scd", "probe-meter.scd", "replay-session.scd",
     "sa/spike-biasfx-nrt.scd", "sa/spike-biasfx-rig.scd", "sa/nrt-drum-voices.scd",
     "sa/nrt-drums-fx.scd", "sa/nrt-drums.scd", "sa/nrt-session.scd"
@@ -78,6 +78,7 @@ var expected = [
     \saDrumsKitDir, \saDrumsDefaultKits, \saDrumsStartKit, \saKeptDrumsPath, \saKeptDrumsBefore, \saAdoptKeptDrums, \saKeepDrums, \saLoadKeptDrums,
     \saKeptSynthPath, \saKeepSynth, \saLoadKeptSynth,
     \saDrumsKitLine, \setupSADrums, \saDrumsNewLoopApply, \saDrumsNewLoopSet,
+    \remoteApply, \remoteSet, \remoteOn, \remoteRevert, \remoteSource, \rigAiSection, \guiAiPaint, \guiAiTileMake,
     \buildEffectsPane, \effectsBlurbs, \effectsFormat, \effectsMap, \effectsUnmap,
     \effectsKnobCell, \effectsTile, \effectsEditor, \effectsSelect, \effectsDraggable, \effectsDropAt, \effectsDropIndex,
     \effectsDragCancel,

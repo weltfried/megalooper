@@ -11,6 +11,8 @@
 //                      with sa: true
 //   setup-miditargets.scd  ~midiTargetsBuild: every control MIDI can drive
 //   setup-midimap.scd  ~setupMidiBindings: the MIDI router and its map
+//   setup-remote.scd   ~remoteApply: AI apps let in or not (MegaRemote), and
+//                      ~remoteRevert, the AI's last change taken back
 //   gui-const.scd      ranges, menu contents, lifetimes. No window.
 //   gui-theme.scd      the stage theme: palettes, type, tiles, bars, segments
 //   gui-presets.scd    the preset bar's logic, shared by every preset family
@@ -132,6 +134,7 @@ if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };
     "setup-sa.scd",
     "setup-miditargets.scd",
     "setup-midimap.scd",
+    "setup-remote.scd",
     // Order matters three times over: gui-const.scd defines the ranges and
     // colours everything else reads; gui-presets.scd must precede the two files
     // that register preset families at load time; and gui-shell.scd must come
@@ -228,15 +231,8 @@ s.waitForBoot {
     // Last: this one subscribes widgets from the header and EVERY pane.
     ~wireLooperController.();
 
-    // An AI app may read the set from here on, and change the drums, the synth and the chains, through
-    // tools/megalooper-mcp.py (MegaRemote): from this Mac only, with the token
-    // this boot writes to remote.json. What it changes it says in the status
-    // line. A boot run again takes over from the one before.
-    ~megaRemote !? { |r| r.stop };
-    ~megaRemote = MegaRemote({
-        (looper: ~looper, sa: ~megaSA, profile: ~routingProfile, drumsPresetDir: ~saDrumsPresetDir,
-            synthPresetDir: ~saSynthPresetDir, soundDir: ~saFxPresetDir, say: { |msg| ~guiSay.(msg) }.inEnvir)
-    }.inEnvir).start;
+    // AI apps (setup-remote.scd): let in if the Setup view's switch says so.
+    ~remoteApply.();
 
     "Boot complete. R=trigger S=stop M=multiply U=undo V=reverse G=granular B=bbcut K=break D=dissolve C=clear N=next-loop A=reading".postln;
     ("MIDI: " ++ (~midiMap !? { |m| m.name } ? "no map") ++ ", set on the Setup view; MIDI MAP (top right) maps a control. ~midiLog = false to silence the MIDI log.").postln;
@@ -247,7 +243,8 @@ s.waitForBoot {
         ++ ~looper.bbcutPresetNames(~bbcutPresetDir).size ++ " saved).").postln;
     ("Granular presets in " ++ ~granularPresetDir ++ " ("
         ++ ~looper.granularPresetNames(~granularPresetDir).size ++ " saved).").postln;
-    ("AI apps: tools/megalooper-mcp.py lets one read the set and change the drums, the synth and the effects (" ++ MegaRemote.handshakePath ++ ").").postln;
+    ("AI apps: " ++ if(~megaRemote.notNil) { "let in (" ++ MegaRemote.handshakePath ++ ")" }
+        { "off; the Setup view's AI APPS switch lets them in (docs/ai.md)" } ++ ".").postln;
     if(~rp[\sa] == true) {
         // ~inChannel is the Looper's (the guitar chain's bus) by now; the
         // guitar's own input is the profile's.

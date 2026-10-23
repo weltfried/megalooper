@@ -304,7 +304,8 @@ def read_handshake():
         with open(path, encoding="utf-8") as f:
             hs = json.load(f)
     except FileNotFoundError:
-        raise NotReachable("megalooper is not running (no %s). Start it, then ask again." % path)
+        raise NotReachable("megalooper is not running, or AI apps are not let in (no %s). Start megalooper, "
+                           "switch AI APPS on in its Setup view, then ask again." % path)
     except (OSError, ValueError) as e:
         raise NotReachable("megalooper's handshake %s can't be read (%s)." % (path, e))
     if hs.get("format") != "megalooper remote" or not isinstance(hs.get("port"), int) \
@@ -363,7 +364,8 @@ def ask(command, args=None, timeout=None):
             if time.monotonic() > deadline:
                 if not pid_alive(hs.get("pid")):
                     raise NotReachable("megalooper is not running (it quit without removing %s). "
-                                       "Start it, then ask again." % handshake_path())
+                                       "Start it, switch AI APPS on in its Setup view, then ask again."
+                                       % handshake_path())
                 raise NotReachable("megalooper did not answer in %g s. Is it busy, or stuck? "
                                    "Restarting it writes a new handshake." % timeout)
             time.sleep(POLL)

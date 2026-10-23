@@ -185,6 +185,9 @@ MegaRemote {
 
     changeCount { ^(changes ? []).size }
 
+    // MegaRemote says \aiChanges, count whenever the count moves: the
+    // window's Revert follows it.
+
     // The labels of the changes revert can take back, oldest first.
     changeLabels { ^(changes ? []).collect { |c| c[\label] }.asArray }
 
@@ -196,6 +199,7 @@ MegaRemote {
         changes = changes ?? { List.new };
         changes.add((part: part, label: label, data: data));
         while { changes.size > this.class.changesMax } { changes.removeAt(0) };
+        this.changed(\aiChanges, this.changeCount);
     }
 
     // Said in the window's status line and the post window.
@@ -250,6 +254,7 @@ MegaRemote {
         };
         if(why.notNil) { ^this.class.failure(why) };
         count.do { changes.pop };
+        this.changed(\aiChanges, this.changeCount);
         undone = taken.collect { |c| c[\label] }.reverse;
         this.prSay(src, "The AI reverted the " ++ undone.join(", "));
         ^this.class.success(this.class.obj([\reverted, undone, \aiChanges, this.changeCount]))

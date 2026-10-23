@@ -60,6 +60,24 @@
     ).spacing_(5).margins_(0)
 };
 
+// AI apps let in or not (setup-remote.scd): the switch, kept in
+// settings.json, and what it does. Off until switched on.
+~rigAiSection = {
+    var tip = "An AI app that speaks MCP (Claude Desktop, for one) can read the set and change the\n"
+        "drums, the synth and the effects while this is on. Only apps on this Mac, and only through\n"
+        "tools/megalooper-mcp.py; plugins stay yours. Every change it makes can be taken back with\n"
+        "Revert, at the bottom of the window. How to connect one: docs/ai.md.";
+    ~remoteSeg = ~guiSeg.(["Off", "On"], (height: 28, font: ~guiSans.(13),
+        action: { |i| ~remoteSet !? { |f| f.value(i == 1) } }));
+    ~guiSegSet.(~remoteSeg, ((~remoteOn !? { |f| f.value }) == true).binaryValue);
+    View().layout_(VLayout(
+        ~guiCaption.("AI APPS", 11),
+        ~rigRow.("Let AI apps in", ~remoteSeg[\view].fixedWidth_(170).toolTip_(tip)),
+        ~guiHint.("Claude Desktop and other MCP apps: they change, you hear it, Revert takes it back. docs/ai.md says how.")
+            .toolTip_(tip)
+    ).margins_(0).spacing_(8))
+};
+
 ~buildRigPane = {
     var pane = View().background_(~gt[\bg]);
     var l = ~looper;
@@ -157,6 +175,9 @@
 
         // Megalooper SA's levels; hidden on every other rig.
         ~buildSARigSection !? { |f| f.value } ?? { View().visible_(false) },
+
+        // AI apps: the switch that lets one in.
+        ~rigAiSection.(),
 
         // ---- The MIDI map: inputs, map, bindings, learning ----------------
         ~guiRule.(),
