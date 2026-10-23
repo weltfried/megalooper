@@ -9,20 +9,23 @@
 // from anywhere else is dropped unanswered, as is one with a wrong token.
 //
 // Reading: \ping, \context (what is playing and how it is set) and
-// \describe (what every setting means). Writing, the drums only so far:
-// \set_drum_pattern (a pattern, the steps' kit), \revert (the AI's own
-// changes, newest first) and \save_drum_preset. Every change is
-// snapshotted before it lands, so it can be taken back.
+// \describe (what every setting means). Writing: \set_drum_pattern (a
+// pattern, the steps' kit), \set_synth (the note sequencer's pattern, the
+// Wave synth's settings, the sequencer's switch), \revert (the AI's own
+// changes, newest first), \save_drum_preset and \save_synth_preset. Every
+// change is snapshotted before it lands, so it can be taken back. The
+// effects are read only.
 //
 // Everything a request reads or changes comes from `source`, a function
-// answering an Event (looper:, sa:, profile:, drumsPresetDir:, say:), so a
-// test hands it stubs; boot.scd hands it the running ~looper and ~megaSA, the
-// drum presets' folder, and the window's status line (say: a function of a
-// String).
+// answering an Event (looper:, sa:, profile:, drumsPresetDir:,
+// synthPresetDir:, say:), so a test hands it stubs; boot.scd hands it the
+// running ~looper and ~megaSA, the presets' folders, and the window's status
+// line (say: a function of a String).
 MegaRemote {
     var <source, <token, <port, responder, onShutDown, <started = false;
-    // The AI's changes, oldest first: (label:, data:), data the drums'
-    // presetData from just before the change.
+    // The AI's changes, oldest first: (part:, label:, data:), data the part as
+    // it was just before the change: the drums' presetData, or the synth's
+    // (notes:, wave:, on:).
     var changes;
 
     *new { |source| ^super.newCopyArgs(source) }
@@ -152,12 +155,15 @@ MegaRemote {
             { command == "set_drum_pattern" } { this.setDrumPattern(args) }
             { command == "revert" } { this.revert(args) }
             { command == "save_drum_preset" } { this.saveDrumPreset(args) }
+            { command == "set_synth" } { this.setSynth(args) }
+            { command == "save_synth_preset" } { this.saveSynthPreset(args) }
             { this.class.failure("no command " ++ command.asString.quote ++ "; there are "
                 ++ this.class.commands.join(", ")) }
         } { |err| this.class.failure("megalooper failed to answer: " ++ err.errorString) }
     }
 
-    *commands { ^#["ping", "context", "describe", "set_drum_pattern", "revert", "save_drum_preset"] }
+    *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "revert",
+        "save_drum_preset", "save_synth_preset"] }
 
     *success { |result| ^this.obj([\ok, true, \result, result]) }
     *failure { |why| ^this.obj([\ok, false, \error, why]) }
@@ -183,9 +189,9 @@ MegaRemote {
 
     prNoDrums { ^this.class.failure("there are no drums: this megalooper runs without Megalooper SA") }
 
-    prSnapshot { |drums, label|
+    prSnapshot { |part, label, data|
         changes = changes ?? { List.new };
-        changes.add((label: label, data: drums.presetData("before the AI's " ++ label)));
+        changes.add((part: part, label: label, data: data));
         while { changes.size > this.class.changesMax } { changes.removeAt(0) };
     }
 
@@ -213,34 +219,144 @@ MegaRemote {
             ^this.class.failure("there is no kit " ++ kit.asString.quote ++ "; there are "
                 ++ drums.kitKeys.collect(_.asString).join(", "))
         };
-        label = [given !? { which.asString ++ " pattern" }, kit !? { "kit" }].reject(_.isNil).join(" and ");
-        this.prSnapshot(drums, label);
+        label = "drums' " ++ [given !? { which.asString ++ " pattern" }, kit !? { "kit" }].reject(_.isNil).join(" and ");
+        this.prSnapshot(\drums, label, drums.presetData("before the AI's change"));
         kit !? { |k| if(k.asString.asSymbol != drums.kit(\steps)) { drums.setKit(\steps, k.asString.asSymbol) } };
         given !? { |g| drums.setPattern(which, this.class.mergePattern(drums.patterns[which], this.class.plain(g)), notes) };
-        this.prSay(src, "The AI changed the drums' " ++ label ++ " (it can revert it)");
+        this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
         ^this.class.success(this.class.obj([
             \which, which, \kit, drums.kit(\steps), \corrections, notes.asArray,
             \pattern, drums.patterns[which], \aiChanges, this.changeCount
         ]))
     }
 
-    // The drums as they were before the newest `count` changes (1 if not
-    // said; all there are, if more).
+    // Everything as it was before the newest `count` changes (1 if not said;
+    // all there are, if more): each part they touched as it was before the
+    // earliest of them.
     revert { |args|
-        var src = source.value, drums = this.prDrums(src), count, snap, notes = List.new, undone;
+        var src = source.value, drums = this.prDrums(src), count, taken, parts, notes = List.new, why, undone;
         if(drums.isNil) { ^this.prNoDrums };
         count = (args !? { |a| a.at("count") }) ? 1;
         if(count.isInteger.not or: { count < 1 }) { ^this.class.failure("count is a whole number, 1 or more") };
         if(this.changeCount == 0) { ^this.class.failure("nothing to revert: the AI has changed nothing since megalooper started") };
         count = count.min(this.changeCount);
-        snap = changes[changes.size - count];
-        if(drums.applyPresetData(snap[\data], notes).not) {
-            ^this.class.failure("the drums could not be put back: " ++ notes.join("; "))
+        taken = changes.asArray.drop(changes.size - count);
+        parts = [\drums, \synth].select { |part| taken.any { |c| c[\part] == part } };
+        parts.do { |part|
+            why = why ?? { this.prRestore(src, part, taken.detect { |c| c[\part] == part }[\data], notes) };
         };
-        undone = this.changeLabels.drop(changes.size - count);
+        if(why.notNil) { ^this.class.failure(why) };
         count.do { changes.pop };
-        this.prSay(src, "The AI reverted the drums (" ++ undone.reverse.join(", ") ++ ")");
-        ^this.class.success(this.class.obj([\reverted, undone.reverse, \aiChanges, this.changeCount]))
+        undone = taken.collect { |c| c[\label] }.reverse;
+        this.prSay(src, "The AI reverted the " ++ undone.join(", "));
+        ^this.class.success(this.class.obj([\reverted, undone, \aiChanges, this.changeCount]))
+    }
+
+    // A part put back as a snapshot holds it: nil when done, else why not.
+    prRestore { |src, part, data, notes|
+        var drums = this.prDrums(src), wave = src !? { |s| s[\sa] } !? { |m| m.wave };
+        if(part == \drums) {
+            ^if(drums.applyPresetData(data, notes)) { nil } { "the drums could not be put back: " ++ notes.join("; ") }
+        };
+        if(wave.isNil) { ^"there is no synth to put back" };
+        drums.setNotes(data[\notes]);
+        wave.setAll(data[\wave]);
+        if(drums.notesOn != data[\on]) { drums.setNotesOn(data[\on]) };
+        ^nil
+    }
+
+    // ---- the synth ---------------------------------------------------------------------
+
+    prNoSynth { ^this.class.failure("there is no synth: this megalooper runs without Megalooper SA") }
+
+    // The note sequencer's pattern (notes) and/or the Wave synth's settings
+    // (wave), merged over what plays as the drums' are, then checked as a
+    // synth preset file is (MegaSASynthFile.fromObject); and/or the
+    // sequencer on or off (on). What was held to a range, or is no setting,
+    // is said in the answer's corrections. An instrument plugin's own sound
+    // is not touched: the AI cannot see it.
+    setSynth { |args|
+        var src = source.value, drums = this.prDrums(src), wave = src !? { |s| s[\sa] } !? { |m| m.wave };
+        var given, waveGiven, on, label, obj, data, notes = List.new;
+        if(drums.isNil or: { wave.isNil }) { ^this.prNoSynth };
+        given = args !? { |a| a.at("notes") };
+        waveGiven = args !? { |a| a.at("wave") };
+        on = args !? { |a| a.at("on") };
+        if(given.isNil and: { waveGiven.isNil } and: { on.isNil }) {
+            ^this.class.failure("nothing to change: give notes, wave, on, or several")
+        };
+        if(given.notNil and: { given.isKindOf(MegaJsonObject).not }) { ^this.class.failure("notes must be an object") };
+        if(waveGiven.notNil and: { waveGiven.isKindOf(MegaJsonObject).not }) { ^this.class.failure("wave must be an object") };
+        if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
+        given = this.class.plain(given);
+        waveGiven = this.class.plain(waveGiven);
+        if(given.notNil or: { waveGiven.notNil }) {
+            obj = MegaFiles.parseObject(MegaSASynthFile.text("ai",
+                this.class.mergePattern(drums.notes, given), this.class.mergePattern(wave.settings, waveGiven)));
+            if(obj.isString) { ^this.class.failure("the synth did not read back: " ++ obj) };
+            data = MegaSASynthFile.fromObject(obj, notes);
+            this.class.corrections(given, data[\notes], "notes", notes);
+            this.class.corrections(waveGiven, data[\wave], "wave", notes);
+        };
+        label = "synth's " ++ [given !? { "note pattern" }, waveGiven !? { "Wave settings" },
+            on !? { "sequencer switch" }].reject(_.isNil).join(" and ");
+        this.prSnapshot(\synth, label, (notes: MegaSANoteSeq.copyPattern(drums.notes), wave: wave.settings.copy,
+            on: drums.notesOn));
+        given !? { drums.setNotes(data[\notes]) };
+        waveGiven !? { wave.setAll(data[\wave]) };
+        on !? { |flag| if(flag != drums.notesOn) { drums.setNotesOn(flag) } };
+        this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
+        ^this.class.success(this.class.obj([
+            \on, drums.notesOn, \corrections, notes.asArray, \notes, drums.notes, \wave, wave.settings,
+            \aiChanges, this.changeCount
+        ]))
+    }
+
+    // The synth as it stands (the note pattern, the Wave synth, the
+    // instrument), as a preset in the Synth view's menu. A name taken is
+    // refused unless `overwrite` is true.
+    saveSynthPreset { |args|
+        var src = source.value, sa = src !? { |s| s[\sa] }, dir = src !? { |s| s[\synthPresetDir] }, name, slug, path;
+        if(sa.isNil or: { sa.drums.isNil }) { ^this.prNoSynth };
+        name = args !? { |a| a.at("name") };
+        if(name.isKindOf(String).not or: { name.stripWhiteSpace.isEmpty }) { ^this.class.failure("name the preset") };
+        if(dir.isNil) { ^this.class.failure("there is no folder for synth presets") };
+        path = dir +/+ sa.synthPresetSlug(name) ++ ".json";
+        if(File.exists(path) and: { (args.at("overwrite") == true).not }) {
+            ^this.class.failure("there is a synth preset " ++ sa.synthPresetSlug(name).quote
+                ++ " already; overwrite: true replaces it")
+        };
+        slug = sa.saveSynthPreset(dir, name);
+        if(slug.isNil) { ^this.class.failure("the preset was not written (the post window says why)") };
+        this.prSay(src, "The AI saved the synth as " ++ slug.quote);
+        ^this.class.success(this.class.obj([\saved, slug, \path, path]))
+    }
+
+    // What `given` asked for that `result` does not hold, added to `out` (a
+    // List) as words: a value held to a range or refused ("notes.swing 50 ->
+    // 1.0"), a member that is no setting, an item past a list's end. A given
+    // string and a result's Symbol of the same name agree.
+    *corrections { |given, result, path, out|
+        out = out ?? { List.new };
+        case
+        { given.isNil } { }
+        { given.isKindOf(Dictionary) } {
+            given.keysValuesDo { |k, v|
+                if(result.isKindOf(Dictionary) and: { result.includesKey(k) }) {
+                    this.corrections(v, result[k], path ++ "." ++ k, out)
+                } { out.add(path ++ "." ++ k ++ " is no setting (ignored)") };
+            };
+        }
+        { given.isKindOf(Array) } {
+            given.do { |v, i|
+                if(result.isKindOf(Array) and: { i < result.size }) {
+                    this.corrections(v, result[i], path ++ "[" ++ i ++ "]", out)
+                } { if(v.notNil) { out.add(path ++ "[" ++ i ++ "] is past the list's end (ignored)") } };
+            };
+        }
+        { (given == result) or: { given.isString and: { result.isKindOf(Symbol) } and: { given.asSymbol == result } } } { }
+        { out.add(path ++ " " ++ MegaFiles.json(given) ++ " -> " ++ MegaFiles.json(result)) };
+        ^out
     }
 
     // The drums as they stand, as a preset in the Drums view's menu. A name
@@ -429,14 +545,18 @@ MegaRemote {
         ^this.obj([
             \about, "The note sequencer plays one note per step (stepCount 8 or 16, steps[i] on or "
                 "off) on the synth: the built-in Wave synth, or an instrument plugin. Seven lanes "
-                "hold a value per step: pitch (semitones), octave, velocity, length (% of the step), "
-                "shift (late, ms), ratchet (the step plays ratchet + 1 times), condition (0 or 1 "
-                "always; +k once every k passes of the lane; -k all but that one; -1 never). A lane "
-                "follows the sequence unless own is true: then it steps on its own between first "
-                "and last in its own direction, so lanes drift. Pitch is pitch + octave * 12, "
-                "snapped to scale and root when scaleOn, around the base note. division indexes "
-                "divisions (1/1 .. 1/64), with triplet or dotted; swing 0..100 % delays every "
-                "second step. restart: bar (from every bar line), loop or off.",
+                "hold 16 values each, one per step: pitch (semitones), octave, velocity (0 is "
+                "silent), length (% of the step), shift (late, % of the step), ratchet (the step "
+                "plays ratchet + 1 times), condition (0 or 1 always; +k once every k passes of the "
+                "lane; -k all but that one; -1 never). A lane follows the sequence unless own is "
+                "true: then it steps on its own between first and last in its own direction, so "
+                "lanes drift. The note: 60 + root + pitch, moved down to the nearest note of the "
+                "scale when scaleOn, plus 12 * (the octave lane + the pattern's octave); root 0 is "
+                "C. The sequence plays steps first..last of stepCount in its direction. division "
+                "indexes divisions (1/1 .. 1/64), with triplet or dotted; swing 0..1 delays every "
+                "second step (1 puts it at three quarters of the pair). restart: bar (from every "
+                "bar line of the loop's reading, uneven bars too), loop or off. on (the context's "
+                "synth.notesOn) is whether the sequencer plays at all.",
             \lanes, MegaSANoteSeq.laneNames.collect { |n|
                 this.obj([\name, n, \min, specs[n][0], \max, specs[n][1], \default, specs[n][2]]) },
             \settings, MegaSANoteSeq.settingNames,

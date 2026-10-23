@@ -1,8 +1,10 @@
 // megalooper as a tool for an AI app (MegaRemote, docs/dev/ai-tool.md, Phase 0):
 // who may ask (127.0.0.1 and this boot's token, an id that names nothing
 // but its own two files), what is answered (ping, the context, what every
-// setting means), the drums it may change and take back (a pattern merged
-// over the one playing, the steps' kit, revert, a preset saved), and that
+// setting means), the drums and the synth it may change and take back (a
+// pattern merged over the one playing, the steps' kit, the note sequence,
+// the Wave synth, the sequencer's switch, revert across both, presets
+// saved), and that
 // every answer is JSON that reads back. The OSC
 // round trip itself is tools/megalooper-mcp.py's check
 // (tools/test-megalooper-mcp.py).
@@ -12,7 +14,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 
 {
 var ask, r, got, o, ctx, stub, sa, looper, here, there, ids, path, text, other, reading;
-var d, before, beforeBreak, kits, presets, said, src;
+var d, before, beforeBreak, kits, presets, said, src, wp, notesBefore, waveBefore, onBefore;
 
 // The request's text answered, as it reads back from its JSON.
 ask = { |remote, text| MegaFiles.parseObject(MegaFiles.json(remote.handle(text))) };
@@ -25,7 +27,7 @@ got = ask.(r, "{\"command\": \"ping\"}");
     [true, "megalooper remote", 1, thisProcess.pid]);
 got = ask.(r, "{\"command\": \"tune the guitar\"}");
 ~tEq.("a command there is not is refused, naming those there are",
-    [got.at("ok"), got.at("error").contains("ping, context, describe, set_drum_pattern")], [false, true]);
+    [got.at("ok"), got.at("error").contains("ping, context, describe, set_drum_pattern, set_synth")], [false, true]);
 got = ask.(r, "tune the guitar");
 ~tEq.("...as is a request that is not JSON", [got.at("ok"), got.at("error").contains("not JSON")], [false, true]);
 got = ask.(r, nil);
@@ -191,7 +193,7 @@ if(sa.notNil) {
             [true, o, o.asString, [6, 0, 6]]);
         got = ask.(r, "{\"command\": \"revert\"}");
         ~tEq.("revert takes the newest change back: the kit was the one before",
-            [got.at("ok"), d.kit(\steps), got.at("result").at("reverted"), r.changeCount], [true, other, ["kit"], 2]);
+            [got.at("ok"), d.kit(\steps), got.at("result").at("reverted"), r.changeCount], [true, other, ["drums' kit"], 2]);
     } { ~tSkip.("a kit given is the steps' kit", "fewer than two kits in " ++ d.kitDir) };
 
     o = ask.(r, "{\"command\": \"context\"}").at("result");
@@ -199,7 +201,7 @@ if(sa.notNil) {
     got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 5}}");
     ~tEq.("revert of more than there are takes them all back, newest first: both patterns as they were",
         [got.at("ok"), got.at("result").at("reverted"), d.patterns[\main], d.patterns[\break], r.changeCount],
-        [true, ["break pattern", "main pattern"], before, beforeBreak, 0]);
+        [true, ["drums' break pattern", "drums' main pattern"], before, beforeBreak, 0]);
     got = ask.(r, "{\"command\": \"revert\"}");
     ~tEq.("...then there is nothing to revert", [got.at("ok"), got.at("error").contains("nothing to revert")], [false, true]);
     ~tEq.("...and a count that is no whole number is refused",
@@ -226,11 +228,59 @@ if(sa.notNil) {
         [true, false, false]);
     ~tEq.("...and it reads back as the drums are", d.loadPreset(presets, "ai-groove"), true);
 
+    // ---- the synth ----
+    r.handle("{\"command\": \"revert\", \"args\": {\"count\": 99}}");
+    src[\synthPresetDir] = presets +/+ "synth";
+    wp = MegaSAWave.params.detect { |p| p[\choices].isNil and: { p[\bool] != true } };
+    notesBefore = MegaSANoteSeq.copyPattern(d.notes);
+    waveBefore = sa.wave.settings.copy;
+    onBefore = d.notesOn;
+    got = ask.(r, "{\"command\": \"set_synth\", \"args\": {\"notes\": {\"lanes\": {\"pitch\": {\"values\": [0, 3, 7]}}, "
+        "\"root\": 2, \"swing\": 50, \"direction\": \"backward\", \"bogus\": 1, \"steps\": [false]}}}");
+    ~tEq.("the note pattern given is merged over the one playing: three pitches, the root, the direction, the first step off",
+        [got.at("ok"), d.notes[\lanes][\pitch][\values].keep(3), d.notes[\lanes][\pitch][\values].drop(3),
+            d.notes[\root], d.notes[\direction], d.notes[\steps][0], d.notes[\steps].drop(1), d.notes[\lanes][\velocity]],
+        [true, [0, 3, 7], notesBefore[\lanes][\pitch][\values].drop(3), 2, \backward, false,
+            notesBefore[\steps].drop(1), notesBefore[\lanes][\velocity]]);
+    o = got.at("result").at("corrections");
+    ~tEq.("...what was held to its range, and what is no setting, is said",
+        [d.notes[\swing], o.any { |c| c.contains("notes.swing 50 -> 1.0") }, o.any { |c| c.contains("notes.bogus is no setting") }, o.size],
+        [1.0, true, true, 2]);
+    got = ask.(r, "{\"command\": \"set_synth\", \"args\": {\"wave\": {\"" ++ wp[\name] ++ "\": 1e9}, \"on\": true}}");
+    ~tEq.("a Wave setting given is held to its range, and the sequencer switched on",
+        [got.at("ok"), sa.wave.settings[wp[\name]], d.notesOn, got.at("result").at("corrections").size,
+            sa.wave.settings.keys.reject { |k| k == wp[\name] }.every { |k| sa.wave.settings[k] == waveBefore[k] }],
+        [true, wp[\spec].maxval, true, 1, true]);
+    ~tEq.("refused, changing nothing: nothing to change, notes or wave that are no object, an on that is no switch",
+        [
+            "{\"command\": \"set_synth\", \"args\": {}}",
+            "{\"command\": \"set_synth\", \"args\": {\"notes\": 3}}",
+            "{\"command\": \"set_synth\", \"args\": {\"wave\": [1]}}",
+            "{\"command\": \"set_synth\", \"args\": {\"on\": 1}}"
+        ].collect { |t| ask.(r, t).at("ok") } ++ [r.changeCount],
+        [false, false, false, false, 2]);
+    before = d.patterns[\main].deepCopy;
+    r.handle("{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"mute\": [true]}}}");
+    got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 3}}");
+    ~tEq.("revert across the drums and the synth: each as it was before the earliest change taken back, newest named first",
+        [got.at("result").at("reverted"), d.patterns[\main], d.notes, sa.wave.settings, d.notesOn, r.changeCount],
+        [["drums' main pattern", "synth's Wave settings and sequencer switch", "synth's note pattern"],
+            before, notesBefore, waveBefore, onBefore, 0]);
+    got = ask.(r, "{\"command\": \"save_synth_preset\", \"args\": {\"name\": \"AI Line\"}}");
+    ~tEq.("save_synth_preset writes the synth as a preset in the Synth view's folder, and it reads back",
+        [got.at("ok"), got.at("result").at("saved"), sa.synthPresetNames(src[\synthPresetDir]),
+            sa.loadSynthPreset(src[\synthPresetDir], "ai-line")],
+        [true, "ai-line", ["ai-line"], true]);
+    ~tEq.("...a name taken is refused unless overwrite is true",
+        [ask.(r, "{\"command\": \"save_synth_preset\", \"args\": {\"name\": \"AI Line\"}}").at("ok"),
+            ask.(r, "{\"command\": \"save_synth_preset\", \"args\": {\"name\": \"AI Line\", \"overwrite\": true}}").at("ok")],
+        [false, true]);
+
     ~tEq.("with no drums every change is refused",
-        ["set_drum_pattern", "revert", "save_drum_preset"].collect { |c|
+        ["set_drum_pattern", "set_synth", "revert", "save_drum_preset", "save_synth_preset"].collect { |c|
             MegaFiles.json(MegaRemote({ () }).handle("{\"command\": \"" ++ c ++ "\", \"args\": {\"name\": \"x\", \"kit\": \"y\"}}"))
-                .contains("no drums") },
-        [true, true, true]);
+                .contains("runs without Megalooper SA") },
+        [true, true, true, true, true]);
     ~tRemoveTree.(presets);
     sa.free;
 };

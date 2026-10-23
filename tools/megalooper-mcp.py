@@ -28,7 +28,7 @@ import time
 import uuid
 
 SERVER_NAME = "megalooper"
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = "0.3.0"
 # MCP revisions whose tools part is all this server uses; a client asking for
 # one of them gets it, any other gets the newest.
 PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
@@ -41,10 +41,10 @@ INSTRUCTIONS = (
     "what is playing and how it is set (the loop's meter, which may be uneven "
     "bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the "
     "chains). Call describe for what the settings mean before changing them. "
-    "The drums can be changed (set_drum_pattern) and every change taken back "
-    "(revert); the player hears a change at once, so change what was asked "
-    "for, say what you changed, and offer to revert. The synth and the "
-    "effects can only be read so far: suggest changes to them in words."
+    "The drums (set_drum_pattern) and the synth (set_synth) can be changed "
+    "and every change taken back (revert); the player hears a change at once, "
+    "so change what was asked for, say what you changed, and offer to revert. "
+    "The effects can only be read so far: suggest changes to them in words."
 )
 
 TOOLS = [
@@ -121,12 +121,42 @@ TOOLS = [
                         "openWorldHint": False},
     },
     {
-        "name": "revert",
-        "title": "Take back drum changes",
+        "name": "set_synth",
+        "title": "Change the synth",
         "description": (
-            "Put the drums back as they were before your newest change, or "
-            "before the newest `count` changes. get_context's aiChanges says "
-            "how many can be taken back (at most 32 are kept)."
+            "Change the note sequencer's pattern (notes), the Wave synth's "
+            "settings (wave), and/or switch the sequencer on or off (on). notes "
+            "and wave are merged over what plays, as set_drum_pattern's pattern "
+            "is: send only what changes; null or left out stays; a short list "
+            "changes its first items. For example {\"notes\": {\"lanes\": "
+            "{\"pitch\": {\"values\": [0, 3, 7, 10]}}, \"scale\": 1}} sets the "
+            "first four pitches and the scale (call describe with topic synth "
+            "first). Values out of range are held to it, and they and names "
+            "that are no setting are listed in the answer's corrections. An "
+            "instrument plugin's own sound can't be changed here. Every change "
+            "can be taken back with revert."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "notes": {"type": "object",
+                          "description": "Pattern fields to change, as get_context shows them under synth.notes."},
+                "wave": {"type": "object",
+                         "description": "Wave synth settings by name, as get_context shows them under synth.wave."},
+                "on": {"type": "boolean", "description": "Whether the sequencer plays."},
+            },
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True,
+                        "openWorldHint": False},
+    },
+    {
+        "name": "revert",
+        "title": "Take back changes",
+        "description": (
+            "Put the drums and the synth back as they were before your newest "
+            "change, or before the newest `count` changes. get_context's "
+            "aiChanges says how many can be taken back (at most 32 are kept)."
         ),
         "inputSchema": {
             "type": "object",
@@ -135,6 +165,25 @@ TOOLS = [
             "additionalProperties": False,
         },
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
+                        "openWorldHint": False},
+    },
+    {
+        "name": "save_synth_preset",
+        "title": "Save the synth as a preset",
+        "description": (
+            "Save the synth as it stands (the note pattern, the Wave synth, "
+            "the instrument) as a preset in megalooper's Synth view. A name "
+            "already taken is refused unless overwrite is true: ask the "
+            "player first."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"},
+                           "overwrite": {"type": "boolean", "description": "Replace a preset of that name."}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True,
                         "openWorldHint": False},
     },
     {
@@ -158,7 +207,7 @@ TOOLS = [
 ]
 
 # The tools that hand their arguments to megalooper as they are.
-PASSED_ON = {"set_drum_pattern", "revert", "save_drum_preset"}
+PASSED_ON = {"set_drum_pattern", "set_synth", "revert", "save_drum_preset", "save_synth_preset"}
 
 
 class NotReachable(Exception):
