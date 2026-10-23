@@ -45,11 +45,11 @@ so in the conversation.
 - **An AI app that speaks MCP**, such as Claude Desktop
   (<https://claude.ai/download>). A subscription to the app is all it takes:
   megalooper never sees an API key, and talks to no AI service itself.
-- **Python 3.9 or later.** The bridge between the app and megalooper,
-  `tools/megalooper-mcp.py`, is a Python script with no packages to install.
-  macOS has a `python3` once its command line tools are in
-  (`xcode-select --install`), or from Homebrew. `which python3` in Terminal
-  says where yours is.
+
+For Claude Desktop that is all. Any other app runs megalooper's bridge,
+`tools/megalooper-mcp.py`, which needs **Python 3.9 or later** (no packages).
+macOS has a `python3` once its command line tools are in
+(`xcode-select --install`), or from Homebrew.
 
 ## Setting it up
 
@@ -57,34 +57,36 @@ so in the conversation.
 switch **Let AI apps in** to **On**. It stays on across restarts. While it
 is off, no app can reach megalooper at all.
 
-**2. Tell the app about megalooper.** In Claude Desktop: Settings →
-Developer → Edit Config. That opens `claude_desktop_config.json`
-(`~/Library/Application Support/Claude/` on macOS). Add `megalooper` under
-`mcpServers`, with the full path of your `python3` and of this folder:
+**2. Connect the app.**
 
-```json
-{
-  "mcpServers": {
-    "megalooper": {
-      "command": "/usr/bin/python3",
-      "args": ["/Users/you/megalooper/tools/megalooper-mcp.py"]
+- **Claude Desktop:** click **Install in Claude Desktop**, under AI APPS.
+  Claude Desktop opens and asks to install the megalooper extension: say
+  Install. Once is enough. (The same file, `megalooper.mcpb`, is attached to
+  every [release](https://github.com/weltfried/megalooper/releases):
+  double-clicking it does the same.)
+- **Any other MCP app:** click **Copy config**, and paste what it copies
+  into the app's MCP settings. It names this Mac's `python3` and the bridge
+  in this folder:
+
+  ```json
+  {
+    "mcpServers": {
+      "megalooper": {
+        "command": "/usr/bin/python3",
+        "args": ["/Users/you/megalooper/tools/megalooper-mcp.py"]
+      }
     }
   }
-}
-```
+  ```
 
-If the file already has other settings, add `"mcpServers"` beside them, as
-one more member of the outer `{ }`. Use full paths: an app started from the
-Dock does not search your shell's `PATH`.
+  If the app's config already has other settings, add `"mcpServers"` beside
+  them. Paths are full paths: an app started from the Dock does not search
+  your shell's `PATH`. Claude Desktop takes this too (Settings → Developer →
+  Edit Config), if you would rather not use the extension.
 
-Other MCP apps take the same two things, a command and its argument,
-in their own settings.
-
-**3. Restart the app** (quit it fully, Cmd-Q, and open it again). In a new
-conversation, megalooper is among its tools.
-
-**4. Try it.** With a loop playing, ask "What is megalooper playing?
-Describe the drum pattern lane by lane." Then ask for a change.
+**3. Try it.** In a new conversation (restart the app first if you edited
+its config), with a loop playing, ask "What is megalooper playing? Describe
+the drum pattern lane by lane." Then ask for a change.
 
 ## What leaves your Mac
 
@@ -141,8 +143,8 @@ small files in `remote/`, beside it, in megalooper's folder
 |---|---|
 | megalooper is not running, or AI apps are not let in | Start megalooper, and switch AI APPS on in the Setup view |
 | megalooper did not answer in 10 s | megalooper is busy or stuck: restart it |
-| The megalooper tool is missing, or shows an error | Check the two paths in the app's config, then restart the app. Claude Desktop shows the bridge's log under Settings → Developer |
-| `python3` is not found | Put its full path in `command` (`which python3`), or install it (`xcode-select --install`) |
+| The megalooper tool is missing, or shows an error | Claude Desktop: Settings → Extensions shows whether megalooper is installed and on; install it again with the button. Another app: check the two paths in its config, then restart it |
+| `python3` is not found (other apps) | Put its full path in `command` (`which python3`), or install it (`xcode-select --install`) |
 
 ## The tools
 

@@ -64,15 +64,28 @@
 // settings.json, and what it does. Off until switched on.
 ~rigAiSection = {
     var tip = "An AI app that speaks MCP (Claude Desktop, for one) can read the set and change the\n"
-        "drums, the synth and the effects while this is on. Only apps on this Mac, and only through\n"
-        "tools/megalooper-mcp.py; plugins stay yours. Every change it makes can be taken back with\n"
-        "Revert, at the bottom of the window. How to connect one: docs/ai.md.";
+        "drums, the synth and the effects while this is on. Only apps on this Mac; plugins stay\n"
+        "yours. Every change it makes can be taken back with Revert, at the bottom of the window.\n"
+        "How to connect one: the buttons below, or docs/ai.md.";
+    var small = { |label, what, tipText|
+        LooperTile().border_(~gt[\line]).font_(~guiSans.(13)).fixedHeight_(26).pad_(8)
+            .states_([[label]]).toolTip_(tipText).action_({ what.value })
+    };
     ~remoteSeg = ~guiSeg.(["Off", "On"], (height: 28, font: ~guiSans.(13),
         action: { |i| ~remoteSet !? { |f| f.value(i == 1) } }));
     ~guiSegSet.(~remoteSeg, ((~remoteOn !? { |f| f.value }) == true).binaryValue);
+    ~remoteInstallTile = small.("Install in Claude Desktop", { ~remoteInstallExtension.() },
+        "Makes megalooper's extension and hands it to Claude Desktop, which asks to install it.\n"
+            "Nothing else to install: Claude Desktop runs it itself. Once is enough.");
+    ~remoteCopyTile = small.("Copy config", { ~remoteCopyConfig.() },
+        "For any other app that speaks MCP: its config for megalooper, with this Mac's paths,\n"
+            "on the clipboard. It runs tools/megalooper-mcp.py, which needs Python 3.");
     View().layout_(VLayout(
         ~guiCaption.("AI APPS", 11),
         ~rigRow.("Let AI apps in", ~remoteSeg[\view].fixedWidth_(170).toolTip_(tip)),
+        ~rigRow.("Connect an app", View().layout_(HLayout(
+            if(MegaFiles.isMac) { ~remoteInstallTile } { ~remoteInstallTile.visible_(false) }, ~remoteCopyTile
+        ).margins_(0).spacing_(8))),
         ~guiHint.("Claude Desktop and other MCP apps: they change, you hear it, Revert takes it back. docs/ai.md says how.")
             .toolTip_(tip)
     ).margins_(0).spacing_(8))

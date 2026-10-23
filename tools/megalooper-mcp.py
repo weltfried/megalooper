@@ -1,282 +1,51 @@
 #!/usr/bin/env python3
 """megalooper as a tool for an AI app: an MCP server over stdio.
 
-An AI app that speaks MCP (Claude Desktop, for one) starts this script and
-asks it things; it asks the running megalooper and hands the answers back.
-It knows no music: what the drums, the synth and the effects are, and what
-their settings mean, megalooper says itself (classes/MegaRemote.sc).
+An AI app that speaks MCP starts this script and asks it things; it asks
+the running megalooper and hands the answers back. It knows no music: what
+the drums, the synth and the effects are, and what their settings mean,
+megalooper says itself (classes/MegaRemote.sc). The tools it offers are in
+mcp-tools.json beside it, which the Claude Desktop extension's bridge
+(tools/mcpb/server/index.js) reads too.
 
-Add it to the app's MCP servers, e.g. in Claude Desktop's
+For Claude Desktop the extension is the easier way (docs/ai.md). For any
+other app, or by hand, add this script to the app's MCP servers, e.g. in
 claude_desktop_config.json:
 
     {"mcpServers": {"megalooper": {
-        "command": "python3",
+        "command": "/usr/bin/python3",
         "args": ["/path/to/megalooper/tools/megalooper-mcp.py"]}}}
 
-megalooper must be running: at every boot it writes where it listens, and a
-token, to remote.json in its folder (MEGALOOPER_REMOTE names another file).
-Only this Mac can ask, and only with that token.
+megalooper must be running with AI APPS switched on in its Setup view: it
+then writes where it listens, and a token, to remote.json in its folder
+(MEGALOOPER_REMOTE names another file). Only this Mac can ask, and only
+with that token. MEGALOOPER_REPLY_TIMEOUT (seconds) is for the tests.
 
 Python 3.9 or later, standard library only.
 """
 import json
 import os
 import socket
-import struct
 import sys
 import time
 import uuid
 
-SERVER_NAME = "megalooper"
-SERVER_VERSION = "0.5.0"
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp-tools.json"), encoding="utf-8") as _f:
+    SPEC = json.load(_f)
+
+SERVER_NAME = SPEC["serverName"]
+SERVER_VERSION = SPEC["serverVersion"]
 # MCP revisions whose tools part is all this server uses; a client asking for
 # one of them gets it, any other gets the newest.
-PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
-REPLY_TIMEOUT = 10.0
-POLL = 0.02
-
-INSTRUCTIONS = (
-    "megalooper is a live looper for guitar and bass with drums, a note "
-    "sequencer with a synth, and effect chains. Call get_context first to see "
-    "what is playing and how it is set (the loop's meter, which may be uneven "
-    "bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the "
-    "chains), and loop.take: what the player played, per bar a grid of "
-    "sixteenths with the hits' pitches and the chords heard. Fit drums and "
-    "synth lines to it when asked for something that goes with the loop. "
-    "Call describe for what the settings mean before changing them. "
-    "The drums (set_drum_pattern), the synth (set_synth) and the effect chains "
-    "(set_chain) can be changed and every change taken back (revert); the "
-    "player hears a change at once, so change what was asked for, say what "
-    "you changed, and offer to revert. Plugins (an amp, say) are the "
-    "player's: you may move or switch them, not add, remove or set them."
-)
-
-TOOLS = [
-    {
-        "name": "get_context",
-        "title": "What megalooper is playing",
-        "description": (
-            "The running megalooper's state: the loop (state; the meter "
-            "reading: signature, bars in units of 1/denominator, bpm in "
-            "quarter notes, length in seconds; and take, what the first take "
-            "played: per bar a grid of sixteenths, X a strong hit, x a hit, . "
-            "none, the hits with their strength and pitch, the chords heard), "
-            "the drums (both step patterns, "
-            "main and break, the kits and their pads), the synth (the note "
-            "sequencer's pattern and the Wave synth's settings) and every "
-            "effect chain (devices in order, their switches and settings). "
-            "Ask for some parts only to keep the answer short."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "parts": {
-                    "type": "array",
-                    "items": {"type": "string", "enum": ["loop", "drums", "synth", "chains"]},
-                    "description": "Only these parts (the profile, the tempo and aiChanges always come).",
-                }
-            },
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": True, "openWorldHint": False},
-    },
-    {
-        "name": "describe",
-        "title": "What megalooper's settings mean",
-        "description": (
-            "How a part of megalooper works and what each of its settings "
-            "means: names, ranges, steps, units, choices and the tips its "
-            "window shows. Topics: drums (the step sequencer's pattern), "
-            "synth (the note sequencer and the Wave synth), effects (every "
-            "built-in effect and its settings)."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {"topic": {"type": "string", "enum": ["drums", "synth", "effects"]}},
-            "required": ["topic"],
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": True, "openWorldHint": False},
-    },
-    {
-        "name": "set_drum_pattern",
-        "title": "Change the drums",
-        "description": (
-            "Change a drum step pattern (main, or break) and/or the kit the "
-            "steps play. The pattern is merged over the one playing, so send "
-            "only what changes: a member left out, or null, stays as it is; a "
-            "list item null stays; a list shorter than the one there changes "
-            "only its first items. For example {\"steps\": {\"chance\": [null, "
-            "[6, 0, 6, 0]]}} sets the first four chance steps of lane 1 and "
-            "leaves everything else. Steps are 0..6 (call describe with topic "
-            "drums first). Values out of range are held to it and listed in "
-            "the answer's corrections. The answer holds the pattern as it now "
-            "plays. Every change can be taken back with revert."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "which": {"type": "string", "enum": ["main", "break"],
-                          "description": "Which pattern; main if not given."},
-                "pattern": {"type": "object",
-                            "description": "Pattern fields to change, as get_context shows them under drums.patterns."},
-                "kit": {"type": "string", "description": "A kit's key from drums.kits in get_context."},
-            },
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True,
-                        "openWorldHint": False},
-    },
-    {
-        "name": "set_synth",
-        "title": "Change the synth",
-        "description": (
-            "Change the note sequencer's pattern (notes), the Wave synth's "
-            "settings (wave), and/or switch the sequencer on or off (on). notes "
-            "and wave are merged over what plays, as set_drum_pattern's pattern "
-            "is: send only what changes; null or left out stays; a short list "
-            "changes its first items. For example {\"notes\": {\"lanes\": "
-            "{\"pitch\": {\"values\": [0, 3, 7, 10]}}, \"scale\": 1}} sets the "
-            "first four pitches and the scale (call describe with topic synth "
-            "first). Values out of range are held to it, and they and names "
-            "that are no setting are listed in the answer's corrections. An "
-            "instrument plugin's own sound can't be changed here. Every change "
-            "can be taken back with revert."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "notes": {"type": "object",
-                          "description": "Pattern fields to change, as get_context shows them under synth.notes."},
-                "wave": {"type": "object",
-                         "description": "Wave synth settings by name, as get_context shows them under synth.wave."},
-                "on": {"type": "boolean", "description": "Whether the sequencer plays."},
-            },
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True,
-                        "openWorldHint": False},
-    },
-    {
-        "name": "set_chain",
-        "title": "Change the effect chains",
-        "description": (
-            "Change the effect chains (get_context's chains; describe with "
-            "topic effects says every type and setting). In one call, done in "
-            "this order: remove (device ids), insert (built-in effects: track, "
-            "type, index from 0 or the end if left out, on, settings), move "
-            "(id, track, index), settings (device id -> setting -> value) and "
-            "on (device id -> true or false). For example {\"insert\": "
-            "[{\"track\": \"loop\", \"type\": \"echo\", \"settings\": "
-            "{\"echoMix\": 0.4}}], \"on\": {\"saturator\": true}}. Everything "
-            "is checked first: one thing wrong refuses the whole call and "
-            "changes nothing. The answer lists new devices' ids, edits "
-            "megalooper refused (no room, the CPU busy) and values held to "
-            "their range, and holds the chains as they now stand. Plugins may "
-            "be moved and switched only. Every change can be taken back with "
-            "revert."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "remove": {"type": "array", "items": {"type": "string"}},
-                "insert": {"type": "array", "items": {
-                    "type": "object",
-                    "properties": {"track": {"type": "string"}, "type": {"type": "string"},
-                                   "index": {"type": "integer", "minimum": 0}, "on": {"type": "boolean"},
-                                   "settings": {"type": "object"}},
-                    "required": ["track", "type"]}},
-                "move": {"type": "array", "items": {
-                    "type": "object",
-                    "properties": {"id": {"type": "string"}, "track": {"type": "string"},
-                                   "index": {"type": "integer", "minimum": 0}},
-                    "required": ["id"]}},
-                "settings": {"type": "object", "description": "Device id -> {setting: number}."},
-                "on": {"type": "object", "description": "Device id -> true or false."},
-            },
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
-                        "openWorldHint": False},
-    },
-    {
-        "name": "revert",
-        "title": "Take back changes",
-        "description": (
-            "Put the drums, the synth and the chains back as they were before your newest "
-            "change, or before the newest `count` changes. get_context's "
-            "aiChanges says how many can be taken back (at most 32 are kept)."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {"count": {"type": "integer", "minimum": 1,
-                                     "description": "How many changes; 1 if not given."}},
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
-                        "openWorldHint": False},
-    },
-    {
-        "name": "save_synth_preset",
-        "title": "Save the synth as a preset",
-        "description": (
-            "Save the synth as it stands (the note pattern, the Wave synth, "
-            "the instrument) as a preset in megalooper's Synth view. A name "
-            "already taken is refused unless overwrite is true: ask the "
-            "player first."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {"name": {"type": "string"},
-                           "overwrite": {"type": "boolean", "description": "Replace a preset of that name."}},
-            "required": ["name"],
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True,
-                        "openWorldHint": False},
-    },
-    {
-        "name": "save_sound",
-        "title": "Save the chains as a sound",
-        "description": (
-            "Save the effect chains as they stand (devices, settings, the "
-            "plugin's own sound) as a sound in megalooper's Effects view. A "
-            "name already taken is refused unless overwrite is true: ask the "
-            "player first."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {"name": {"type": "string"},
-                           "overwrite": {"type": "boolean", "description": "Replace a sound of that name."}},
-            "required": ["name"],
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True,
-                        "openWorldHint": False},
-    },
-    {
-        "name": "save_drum_preset",
-        "title": "Save the drums as a preset",
-        "description": (
-            "Save the drums as they stand (both patterns, the kits, the "
-            "levels) as a preset in megalooper's Drums view. A name already "
-            "taken is refused unless overwrite is true: ask the player first."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {"name": {"type": "string"},
-                           "overwrite": {"type": "boolean", "description": "Replace a preset of that name."}},
-            "required": ["name"],
-            "additionalProperties": False,
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True,
-                        "openWorldHint": False},
-    },
-]
-
+PROTOCOL_VERSIONS = SPEC["protocolVersions"]
+INSTRUCTIONS = SPEC["instructions"]
+TOOLS = SPEC["tools"]
 # The tools that hand their arguments to megalooper as they are.
-PASSED_ON = {"set_drum_pattern", "set_synth", "set_chain", "revert", "save_drum_preset", "save_synth_preset",
-             "save_sound"}
+PASSED_ON = set(SPEC["passedOn"])
+# Parts get_context always keeps, whatever `parts` asks.
+ALWAYS_KEPT = {"format", "version", "profile", "standalone", "tempo", "aiChanges"}
+REPLY_TIMEOUT = float(os.environ.get("MEGALOOPER_REPLY_TIMEOUT") or 10.0)
+POLL = 0.02
 
 
 class NotReachable(Exception):
@@ -394,7 +163,7 @@ def call_tool(name, arguments):
             ctx = ask("context")
             parts = arguments.get("parts")
             if parts and isinstance(ctx, dict):
-                keep = {"format", "version", "profile", "standalone", "tempo", "aiChanges"} | set(parts)
+                keep = ALWAYS_KEPT | set(parts)
                 ctx = {k: v for k, v in ctx.items() if k in keep}
             return json.dumps(ctx, ensure_ascii=False), False
         if name == "describe":

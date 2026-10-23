@@ -57,3 +57,60 @@
         ~guiSay !? { |f| f.value(answer.at("error"), \bad) };
     };
 };
+
+// ---- Connecting an app ---------------------------------------------------------------
+// The Setup view's two ways (docs/ai.md):
+//
+//   ~remoteInstallExtension.()  Claude Desktop's extension (megalooper.mcpb)
+//                               made by tools/make-mcpb.sh in megalooper's
+//                               folder and opened: Claude Desktop asks to
+//                               install it. macOS; nothing to install first.
+//   ~remoteCopyConfig.()        the config an app adds, with this Mac's
+//                               python3 and the bridge's path, on the
+//                               clipboard
+//
+// ~remoteOpen and ~remoteClipboard, the commands they end with, are the
+// checks' to replace.
+
+~remoteRepo = { ~megalooperRoot ?? { Looper.repoRoot } };
+~remoteOpen = "/usr/bin/open";
+~remoteClipboard = nil;
+
+// The python3 an app should run the bridge with: Homebrew's if it is there,
+// else the system's (which asks to install Apple's command line tools the
+// first time, if they are not in).
+~remotePython = {
+    MegaFiles.commandPath(["/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3", "python3"])
+        ? "python3"
+};
+
+~remoteConfigText = {
+    "{\n  \"mcpServers\": {\n    \"megalooper\": {\n      \"command\": " ++ MegaFiles.jsonString(~remotePython.())
+        ++ ",\n      \"args\": [" ++ MegaFiles.jsonString(~remoteRepo.() +/+ "tools" +/+ "megalooper-mcp.py")
+        ++ "]\n    }\n  }\n}\n"
+};
+
+~remoteCopyConfig = {
+    var cmd = ~remoteClipboard ?? { MegaFiles.clipboardCommand };
+    var say = { |msg, kind| { ~guiSay !? { |f| f.value(msg, kind) } }.defer };
+    if(cmd.isNil) { say.("No clipboard here: the config is in docs/ai.md", \bad) } {
+        ("printf '%s' " ++ ~remoteConfigText.().shellQuote ++ " | " ++ cmd).unixCmd({ |code|
+            if(code == 0) { say.("Copied: paste it into the app's config (Claude Desktop: Settings > Developer > Edit Config)") }
+                { say.("The config was not copied (" ++ code ++ ")", \bad) };
+        }, false);
+    };
+};
+
+~remoteInstallExtension = {
+    var out = MegaFiles.userRoot +/+ "megalooper.mcpb";
+    var say = { |msg, kind| { ~guiSay !? { |f| f.value(msg, kind) } }.defer };
+    say.("Making the extension…");
+    ((~remoteRepo.() +/+ "tools" +/+ "make-mcpb.sh").shellQuote ++ " " ++ out.shellQuote).unixCmd({ |code|
+        if(code != 0) { say.("The extension was not made (" ++ code ++ "; the post window says why)", \bad) } {
+            (~remoteOpen ++ " " ++ out.shellQuote).unixCmd({ |opened|
+                if(opened == 0) { say.("Claude Desktop asks to install megalooper: say Install") }
+                    { say.("Claude Desktop did not open it: is it installed? The extension is " ++ out, \bad) };
+            }, false);
+        };
+    }, false);
+};

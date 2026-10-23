@@ -31,6 +31,12 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   A sound is one file: the chains, every setting and each plugin's state.
 - **Drums (SA).** Step patterns and a kit triggered by the loop's own onsets.
   They start with a new loop, or wait until you switch them on.
+- **A synth (SA).** A note sequencer of 8 or 16 steps, its seven lanes
+  (pitch, octave, velocity, length, time shift, ratchet, condition) free to
+  run at lengths of their own, with scales and swing, playing a built-in
+  wavetable synth (on your own wavetables too) or one of your VST
+  instruments. It keeps time with the loop and starts again on its bar
+  lines, uneven ones too. The Synth view (7), and a column on Perform.
 - **AI apps (SA, optional).** Ask an AI app such as Claude Desktop for a
   groove that fits your 7/8, a synth line over the chords you played, or a
   dubbier echo, and hear it at once; one click reverts it. Off until you
@@ -55,8 +61,10 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   fetches it. [Plugins](docs/standalone.md#plugins) says how to add it by
   hand.
 
-Optional, for [AI apps](docs/ai.md) only: **Python 3.9 or later**, which
-runs the bridge between the AI app and megalooper.
+Optional, for [AI apps](docs/ai.md) other than Claude Desktop only:
+**Python 3.9 or later**, which runs the bridge between the app and
+megalooper. Claude Desktop needs nothing: megalooper installs an extension
+into it.
 
 SuperCollider, sc3-plugins and BBCut are needed for the class library to
 compile. Without any one of them nothing runs, not even the tests.
@@ -139,8 +147,9 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 ## Known limits
 
 - **Linux is new.** It has run on one machine so far (Omarchy, on Arch).
-- **No Audio Units.** Plugins are VST2 and VST3 effects. Instruments are not
-  offered, and a plugin built only for Intel is listed but cannot be added.
+- **No Audio Units.** Plugins are VST2 and VST3: effects in the chains, and
+  an instrument for the synth. A plugin built only for Intel is listed but
+  cannot be added.
 - **Plugin delay is not compensated.** A plugin that reports more than 64
   samples of delay is held back: its chain plays without it and says why.
 - **Effects are added by menu.** A tile moves by dragging; dragging a new

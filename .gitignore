@@ -61,3 +61,6 @@ presets/sa/kept/
 
 # Design documents and build logs, kept out of the public repository.
 docs/dev/
+
+# The Claude Desktop extension tools/make-mcpb.sh makes (attached to releases)
+/megalooper.mcpb

@@ -1,0 +1,321 @@
+{
+ "about": "The tools megalooper offers an AI app, read by both bridges: tools/megalooper-mcp.py and the Claude Desktop extension's tools/mcpb/server/index.js. passedOn: the tools whose arguments go to megalooper as they are.",
+ "serverName": "megalooper",
+ "serverVersion": "1.3.0",
+ "protocolVersions": [
+  "2025-06-18",
+  "2025-03-26",
+  "2024-11-05"
+ ],
+ "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, and effect chains. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the chains), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth) and the effect chains (set_chain) can be changed and every change taken back (revert); the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them.",
+ "passedOn": [
+  "revert",
+  "save_drum_preset",
+  "save_sound",
+  "save_synth_preset",
+  "set_chain",
+  "set_drum_pattern",
+  "set_synth"
+ ],
+ "tools": [
+  {
+   "name": "get_context",
+   "title": "What megalooper is playing",
+   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, bpm in quarter notes, length in seconds; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings) and every effect chain (devices in order, their switches and settings). Ask for some parts only to keep the answer short.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "parts": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "enum": [
+        "loop",
+        "drums",
+        "synth",
+        "chains"
+       ]
+      },
+      "description": "Only these parts (the profile, the tempo and aiChanges always come)."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "describe",
+   "title": "What megalooper's settings mean",
+   "description": "How a part of megalooper works and what each of its settings means: names, ranges, steps, units, choices and the tips its window shows. Topics: drums (the step sequencer's pattern), synth (the note sequencer and the Wave synth), effects (every built-in effect and its settings).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "topic": {
+      "type": "string",
+      "enum": [
+       "drums",
+       "synth",
+       "effects"
+      ]
+     }
+    },
+    "required": [
+     "topic"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "set_drum_pattern",
+   "title": "Change the drums",
+   "description": "Change a drum step pattern (main, or break) and/or the kit the steps play. The pattern is merged over the one playing, so send only what changes: a member left out, or null, stays as it is; a list item null stays; a list shorter than the one there changes only its first items. For example {\"steps\": {\"chance\": [null, [6, 0, 6, 0]]}} sets the first four chance steps of lane 1 and leaves everything else. Steps are 0..6 (call describe with topic drums first). Values out of range are held to it and listed in the answer's corrections. The answer holds the pattern as it now plays. Every change can be taken back with revert.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "which": {
+      "type": "string",
+      "enum": [
+       "main",
+       "break"
+      ],
+      "description": "Which pattern; main if not given."
+     },
+     "pattern": {
+      "type": "object",
+      "description": "Pattern fields to change, as get_context shows them under drums.patterns."
+     },
+     "kit": {
+      "type": "string",
+      "description": "A kit's key from drums.kits in get_context."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "set_synth",
+   "title": "Change the synth",
+   "description": "Change the note sequencer's pattern (notes), the Wave synth's settings (wave), and/or switch the sequencer on or off (on). notes and wave are merged over what plays, as set_drum_pattern's pattern is: send only what changes; null or left out stays; a short list changes its first items. For example {\"notes\": {\"lanes\": {\"pitch\": {\"values\": [0, 3, 7, 10]}}, \"scale\": 1}} sets the first four pitches and the scale (call describe with topic synth first). Values out of range are held to it, and they and names that are no setting are listed in the answer's corrections. An instrument plugin's own sound can't be changed here. Every change can be taken back with revert.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "notes": {
+      "type": "object",
+      "description": "Pattern fields to change, as get_context shows them under synth.notes."
+     },
+     "wave": {
+      "type": "object",
+      "description": "Wave synth settings by name, as get_context shows them under synth.wave."
+     },
+     "on": {
+      "type": "boolean",
+      "description": "Whether the sequencer plays."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "set_chain",
+   "title": "Change the effect chains",
+   "description": "Change the effect chains (get_context's chains; describe with topic effects says every type and setting). In one call, done in this order: remove (device ids), insert (built-in effects: track, type, index from 0 or the end if left out, on, settings), move (id, track, index), settings (device id -> setting -> value) and on (device id -> true or false). For example {\"insert\": [{\"track\": \"loop\", \"type\": \"echo\", \"settings\": {\"echoMix\": 0.4}}], \"on\": {\"saturator\": true}}. Everything is checked first: one thing wrong refuses the whole call and changes nothing. The answer lists new devices' ids, edits megalooper refused (no room, the CPU busy) and values held to their range, and holds the chains as they now stand. Plugins may be moved and switched only. Every change can be taken back with revert.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "remove": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "insert": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "track": {
+         "type": "string"
+        },
+        "type": {
+         "type": "string"
+        },
+        "index": {
+         "type": "integer",
+         "minimum": 0
+        },
+        "on": {
+         "type": "boolean"
+        },
+        "settings": {
+         "type": "object"
+        }
+       },
+       "required": [
+        "track",
+        "type"
+       ]
+      }
+     },
+     "move": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string"
+        },
+        "track": {
+         "type": "string"
+        },
+        "index": {
+         "type": "integer",
+         "minimum": 0
+        }
+       },
+       "required": [
+        "id"
+       ]
+      }
+     },
+     "settings": {
+      "type": "object",
+      "description": "Device id -> {setting: number}."
+     },
+     "on": {
+      "type": "object",
+      "description": "Device id -> true or false."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "revert",
+   "title": "Take back changes",
+   "description": "Put the drums, the synth and the chains back as they were before your newest change, or before the newest `count` changes. get_context's aiChanges says how many can be taken back (at most 32 are kept).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "count": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many changes; 1 if not given."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "save_synth_preset",
+   "title": "Save the synth as a preset",
+   "description": "Save the synth as it stands (the note pattern, the Wave synth, the instrument) as a preset in megalooper's Synth view. A name already taken is refused unless overwrite is true: ask the player first.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "overwrite": {
+      "type": "boolean",
+      "description": "Replace a preset of that name."
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "save_sound",
+   "title": "Save the chains as a sound",
+   "description": "Save the effect chains as they stand (devices, settings, the plugin's own sound) as a sound in megalooper's Effects view. A name already taken is refused unless overwrite is true: ask the player first.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "overwrite": {
+      "type": "boolean",
+      "description": "Replace a sound of that name."
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "save_drum_preset",
+   "title": "Save the drums as a preset",
+   "description": "Save the drums as they stand (both patterns, the kits, the levels) as a preset in megalooper's Drums view. A name already taken is refused unless overwrite is true: ask the player first.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "overwrite": {
+      "type": "boolean",
+      "description": "Replace a preset of that name."
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  }
+ ]
+}

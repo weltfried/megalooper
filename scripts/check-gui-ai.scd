@@ -95,6 +95,39 @@ Routine {
         and: { ~remoteSeg[\view].value == 1 });
     ~remoteSet.(false);
 
+    "== connecting an app ==".postln;
+    {
+        var clip = MegaFiles.userRoot +/+ "clipboard.txt", made = MegaFiles.userRoot +/+ "megalooper.mcpb";
+        var waitFor = { |test| var n = 0; while { test.value.not and: { n < 100 } } { 0.1.wait; n = n + 1 } };
+        var conf, heard;
+        ~remoteClipboard = "cat > " ++ clip.shellQuote;
+        said.clear;
+        ~remoteCopyTile.doAction;
+        waitFor.({ said.notEmpty });
+        conf = MegaFiles.parseObject(MegaFiles.readText(clip));
+        ok.("Copy config: JSON for an app's mcpServers, this Mac's python3 running this folder's bridge",
+            conf.isKindOf(MegaJsonObject) and: {
+                var m = conf.at("mcpServers").at("megalooper");
+                m.at("command").contains("python3") and: { File.exists(m.at("args")[0]) }
+                    and: { m.at("args")[0].endsWith("tools/megalooper-mcp.py") }
+            } and: { said.last[0].contains("Copied") },
+            MegaFiles.readText(clip));
+        ~remoteOpen = "/usr/bin/true";
+        said.clear;
+        ~remoteInstallTile.doAction;
+        waitFor.({ said.size >= 2 });
+        ok.("Install in Claude Desktop: the extension is made in megalooper's folder and handed over",
+            File.exists(made) and: { said.last[0].contains("asks to install") }, said.asString);
+        ~remoteOpen = "/usr/bin/false";
+        said.clear;
+        ~remoteInstallTile.doAction;
+        waitFor.({ said.size >= 2 });
+        ok.("...and when nothing takes it, the status line says where it is",
+            said.last[1] == \bad and: { said.last[0].contains(made) }, said.asString);
+        ~remoteOpen = "/usr/bin/open";
+        ~remoteClipboard = nil;
+    }.value;
+
     w.close;
     sa.free;
     MegaFiles.alwaysSync = false;
