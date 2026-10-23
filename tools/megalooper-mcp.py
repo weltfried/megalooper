@@ -28,7 +28,7 @@ import time
 import uuid
 
 SERVER_NAME = "megalooper"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 # MCP revisions whose tools part is all this server uses; a client asking for
 # one of them gets it, any other gets the newest.
 PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
@@ -40,9 +40,11 @@ INSTRUCTIONS = (
     "sequencer with a synth, and effect chains. Call get_context first to see "
     "what is playing and how it is set (the loop's meter, which may be uneven "
     "bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the "
-    "chains). Call describe for what the settings mean before suggesting "
-    "values. This version reads only: it cannot change anything yet, so "
-    "suggest changes in words or as values the player can set."
+    "chains). Call describe for what the settings mean before changing them. "
+    "The drums can be changed (set_drum_pattern) and every change taken back "
+    "(revert); the player hears a change at once, so change what was asked "
+    "for, say what you changed, and offer to revert. The synth and the "
+    "effects can only be read so far: suggest changes to them in words."
 )
 
 TOOLS = [
@@ -64,7 +66,7 @@ TOOLS = [
                 "parts": {
                     "type": "array",
                     "items": {"type": "string", "enum": ["loop", "drums", "synth", "chains"]},
-                    "description": "Only these parts (the profile and tempo always come).",
+                    "description": "Only these parts (the profile, the tempo and aiChanges always come).",
                 }
             },
             "additionalProperties": False,
@@ -89,7 +91,74 @@ TOOLS = [
         },
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
     },
+    {
+        "name": "set_drum_pattern",
+        "title": "Change the drums",
+        "description": (
+            "Change a drum step pattern (main, or break) and/or the kit the "
+            "steps play. The pattern is merged over the one playing, so send "
+            "only what changes: a member left out, or null, stays as it is; a "
+            "list item null stays; a list shorter than the one there changes "
+            "only its first items. For example {\"steps\": {\"chance\": [null, "
+            "[6, 0, 6, 0]]}} sets the first four chance steps of lane 1 and "
+            "leaves everything else. Steps are 0..6 (call describe with topic "
+            "drums first). Values out of range are held to it and listed in "
+            "the answer's corrections. The answer holds the pattern as it now "
+            "plays. Every change can be taken back with revert."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "which": {"type": "string", "enum": ["main", "break"],
+                          "description": "Which pattern; main if not given."},
+                "pattern": {"type": "object",
+                            "description": "Pattern fields to change, as get_context shows them under drums.patterns."},
+                "kit": {"type": "string", "description": "A kit's key from drums.kits in get_context."},
+            },
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True,
+                        "openWorldHint": False},
+    },
+    {
+        "name": "revert",
+        "title": "Take back drum changes",
+        "description": (
+            "Put the drums back as they were before your newest change, or "
+            "before the newest `count` changes. get_context's aiChanges says "
+            "how many can be taken back (at most 32 are kept)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"count": {"type": "integer", "minimum": 1,
+                                     "description": "How many changes; 1 if not given."}},
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
+                        "openWorldHint": False},
+    },
+    {
+        "name": "save_drum_preset",
+        "title": "Save the drums as a preset",
+        "description": (
+            "Save the drums as they stand (both patterns, the kits, the "
+            "levels) as a preset in megalooper's Drums view. A name already "
+            "taken is refused unless overwrite is true: ask the player first."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"},
+                           "overwrite": {"type": "boolean", "description": "Replace a preset of that name."}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True,
+                        "openWorldHint": False},
+    },
 ]
+
+# The tools that hand their arguments to megalooper as they are.
+PASSED_ON = {"set_drum_pattern", "revert", "save_drum_preset"}
 
 
 class NotReachable(Exception):
@@ -205,11 +274,13 @@ def call_tool(name, arguments):
             ctx = ask("context")
             parts = arguments.get("parts")
             if parts and isinstance(ctx, dict):
-                keep = {"format", "version", "profile", "standalone", "tempo"} | set(parts)
+                keep = {"format", "version", "profile", "standalone", "tempo", "aiChanges"} | set(parts)
                 ctx = {k: v for k, v in ctx.items() if k in keep}
             return json.dumps(ctx, ensure_ascii=False), False
         if name == "describe":
             return json.dumps(ask("describe", {"topic": arguments.get("topic")}), ensure_ascii=False), False
+        if name in PASSED_ON:
+            return json.dumps(ask(name, arguments), ensure_ascii=False), False
         return "There is no tool %r." % name, True
     except NotReachable as e:
         return str(e), True

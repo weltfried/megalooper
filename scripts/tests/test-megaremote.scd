@@ -1,7 +1,9 @@
 // megalooper as a tool for an AI app (MegaRemote, docs/dev/ai-tool.md, Phase 0):
 // who may ask (127.0.0.1 and this boot's token, an id that names nothing
 // but its own two files), what is answered (ping, the context, what every
-// setting means), and that every answer is JSON that reads back. The OSC
+// setting means), the drums it may change and take back (a pattern merged
+// over the one playing, the steps' kit, revert, a preset saved), and that
+// every answer is JSON that reads back. The OSC
 // round trip itself is tools/megalooper-mcp.py's check
 // (tools/test-megalooper-mcp.py).
 
@@ -10,6 +12,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 
 {
 var ask, r, got, o, ctx, stub, sa, looper, here, there, ids, path, text, other, reading;
+var d, before, beforeBreak, kits, presets, said, src;
 
 // The request's text answered, as it reads back from its JSON.
 ask = { |remote, text| MegaFiles.parseObject(MegaFiles.json(remote.handle(text))) };
@@ -22,7 +25,7 @@ got = ask.(r, "{\"command\": \"ping\"}");
     [true, "megalooper remote", 1, thisProcess.pid]);
 got = ask.(r, "{\"command\": \"tune the guitar\"}");
 ~tEq.("a command there is not is refused, naming those there are",
-    [got.at("ok"), got.at("error").contains("ping, context, describe")], [false, true]);
+    [got.at("ok"), got.at("error").contains("ping, context, describe, set_drum_pattern")], [false, true]);
 got = ask.(r, "tune the guitar");
 ~tEq.("...as is a request that is not JSON", [got.at("ok"), got.at("error").contains("not JSON")], [false, true]);
 got = ask.(r, nil);
@@ -121,6 +124,114 @@ if(sa.notNil) {
     ~tEq.("...each with its switch and its settings",
         [o.at("on"), o.at("settings").at("shifterCoarse")], [sa.guitarChain.devices[0].on,
             sa.guitarChain.devices[0].param(\shifterCoarse)]);
+    sa.free;
+};
+
+// ---- merging what the AI gives over what is there ------------------------------------
+o = (steps: (chance: [[0, 0, 0], [1, 1, 1]], velo: [[4, 4, 4], [4, 4, 4]]), note: [42, 38], clockSpeed: 3);
+got = MegaRemote.mergePattern(o, MegaRemote.plain(MegaFiles.parseObject(
+    "{\"steps\": {\"chance\": [null, [6, null]]}, \"note\": [36], \"clockSpeed\": null, \"swing\": 2}")));
+~tEq.("a member given replaces, one left out or null keeps, a short list changes its first items, a new member comes in",
+    [got[\steps][\chance], got[\steps][\velo], got[\note], got[\clockSpeed], got[\swing]],
+    [[[0, 0, 0], [6, 1, 1]], [[4, 4, 4], [4, 4, 4]], [36, 38], 3, 2]);
+~tEq.("...and what was there is not touched", o[\steps][\chance], [[0, 0, 0], [1, 1, 1]]);
+~tEq.("a JSON object is an Event with Symbol keys, its null members left out",
+    MegaRemote.plain(MegaFiles.parseObject("{\"a\": {\"b\": [1, {\"c\": true}]}, \"n\": null}")),
+    (a: (b: [1, (c: true)])));
+
+// ---- the drums, changed and taken back ---------------------------------------------------
+stub = ~tStubServer.();
+sa = ~tCheck.("a MegaSA for the drums is made on the stub", { MegaSA(stub) });
+if(sa.notNil) {
+    d = sa.drums;
+    // A kit asked for is the drums' at once; its buffers never come here.
+    d.kitReader = { |path, done| };
+    kits = d.kitKeys;
+    presets = ~tTempPath.("megaremote-presets");
+    said = List.new;
+    src = (looper: nil, sa: sa, profile: \sa, drumsPresetDir: presets, say: { |m| said.add(m) });
+    r = MegaRemote({ src });
+    before = d.patterns[\main].deepCopy;
+    beforeBreak = d.patterns[\break].deepCopy;
+
+    got = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"steps\": {\"chance\": [null, [6, 0, 6]]}}}}");
+    ~tEq.("a pattern given is merged over the main one: lane 1's first three chance steps, nothing else",
+        [got.at("ok"), d.patterns[\main][\steps][\chance][1].keep(3), d.patterns[\main][\steps][\chance][1].drop(3),
+            d.patterns[\main][\steps][\chance][0], d.patterns[\main][\steps][\velo], d.patterns[\break]],
+        [true, [6, 0, 6], before[\steps][\chance][1].drop(3), before[\steps][\chance][0], before[\steps][\velo], beforeBreak]);
+    ~tEq.("...the answer: the pattern as it now plays, no corrections, one change to revert",
+        [got.at("result").at("which"), got.at("result").at("pattern").at("steps").at("chance")[1].keep(3),
+            got.at("result").at("corrections"), got.at("result").at("aiChanges")],
+        ["main", [6, 0, 6], [], 1]);
+
+    got = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"which\": \"break\", \"pattern\": {\"steps\": {\"velo\": [[9]]}, \"clockSpeed\": 2, \"bogus\": 1}}}");
+    ~tEq.("the break's: a value out of range is held to it, a field there is not ignored, and both are said",
+        [d.patterns[\break][\steps][\velo][0][0], d.patterns[\break][\clockSpeed], got.at("result").at("corrections").size,
+            got.at("result").at("corrections").any { |c| c.contains("bogus") }, d.patterns[\main][\steps][\chance][1].keep(3)],
+        [6, 2, 2, true, [6, 0, 6]]);
+
+    ~tEq.("refused, changing nothing: a which there is not, nothing to change, a pattern that is no object, a kit there is not",
+        [
+            "{\"command\": \"set_drum_pattern\", \"args\": {\"which\": \"fill\", \"pattern\": {}}}",
+            "{\"command\": \"set_drum_pattern\", \"args\": {}}",
+            "{\"command\": \"set_drum_pattern\"}",
+            "{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": [1]}}",
+            "{\"command\": \"set_drum_pattern\", \"args\": {\"kit\": \"no-such-kit\"}}"
+        ].collect { |t| ask.(r, t).at("ok") } ++ [r.changeCount],
+        [false, false, false, false, false, 2]);
+    ~tAssert.("...a kit there is not is answered with those there are",
+        ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"kit\": \"no-such-kit\"}}").at("error").contains(kits[0].asString));
+
+    if(kits.size >= 2) {
+        o = kits.detect { |k| k != d.kit(\steps) };
+        other = d.kit(\steps);
+        got = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"kit\": \"" ++ o ++ "\"}}");
+        ~tEq.("a kit given is the steps' kit, and the pattern stays",
+            [got.at("ok"), d.kit(\steps), got.at("result").at("kit"), d.patterns[\main][\steps][\chance][1].keep(3)],
+            [true, o, o.asString, [6, 0, 6]]);
+        got = ask.(r, "{\"command\": \"revert\"}");
+        ~tEq.("revert takes the newest change back: the kit was the one before",
+            [got.at("ok"), d.kit(\steps), got.at("result").at("reverted"), r.changeCount], [true, other, ["kit"], 2]);
+    } { ~tSkip.("a kit given is the steps' kit", "fewer than two kits in " ++ d.kitDir) };
+
+    o = ask.(r, "{\"command\": \"context\"}").at("result");
+    ~tEq.("the context says how many changes revert can take back", o.at("aiChanges"), 2);
+    got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 5}}");
+    ~tEq.("revert of more than there are takes them all back, newest first: both patterns as they were",
+        [got.at("ok"), got.at("result").at("reverted"), d.patterns[\main], d.patterns[\break], r.changeCount],
+        [true, ["break pattern", "main pattern"], before, beforeBreak, 0]);
+    got = ask.(r, "{\"command\": \"revert\"}");
+    ~tEq.("...then there is nothing to revert", [got.at("ok"), got.at("error").contains("nothing to revert")], [false, true]);
+    ~tEq.("...and a count that is no whole number is refused",
+        ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 0}}").at("ok"), false);
+
+    40.do { |i| r.handle("{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"delay\": [" ++ (i % 50) ++ "]}}}") };
+    ~tEq.("at most 32 changes are kept, the oldest go", r.changeCount, MegaRemote.changesMax);
+    r.revert(nil);
+    ~tEq.("...each change was snapshotted on its own", d.patterns[\main][\delay][0], 38.0);
+    ~tEq.("every change and revert was said in the window's status line",
+        [said.size, said[0].contains("main pattern"), said.last.contains("reverted")], [3 + 2 + 40 + 1, true, true]);
+
+    got = ask.(r, "{\"command\": \"save_drum_preset\", \"args\": {\"name\": \"AI Groove\"}}");
+    ~tEq.("save_drum_preset writes the drums as a preset in the Drums view's folder",
+        [got.at("ok"), got.at("result").at("saved"), File.exists(presets +/+ "ai-groove.scd")],
+        [true, "ai-groove", true]);
+    got = ask.(r, "{\"command\": \"save_drum_preset\", \"args\": {\"name\": \"AI Groove\"}}");
+    ~tEq.("...a name taken is refused", [got.at("ok"), got.at("error").contains("overwrite")], [false, true]);
+    ~tEq.("...unless overwrite is true; no name, or no folder, is refused",
+        [ask.(r, "{\"command\": \"save_drum_preset\", \"args\": {\"name\": \"AI Groove\", \"overwrite\": true}}").at("ok"),
+            ask.(r, "{\"command\": \"save_drum_preset\", \"args\": {\"name\": \"  \"}}").at("ok"),
+            MegaRemote({ (sa: sa) }).handle("{\"command\": \"save_drum_preset\", \"args\": {\"name\": \"x\"}}")
+                .at(\ok)],
+        [true, false, false]);
+    ~tEq.("...and it reads back as the drums are", d.loadPreset(presets, "ai-groove"), true);
+
+    ~tEq.("with no drums every change is refused",
+        ["set_drum_pattern", "revert", "save_drum_preset"].collect { |c|
+            MegaFiles.json(MegaRemote({ () }).handle("{\"command\": \"" ++ c ++ "\", \"args\": {\"name\": \"x\", \"kit\": \"y\"}}"))
+                .contains("no drums") },
+        [true, true, true]);
+    ~tRemoveTree.(presets);
     sa.free;
 };
 

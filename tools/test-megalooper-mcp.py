@@ -120,12 +120,14 @@ class Protocol(unittest.TestCase):
         r = call("initialize", {"protocolVersion": "1999-01-01"})["result"]
         self.assertEqual(r["protocolVersion"], mcp.PROTOCOL_VERSIONS[0])
 
-    def test_tools_are_listed_read_only_with_schemas(self):
+    def test_tools_are_listed_with_schemas_and_say_which_change_things(self):
         tools = call("tools/list")["result"]["tools"]
-        self.assertEqual([t["name"] for t in tools], ["get_context", "describe"])
+        self.assertEqual([t["name"] for t in tools],
+                         ["get_context", "describe", "set_drum_pattern", "revert", "save_drum_preset"])
         for t in tools:
             self.assertEqual(t["inputSchema"]["type"], "object")
-            self.assertTrue(t["annotations"]["readOnlyHint"])
+        self.assertEqual({t["name"] for t in tools if t["annotations"]["readOnlyHint"]}, {"get_context", "describe"})
+        self.assertEqual({t["name"] for t in tools if t["annotations"].get("destructiveHint")}, {"save_drum_preset"})
 
     def test_notifications_get_no_answer_and_ping_an_empty_one(self):
         self.assertIsNone(mcp.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}))
@@ -188,6 +190,8 @@ class Asking(unittest.TestCase):
         self.assertEqual(json.loads(text), ctx)
         text, err = tool("get_context", {"parts": ["drums"]})
         self.assertEqual(sorted(json.loads(text)), sorted(["format", "version", "profile", "standalone", "tempo", "drums"]))
+        ctx["aiChanges"] = 2
+        self.assertEqual(json.loads(tool("get_context", {"parts": ["loop"]})[0])["aiChanges"], 2)
 
     def test_describe_hands_over_the_topic(self):
         self.start({"describe": lambda args: {"ok": True, "result": {"asked": args["topic"]}}})
@@ -201,6 +205,16 @@ class Asking(unittest.TestCase):
         self.assertEqual(fake.heard[0][1][0], "t0ken")
         self.assertTrue(fake.heard[0][1][1].startswith("mcp-"))
         self.assertEqual(os.listdir(fake.dir), [])
+
+    def test_changes_hand_their_arguments_over_as_they_are(self):
+        self.start({c: (lambda c: lambda args: {"ok": True, "result": {"cmd": c, "args": args}})(c)
+                    for c in ["set_drum_pattern", "revert", "save_drum_preset"]})
+        given = {"which": "break", "pattern": {"steps": {"chance": [None, [6]]}}, "kit": "core-808"}
+        text, err = tool("set_drum_pattern", given)
+        self.assertEqual((json.loads(text), err), ({"cmd": "set_drum_pattern", "args": given}, False))
+        self.assertEqual(json.loads(tool("revert", {"count": 2})[0])["args"], {"count": 2})
+        self.assertEqual(json.loads(tool("revert")[0])["args"], {})
+        self.assertEqual(json.loads(tool("save_drum_preset", {"name": "x"})[0])["args"], {"name": "x"})
 
     def test_a_refusal_is_the_tools_error(self):
         self.start({"describe": {"ok": False, "error": "no such topic"}})
@@ -331,6 +345,19 @@ class RoundTrip(unittest.TestCase):
             text, err = tool("describe", {"topic": topic})
             self.assertFalse(err, text)
             self.assertIn("about", json.loads(text))
+
+    def test_a_drum_change_over_osc_and_back(self):
+        before = json.loads(tool("get_context", {"parts": ["drums"]})[0])["drums"]["patterns"]["main"]
+        text, err = tool("set_drum_pattern", {"pattern": {"steps": {"chance": [None, [6, 0, 6, 9]]}}})
+        self.assertFalse(err, text)
+        got = json.loads(text)
+        self.assertEqual(got["pattern"]["steps"]["chance"][1][:4], [6, 0, 6, 6])
+        self.assertEqual(len(got["corrections"]), 1)
+        self.assertEqual(got["pattern"]["steps"]["chance"][0], before["steps"]["chance"][0])
+        text, err = tool("revert")
+        self.assertFalse(err, text)
+        after = json.loads(tool("get_context", {"parts": ["drums"]})[0])["drums"]["patterns"]["main"]
+        self.assertEqual(after, before)
 
     def test_several_asks_in_a_row(self):
         for _ in range(5):

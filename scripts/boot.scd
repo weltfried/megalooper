@@ -228,11 +228,15 @@ s.waitForBoot {
     // Last: this one subscribes widgets from the header and EVERY pane.
     ~wireLooperController.();
 
-    // An AI app may read the set from here on, through tools/megalooper-mcp.py
-    // (MegaRemote): from this Mac only, with the token this boot writes to
-    // remote.json. A boot run again takes over from the one before.
+    // An AI app may read the set from here on, and change the drums, through
+    // tools/megalooper-mcp.py (MegaRemote): from this Mac only, with the token
+    // this boot writes to remote.json. What it changes it says in the status
+    // line. A boot run again takes over from the one before.
     ~megaRemote !? { |r| r.stop };
-    ~megaRemote = MegaRemote({ (looper: ~looper, sa: ~megaSA, profile: ~routingProfile) }.inEnvir).start;
+    ~megaRemote = MegaRemote({
+        (looper: ~looper, sa: ~megaSA, profile: ~routingProfile, drumsPresetDir: ~saDrumsPresetDir,
+            say: { |msg| ~guiSay.(msg) }.inEnvir)
+    }.inEnvir).start;
 
     "Boot complete. R=trigger S=stop M=multiply U=undo V=reverse G=granular B=bbcut K=break D=dissolve C=clear N=next-loop A=reading".postln;
     ("MIDI: " ++ (~midiMap !? { |m| m.name } ? "no map") ++ ", set on the Setup view; MIDI MAP (top right) maps a control. ~midiLog = false to silence the MIDI log.").postln;
@@ -243,7 +247,7 @@ s.waitForBoot {
         ++ ~looper.bbcutPresetNames(~bbcutPresetDir).size ++ " saved).").postln;
     ("Granular presets in " ++ ~granularPresetDir ++ " ("
         ++ ~looper.granularPresetNames(~granularPresetDir).size ++ " saved).").postln;
-    ("AI apps: tools/megalooper-mcp.py lets one read the set (" ++ MegaRemote.handshakePath ++ ").").postln;
+    ("AI apps: tools/megalooper-mcp.py lets one read the set and change the drums (" ++ MegaRemote.handshakePath ++ ").").postln;
     if(~rp[\sa] == true) {
         // ~inChannel is the Looper's (the guitar chain's bus) by now; the
         // guitar's own input is the profile's.

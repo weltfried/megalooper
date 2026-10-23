@@ -8,15 +8,22 @@
 // port sclang got. sclang's port listens on every interface, so a message
 // from anywhere else is dropped unanswered, as is one with a wrong token.
 //
-// Phase 0 reads only: \ping, \context (what is playing and how it is set)
-// and \describe (what every setting means). Nothing here changes a pattern,
-// a device or a setting.
+// Reading: \ping, \context (what is playing and how it is set) and
+// \describe (what every setting means). Writing, the drums only so far:
+// \set_drum_pattern (a pattern, the steps' kit), \revert (the AI's own
+// changes, newest first) and \save_drum_preset. Every change is
+// snapshotted before it lands, so it can be taken back.
 //
-// Everything a request reads comes from `source`, a function answering an
-// Event (looper:, sa:, profile:), so a test hands it stubs; boot.scd hands it
-// the running ~looper and ~megaSA.
+// Everything a request reads or changes comes from `source`, a function
+// answering an Event (looper:, sa:, profile:, drumsPresetDir:, say:), so a
+// test hands it stubs; boot.scd hands it the running ~looper and ~megaSA, the
+// drum presets' folder, and the window's status line (say: a function of a
+// String).
 MegaRemote {
     var <source, <token, <port, responder, onShutDown, <started = false;
+    // The AI's changes, oldest first: (label:, data:), data the drums'
+    // presetData from just before the change.
+    var changes;
 
     *new { |source| ^super.newCopyArgs(source) }
 
@@ -135,14 +142,22 @@ MegaRemote {
                 this.class.success(this.class.obj([\format, this.class.formatName,
                     \version, this.class.version, \pid, thisProcess.pid]))
             }
-            { command == "context" } { this.class.success(this.class.context(source.value)) }
+            { command == "context" } {
+                this.class.success(this.class.context(source.value).add("aiChanges", this.changeCount))
+            }
             { command == "describe" } {
                 this.class.describe(args !? { |a| a.at("topic") }) !? { |d| this.class.success(d) }
                     ?? { this.class.failure("no such topic; there are " ++ this.class.topics.join(", ")) }
             }
-            { this.class.failure("no command " ++ command.asString.quote ++ "; there are ping, context, describe") }
+            { command == "set_drum_pattern" } { this.setDrumPattern(args) }
+            { command == "revert" } { this.revert(args) }
+            { command == "save_drum_preset" } { this.saveDrumPreset(args) }
+            { this.class.failure("no command " ++ command.asString.quote ++ "; there are "
+                ++ this.class.commands.join(", ")) }
         } { |err| this.class.failure("megalooper failed to answer: " ++ err.errorString) }
     }
+
+    *commands { ^#["ping", "context", "describe", "set_drum_pattern", "revert", "save_drum_preset"] }
 
     *success { |result| ^this.obj([\ok, true, \result, result]) }
     *failure { |why| ^this.obj([\ok, false, \error, why]) }
@@ -153,6 +168,129 @@ MegaRemote {
         var o = MegaJsonObject.new;
         pairs.pairsDo { |k, v| o.add(k, v) };
         ^o
+    }
+
+    // ---- the AI's changes ----------------------------------------------------------
+
+    *changesMax { ^32 }
+
+    changeCount { ^(changes ? []).size }
+
+    // The labels of the changes revert can take back, oldest first.
+    changeLabels { ^(changes ? []).collect { |c| c[\label] }.asArray }
+
+    prDrums { |src| ^src !? { |s| s[\sa] } !? { |m| m.drums } }
+
+    prNoDrums { ^this.class.failure("there are no drums: this megalooper runs without Megalooper SA") }
+
+    prSnapshot { |drums, label|
+        changes = changes ?? { List.new };
+        changes.add((label: label, data: drums.presetData("before the AI's " ++ label)));
+        while { changes.size > this.class.changesMax } { changes.removeAt(0) };
+    }
+
+    // Said in the window's status line and the post window.
+    prSay { |src, msg|
+        ("MegaRemote: " ++ msg).postln;
+        src !? { |s| s[\say] } !? { |f| { f.value(msg) }.defer };
+    }
+
+    // A pattern for `which` (main or break, main if not said) and/or the
+    // steps' kit. The pattern is merged over the one playing (mergePattern):
+    // what it leaves out, or gives as null, stays. Then it is cleaned as a
+    // preset's is (MegaSASteps.cleanPattern), and every correction is said.
+    setDrumPattern { |args|
+        var src = source.value, drums = this.prDrums(src), which, given, kit, notes = List.new, label;
+        if(drums.isNil) { ^this.prNoDrums };
+        which = (args !? { |a| a.at("which") }) ? "main";
+        if(#["main", "break"].includesEqual(which).not) { ^this.class.failure("which is main or break") };
+        which = which.asSymbol;
+        given = args !? { |a| a.at("pattern") };
+        kit = args !? { |a| a.at("kit") };
+        if(given.isNil and: { kit.isNil }) { ^this.class.failure("nothing to change: give a pattern, a kit, or both") };
+        if(given.notNil and: { given.isKindOf(MegaJsonObject).not }) { ^this.class.failure("pattern must be an object") };
+        if(kit.notNil and: { drums.kitKeys.includes(kit.asString.asSymbol).not }) {
+            ^this.class.failure("there is no kit " ++ kit.asString.quote ++ "; there are "
+                ++ drums.kitKeys.collect(_.asString).join(", "))
+        };
+        label = [given !? { which.asString ++ " pattern" }, kit !? { "kit" }].reject(_.isNil).join(" and ");
+        this.prSnapshot(drums, label);
+        kit !? { |k| if(k.asString.asSymbol != drums.kit(\steps)) { drums.setKit(\steps, k.asString.asSymbol) } };
+        given !? { |g| drums.setPattern(which, this.class.mergePattern(drums.patterns[which], this.class.plain(g)), notes) };
+        this.prSay(src, "The AI changed the drums' " ++ label ++ " (it can revert it)");
+        ^this.class.success(this.class.obj([
+            \which, which, \kit, drums.kit(\steps), \corrections, notes.asArray,
+            \pattern, drums.patterns[which], \aiChanges, this.changeCount
+        ]))
+    }
+
+    // The drums as they were before the newest `count` changes (1 if not
+    // said; all there are, if more).
+    revert { |args|
+        var src = source.value, drums = this.prDrums(src), count, snap, notes = List.new, undone;
+        if(drums.isNil) { ^this.prNoDrums };
+        count = (args !? { |a| a.at("count") }) ? 1;
+        if(count.isInteger.not or: { count < 1 }) { ^this.class.failure("count is a whole number, 1 or more") };
+        if(this.changeCount == 0) { ^this.class.failure("nothing to revert: the AI has changed nothing since megalooper started") };
+        count = count.min(this.changeCount);
+        snap = changes[changes.size - count];
+        if(drums.applyPresetData(snap[\data], notes).not) {
+            ^this.class.failure("the drums could not be put back: " ++ notes.join("; "))
+        };
+        undone = this.changeLabels.drop(changes.size - count);
+        count.do { changes.pop };
+        this.prSay(src, "The AI reverted the drums (" ++ undone.reverse.join(", ") ++ ")");
+        ^this.class.success(this.class.obj([\reverted, undone.reverse, \aiChanges, this.changeCount]))
+    }
+
+    // The drums as they stand, as a preset in the Drums view's menu. A name
+    // taken is refused unless `overwrite` is true.
+    saveDrumPreset { |args|
+        var src = source.value, drums = this.prDrums(src), dir = src !? { |s| s[\drumsPresetDir] }, name, slug;
+        if(drums.isNil) { ^this.prNoDrums };
+        name = args !? { |a| a.at("name") };
+        if(name.isKindOf(String).not or: { name.stripWhiteSpace.isEmpty }) { ^this.class.failure("name the preset") };
+        if(dir.isNil) { ^this.class.failure("there is no folder for drum presets") };
+        if(File.exists(drums.presetPath(dir, name)) and: { (args.at("overwrite") == true).not }) {
+            ^this.class.failure("there is a drum preset " ++ drums.presetSlug(name).quote
+                ++ " already; overwrite: true replaces it")
+        };
+        slug = drums.savePreset(dir, name);
+        if(slug.isNil) { ^this.class.failure("the preset was not written (the post window says why)") };
+        this.prSay(src, "The AI saved the drums as " ++ slug.quote);
+        ^this.class.success(this.class.obj([\saved, slug, \path, drums.presetPath(dir, name)]))
+    }
+
+    // JSON values as sclang's patterns hold them: an object an Event with
+    // Symbol keys (a null member left out), a list an Array.
+    *plain { |v|
+        var e;
+        if(v.isKindOf(MegaJsonObject)) {
+            e = ();
+            v.keysValuesDo { |k, x| e.put(k.asSymbol, this.plain(x)) };
+            ^e
+        };
+        if(v.isKindOf(Array)) { ^v.collect { |x| this.plain(x) } };
+        ^v
+    }
+
+    // `given` over `current`, at every depth: a member or an item given
+    // replaces, one left out or null keeps what is there, and a list shorter
+    // than the one there changes only its first items ("steps": {"chance":
+    // [null, [6, 0, 3]]} sets the first three chance steps of lane 1). Neither
+    // is touched; the answer is new.
+    *mergePattern { |current, given|
+        var out;
+        if(given.isNil) { ^current.deepCopy };
+        if(given.isKindOf(Dictionary) and: { current.isKindOf(Dictionary) }) {
+            out = current.deepCopy;
+            given.keysValuesDo { |k, v| out.put(k, this.mergePattern(current[k], v)) };
+            ^out
+        };
+        if(given.isKindOf(Array) and: { current.isKindOf(Array) }) {
+            ^current.collect { |c, i| this.mergePattern(c, given[i]) } ++ given.drop(current.size)
+        };
+        ^given.deepCopy
     }
 
     // ---- the context -----------------------------------------------------------

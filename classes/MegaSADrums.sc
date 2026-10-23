@@ -1367,6 +1367,18 @@ MegaSADrums {
         ^out
     }
 
+    // What presetData answered, applied as a preset file is: checked whole
+    // first, and refused (false, nothing changed) if it does not hold.
+    // `warnings`, a List, gets the corrections. An AI app's revert
+    // (MegaRemote) puts the drums back so.
+    applyPresetData { |data, warnings|
+        var notes = List.new, clean = this.prValidatePreset(data, notes);
+        warnings !? { |w| w.addAll(notes) };
+        if(clean.isNil) { ^false };
+        this.prApplyPreset(clean);
+        ^true
+    }
+
     // Apply a checked preset through the setters, so every change reaches
     // the server and its notification: the kits first (setKit, if it names
     // others), the trims (each one that moved for the kits in the slots
