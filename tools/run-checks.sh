@@ -1,8 +1,8 @@
 #!/bin/bash
 # Run megalooper's offline checks, one sclang at a time, and say which passed.
 #
-#   ./tools/run-checks.sh          # all nineteen, about six minutes
-#   ./tools/run-checks.sh quick    # the unit tests and the static check
+#   ./tools/run-checks.sh          # all twenty, about six minutes
+#   ./tools/run-checks.sh quick    # the unit tests, the static check and the AI bridge's
 #
 # Nothing here opens an audio device or touches MIDI, and megalooper may be
 # running beside it: each sclang gets a UDP port far from megalooper's, and
@@ -39,7 +39,7 @@ if [ -z "$SCLANG" ]; then
     exit 99
 fi
 
-QUICK="scripts/tests/run-tests.scd scripts/check.scd"
+QUICK="scripts/tests/run-tests.scd scripts/check.scd tools/test-megalooper-mcp.py"
 PANES="scripts/check-gui-effects.scd scripts/check-gui-maptags.scd scripts/check-gui-drums.scd scripts/check-gui-synth.scd scripts/check-gui-midimap.scd"
 RENDERS="scripts/sa/nrt-chains.scd scripts/sa/nrt-drums.scd scripts/sa/nrt-session.scd scripts/sa/nrt-drum-voices.scd scripts/sa/nrt-drums-fx.scd scripts/sa/nrt-plugin-scan.scd scripts/sa/nrt-pitchloop.scd scripts/sa/nrt-drumchain.scd scripts/sa/nrt-shifter.scd scripts/sa/nrt-noteseq.scd scripts/sa/nrt-wave.scd scripts/sa/nrt-instrument.scd"
 
@@ -58,6 +58,7 @@ have_take() { [ -f "$TAKE" ]; }
 # What a check lacks here, in words, or nothing.
 lacks() {
     case "$1" in
+        test-megalooper-mcp) command -v python3 >/dev/null 2>&1 || echo "python3" ;;
         check-gui-maptags|check-gui-drums) have_kits || echo "the kits' samples" ;;
         nrt-chains) have_take || echo "the recorded take" ;;
         nrt-drums|nrt-session)
@@ -71,7 +72,7 @@ LOGS="$(mktemp -d "${TMPDIR:-/tmp}/megalooper-checks.XXXXXX")"
 failed=0
 skipped=0
 for check in $CHECKS; do
-    name="$(basename "$check" .scd)"
+    name="$(basename "$check")"; name="${name%.*}"
     why="$(lacks "$name")"
     if [ -n "$why" ]; then
         skipped=$((skipped + 1))
@@ -80,8 +81,12 @@ for check in $CHECKS; do
     fi
     port=$((58100 + RANDOM % 800))
     start=$(date +%s)
-    perl -e 'alarm shift; exec @ARGV' 420 "$SCLANG" -u "$port" ${MEGALOOPER_SCLANG_CONF:+-l "$MEGALOOPER_SCLANG_CONF"} \
-        "$REPO/$check" > "$LOGS/$name.log" 2>&1
+    case "$check" in
+        # The AI bridge's own check, which starts its sclang itself.
+        *.py) perl -e 'alarm shift; exec @ARGV' 420 python3 "$REPO/$check" > "$LOGS/$name.log" 2>&1 ;;
+        *) perl -e 'alarm shift; exec @ARGV' 420 "$SCLANG" -u "$port" ${MEGALOOPER_SCLANG_CONF:+-l "$MEGALOOPER_SCLANG_CONF"} \
+            "$REPO/$check" > "$LOGS/$name.log" 2>&1 ;;
+    esac
     code=$?
     secs=$(( $(date +%s) - start ))
     if [ "$code" -eq 0 ]; then
