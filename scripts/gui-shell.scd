@@ -517,7 +517,7 @@
         .font_(~guiMono.(15, true)).subFont_(~guiMono.(11, false)).pad_(16)
         .action_({ ~looper !? { |l| l.toggleSessionRecording } });
     ~sessionRecButton = ~midiTip.(~guiSessionRecLabel, 'looper.sessionRecording',
-        "Write the whole set to disk: what the room heard plus the dry guitar.\n"
+        "Write the whole set to disk: what the room heard plus the dry instrument.\n"
             "Independent of the transport — it records the playing that PRODUCES\n"
             "the first loop, which Live's arrangement cannot.\n"
             "This does NOT arm Live: its arrangement record is a separate switch,\n"

@@ -840,7 +840,7 @@ MegaRemote {
     // and its settings.
     *describeEffects {
         ^this.obj([
-            \about, "Effects sit in chains as devices, in order: guitar (the guitar's input, before "
+            \about, "Effects sit in chains as devices, in order: guitar (the instrument input, whatever is plugged in, before "
                 "the looper records it), loop (what the loop plays back), drums, bass and synth (each "
                 "after its source). A device has an id, a type (one of these keys), a name, an on "
                 "switch and settings by name. Any type may go in any chain; track says what it was "

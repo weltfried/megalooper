@@ -248,7 +248,7 @@
      }
     },
     {
-     "name": "guitar-playback",
+     "name": "loop-playback",
      "settings": {
       "saturatorDrive": 31.605317,
       "saturatorBase": 12.273186,
@@ -337,7 +337,7 @@
      }
     },
     {
-     "name": "guitar-playback",
+     "name": "loop-playback",
      "settings": {
       "reduxRate": 7240.085839,
       "reduxJitter": 0.0248,

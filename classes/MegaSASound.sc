@@ -49,6 +49,10 @@ MegaSASound {
     // bass's came later: a sound without one is no fault, and that chain is
     // empty.
     *firstTrackNames { ^[\guitar, \loop] }
+    // What a chain is called where the player reads it. The first chain's key
+    // is \guitar in files, MIDI maps and the AI tool; on screen it is the
+    // instrument, whatever is plugged in.
+    *trackLabel { |track| ^if(track.asString == "guitar") { "instrument" } { track.asString } }
 
     // tracks: [(track: a Symbol, devices: [device, …], extras: […]), …]; a
     // track this build has not is (track:, raw:).
@@ -130,7 +134,7 @@ MegaSASound {
         tracks = object.at("tracks").collect { |t, i| this.prTrack(t, i, seen, notes) }.reject(_.isNil);
         this.trackNames.do { |n|
             if(tracks.any { |t| t[\track] == n }.not) {
-                if(this.firstTrackNames.includes(n)) { notes.add("it has no " ++ n ++ " chain: that chain is empty") };
+                if(this.firstTrackNames.includes(n)) { notes.add("it has no " ++ this.trackLabel(n) ++ " chain: that chain is empty") };
                 tracks = tracks ++ [(track: n, devices: [])];
             };
         };
@@ -150,7 +154,7 @@ MegaSASound {
         name = name.asSymbol;
         // A track this build has not: kept as it came.
         if(this.trackNames.includes(name).not) { ^(track: name, raw: t.raw) };
-        if(seen.includes(name)) { notes.add("the " ++ name ++ " chain is written twice: the second is left out"); ^nil };
+        if(seen.includes(name)) { notes.add("the " ++ this.trackLabel(name) ++ " chain is written twice: the second is left out"); ^nil };
         seen.add(name);
         devices = (if(t.at("devices").isKindOf(Array)) { t.at("devices") } { [] }).collect { |d, i|
             this.prDevice(d, name, i, seen, notes)
@@ -160,7 +164,7 @@ MegaSASound {
     }
 
     *prDevice { |d, track, index, seen, notes|
-        var where = "device " ++ (index + 1) ++ " of the " ++ track ++ " chain", id, type, spec, extras = List.new;
+        var where = "device " ++ (index + 1) ++ " of the " ++ this.trackLabel(track) ++ " chain", id, type, spec, extras = List.new;
         var known = ["id", "type", "name", "on", "settings", "layout", "plugin", "state"];
         if(d.isKindOf(MegaJsonObject).not) { notes.add(where ++ " is left out: it is no object"); ^nil };
         id = d.at("id");

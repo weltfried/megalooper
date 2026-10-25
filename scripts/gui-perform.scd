@@ -248,7 +248,7 @@
         fxCol = ~performColumn.((key: \fx, name: "Effects", view: \fx, sw: { "" },
             toggle: ~performFxTile,
             rows: [
-                ~performParam.("Guitar", ~performFxGuitarLabel, ~performFxGuitar),
+                ~performParam.("Instrument", ~performFxGuitarLabel, ~performFxGuitar),
                 ~performParam.("Loop", ~performFxLoopLabel, ~performFxLoop),
                 ~performParam.("Drums", ~performFxDrumsLabel, ~performFxDrums)
             ]));
@@ -705,12 +705,12 @@
         var shown = { |paths| paths !? { |p| (p[\master] ? p[\tap]) !? { |x| x.basename } } };
         case
         { l.sessionRecording } {
-            "→ " ++ (shown.(rec.paths) ? "?") ++ (if(l.canRecordMaster) { "" } { " · dry guitar only" })
+            "→ " ++ (shown.(rec.paths) ? "?") ++ (if(l.canRecordMaster) { "" } { " · dry instrument only" })
         }
         { rec.notNil and: { rec.startedAt.notNil } } {
             "last: " ++ (shown.(if(rec.settled) { rec.paths } { rec.finalPaths ? rec.paths }) ? "?")
         }
-        { if(l.canRecordMaster) { "master + dry guitar + events" } { "dry guitar + events" } }
+        { if(l.canRecordMaster) { "master + dry instrument + events" } { "dry instrument + events" } }
     } ? ""
 };
 

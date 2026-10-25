@@ -25,7 +25,9 @@
 // install may be read-only. Every checkout and branch on the Mac shares that
 // folder. A map of yours with a shipped map's name hides the shipped one, and
 // says which shipped revision it started from. Nothing is written until Keep.
-~midiShippedDir = { (~megalooperRoot ?? { Looper.repoRoot }) +/+ "presets" +/+ "midi" };
+// ~midiShippedDirOverride moves it for the tests, whose maps are fixtures
+// (scripts/tests/fixtures/midi/: the release ships keys-and-knobs alone).
+~midiShippedDir = { ~midiShippedDirOverride ?? { (~megalooperRoot ?? { Looper.repoRoot }) +/+ "presets" +/+ "midi" } };
 // ~midiUserRootOverride moves the folder of yours: the tests use a scratch
 // folder, and must never write the real one. The folder itself is
 // MegaFiles.userRoot, which every kind of file of yours shares.

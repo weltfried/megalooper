@@ -83,7 +83,7 @@ LooperCalibrator {
                     "threshold that admits ghosts or misses real hits is the "
                     "documented reason a straight 4/4 take comes out 7/8.",
                 todo: [
-                    "Plug the guitar in. Ableton Live is not in this path at all.",
+                    "Plug your instrument in. Ableton Live is not in this path at all.",
                     "Open the Analysis tab and play the way you are going to play.",
                     "Raise the threshold until the red marks fall only on real "
                     "hits; lower it until none of your hits are missing.",
@@ -99,38 +99,36 @@ LooperCalibrator {
                 title: "Overdub round trip",
                 why: "How far back the buffer write head is shifted so an overdub "
                     "lands where you played it. The round trip it corrects has "
-                    "Live's guitar chain inside it, so it cannot be measured "
+                    "Live's instrument chain inside it, so it cannot be measured "
                     "without Live running the set you will play.",
                 todo: [
                     "STOP the loop. Its audio travels the same path as the burst "
                     "and would sit on top of it.",
                     "Close the path from Live's Main Out back round to whatever "
-                    "feeds Live's guitar track. That stands in for 'you hear the "
+                    "feeds Live's instrument track. That stands in for 'you hear the "
                     "loop and play in response' — the only part of the round "
                     "trip with no delay of its own.",
-                    "On a rig with real inputs (\\fireface, \\bhFireface, "
-                    "\\bhTsMega): unplug the guitar and patch the interface's "
-                    "main output into the guitar input. Mute the guitar track's "
-                    "path to master first, or the cable is a feedback loop.",
-                    "On \\bhBuiltin there is no jack to patch. Its guitar input "
-                    "is 'stereo mic' — the MacBook's built-in microphone, "
-                    "wrapped in Loopback to make it stereo — so the path closes "
-                    "ACOUSTICALLY through the laptop speakers, and the flight "
+                    "On a rig with real inputs: unplug your instrument and patch the "
+                    "interface's main output into the instrument input. Mute the "
+                    "instrument track's path to master first, or the cable is a "
+                    "feedback loop.",
+                    "On a laptop's built-in audio there is no jack to patch: the "
+                    "instrument input is the built-in microphone, so the path closes "
+                    "ACOUSTICALLY through the laptop's speakers, and the flight "
                     "time across a laptop is under a millisecond. Two catches. "
                     "The speakers are inches from that microphone, so with the "
-                    "guitar track monitoring to Main this is a feedback loop; "
-                    "break guitar-to-Main for the measurement while keeping "
-                    "whatever carries the guitar to the looper's inChannel. And "
+                    "instrument track monitoring to Main this is a feedback loop; "
+                    "break instrument-to-Main for the measurement while keeping "
+                    "whatever carries the instrument to the looper's inChannel. And "
                     "a ringing loop fools the correlation, which takes the "
                     "strongest match and would happily pick a repeat over the "
                     "first arrival.",
-                    "If that is a fight, SKIP this step on \\bhBuiltin. It is the "
-                    "fallback rig, its 68 ms was dialled in by ear on the rig, "
-                    "and re-deriving a number you already trust through an "
-                    "acoustic feedback loop is poor value. The cable version on "
-                    "a rig with real inputs is the one worth measuring.",
+                    "If that is a fight, SKIP this step there and dial the value "
+                    "by ear: re-deriving it through an acoustic feedback loop is "
+                    "poor value. The cable version on a rig with real inputs is "
+                    "the one worth measuring.",
                     "Press Measure. It sends a short burst and times its return, "
-                    "eight times. Put the guitar back afterwards."
+                    "eight times. Plug your instrument back in afterwards."
                 ],
                 needs: [\live, \noLoop, \cable],
                 field: \latencyMs,
@@ -148,7 +146,7 @@ LooperCalibrator {
                     "loopback pair nothing else uses and the click arrives on its "
                     "own, with no loop return mixed into it.",
                 todo: [
-                    "Put the guitar back and record a loop, so Live is following "
+                    "Plug your instrument back in and record a loop, so Live is following "
                     "our clock.",
                     "In Live, set Cue Out (in the Main track's I/O, under Main "
                     "Out) to a loopback pair SC can read and nothing else uses — "
@@ -263,12 +261,12 @@ LooperCalibrator {
             (
                 key: \level,
                 title: "Input level",
-                why: "Meter detection listens to the dry guitar. Too quiet, and soft "
+                why: "Meter detection listens to the dry instrument. Too quiet, and soft "
                     "notes never rise above the onset threshold; clipped, and every "
                     "hit looks the same. The level is set on the interface's input "
                     "gain (or the computer's input level), not in megalooper.",
                 todo: [
-                    "Plug the guitar in, its volume where you play it.",
+                    "Plug your instrument in, its volume where you play it.",
                     "Press Measure and play hard for eight seconds: the loudest you "
                     "will play.",
                     "It says how loud the loudest hit came in. Aim for -12 to -3 dBFS: "
@@ -286,7 +284,7 @@ LooperCalibrator {
                     "threshold that admits ghosts or misses real hits is the "
                     "documented reason a straight 4/4 take comes out 7/8.",
                 todo: [
-                    "Plug the guitar in.",
+                    "Plug your instrument in.",
                     "On the Setup view, under Analysis, play the way you are going "
                     "to play.",
                     "Raise the threshold until the red marks fall only on real "
@@ -303,14 +301,14 @@ LooperCalibrator {
                 title: "Overdub round trip",
                 why: "How far back an overdub is written, so it lands where you "
                     "played it. The round trip is everything between the loop "
-                    "leaving megalooper and your guitar coming back into it: the "
-                    "interface both ways, and the guitar chain's effects and plugin. "
+                    "leaving megalooper and your instrument coming back into it: the "
+                    "interface both ways, and the instrument chain's effects and plugin. "
                     "Measure it with the chain as you will play it.",
                 todo: [
                     "Stop the loop: its sound travels the same path as the "
                     "measurement's click.",
-                    "With an interface, patch a cable from output 1 into the guitar "
-                    "input. The guitar's strip is muted while it measures, so the "
+                    "With an interface, patch a cable from output 1 into the instrument "
+                    "input. The instrument's strip is muted while it measures, so the "
                     "cable is no feedback loop.",
                     "On a computer's own speakers and microphone there is nothing to "
                     "patch: turn the volume up, keep the room quiet, keep the "
@@ -431,7 +429,7 @@ LooperCalibrator {
         db = peak.max(1e-6).ampdb.round(0.1);
         ^case
         { db < -50 } { (ok: false, peakDb: db, verdict: \silent,
-            why: "nothing came in (peak " ++ db ++ " dBFS): is the guitar plugged in, its volume up, and is it the input this rig reads?") }
+            why: "nothing came in (peak " ++ db ++ " dBFS): is your instrument plugged in, its volume up, and is it the input this rig reads?") }
         { clipped > 0 } { (ok: false, peakDb: db, verdict: \clipped,
             why: "it clips: " ++ clipped ++ " samples at full scale. Turn the input gain down until the loudest hit stays under -3 dBFS, and measure again.") }
         { db < -20 } { (ok: false, peakDb: db, verdict: \quiet,
@@ -448,8 +446,8 @@ LooperCalibrator {
     // and cannot be confused by our own loop coming back.
     *needLabels {
         ^(
-            guitar:      "the guitar plugged in",
-            cable:       "Live's Main Out fed back to whatever feeds the guitar "
+            guitar:      "your instrument plugged in",
+            cable:       "Live's Main Out fed back to whatever feeds the instrument "
                          "track — a cable on a rig with real inputs",
             noLoop:      "the looper stopped, so its own audio is not on the "
                          "path being measured",
@@ -468,7 +466,7 @@ LooperCalibrator {
         // With no Live (SA), the latency step's cable runs from the interface's
         // output back to the guitar's input.
         if((key == \cable) and: { live.not }) {
-            ^"a cable from an output into the guitar input, or, on a computer's own speakers and microphone, nothing to patch"
+            ^"a cable from an output into the instrument input, or, on a computer's own speakers and microphone, nothing to patch"
         };
         ^(this.needLabels[key] ? key.asString)
     }

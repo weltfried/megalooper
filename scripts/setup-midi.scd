@@ -7,9 +7,9 @@
 // Which message does what is a MIDI map now (presets/midi/, or yours, made on
 // the Rig tab: docs/dev/midi-map.md), and the responders, the proxy to Live and
 // the log's use are the router's, in setup-midimap.scd. The numbers that were
-// here until 2026-10-08 are the TSMega's shipped maps (presets/midi/tsmega.json
-// and keys-and-knobs.json), and a copy is kept with the old responders in
-// tests/legacy-midi-bindings.scd.
+// here until 2026-10-08 are the TSMega's map (since 2026-10-25 a test fixture,
+// tests/fixtures/midi/tsmega.json, and the duo's own) and keys-and-knobs.json,
+// and a copy is kept with the old responders in tests/legacy-midi-bindings.scd.
 (
 // ---- What megalooper sends Live on its own -----------------------------------
 // OUTGOING, not a controller binding: the one CC megalooper sends to Live on

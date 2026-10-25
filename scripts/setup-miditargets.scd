@@ -121,7 +121,7 @@
             set: { |on| if(fxThere.(id)) { ~megaSA.setFx(id, on) } }, available: { fxThere.(id) },
             why: fxWhy.(id, name)));
     };
-    var stripNames = (guitar: "Guitar", bass: "Bass", loop: "Loop", drums: "Drums", onsetKit: "Onset kit", synth: "Synth", master: "Master");
+    var stripNames = (guitar: "Instrument", bass: "Bass", loop: "Loop", drums: "Drums", onsetKit: "Onset kit", synth: "Synth", master: "Master");
     var patternNames = (main: "Main", break: "Break");
     var pageNames = (chance: "Chance", alt: "Alt", velo: "Velo", roll: "Roll");
     var slotNames = (steps: "Steps kit", onset: "Onset kit");

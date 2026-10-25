@@ -115,7 +115,7 @@ MegaSAPlugin {
             c.pluginCrashed = {
                 this.prSetState(\crashed);
                 this.bypass(true);
-                ("MegaSA: " ++ this.name ++ " crashed; the guitar is dry now.").warn;
+                ("MegaSA: " ++ this.name ++ " crashed; the instrument is dry now.").warn;
             };
             // After each open's answer and whenever the plugin reports another.
             c.latencyChanged = { |frames| this.prLatencyChanged(frames) };
@@ -152,7 +152,7 @@ MegaSAPlugin {
                 case
                 { ok.not } {
                     this.prSetState(\failed);
-                    ("MegaSA: could not open " ++ path ++ "; the guitar stays dry.").warn;
+                    ("MegaSA: could not open " ++ path ++ "; the instrument stays dry.").warn;
                     this.prAnswerOpen(false);
                 }
                 { file.isNil } {
@@ -188,7 +188,7 @@ MegaSAPlugin {
         if(openAnswered.not and: { state == \opening }) {
             this.prSetState(\failed);
             this.bypass(true);
-            ("MegaSA: " ++ this.name ++ " did not open in " ++ timeout ++ " s; the guitar plays without it.").warn;
+            ("MegaSA: " ++ this.name ++ " did not open in " ++ timeout ++ " s; the instrument plays without it.").warn;
             this.prAnswerOpen(false);
         };
     }

@@ -165,7 +165,7 @@
                 m.markKept(written);
                 ("megalooper: sound kept" ++ if(stopped) { "." } { " (the plugin's own sound as last kept: the loop was playing)." }).postln;
                 if(bare) {
-                    ("megalooper: the kept sound has no plugin in the guitar chain, so the next boot hosts none. "
+                    ("megalooper: the kept sound has no plugin in the instrument chain, so the next boot hosts none. "
                         ++ "~megaSA.undo brings it back now if it was just removed; ~saRestorePlugin.() puts it back into the kept sound.").warn;
                 };
             } { ("megalooper: the sound was not kept: " ++ why ++ ".").warn };
@@ -210,7 +210,7 @@
         why = MegaFiles.writeNow(path, sound.fileString, { |read| MegaSASound.parse(read ? "") !? { |x| if(x.isString) { x } } },
             ~saKeptBackupDir.() +/+ Date.getDate.stamp ++ ".json");
         if(why.notNil) { ("megalooper: the kept sound was not written (" ++ why ++ ").").warn; false } {
-            ("megalooper: " ++ spec[\name] ++ " is back in the kept sound, at place " ++ (at + 1) ++ " of the guitar chain"
+            ("megalooper: " ++ spec[\name] ++ " is back in the kept sound, at place " ++ (at + 1) ++ " of the instrument chain"
                 ++ if(spec[\state].isNil) { ", with no sound of its own" } { "" } ++ ": run the boot again to host it.").postln;
             true
         }
@@ -630,7 +630,7 @@
 ~setupSA = {
     var plugin = ~saGuitarPlugin, kept, sound, bank;
     if(File.exists(plugin).not) {
-        ("megalooper: no plugin at " ++ plugin ++ "; the guitar plays without one.").warn;
+        ("megalooper: no plugin at " ++ plugin ++ "; the instrument plays without one.").warn;
         plugin = nil;
     };
     // The kept sound is read before MegaSA is built, so the chains are built
@@ -652,7 +652,7 @@
     };
     if(plugin.notNil and: { \VSTPlugin.asClass.notNil } and: { sound.notNil }
         and: { sound.devices(\guitar).any { |d| d[\type] == \plugin }.not }) {
-        ("megalooper: the kept sound has no plugin in the guitar chain, so " ++ PathName(plugin).fileNameWithoutExtension
+        ("megalooper: the kept sound has no plugin in the instrument chain, so " ++ PathName(plugin).fileNameWithoutExtension
             ++ " is not hosted. ~saRestorePlugin.() puts it back into the kept sound for the next boot.").warn;
     };
     ~megaSA !? { |m| m.free };

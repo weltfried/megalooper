@@ -61,7 +61,7 @@ MegaSAChain {
         devices.do { |d|
             try { d.build(group, \addToTail, bus.index, beatDur) } { |err|
                 d.forget;
-                ("MegaSA: " ++ d.name ++ " (" ++ d.id ++ ") was not built on the " ++ track ++ " chain ("
+                ("MegaSA: " ++ d.name ++ " (" ++ d.id ++ ") was not built on the " ++ MegaSASound.trackLabel(track) ++ " chain ("
                     ++ err.errorString ++ "); the chain plays without it.").warn;
             };
         };

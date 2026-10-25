@@ -256,12 +256,12 @@
                     "nothing came back on ch " ++ l.inChannel
                     ++ " at all — the burst never completed the round trip. The "
                     "return leg is the one to check: something in Live has to "
-                    "carry the guitar input back out to that pair, or SC never "
+                    "carry the instrument input back out to that pair, or SC never "
                     "hears it. ~calScanInputs.() while you make a noise into "
-                    "the guitar input shows whether it arrives."
+                    "the instrument input shows whether it arrives."
                 } {
                     "nothing came back at all: the click never made the round trip. "
-                    "Is the cable from output 1 in the guitar input? On a computer's "
+                    "Is the cable from output 1 in the instrument input? On a computer's "
                     "own speakers: is the volume up, and the microphone the input? "
                     "If it cannot be done, set it by ear on the Setup view and press "
                     "Start with this."

@@ -214,7 +214,7 @@ s.waitForBoot {
     if(~rp[\sa] == true) { ~setupSALooper.() };
 
     // Responders need ~looper to exist. The rig's MIDI map is loaded here
-    // (setup-midimap.scd); SA's effects and drums are in the TSMega's, and do
+    // (setup-midimap.scd); a map's bindings for SA's effects and drums do
     // nothing on a rig without them.
     ~setupMidiBindings.();
 
@@ -249,7 +249,7 @@ s.waitForBoot {
         // ~inChannel is the Looper's (the guitar chain's bus) by now; the
         // guitar's own input is the profile's.
         ("Megalooper SA on " ++ ~audioDevice ++ " at " ++ s.sampleRate.round ++ " Hz, "
-            ++ s.options.hardwareBufferSize ++ " frames: guitar on input "
+            ++ s.options.hardwareBufferSize ++ " frames: instrument on input "
             ++ (~rp[\inChannel] + 1) ++ " through "
             ++ (~megaSA.guitarPlugin !? { |p| p.name } ? "nothing (dry)")
             ++ ", the mix on outputs 1/2. No Live needed.").postln;

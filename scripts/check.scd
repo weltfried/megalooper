@@ -415,7 +415,7 @@ try {
 // control is checked too: a knob and the mouse must agree, so its law back
 // and forth is the identity. On rigs that proxy to Live, no binding may sit on
 // the program whose number is the break macro's CC (LooperMidiMap.proxyProblems),
-// and every rig's profile must name a map there is.
+// and every rig's profile must name a map there is, shipped or yours.
 "== MIDI map ==".postln;
 try {
     var targets = ~midiTargetsBuild.();
@@ -466,10 +466,12 @@ try {
             ("  ok    " ++ name ++ ": " ++ map.bindings.size ++ " bindings").postln;
         };
     };
+    // A rig of yours (profiles.scd in your megalooper folder) may name a map
+    // of yours.
     ~routingProfiles.keysValuesDo { |rig, rp|
         rp[\midiMap] !? { |m|
-            if(names.includesEqual(m.asString).not) {
-                ("  RIG " ++ rig ++ " names the MIDI map " ++ m ++ ", which is not shipped").postln;
+            if((names ++ ~midiMapNames.(~midiUserDir.())).includesEqual(m.asString).not) {
+                ("  RIG " ++ rig ++ " names the MIDI map " ++ m ++ ", which is neither shipped nor yours").postln;
                 bad = bad + 1;
             };
         };
@@ -550,7 +552,7 @@ rigs.do { |p|
         { rp[\bassChannel].notNil and: {
             [\inChannel, \analysisChannel].any { |k| rp[k].notNil and: { rp[\bassChannel] == rp[k] } } } } {
             ("  BAD BASS " ++ p ++ ": bassChannel " ++ rp[\bassChannel]
-                ++ " is the guitar's input or the analysis tap").postln;
+                ++ " is the instrument's input or the analysis tap").postln;
             bad = bad + 1 }
         // A profile's calibrated sync offset has to be reachable on the bipolar
         // "Live sync" slider, or the GUI opens showing a value it cannot

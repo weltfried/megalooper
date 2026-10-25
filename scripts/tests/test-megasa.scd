@@ -61,12 +61,39 @@ rp = ~routingProfiles[\sa];
     ~tAssert.("the launcher says an SA rig has the effect chains and the drums",
         [\sa, \saSystem].every { |k| var t = ~routingProfileSays.(k); t.contains("effect chains") and: { t.contains("drums") }
             and: { t.contains("saSystem").not } });
-    ~tAssert.("...that standalone is the looper alone, and where the rest is",
-        ~routingProfileSays.(\standalone).contains("looper alone") and: { ~routingProfileSays.(\standalone).contains("saSystem") });
+    ~tAssert.("...that a rig with neither Live nor SA is the looper alone",
+        ~routingProfileSays.(\standalone).contains("looper alone"));
     ~tAssert.("...and that every other rig plays beside Live",
-        ~routingProfiles.keys.reject { |k| (k == \standalone) or: { ~routingProfiles[k][\sa] == true } }
+        ~routingProfiles.keys.reject { |k| (~routingProfiles[k][\live] == false) or: { ~routingProfiles[k][\sa] == true } }
             .every { |k| ~routingProfileSays.(k) == "The looper beside Ableton Live." });
     ~tEq.("...and nothing of a rig it does not know", ~routingProfileSays.(\noSuchRig), "");
+}.value;
+
+// ------------------------------------------------- the rigs the release ships --
+// One rig of megalooper's own, saSystem, and the default. The duo's rigs are
+// the tests' fixtures (~routingProfilesExtra), and a player's own are read
+// from profiles.scd in their megalooper folder (here the harness's scratch one).
+{
+    var path = ~userRoutingProfilesPath.(), got, warned = List.new, was = ~routingProfiles.copy;
+    var write = { |str| File.mkdir(path.dirname); File.use(path, "w", { |f| f.write(str) }) };
+    ~tEq.("the release ships saSystem alone",
+        ~routingProfiles.keys.reject { |k| ~routingProfilesExtra.includesKey(k) }.asArray, [\saSystem]);
+    ~tEq.("...and it is the default", ~defaultRoutingProfile, \saSystem);
+    ~tAssert.("no rig of the release names a MIDI map: a stranger's controller does nothing until mapped",
+        ~routingProfiles[\saSystem][\midiMap].isNil);
+    ~tAssert.("a fresh install has no rigs of its own", File.exists(path).not and: { ~userRoutingProfiles.().isEmpty });
+    write.("// mine\n( myRig: (device: \"My Interface\", numChans: 2, inChannel: 0, sa: true, live: false) )");
+    got = ~userRoutingProfiles.();
+    ~tEq.("a rig of yours is read from profiles.scd", got.keys.asArray, [\myRig]);
+    ~tEq.("...as it is written", got[\myRig][\device], "My Interface");
+    write.("( broken: (device: \"X\" ");
+    ~tAssert.("a profiles.scd that does not parse gives no rigs, and starts megalooper", ~userRoutingProfiles.().isEmpty);
+    write.("[1, 2, 3]");
+    ~tAssert.("...nor one that holds no Event", ~userRoutingProfiles.().isEmpty);
+    write.("( good: (device: \"A\"), noDevice: (numChans: 2) )");
+    ~tEq.("a rig with no device is left out, the others kept", ~userRoutingProfiles.().keys.asArray, [\good]);
+    File.delete(path);
+    ~routingProfiles = was;
 }.value;
 
 // --------------------------------------------------- VSTPlugin preflight --

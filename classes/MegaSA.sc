@@ -238,7 +238,7 @@ MegaSA {
         // built-in effects without it, and the post window says why.
         if(pluginPath.notNil and: { \VSTPlugin.asClass.isNil }) {
             ("MegaSA: VSTPlugin is not installed, so " ++ PathName(pluginPath).fileNameWithoutExtension
-                ++ " cannot be hosted; the guitar plays without it.").warn;
+                ++ " cannot be hosted; the instrument plays without it.").warn;
             pluginPath = nil;
         };
         holds = IdentityDictionary.new;
@@ -443,7 +443,7 @@ MegaSA {
             (pluginMaker ? { |synth, id, pth| MegaSAPlugin(synth, id, pth) }).value(device.node, \plugin, path)
         } { |err|
             ("MegaSA: " ++ PathName(path).fileNameWithoutExtension ++ " could not be made ("
-                ++ err.errorString ++ "); the guitar plays without it.").warn;
+                ++ err.errorString ++ "); the instrument plays without it.").warn;
             nil
         };
         device.plugin !? { |p| p.addDependant(this) };
@@ -524,7 +524,7 @@ MegaSA {
     prPluginOpened { |plug, ok, device|
         var dev = device ? this.prPluginDevice;
         tempo !? { |t| plug.setTempo(t) };
-        plug.held !? { |why| ("MegaSA: " ++ plug.name ++ " opened, but " ++ why ++ "; the guitar plays without it.").warn };
+        plug.held !? { |why| ("MegaSA: " ++ plug.name ++ " opened, but " ++ why ++ "; the instrument plays without it.").warn };
         case
         { ok } {
             ("MegaSA: " ++ plug.name ++ " open in " ++ (plug.loadSec ? 0).round(0.1)
@@ -537,7 +537,7 @@ MegaSA {
             ("MegaSA: " ++ plug.name ++ " opened, but its sound ("
                 ++ (this.prOpenState(dev) !? { |x| PathName(if(x.isString) { x } { x[\path] }).fileName } ? "its bank")
                 ++ ") did not load" ++ if(guitarChain.devices.includes(dev)) {
-                    "; the guitar is held. Unmute it to play the plugin's own default sound." } {
+                    "; the instrument is held. Unmute it to play the plugin's own default sound." } {
                     ": it plays its own default sound." }).warn;
             if(guitarChain.devices.includes(dev)) { this.hold(\guitar, \state) };
         };
@@ -1929,7 +1929,7 @@ MegaSA {
 
     // The guitar plugin's own window (Bias FX's editor).
     guitarEditor {
-        if(this.guitarPlugin.isNil) { "MegaSA: no guitar plugin; the guitar is dry.".warn }
+        if(this.guitarPlugin.isNil) { "MegaSA: no instrument plugin; the instrument is dry.".warn }
             { this.guitarPlugin.editor };
     }
 

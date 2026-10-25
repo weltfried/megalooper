@@ -332,7 +332,7 @@ def all_devices():
 
 def defaults():
     """The devices scsynth will open when no -H is given, which is exactly what
-    megalooper's \\standalone routing profile relies on."""
+    megalooper's \\saSystem routing profile relies on."""
     din, dout = _default_device(PROP_DEFAULT_IN), _default_device(PROP_DEFAULT_OUT)
     return (describe(din) if din else None, describe(dout) if dout else None)
 

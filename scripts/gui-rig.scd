@@ -113,8 +113,8 @@
             .canFocus_(false).font_(~guiSans.(14)).background_(~gt[\panel]).stringColor_(~gt[\ink])
             .fixedWidth_(230)
             .toolTip_("Where onset + pitch detection listens. The recording itself is unaffected either way.\n"
-                "Same as input: analyse the processed guitar being recorded.\n"
-                "Clean tap: analyse the guitar's dry hardware input direct from the interface — crisper\n"
+                "Same as input: analyse the processed instrument being recorded.\n"
+                "Clean tap: analyse the instrument's dry hardware input direct from the interface — crisper\n"
                 "attacks, better meter detection, and Live is not in the path at all.")
             .items_([
                 "Same as input (processed)",

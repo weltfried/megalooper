@@ -46,7 +46,7 @@
 };
 
 // A need in two words, for its chip; the whole sentence is its tooltip.
-~calNeedShort = (guitar: "guitar", cable: "cable", noLoop: "no loop", live: "Live", loop: "loop",
+~calNeedShort = (guitar: "instrument", cable: "cable", noLoop: "no loop", live: "Live", loop: "loop",
     drumrack: "drum rack", cueOut: "cue out", quietReturn: "return muted", return: "return");
 // Whether the looper can say a need is met: a loop playing or not. Nil where
 // only the room knows.

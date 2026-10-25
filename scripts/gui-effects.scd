@@ -391,7 +391,7 @@
             p.name ++ ": " ++ if((p.state == \open) and: { p.held.notNil }) { "open, but " ++ p.held } { p.state.asString }
                 ++ (p.bank !? { |b| " · sound " ++ PathName(b).fileNameWithoutExtension } ? "")
                 ++ (p.loadSec !? { |t| " · opened in " ++ t.round(0.1) ++ " s" } ? "")
-        } ? "No plugin: the guitar plays dry."
+        } ? "No plugin: the instrument plays dry."
     } ? "Megalooper SA is not running."
 };
 
@@ -619,7 +619,7 @@
     [\guitar, \bass, \loop, \drums, \synth].select { |t|
         MegaSASound.trackNames.includes(t) and: { (t != \bass) or: { (~megaSA !? { |m| m.bassIn }).notNil } } }
 };
-~effectsRowCaptions = (guitar: "GUITAR", bass: "BASS", loop: "LOOP", drums: "DRUMS", synth: "SYNTH");
+~effectsRowCaptions = (guitar: "INSTRUMENT", bass: "BASS", loop: "LOOP", drums: "DRUMS", synth: "SYNTH");
 
 // ---- The status line ------------------------------------------------------------
 // Under the rows: the drum hits the language had to drop, and every plugin
@@ -739,7 +739,7 @@
                 action: { m.moveDevice(d.id, chain.track, at + 1) })
         ] ++ ~effectsTracks.().reject { |t| t == chain.track }.collect { |other|
             var there = m.chainFor(other);
-            (label: "Move to the " ++ other ++ " chain", section: \device, enabled: there.notNil and: { there.built },
+            (label: "Move to the " ++ MegaSASound.trackLabel(other) ++ " chain", section: \device, enabled: there.notNil and: { there.built },
                 action: { m.moveDevice(d.id, other, there.devices.size) })
         } ++ [
             (label: "Remove", section: \device, enabled: true, action: { m.removeDevice(d.id) })
@@ -786,7 +786,7 @@
 ~effectsPlusTile = { |track|
     var tile = LooperTile().states_([["+", ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line]).cycles_(false)
         .font_(~guiSans.(20, true)).fixedSize_(Size(44, 58))
-        .toolTip_("Add an effect or a plugin at the end of the " ++ track ++ " chain.\n"
+        .toolTip_("Add an effect or a plugin at the end of the " ++ MegaSASound.trackLabel(track) ++ " chain.\n"
             "⋯, above, moves or removes the one being edited. Cmd+Z undoes.")
         .action_({ ~effectsShowMenu.(~effectsAddItems.(track)) });
     ~effectsPlusTiles = (~effectsPlusTiles ?? { IdentityDictionary.new }).put(track, tile);
@@ -1018,12 +1018,12 @@
         rowOf = { |track, caption|
             ~effectsRowHolders[track] = ScrollView().hasBorder_(false).hasVerticalScroller_(false)
                 .background_(~gt[\bg]).fixedHeight_(58 + 14);
-            HLayout(~guiCaption.(caption).fixedWidth_(70), ~effectsRowHolders[track]).spacing_(6).margins_(0)
+            HLayout(~guiCaption.(caption).fixedWidth_(84), ~effectsRowHolders[track]).spacing_(6).margins_(0)
         };
         preset = ~guiPresetParts.(\saFx, (
             menu: "Saved sounds: every chain, every setting and each plugin's sound.\n"
                 "Choosing one recalls it at once. One with other effects, or\n"
-                "another order, changes the chains. The guitar mutes for a\n"
+                "another order, changes the chains. The instrument mutes for a\n"
                 "moment while a plugin on its chain loads its part.",
             name: "File name for Save. Anything but letters and digits becomes '-', "
                 "so \"Warm Wah\" saves as warm-wah.json, in your megalooper folder.",
@@ -1043,7 +1043,7 @@
                         case
                         { ok.not } { ~presetSetStatus.(\saFx, "Not kept: " ++ (why ? "see the post window") ++ ".", true) }
                         { bare == true } {
-                            ~presetSetStatus.(\saFx, "Kept without a plugin on the guitar: the next boot hosts none. See the post window for the way back.", true);
+                            ~presetSetStatus.(\saFx, "Kept without a plugin on the instrument: the next boot hosts none. See the post window for the way back.", true);
                         }
                         { plug.isNil } { ~presetSetStatus.(\saFx, "Kept: the next boot starts with these chains.") }
                         { withStates == false } {

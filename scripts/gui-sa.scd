@@ -19,7 +19,7 @@
 // tab is not under the hand, so it follows the drag like any other change.
 ~saLevelHeld = nil;
 
-~saStripLabels = (guitar: "Guitar:", bass: "Bass:", loop: "Loop:", drums: "Drums:", onsetKit: "Onset kit:",
+~saStripLabels = (guitar: "Instrument:", bass: "Bass:", loop: "Loop:", drums: "Drums:", onsetKit: "Onset kit:",
     synth: "Synth:", master: "Master:");
 
 ~saLevelText = { |amp| (amp ? 0).ampdb.max(-60).round(0.5).asString ++ " dB" };

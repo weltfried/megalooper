@@ -12,7 +12,7 @@
 // It briefly opens a window; that is the point. It picks the rig the same way
 // boot.scd does, so set ~checkGuiProfile first to test a specific one:
 //
-//   ~checkGuiProfile = \bhBuiltin;   // then load this file
+//   ~checkGuiProfile = \myRig;   // a rig of yours; then load this file
 //
 // Two more settings, for a run beside a megalooper that is playing: a server of
 // its own (~checkGuiServer, a Server on another port; the default one is the

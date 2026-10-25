@@ -11,7 +11,9 @@
 # What it does, in this order:
 #   1. finds SuperCollider. On Linux it offers to install it with pacman or
 #      apt, together with sc3-plugins and a JACK for PipeWire;
-#   2. checks that sc3-plugins is there (megalooper's classes need it);
+#   2. fetches sc3-plugins on macOS, the release built for your SuperCollider,
+#      into Extensions, unless you have it already (megalooper's classes need
+#      it). On Linux it comes from the package manager, in step 1;
 #   3. fetches BBCut, at the commit megalooper is tested against, into
 #      SuperCollider's Extensions, unless you have it already;
 #   4. fetches VSTPlugin 0.6.2, which hosts VST plugins in the effect chains,
@@ -27,8 +29,9 @@
 # after moving this folder.
 #
 # For its own tests: MEGALOOPER_OS stands in for `uname -s`, MEGALOOPER_ARCH
-# for `uname -m`, MEGALOOPER_BBCUT_URL for where BBCut is cloned from, and
-# MEGALOOPER_VSTPLUGIN_URL for where VSTPlugin's zip is fetched from.
+# for `uname -m`, MEGALOOPER_BBCUT_URL for where BBCut is cloned from,
+# MEGALOOPER_VSTPLUGIN_URL for where VSTPlugin's zip is fetched from, and
+# MEGALOOPER_SC3PLUGINS_URL for where sc3-plugins' zip is.
 
 set -uo pipefail
 
@@ -50,7 +53,7 @@ for arg in "$@"; do
         --no-checks) CHECKS=0 ;;
         --no-app) APP=0 ;;
         --no-vstplugin) VST=0 ;;
-        -h|--help) sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "error: unknown option '$arg' (try --help)." >&2; exit 2 ;;
     esac
 done
@@ -165,18 +168,81 @@ else
 fi
 
 # ---- 2. sc3-plugins --------------------------------------------------------
+# Downloads are checked against the SHA-256 they had when megalooper was
+# tested with them, and unpacked by the system's own tools.
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+    fi
+}
+
+unpack_zip() {
+    mkdir -p "$2" || return 1
+    # ditto on macOS: sc3-plugins' zip carries macOS's ._ resource files,
+    # which unzip would leave beside the classes as files of their own
+    # (._Tartini.sc, 226 of them), and SuperCollider would try to compile.
+    if [ "$OS" = "Darwin" ] && command -v ditto >/dev/null 2>&1; then ditto -x -k "$1" "$2"
+    elif command -v unzip >/dev/null 2>&1; then unzip -q "$1" -d "$2"
+    elif command -v python3 >/dev/null 2>&1; then python3 -m zipfile -e "$1" "$2"
+    else return 1
+    fi
+    find "$2" \( -name '._*' -o -name '.DS_Store' \) -delete 2>/dev/null
+    return 0
+}
+
+# sc3-plugins for macOS: one zip per release, for Apple Silicon and Intel
+# alike, matched to the SuperCollider it was built for.
+fetch_sc3plugins() {
+    local sc="$1" file sum url tmp got dest="$EXT/SC3plugins"
+    case "$sc" in
+        3.14.1) sum="2bfaec480ae5cfb6fade96e1fb7ed4aac3d5e6b66ed7d3cdde6576d7b926f972" ;;
+        3.14.0) sum="bb53fa73317a0c0e5ea865556f817bf6aa7a3b1961cf5e5d92f75967385be785" ;;
+        *)
+            say "sc3-plugins: megalooper knows no sc3-plugins build for SuperCollider ${sc:-of this version}."
+            return 1 ;;
+    esac
+    file="sc3-plugins-$sc-macOS.zip"
+    url="${MEGALOOPER_SC3PLUGINS_URL:-https://github.com/supercollider/sc3-plugins/releases/download/Version-$sc/$file}"
+    command -v curl >/dev/null 2>&1 || { say "sc3-plugins: curl is not here to fetch it."; return 1; }
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/megalooper-sc3plugins.XXXXXX")" || { say "sc3-plugins: could not make a folder to download into."; return 1; }
+    say "sc3-plugins: fetching $sc into $dest (20 MB)"
+    if ! curl -fsSL --retry 2 -o "$tmp/sc3-plugins.zip" "$url"; then
+        say "sc3-plugins: could not fetch $url."
+        rm -rf "$tmp"; return 1
+    fi
+    got="$(sha256_of "$tmp/sc3-plugins.zip")"
+    if [ "$got" != "$sum" ]; then
+        if [ -z "$got" ]; then
+            say "sc3-plugins: neither sha256sum nor shasum is here to check the download with, so it was not installed."
+        else
+            say "sc3-plugins: the download is not the file megalooper was tested with (SHA-256 $got), so it was not installed."
+        fi
+        rm -rf "$tmp"; return 1
+    fi
+    if ! unpack_zip "$tmp/sc3-plugins.zip" "$tmp/out" || [ ! -d "$tmp/out/sc3-plugins-$sc-macOS/SC3plugins" ]; then
+        say "sc3-plugins: could not unpack the download."
+        rm -rf "$tmp"; return 1
+    fi
+    if ! mv "$tmp/out/sc3-plugins-$sc-macOS/SC3plugins" "$dest"; then
+        say "sc3-plugins: could not move it into $EXT."
+        rm -rf "$tmp"; return 1
+    fi
+    rm -rf "$tmp"
+    say "sc3-plugins: installed"
+}
+
+mkdir -p "$EXT" || fail "could not make $EXT."
 if have_class "Tartini.sc"; then
     say "sc3-plugins: found"
+elif [ "$OS" != "Darwin" ]; then
+    fail "sc3-plugins is not installed, and megalooper's classes do not compile without it. Install your distribution's sc3-plugins package, then run this again."
+elif [ -e "$EXT/SC3plugins" ]; then
+    fail "$EXT/SC3plugins is there but holds no sc3-plugins classes. Move it away and run this again to fetch sc3-plugins."
 else
-    if [ "$OS" = "Darwin" ]; then
-        fail "sc3-plugins is not installed, and megalooper's classes do not compile without it. Download the macOS zip of the release built for your SuperCollider from https://github.com/supercollider/sc3-plugins/releases, unzip it into \"$EXT\", then run this again."
-    else
-        fail "sc3-plugins is not installed, and megalooper's classes do not compile without it. Install your distribution's sc3-plugins package, then run this again."
-    fi
+    fetch_sc3plugins "$version" || fail "sc3-plugins was not installed, and megalooper's classes do not compile without it. Download the macOS zip of the release built for your SuperCollider from https://github.com/supercollider/sc3-plugins/releases, double-click it in Finder, and move the SC3plugins folder inside into \"$EXT\", then run this again."
 fi
 
 # ---- 3. BBCut ----------------------------------------------------------------
-mkdir -p "$EXT" || fail "could not make $EXT."
 if have_class "BBCut2.sc"; then
     say "BBCut: found"
 else
@@ -190,20 +256,6 @@ fi
 # ---- 4. VSTPlugin ---------------------------------------------------------------
 # megalooper plays its built-in effects without it, so nothing here stops the
 # install: what went wrong is said, and the install goes on.
-sha256_of() {
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
-    elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
-    fi
-}
-
-unpack_zip() {
-    mkdir -p "$2" || return 1
-    if command -v unzip >/dev/null 2>&1; then unzip -q "$1" -d "$2"
-    elif command -v python3 >/dev/null 2>&1; then python3 -m zipfile -e "$1" "$2"
-    else return 1
-    fi
-}
-
 fetch_vstplugin() {
     local file sum url tmp got dest="$EXT/VSTPlugin"
     case "$OS/$ARCH" in

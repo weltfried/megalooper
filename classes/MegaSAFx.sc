@@ -333,7 +333,7 @@ MegaSAFx {
     // tone stays roughly flat.
     //
     // The rack's macros as the set left them look like a press of its Rand
-    // button; its own variations (guitar-playback, brutal, obertöne, ...) are
+    // button; its own variations (loop-playback, brutal, obertöne, ...) are
     // in presets/sa/fx-variations.json. The other curves are SC stand-ins for
     // Live's; Bass Shaper and Waveshaper are not built. No oversampling.
     *saturator { |sig|
@@ -420,7 +420,7 @@ MegaSAFx {
         var none = { |settings, sr| 0 };
         ^[
             (key: \shifter, track: \guitar, width: \mono, followsTempo: false,
-                blurb: "Shifts the guitar's pitch.",
+                blurb: "Shifts the instrument's pitch.",
                 mainKnobs: [\shifterCoarse, \shifterCents, \shifterMix],
                 dsp: { |sig| this.shifter(sig) },
                 // Every window's line, and the FFT's frame and its IFFT's.
@@ -619,7 +619,7 @@ MegaSAFx {
                     "metallic comb of evenly spaced grains, a lot smears."),
             (fx: \shifter, name: \shifterMix, label: "Dry/Wet", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 1),
-                tip: "Dry against shifted guitar: 100 % by default. In between:\n"
+                tip: "Dry against the shifted sound: 100 % by default. In between:\n"
                     "a harmony at big shifts, a chorus at small ones."),
 
             // ---- Delay
@@ -704,7 +704,7 @@ MegaSAFx {
                 tip: "The LFO's speed while Sync is Free: 1 Hz by default."),
             (fx: \filter, name: \filterMakeup, label: "Makeup", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 0),
-                tip: "Brings a quiet filtered sound back towards the guitar's level,\n"
+                tip: "Brings a quiet filtered sound back towards the instrument's level,\n"
                     "up to 26 dB. 0 % by default."),
             (fx: \filter, name: \filterOutput, label: "Output", units: " dB",
                 spec: ControlSpec(-24, 0, \lin, 0, 0),
@@ -714,7 +714,7 @@ MegaSAFx {
             // ---- PitchLoop89
             (fx: \pitchLoop, name: \pitchLoopMix, label: "Dry/Wet", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 0.37),
-                tip: "Your guitar against the two voices, equal-power: 37 %."),
+                tip: "Your instrument against the two voices, equal-power: 37 %."),
             (fx: \pitchLoop, name: \pitchLoopPitchL, label: "Pitch L", units: " st", centered: true,
                 spec: ControlSpec(-24, 24, \lin, 1, 7),
                 tip: "The reversed voice's transposition: +7 st, a fifth, by default."),

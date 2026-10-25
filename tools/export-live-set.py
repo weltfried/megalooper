@@ -491,6 +491,10 @@ SA_RACKS = [
     ("redux", "looper guitar", "redux", None),
 ]
 
+# Variation names the set gives that megalooper shows otherwise: the window
+# names no instrument.
+VARIATION_NAMES = {"guitar-playback": "loop-playback"}
+
 # Live's synced LFO rates, slow to fast, in whole notes.
 SYNC_DIVISIONS = [8, 6, 4, 3, 2, 1.5, 1, 0.75, 0.5, 0.375, 1 / 3, 5 / 16, 0.25, 3 / 16,
                   1 / 6, 0.125, 1 / 12, 1 / 16, 1 / 24, 1 / 32, 1 / 48, 1 / 64]
@@ -762,7 +766,7 @@ def cmd_variations(root, parents, args):
                 driven = [mapped[k][0] for k in keys if k in mapped]
                 if v is not None and driven and all(m in positions for m in driven):
                     settings[setting] = round(v, 6)
-            variations.append({"name": name, "settings": settings})
+            variations.append({"name": VARIATION_NAMES.get(name, name), "settings": settings})
         # What no macro drives: the device's own stored values, which are what
         # Live plays and so where SA's knobs start.
         fixed = {setting: round(v, 6) for setting, v in sa_settings(effect, dict(stored)).items()

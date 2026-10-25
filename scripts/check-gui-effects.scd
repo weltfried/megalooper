@@ -288,7 +288,7 @@ Routine {
             (m.loopChain.devices.size == (n + 1)) and: { m.loopChain.devices.last.type == \filter } and: { ~effectsTiles[id].notNil }, id.asString);
         items = ~effectsDeviceItems.(id);
         ok.("⋯ for the last device of a chain: left, not right, each other chain, Remove, Random, Reset",
-            shown.(items) == [["Move left", true], ["Move right", false], ["Move to the guitar chain", true],
+            shown.(items) == [["Move left", true], ["Move right", false], ["Move to the instrument chain", true],
                 ["Move to the drums chain", true], ["Move to the synth chain", true], ["Remove", true], ["Random", true], ["Reset", true],
                 ["Copy diagnostics", true]],
             shown.(items).asString);
@@ -296,7 +296,7 @@ Routine {
         tick.();
         ok.("Move left puts it one place earlier", m.loopChain.devices.indexOf(m.device(id)) == (n - 1),
             m.loopChain.devices.collect(_.id).asString);
-        find.(~effectsDeviceItems.(id), "Move to the guitar chain")[\action].value;
+        find.(~effectsDeviceItems.(id), "Move to the instrument chain")[\action].value;
         tick.();
         ok.("Move to the other chain puts it at that chain's end", m.guitarChain.devices.last.id == id,
             m.guitarChain.devices.collect(_.id).asString);
@@ -369,7 +369,7 @@ Routine {
             [~effectsSelected, ~effectsPluginTiles[\plugin2].sub].asString);
         ok.("...and ⋯ acts on it: it can be moved and removed, and has its window, not Reset",
             ~effectsDeviceItems.(\plugin2).collect { |it| it[\label] }
-                == ["Move left", "Move right", "Move to the guitar chain", "Move to the drums chain", "Move to the synth chain", "Remove", "Open its window",
+                == ["Move left", "Move right", "Move to the instrument chain", "Move to the drums chain", "Move to the synth chain", "Remove", "Open its window",
                     "Copy diagnostics"],
             ~effectsDeviceItems.(\plugin2).collect { |it| it[\label] }.asString);
         m.undo;
@@ -480,7 +480,7 @@ Routine {
             (ids.(\drums) == [before[1]]) and: { ids.(\guitar).includes(before[1]).not } and: { took == true }
                 and: { ~effectsRowTiles[\drums].size == 1 }, [ids.(\guitar), ids.(\drums)].asString);
         ok.("...and ⋯ offers it the way to the other three", ~effectsDeviceItems.(before[1]).collect { |it| it[\label] }
-            .select { |l| l.beginsWith("Move to") } == ["Move to the guitar chain", "Move to the loop chain", "Move to the synth chain"]);
+            .select { |l| l.beginsWith("Move to") } == ["Move to the instrument chain", "Move to the loop chain", "Move to the synth chain"]);
         m.undo;
         tick.();
         ok.("...and Cmd+Z takes it back to the guitar's", (ids.(\guitar) == before) and: { ids.(\drums).isEmpty }

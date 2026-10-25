@@ -1037,7 +1037,7 @@ Looper {
             ("Looper: 0 onsets, and analysis is on the clean tap (SC channel "
                 ++ this.analysisIn ++ " = ch " ++ (this.analysisIn + 1)
                 ++ "). If the loop itself recorded fine, that channel is silent — "
-                ++ "check it is the guitar's input on this device, or set "
+                ++ "check it is the instrument's input on this device, or set "
                 ++ "\"Analysis in\" back to \"Same as input\".").warn;
         };
 
@@ -1753,8 +1753,8 @@ Looper {
     }
 
     // Whether this rig can chain loops at all. Chaining records what Live sends
-    // back on returnChannel, so a rig with no return path (\standalone: no Live,
-    // no loopback) cannot do it. nil is the profile saying so, rather than a
+    // back on returnChannel, so a rig with no return path (no Live, no loopback)
+    // cannot do it. nil is the profile saying so, rather than a
     // channel number that would quietly record silence — or, worse, a private
     // bus carrying the looper's own output straight back in.
     canChainLoops { ^returnChannel.notNil }
@@ -1916,7 +1916,7 @@ Looper {
             // through and only sometimes repeats a block. Every param is read
             // per block through a closure, so all of them are live.
             break: (
-                name: "Break/Repeat (guitar)",
+                name: "Break/Repeat",
                 desc: "Mostly plays the loop through; now and then repeats a whole block.",
                 live: [\cutchance, \minblock, \maxblock, \repeats, \phraselength, \rollchance],
                 // Which parameter the arc pedal drives: how MUCH the cutter is

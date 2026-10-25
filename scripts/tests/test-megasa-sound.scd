@@ -124,7 +124,7 @@ d = s.device(\delay);
 s = MegaSASound.parse("{\"format\": \"megalooper sound\", \"tracks\": [{\"track\": \"loop\", \"devices\": []}, "
     ++ "{\"track\": \"loop\", \"devices\": [{\"id\": \"echo\", \"type\": \"echo\"}]}, {\"devices\": []}, 3]}");
 ~tEq.("a file with no version is version 1; a chain it lacks is empty, one written twice counts once",
-    [s.devices(\guitar), s.devices(\loop), s.problems.any { |p| p.contains("no guitar chain") }, s.problems.any { |p| p.contains("written twice") }],
+    [s.devices(\guitar), s.devices(\loop), s.problems.any { |p| p.contains("no instrument chain") }, s.problems.any { |p| p.contains("written twice") }],
     [[], [], true, true]);
 
 // ---- state files are plain names --------------------------------------------------------

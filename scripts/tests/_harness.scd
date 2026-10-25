@@ -34,6 +34,14 @@ if(~tTrapServer.isNil or: { Server.default !== ~tTrapServer }) {
     ~tRestoreServer = { ~tServerBefore !? { |srv| Server.default = srv } };
 };
 
+// ------------------------------------------- the rigs and the maps -------
+// The release ships one rig (saSystem) and one MIDI map (keys-and-knobs). The
+// tests were written against the duo's rigs and the TSMega's map, which left
+// the release on 2026-10-25 for the duo's own folder: here they are fixtures.
+// setup-routing.scd merges ~routingProfilesExtra into its table, and
+// setup-midimap.scd reads the shipped maps from ~midiShippedDirOverride.
+~routingProfilesExtra = (Looper.repoRoot +/+ "scripts" +/+ "tests" +/+ "fixtures" +/+ "routing-profiles.scd").load;
+~midiShippedDirOverride = Looper.repoRoot +/+ "scripts" +/+ "tests" +/+ "fixtures" +/+ "midi";
 // --------------------------------------------------- the user's files -------
 // Code under test that names no folder reaches MegaFiles.userRoot: your
 // Application Support folder, with your MIDI maps and your kept sound. So
