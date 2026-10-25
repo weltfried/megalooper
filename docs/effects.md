@@ -2,9 +2,7 @@
 
 Megalooper SA has seven effects of its own: **Pitch Shift**, **Dual Delay**,
 **Envelope Filter** and **Pitch Loops**, made for the instrument, and **Tape
-Echo**, **Drive** and **Crusher**, made for the loop. Each was built after a
-device in the Ableton Live set megalooper grew up on, and is tuned to sound
-the way that set did.
+Echo**, **Drive** and **Crusher**, made for the loop.
 
 How to add, move, switch and save them is in
 [The chains](standalone.md#the-chains), in the Megalooper SA guide. Here is

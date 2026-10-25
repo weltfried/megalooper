@@ -1,9 +1,9 @@
 # Megalooper SA: megalooper on its own
 
-Megalooper SA plays the instrument's effects, the bass's, the loop's effects and
-the drums itself, so no Ableton Live is needed. This guide covers the effect chains,
-sounds and plugins. The looper, the cutter, the grains and the MIDI map work
-as [the manual](manual.md) says on every rig.
+Megalooper SA plays the instrument's effects, the bass's, the loop's effects,
+the drums and the synth itself. This guide covers the effect chains, sounds and
+plugins. The looper, the cutter, the grains and the MIDI map work as [the
+manual](manual.md) says.
 
 ## Starting it
 
@@ -33,8 +33,8 @@ overdubs will land late or early.
 
 ## Calibrate
 
-Once per rig, open **Calibrate** (key 6, or from Setup's Rig page). Without
-Ableton Live it has four steps:
+Once per rig, open **Calibrate** (key 6, or from Setup's Rig page). It has
+four steps:
 
 1. **Check the rig.** What megalooper found: the interface, its rate and
    block size, and whether VSTPlugin is there.
@@ -91,12 +91,12 @@ Loops, Tape Echo, Drive and Crusher. You can add any of them more than once.
 
 ### Variations
 
-Each effect's menu lists the variations from the Live set megalooper was built
-after (Dual Delay, Envelope Filter, Pitch Loops, Drive and Crusher have some), then yours,
-marked **· yours**. A Live set variation sets only the settings its rack's
-macros drove; one of yours sets them all. Yours are kept in
-`sa/fx-variations.json` in your megalooper folder, apart from the sounds; a
-Live set variation's name cannot be taken for one of yours.
+Each effect's menu lists the variations megalooper ships (Dual Delay, Envelope
+Filter, Pitch Loops, Drive and Crusher have some), then yours, marked
+**· yours**. A shipped variation sets only some of the settings; one of yours
+sets them all. Yours are kept in `sa/fx-variations.json` in your megalooper
+folder, apart from the sounds; a shipped variation's name cannot be taken for
+one of yours.
 
 ## Sounds
 

@@ -106,12 +106,12 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
         <div>
           <div class="eyebrow">RUN IT · 01</div>
           <h2>On its own: Megalooper SA</h2>
-          <p class="body">megalooper also hosts effect chains for your instrument, a bass, the loop and the drums, your VST2 and VST3 plugins, the drums themselves and a step synth. No Live at all. This is how it starts out of the box.</p>
+          <p class="body">megalooper also hosts effect chains for your instrument, a bass, the loop and the drums, your VST2 and VST3 plugins, the drums themselves and a step synth. This is how it starts out of the box.</p>
         </div>
         <div>
           <div class="eyebrow">RUN IT · 02</div>
-          <h2>Beside Ableton Live</h2>
-          <p class="body">megalooper loops, analyses and sends MIDI clock, with Live's downbeat placed on the music. Live plays the effects and the drums. A break tells Live about itself, so a rack can swap patterns for exactly its length. It takes a rig profile of your own: <a href={manual('routing')}>Rigs and routing</a>.</p>
+          <h2>On your own interface</h2>
+          <p class="body">Out of the box it plays on the computer's own input and output. An interface with more channels, a bass on its own input, a fixed sample rate or a smaller buffer is a rig of your own, one short profile in your megalooper folder: <a href={manual('routing')}>Rigs and routing</a>.</p>
         </div>
       </div>
     </section>
@@ -142,7 +142,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
         </div>
         <div class="points points--300">
           <div><h3>MIDI map, by clicking</h3><p>Press MIDI MAP, click any control, move a knob. Footswitches, pedals with pickup takeover, sends back to controllers with lights.</p></div>
-          <div><h3>Records the set</h3><p>The whole set's audio, a dry tap and a log of everything pressed, named with the tempo and signature to set Live to.</p></div>
+          <div><h3>Records the set</h3><p>The whole set's audio, each part of the mix, every drum hit as MIDI, a dry tap and a log of everything pressed, named with the tempo and meter.</p></div>
           <div><h3><a href="#ai">AI apps, if you want them ↓</a></h3><p>Ask Claude Desktop for a groove that fits your 7/8 and hear it at once. Off until you switch it on; one click reverts.</p></div>
         </div>
       </div>
@@ -284,7 +284,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
                 <div><div class="reach__head"><b>{name}</b><span>{what}</span></div><p>{text}</p></div>
               </div>
             ))}
-            <div class="reach__foot">Changing needs Megalooper SA. Beside Live it reads the loop only. <b>Plugins stay yours:</b> it can move one or switch it, never add, remove or touch its settings.</div>
+            <div class="reach__foot"><b>Plugins stay yours:</b> it can move one or switch it, never add, remove or touch its settings.</div>
           </div>
         </div>
 
@@ -317,7 +317,6 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
           <div><span>sc3-plugins</span><b>fetched by the installer</b></div>
           <div><span>BBCut</span><b>fetched by the installer</b></div>
           <div><span>VSTPlugin</span><b>0.6.2, for plugins only</b></div>
-          <div><span>Ableton Live</span><b>optional</b></div>
         </div>
       </div>
     </section>
@@ -327,7 +326,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
     <div class="hfoot">
       <div class="hfoot__about">
         <Wordmark href="#top" only="dark" />
-        <p>Built for a guitar and bass duo, and used on stage. GPL-3.0-or-later, the same as SuperCollider. Ableton and Live are trademarks of Ableton AG; megalooper is not affiliated with or endorsed by Ableton.</p>
+        <p>Built for a guitar and bass duo, and used on stage. GPL-3.0-or-later, the same as SuperCollider.</p>
       </div>
       <nav aria-label="Footer">
         <a href={manual('welcome')}>Manual</a>

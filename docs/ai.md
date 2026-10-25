@@ -28,8 +28,8 @@ nothing waits for a bar line.
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
 
 Changing needs Megalooper SA, where megalooper hosts the drums, the synth
-and the effects ([Megalooper SA](standalone.md)). Beside Live it can only
-read the loop.
+and the effects ([Megalooper SA](standalone.md)). On a rig without it, the
+AI can only read the loop.
 
 **Plugins stay yours.** The AI may move a plugin in its chain and switch it
 on or off. It cannot add one, remove one, or touch the plugin's own

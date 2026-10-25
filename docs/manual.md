@@ -5,27 +5,16 @@ Megalooper SA's effect chains, sounds and plugins are in
 [Megalooper SA](standalone.md), and the drums' kits in [Drums](drums.md).
 
 This manual is the reference for everything else: the rigs, every control,
-the MIDI map, the onset notes, the grains, the cutter, working with Ableton
-Live, calibration, how the meter is found, and the tests. Much of it was
-written for the rig megalooper grew up on (the TSMega floor controller, a
-Faderfox UC4 and Ableton Live), and says so where it is
-about that rig.
-
-## Optional extras
-
-- *(Live integration)* install AbletonOSC: copy its folder into
-  `~/Music/Ableton/User Library/Remote Scripts/`, then in Live's preferences
-  under **Link, Tempo & MIDI → Control Surface**, select `AbletonOSC`.
-- *(MIDI Clock to Live)* enable the macOS IAC Driver: open
-  **Audio MIDI Setup → MIDI Studio**, double-click **IAC Driver**, tick
-  **Device is online**, and ensure at least one port is enabled. Then in Live,
-  under **Link, Tempo & MIDI**, enable **Sync** on the IAC input.
+the MIDI map, the onset notes, the grains, the cutter, calibration, how the
+meter is found, and the tests. Some of it was written for the rig megalooper
+grew up on (the TSMega floor controller and a Faderfox UC4), and says so where
+it is about that rig.
 
 ## Configuration
 
 Audio routing is chosen by a **routing profile**: which audio device, how many
-channels, and where your instrument, the loop and (on a rig beside Ableton Live)
-Live's channels sit. Pick it in the Desktop launcher's menu.
+channels, and where your instrument comes in. Pick it in the Desktop launcher's
+menu.
 
 megalooper ships one, **`saSystem`**: Megalooper SA, with its effect chains,
 drums and synth, on the system's default input and output, your instrument on
@@ -59,13 +48,9 @@ paste into a bug report.
 **Rigs of your own** go in `profiles.scd` in your megalooper folder
 (`~/Library/Application Support/SuperCollider/megalooper/`), never in the
 repository: one file of profiles, read at every start, each offered in the
-launcher beside `saSystem`. A rig for an interface with a bass on its own
-input, with a fixed sample rate or buffer, or one **beside Ableton Live**
-(the looper loops and analyses, Live plays the effects and the drums) is a
-profile there. [docs/routing.md](routing.md) says what each field means and
-how to write one, and walks through the rigs megalooper was built on as
-worked examples: Live beside it over a BlackHole aggregate, an RME Fireface
-with TotalMix loopback, and the TSMega interface on its own.
+launcher beside `saSystem`. A rig for an interface with more channels, a bass
+on its own input, or a fixed sample rate or buffer is a profile there.
+[docs/routing.md](routing.md) says what each field means and how to write one.
 
 ### Device preflight
 
@@ -73,71 +58,26 @@ Aggregate devices fail *quietly*. A member drops out and the aggregate keeps
 working with fewer channels; SC asks for 17 inputs, CoreAudio grants 16, and the
 analysis tap reads a bus nothing ever fills — for the whole session, in silence,
 looking exactly like a detection bug. So before `s.boot`, megalooper asks the
-system what it actually has:
+system what it actually has: **`~checkAudioDevice`** compares the device's real
+channel count, sample rate and expected member devices (`system_profiler`,
+~0.2 s) against the profile. Missing channels the rig needs **stop** the start;
+a missing analysis tap **degrades** — the tap is switched off, `s.options`
+corrected, and onset detection falls back to the recorded input, loudly.
+Sample-rate and member problems warn. It re-runs on demand,
+`~checkAudioDevice.(~routingProfile)`, and the full message reference is in
+[docs/routing.md](routing.md#the-device-preflight). `ServerOptions.devices` in
+SC prints the available device names. To add or tweak a rig, edit your
+`profiles.scd`; `saSystem` stays as megalooper ships it.
 
-- **`~checkAudioDevice`** compares the device's real channel count, sample rate
-  and expected member devices (`system_profiler`, ~0.2 s) against the profile.
-  Missing SC↔Live channels **abort**; a missing analysis tap **degrades** — the
-  tap is switched off, `s.options` corrected, and onset detection falls back to
-  the recorded input, loudly. Sample-rate and member problems warn.
-- **`~checkLiveAudio`** reads Live's own `Log.txt` and flags the two things SC
-  cannot otherwise see: Live's **input and output on different devices** (the
-  split-aggregate footgun — it looks like it works, then crackles and needs a
-  reboot), and Live on a **different device than SC**.
-
-Both re-run on demand: `~checkAudioDevice.(~routingProfile)`,
-`~checkLiveAudio.(~routingProfile)`. Details and the full message reference are
-in [docs/routing.md](routing.md#the-device-preflight).
-
-> One thing no check can see: **Live's Input Config and Output Config are per
-> device.** Switching Live to another aggregate does not carry the enabled 17/18
-> pair across, and until you re-enable it Live cannot see the instrument on ch 17
-> while SC reads it perfectly.
-
-The full step-by-step setup for a rig beside Live (Loopback channel names, the
-Aggregate Device, TotalMix loopback, and Live's track routing) is in
-**[docs/routing.md](routing.md)**. `ServerOptions.devices` in SC prints the
-available device names. To add or tweak a rig, edit your `profiles.scd`;
-`saSystem` stays as megalooper ships it.
-
-Each profile also carries that rig's four calibrated timing values —
-**`latencyMs`** (the "Overdub lat" slider), **`abletonSyncMs`** (the "Live sync"
-slider, negative pulls Live earlier), **`onsetNoteOffsetMs`** (the onset notes'
-"Offset" box, negative sends them earlier) and **`chainRecOffsetMs`** (where the
-loop-chain recorder starts) — because all four measure that rig's paths and do
-not carry across devices. They are applied at boot, before the windows open, so
-the controls start there. After switching profiles, recalibrate and **write the
-numbers back into the profile**, or the next boot starts from the old ones.
-
-The first three are dialled by ear. `chainRecOffsetMs` is not: chain a loop, run
-`~chainAlign.()` from
-[check-chain-align.scd](../scripts/check-chain-align.scd), and set it to the number
-the tool prints — see [Across multiply, undo and loop
-chaining](#across-multiply-undo-and-loop-chaining).
-
-For example, on the two BlackHole rigs beside Live that megalooper was built on
-(the duo's own, in their `profiles.scd`):
-
-| Profile | `latencyMs` | `abletonSyncMs` | `onsetNoteOffsetMs` | `chainRecOffsetMs` |
-| --- | --- | --- | --- | --- |
-| `bhTsMega` | **54** (by ear) | **+68** (by ear) | **+53** (by ear) | **+59** (measured) |
-| `bhBuiltin` | **68** (by ear) | **+150** (by ear, at the slider's limit) | **+63** (by ear) | never measured |
-
-`bhTsMega` is **fully calibrated** as of 2026-09-07 — every value confirmed on the
-rig after the `loopStartTime` fix. `bhBuiltin`'s two offsets are still arithmetic.
-
-Note that `bhTsMega`'s two offsets are **not** the same number, though they were
-before the fix. Both had been dialled by ear to −132, and at ~±15 ms of ear
-precision that was merely close enough for both; with everything else correct the
-difference became audible and they split. They shift different streams — the clock
-drives Live's transport, the notes are quantised to its next audio block and then
-trigger a drum rack — so don't assume they track each other when calibrating.
-
-The rest are still guesses. Anything still marked **derived** is arithmetic —
-every offset moved by 200 ms on 2026-09-07 when the `loopStartTime` bug was
-fixed, that being the constant the code removed. Expect to dial ±15 ms off it.
-See [Why these numbers used to be
-huge](routing.md#why-these-numbers-used-to-be-huge).
+Each profile also carries the rig's starting timing values: **`latencyMs`**
+(**Overdub latency** on Setup's Rig page), **`onsetThreshold`** and
+**`onsetNoteOffsetMs`** (the onset notes' **Offset**, negative sends them
+earlier). They measure that rig's paths and do not carry across devices. They
+are applied at boot, before the windows open, so the controls start there.
+What the Calibrate view applies is kept for the rig in `calibration.json` and
+wins over the profile; a value you dial by ear is not, so **write it back into
+the profile**, or the next boot starts from the old one. See [The calibrated
+values](routing.md#the-calibrated-values).
 
 ## Running
 
@@ -228,7 +168,7 @@ opens on the Perform view (see [GUI](#gui)).
 A letter with Cmd or Ctrl held is no shortcut: Cmd+C doesn't clear. In MIDI
 Map mode the letters still work, and Esc, Delete and Cmd+Z join them.
 
-The `R` trigger cycles per Ableton's Looper spec:
+The `R` trigger cycles:
 
 ```
 empty -> record  ->  play  ->  overdub  ->  play  ->  ...
@@ -296,7 +236,7 @@ sweep and a mouse drag cover the same range in the same shape.
 
 #### Mapping your own controller
 
-**MIDI Map mode**, as in Live. Press **MIDI MAP** in the top bar (on every
+**MIDI Map mode**. Press **MIDI MAP** in the top bar (on every
 view), or Cmd+M. Every control in the window is outlined in blue and says what
 drives it ("PC 4"). Click one, and move a knob or press a switch on your
 controller: that now drives it. Shift-click instead adds one more, so a control
@@ -307,20 +247,18 @@ control's MIDI away, and Cmd+Z or **Undo** brings it back.
 **Keep** keeps the map, and **Done** leaves; with changes not kept it asks
 first: Keep, Discard or Later. The controls don't move while map mode is on.
 MIDI goes on driving everything until you click a control; while one waits,
-every message goes to it, and no footswitch acts nor anything reaches Live
-(15 s at most).
+every message goes to it, and no footswitch acts (15 s at most).
 
 ![MIDI Map mode on Perform](images/map-mode.png)
 
 *Fig: MIDI Map mode with the shipped keys-and-knobs map: each control says what drives it, note 60 for Trigger, CC 11 for the Arc macro.*
 
 Everything else is in the **MIDI map** section of Setup's MIDI & AI page, including
-the controls that have no widget, such as Live's arrangement record and the
+the controls that have no widget, such as the
 views themselves (Show Perform, Show Sound, …, to put them on footswitches):
 
 - **Inputs**: every MIDI input there is, each a switch: whether megalooper
-  listens to it. One switched off reaches no control and nothing of it goes on
-  to Live. Plugged in after the boot? Press **Rescan**.
+  listens to it. One switched off reaches no control. Plugged in after the boot? Press **Rescan**.
 - **Send back**: for a controller that takes MIDI back, such as the Faderfox
   UC4, whether megalooper sends it where each control it drives is. An encoder
   then goes on from where the mouse or a preset put its control, with no jump,
@@ -335,7 +273,8 @@ views themselves (Show Perform, Show Sound, …, to put them on footswitches):
   into the backups); both ask for a second click. **Load from…** opens a map
   file, a backup or one someone sent you.
 - **The list**: every binding, with its range where it has one. A row is grey
-  when its control isn't on this rig, an SA effect on a Live rig, say. Select a
+  when its control isn't on this rig: the bass's level on a rig without a
+  bass, say. Select a
   row to change it:
   - **Learn** arms its control again;
   - **×** removes the binding;
@@ -366,8 +305,7 @@ views themselves (Show Perform, Show Sound, …, to put them on footswitches):
     never learned;
   - if the message already drives another control, the section asks: **Move it
     here**, **Both** or **Cancel**;
-  - while a control is learning, up to 15 s, MIDI drives nothing and nothing
-    goes on to Live. Once it counts a switch's presses, up to 4 s more, only
+  - while a control is learning, up to 15 s, MIDI drives nothing. Once it counts a switch's presses, up to 4 s more, only
     that switch is held back.
 
 ![The MIDI map section](images/midi-map.png)
@@ -386,26 +324,12 @@ Clear on a switch you now use for something else. With no backup there is no
 map, and the footer says the footswitches are off. A map is JSON, data only:
 [MIDI map files](midi-maps.md) has the format.
 
-Megalooper sends one CC of its own, outgoing on the IAC bus alongside the MIDI
-clock: **CC 100 on channel 16**, 0 when a break opens and 127 when the loop comes
-back — see [Breaks](#breaks).
-
-> **Moved from CC 20 on 2026-09-22**, when the session recorder took Program
-> Change 20. Every program change is proxied to Live as *CC number = program
-> number* on that same channel, so a break macro on CC 20 would have been
-> flipped by every press of the record footswitch. If you have an Ableton set
-> from before that date, this is the one control to re-map. Since 2026-10-08
-> the proxy leaves program change 100 out of that translation (it still goes to
-> Live as a program change), so no controller can flip the macro by sending it.
-
 All MIDI input is logged to the post window by default, a message held back
 marked as such. To silence the log, evaluate `~midiLog = false` in SC.
 
 **One router.** Every message goes through one router
-(`scripts/setup-midimap.scd`): to the controls bound to it, then on to Live,
-then into the log, in that order. So Live gets a forwarded message after
-whatever the action itself sends it (a break's macro CC comes before the
-forwarded program change, for one). `~setupMidiBindings.()` rebuilds it, and
+(`scripts/setup-midimap.scd`): to the controls bound to it, then into the log.
+`~setupMidiBindings.()` rebuilds it, and
 keeps a map's changes not kept yet.
 
 ### The arc — intensity and dissolve
@@ -474,32 +398,15 @@ BREAK LOOPS). The state block wears the Break hatch and counts down the seconds
 remaining, and so does the Break tile, so you always know when it is coming
 back.
 
-It **mutes, never stops**: the engine, the MIDI clock and Live's sync are
-untouched, so the loop comes back precisely where it would have been.
+It **mutes, never stops**: the engine and the drums' clock are untouched, so the
+loop comes back precisely where it would have been.
 
-**The break tells Live about itself**, so the room can hear something change
-rather than only hearing something leave. It sends **CC 100 on channel 16** out
-through the same IAC bus as the clock: **0** the instant the hole opens, **127**
-when the loop returns. Map that to a rack macro in Live — two Rhythmic Steps
-devices on one macro, say — and the break swaps the pattern for exactly its own
-length, with the original back on the downbeat.
+**The drums change with it**, so the room hears something change rather than
+only something leave: the step sequencer switches to its **Break** pattern for
+exactly the break's length, and the Main pattern is back on the downbeat with
+the loop. Edit the Break pattern on the Drums view.
 
-The values are absolute rather than a toggle, so a macro nudged by hand is put
-right by the next break instead of inverted for the rest of the set, and a break
-cancelled by a stop or a clear still sends the 127. It is sent for every way of
-striking a break — a footswitch, the button, or a cancel — because
-it hangs off the looper's own break state and not off any one of those. Channel
-16 is the same channel the proxied program changes land on, chosen for the same
-reason: nothing the controller forwards can collide with it.
-
-In Live: enable **Remote** for the IAC input under Preferences → Link/MIDI, then
-MIDI-map the macro to CC 100 and map it to both devices' on/off switches, one
-with its range inverted. That is how `megalooper-slave.als` does it: the main
-device is on at 64–127 and the break device at 0–63, and the rack's chain
-selector is not used.
-
-A break silences everything the looper makes, the onset-note part included; a
-break that left the drums playing in Live would not be a break. The state
+A break silences everything the looper makes, the onset notes included. The state
 block wears the Break hatch while one is open, because a deliberate silence and
 genuinely broken audio otherwise look identical.
 
@@ -514,7 +421,7 @@ footer.
 *Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3. Under the status band, a column per layer, then the actions and the macros.*
 
 ```
-┌ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX □ │ 4 Drums □ │ 5 Setup ▾ □ │ CPU 14% │ ◐ │ ? │ RIG SA MIDI ● │ ■ MIDI MAP ⌘M │ ● SET REC 12:04 ┐
+┌ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX □ │ 4 Drums □ │ 5 Setup ▾ □ │ CPU 14% │ ◐ │ ? │ RIG SA MIDI ● │ ■ MIDI MAP ⌘M │ ○ Record set    ┐
 ├────────────────┬──────────────────────────────────────────┬────────────────────┤
 │ LOOPER STATE   │ TAKE · DETECTED                          │ INPUT              │
 │ ▶ PLAYING      │ 7/8   103.2   2   Dm                     │ ▇▇▇▇▇▇▇▇▇░░ -9 dB  │  the status band
@@ -539,12 +446,11 @@ footer.
   stops), the views' tabs (keys **1–5**, and **6**
   for the Calibrate wizard, which has no tab; each tab's squares light in its
   parts' colours while they run), the server's **CPU** (red past 60 %), **◐**
-  (dark or light, key **T**, kept for the next boot; with the loop and Live's
-  clock stopped, since the rebuild holds the language, and the clock, for
-  65–80 ms), **?** (the help lines: the sentences that explain a page, hidden
+  (dark or light, key **T**, kept for the next boot; with the loop
+  stopped, since the rebuild holds the language for 65–80 ms), **?** (the help lines: the sentences that explain a page, hidden
   or shown together, key **H**, kept for the next boot), the rig and a lamp
   for MIDI arriving,
-  **MIDI MAP** and **SET REC** — the set recorder, with the file it writes
+  **MIDI MAP** and **Record set** — the set recorder, with what it writes
   under it.
 - **The status band**, on Perform: the **state block** (`EMPTY`, `● REC`,
   `▶ PLAYING`, `● OVERDUB`, `■ STOPPED`, filled in the state's colour, and the
@@ -563,7 +469,7 @@ footer.
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | Megalooper SA only: the **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | Megalooper SA only: the **drums** (step sequencer, timing, kits, mix) |
-| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Live transport, the three timing bars, SA's levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, and **AI apps** ([AI apps](ai.md)) |
+| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars, SA's levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, and **AI apps** ([AI apps](ai.md)) |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
 ![The Sound view](images/sound.png)
@@ -602,19 +508,19 @@ at the same sizes.
 
 The controls, by view:
 
-- **Live transport** *(Setup › Rig)* — how the looper drives Live's transport:
-  - *Start + Stop* (default): send MIDI Start on play, MIDI Stop on stop.
-  - *Start only*: send MIDI Start, never send Stop. Live keeps running after the
-    looper stops. MIDI Clock keeps flowing so Live's external sync stays alive.
-  - *Don't touch*: send nothing. Live is fully decoupled.
+- **Drums follow the loop** *(Setup › Rig)* — whether the drums start and stop
+  with the loop:
+  - *Start + Stop* (default): they start when the loop plays and stop when it
+    stops.
+  - *Start only*: they start with the loop and play on after a stop.
+  - *Off*: they do not start with the loop; switch them on yourself.
 - **Input** *(Setup › Rig)* — *Mono* (default) or *Stereo*. In mono mode the looper
   reads `inChannel` only and duplicates it to both buffer channels so the
   output is audible on both ears. In stereo mode it reads `inChannel` and
   `inChannel + 1` independently. Takes effect on the next record or play.
 - **Listen for onsets on** *(Setup › Rig)* — which input the onset and pitch detection listens
-  to. *Clean tap* reads the instrument's **dry hardware input** directly off the
-  shared audio device, with Live nowhere in the path; *Same as input* analyses
-  the processed instrument being recorded, as older versions always did. Only the
+  to. *Clean tap* reads the instrument's **dry hardware input**, before the
+  effects; *Same as input* analyses the processed instrument being recorded. Only the
   analysis moves — the loop is recorded from `inChannel` either way. Distortion
   and ambient FX smear note attacks, and blurred onsets are the main cause of
   meter mis-detection, so the dry tap is the better default where the rig
@@ -630,10 +536,6 @@ The controls, by view:
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.
 - **Overdub latency** *(Setup › Rig)* — round-trip latency compensation (0–100 ms).
   See "Calibrating overdub latency" below.
-- **Live sync** *(Setup › Rig)* — bipolar MIDI-clock offset (±150 ms, centre 0).
-  Shifts when the MIDI Start/clock is sent so Live's downbeat lines up with the
-  loop instead of lagging ~10–20 ms; negative pulls Live earlier. See "Live
-  integration" below.
 - **Feedback** *(Perform's Loop column)* — how much of the existing buffer content is preserved
   during overdub. `1.0` (default) is classic additive overdub: existing
   content stays at full level and the new input layers on top. `0.0` makes
@@ -660,10 +562,10 @@ notifications, so nothing here can be clicked into a state you didn't intend.
   Read straight off the engine's own phase bus at 20 Hz, so it cannot drift
   against the audio. With no meter detected it falls back to elapsed/total
   alone rather than inventing a beat. **Bar 1 beat 1 is where you pressed
-  record** — the same downbeat Live's 1.1.1, the cutter's beat 0 and the
+  record** — the same downbeat the drums' step 1, the cutter's beat 0 and the
   break's resume use, so the four never disagree, even on a take that opens
   with a pickup. A meter detected from an overdub counts from the downbeat that
-  detection chose, which is also where it started Live.
+  detection chose, which is also where it started the drums.
 - **Take** — what the analyser decided: `7/8`, `103.2` BPM, `2` bars, the key;
   `TAKE · ANCHORED` when the loop fell back to the length-anchored meter, which
   is also the reason the cutter will refuse to start. When the analyser's
@@ -731,18 +633,18 @@ In **Setup's Analysis page**:
   strength of the most recent onset (the same salience value `MeterAnalyzer`'s
   accent test sees).
 
-- **Onset notes** — sends the loop's onsets to Live as MIDI. See
+- **Onset notes** — plays the loop's onsets on the onset kit. See
   [Onset notes](#onset-notes) below.
 
 The threshold is also an optional per-rig profile field, `onsetThreshold`,
-alongside `latencyMs` and `abletonSyncMs` — how noisy the instrument input is depends
+alongside `latencyMs` — how noisy the instrument input is depends
 on the interface and the tap. Tune it here, then write the number back into the
 profile.
 
 > **Why a lamp and not a waveform.** This pane used to draw a scrolling envelope
 > with the onsets marked on it. It was the most expensive thing in the GUI — 120
-> `Pen` calls per repaint off a 60 Hz feed, measured wrecking the language-side
-> MIDI clock whenever the tab was on screen — and it answered only the one question the lamp answers
+> `Pen` calls per repaint off a 60 Hz feed, measured wrecking the language's
+> timing whenever the tab was on screen — and it answered only the one question the lamp answers
 > directly. Plotting the *detection function* instead would have been worth the
 > cost, but it isn't available: `Onsets` whitens its odf before comparing it to
 > the threshold, so the UGen's `rawodf` output is on a different scale entirely
@@ -759,13 +661,13 @@ profile.
 ### Overdub meter detection
 
 For loops that open atmospheric. Take one has no attacks, so no meter is found
-and Live's transport is never started — correct, there is no beat to follow.
-Turn on **Overdub detect** in the analysis window, overdub a rhythmic pattern,
-and the meter is derived from *that* instead, then Live is started.
+and the drums never start — correct, there is no beat to follow. Turn on
+**Overdub meter detection** on Setup's Analysis page, overdub a rhythmic
+pattern, and the meter is derived from *that* instead, then the drums start.
 
 - **Runs on `endOverdub`**, and only while the loop still has **no valid meter**
   (a length-anchored fallback counts as none). Without that gate every overdub
-  would re-tempo Live mid-performance.
+  would re-tempo the drums mid-performance.
 - **Detect now** forces a re-analysis of the last overdub's onsets past that
   gate. The quality guards below still apply.
 - Onsets arrive already in **loop coordinates**: the engine publishes its read
@@ -775,9 +677,9 @@ and the meter is derived from *that* instead, then Live is started.
   within 30 ms of each other merge, keeping the loudest reading.
 - The loop is **never resized**; there is already audio in it. Instead the tempo
   is forced to divide the existing loop exactly (`tau = loopDur / n`). A tempo a
-  hair off the loop length drifts against Live over a few minutes.
-- **Live starts on the detected downbeat**, not immediately — the transport start
-  is held until the loop next reaches that phase, so Live's 1.1.1 lands on the
+  hair off the loop length drifts against the drums over a few minutes.
+- **The drums start on the detected downbeat**, not immediately — the start is
+  held until the loop next reaches that phase, so their first step lands on the
   music rather than wherever the analysis happened to finish.
 
 Two guards make this safe, and they exist because widening the search breaks
@@ -813,20 +715,14 @@ What it changes and what it leaves alone:
   it on the boundary, with no hole in front of it.
 - The **grains** take the new pulse at once; the **dissolve** counts the new
   bar from its next arming; the **status band** shows the new take.
-- **Live** gets the new tempo and signature the way an analysis delivers them,
-  and the MIDI clock moves to the new period from that tick.
+- The **drums** take the new tempo and meter the way an analysis delivers them.
 
 **It lands on a loop boundary, never on the press**, and the reading chip counts
 down to it, so the bass player hears it coming the way a break is heard. Which
-boundary: Live counts bars in MIDI-clock ticks from the Start it received, and a
-reading that changes how many quarter notes a loop holds makes Live's bar line
-meet the loop boundary only every so many loops. The looper knows the tick
-count, so it picks the first of the next three boundaries where Live's bar line
-will fall — usually the very next one — and lands there without restarting
-Live. If no boundary in reach lines up it lands on the next one and sends Start
-again, the same relocation the first take does; **while the set is being
-recorded no Start is sent**, because a Start would overwrite the take, and Live's
-bar line is left where it falls with the tempo still right.
+boundary: a reading that changes how many quarter notes a loop holds makes the
+drums' bar line meet the loop boundary only every so many loops, so the looper
+picks the first of the next three boundaries where it will fall — usually the
+very next one.
 
 Refused, with a line in the post window and nothing lit: when nothing is
 playing, and on a take that fit no grid, because the length-anchored fallback
@@ -841,9 +737,9 @@ to, in **both** the recorder and the monitor or the lamp starts lying.
 ## Onset notes
 
 The onsets `MeterAnalyzer` fits its grid to are also, straightforwardly, a drum
-part — they are exactly where the attacks were. Turn on **Onset notes** in the
-onset analysis window and they go out of `midiOut` as MIDI notes, once per loop
-pass, so Live can trigger a Drum Rack or sampler from the rhythm you played.
+part — they are exactly where the attacks were. Turn on **Onset notes** on
+Setup's Analysis page and they play the **onset kit** (its kit is chosen on the
+Drums view), once per loop pass: a drum part from the rhythm you played.
 
 ### It replays the loop, it does not track your hands
 
@@ -852,12 +748,10 @@ repeated in lockstep with the audio — not a live trigger off the detector. Tha
 is the more useful of the two for a looper:
 
 - It keeps playing when you stop playing, which a live trigger cannot.
-- It repeats *exactly*, so what Live receives on pass 40 is what it received on
-  pass 1.
+- It repeats *exactly*, so what plays on pass 40 is what played on pass 1.
 - It carries none of the detector's ~15–25 ms latency: the pattern is scheduled
   against `loopStartTime`, the wall-clock moment the loop's audio actually leaves
-  the server, and `~midiOut.latency` is 0, so each
-  note is sent as its own audio is heard.
+  the server, so each hit sounds as its own audio is heard.
 
 The pattern comes from the same onsets the meter was fitted to. For a loop whose
 **first take had no attacks at all**, it comes instead from the overdub that gave
@@ -872,13 +766,13 @@ also gets an atmospheric loop a drum part.
 
 | Control | Default | What it does |
 | --- | --- | --- |
-| **Onset notes** | off | Toggle. Starts and stops with the loop; stopping releases any note still gated, so nothing hangs in Live. |
-| **Note** | 36 (C1) | The note every onset sends. Octaves are numbered **as Live numbers them** (middle C = C3), so 36 is the Drum Rack's first pad, not SC's C2. |
-| **Ch** | 2 | MIDI channel, shown 1–16 as Live shows it. Defaults to **2**, which is where the rigs here are already mapped; the notes are the only ones megalooper sends down the IAC bus. |
+| **Onset notes** | off | Toggle. Starts and stops with the loop. |
+| **Note** | 36 (C1) | The onset kit's pad every onset plays: 36 is its first pad, the kick in the shipped kit. Octaves are numbered with middle C as C3, so 36 is C1, not SC's C2. |
+| **Ch** | 2 | The notes' MIDI channel, 1–16. The onset kit plays them whatever it is. |
 | **Vel** | 40–127 | Velocity of the quietest and loudest hit. |
 | **Dynamics** | 30 dB | How far below the loop's loudest hit maps to the minimum velocity. Small = compressed, large = wide. |
 | **Offset** | 0 ms | Timing trim, **negative sends the notes earlier**. Per-rig — see below. Takes effect on the next hit, so dial it while the loop runs. |
-| **Gate** | 20 ms | How long each note is held. Drum racks and one-shot samplers ignore it; a gated synth or pad does not. Shortened automatically so a gate can never run into the next hit. |
+| **Gate** | 20 ms | How long each note is held, as the notes are written into the set's `-drums.mid`. The onset kit's pads play each hit out whatever it is. Shortened automatically so a gate can never run into the next hit. |
 | **Chance** | 100% | How likely each onset is to be sent. See [Thinning the part](#thinning-the-part) below. |
 
 The readout beside the toggle shows how many hits are in the pattern and how long
@@ -926,63 +820,39 @@ Dynamics window in dB. Two consequences worth knowing:
 The velocity controls are evaluated per note as it is sent, so changing any of
 them takes effect on the very next hit — no rebuild, no restart, no gap.
 
-### Setting Live up
-
-Arm a MIDI track, set its input to the same IAC bus megalooper's MIDI Clock goes
-to, set its input **channel to 2**, and drop a Drum Rack on it. With the defaults
-the hits land on the Rack's first pad.
-
-Set the channel rather than leaving the track on *All*: the break's macro CC
-(channel 16) goes down the same bus, and a track listening to everything will
-also see it.
-
 ### Lining the notes up
 
-The loop's audio and its notes do **not** travel the same path, so they do not
-arrive together and no default can be right for every rig:
-
-- The **loop** goes SC → the virtual device → Live's input buffer → Live → out.
-  That is two buffers the notes never see, plus whatever the set's plugin delay
-  compensation adds.
-- The **notes** go SC → IAC → Live, where they are quantised to Live's next audio
-  block and then trigger a sampler.
-
-Both are scheduled from the same origin — `loopStartTime`, the wall-clock moment
-the loop's audio starts — so what is left is a fixed per-rig difference. That is
-what **Offset** is for, and it is the same kind of number as "Overdub lat" and
-"Live sync": set by ear, then written back into the profile as
+The loop's audio and the onset kit's hits leave through different strips of the
+mixer, and both are scheduled from the same origin — `loopStartTime`, the
+wall-clock moment the loop's audio starts — so what is left is a small, fixed
+per-rig difference. That is what **Offset** is for, and it is the same kind of
+number as **Overdub latency**: set by ear, then written back into the profile as
 `onsetNoteOffsetMs`.
 
 Guessing at it by ear is hard, because a 10–20 ms flam is easier to hear than to
-size. To **measure** it instead, record both signals in Live and read the gap off
-the waveform:
+size. To **measure** it instead, record the set: the loop and the onset kit are
+stems of their own.
 
-1. Arm one audio track recording the loop (SC's output pair, 11/12) and one
-   recording the drum rack's output.
-2. Play a loop with the onset notes on, and record a few passes.
-3. Zoom in on a hit that appears in both, and measure the distance between the
-   two transients.
-4. If the drum hit is **later** than the loop transient by *n* ms, set Offset to
-   **−*n***. Re-record and confirm it closed.
+1. Play a loop with the onset notes on, press **Record set**, and record a few
+   passes.
+2. Open `-loop.wav` and `-onset.wav` side by side, zoom in on a hit that
+   appears in both, and measure the distance between the two transients.
+3. If the drum hit is **later** than the loop transient by *n* ms, set Offset to
+   **−*n***. Record again and confirm it closed.
 
-### Across multiply, undo and loop chaining
+### Across multiply and undo
 
 The pattern keeps **its own period** — the loop length it was built for — rather
-than following `loopFrames`. Multiply and loop chaining both lengthen the loop by
-a whole-number factor and copy the audio with it, so a pattern at the original
-period tiles across the longer loop exactly as the audio does. Undo snapshots and
+than following `loopFrames`. Multiply lengthens the loop by a whole-number
+factor and copies the audio with it, so a pattern at the original period tiles
+across the longer loop exactly as the audio does. Undo snapshots and
 restores the pattern with the buffer, so undoing a take does not leave the
 previous take's rhythm playing over it.
 
-Two things follow from the pattern being tied to an analysis:
-
-- A **loop chained** over another inherits the old pattern, because chaining
-  records without analysing. The captured audio contains the old loop, so the
-  rhythm is still in there — but it describes the take underneath, not what you
-  just played over it.
-- The **onset threshold is the ceiling on quality**. Ghost onsets become ghost
-  notes and missed hits become missing ones, so this is one more reason to tune
-  the threshold against the onset lamp in the status band.
+And because the pattern is tied to an analysis, the **onset threshold is the
+ceiling on quality**. Ghost onsets become ghost
+notes and missed hits become missing ones, so this is one more reason to tune
+the threshold against the onset lamp in the status band.
 
 ## Granular layer
 
@@ -1157,8 +1027,8 @@ the "Voices / procs / fx…" button in the main window).
   audio. Structural changes (proc/synth/fx/ratio, add/remove voice) while the
   cutter is on rebuild it in place. Re-recording or clearing the loop turns
   BBCut off automatically.
-- Each voice's clock is independent of the MIDI Clock sent to Live, so over many
-  bars they can phase-drift if the analyzer BPM is slightly off.
+- Each voice's clock is independent of the drums' clock, so over many bars they
+  can phase-drift if the analyzer BPM is slightly off.
 
 ### Break/Repeat — the cut procedure for played loops
 
@@ -1226,60 +1096,38 @@ Quarks.install("https://github.com/nhthn/BBCut.git");
 // then recompile the class library: Cmd+Shift+L
 ```
 
-## Live integration
+## Recording the set
 
-When AbletonOSC is installed and selected as a Control Surface in Live's
-preferences, after every successful analysis megalooper pushes three OSC
-messages to `127.0.0.1:11000`:
-
-- `/live/song/set/tempo <bpm>`
-- `/live/song/set/signature_numerator <num>`
-- `/live/song/set/signature_denominator <denom>`
-
-So Live's tempo and time signature follow the loop you just recorded. The loop's
-[onset notes](#onset-notes) travel over the same IAC bus when enabled. MIDI
-Clock is also emitted continuously while the looper plays — Live needs the
-**EXT** button (next to the tempo display in the main toolbar) **on** to
-follow it for transport sync, not just for the tempo display.
-
-### Recording the set
-
-Two recordings, because they answer to different clocks and are read by
-different people — and beside them a log of what happened, which is what turns
-the recordings into something that can be analysed afterwards.
+**Record set** in the top bar, or a switch mapped to it, writes the whole set
+into `sessions/`: what the room heard, each part of the mix on its own, every
+drum hit as MIDI, your instrument dry, and a log of what happened, which is what
+turns the recordings into something that can be analysed afterwards.
 
 ![Record set](images/record-set.png)
 
 *Fig: Record set, at the top right of every view, and under it what the set will write.*
 
-**The archive — SuperCollider, from the stomp.** The **SET REC** tile in the top
-bar, or a switch mapped to it, writes three files into `sessions/`:
-
 | File | What it is |
 | --- | --- |
-| `<stamp>-<tempo>-master.wav` | what the room heard — stereo, Live's master routed back to SC on `sessionChannel` |
+| `<stamp>-<tempo>-master.wav` | what the room heard — stereo, the mix as it leaves for the interface |
+| `-guitar`, `-loop`, `-drums`, `-onset`, `-synth.wav` (and `-bass.wav` on a rig with a bass) | the parts of the mix as heard: your instrument, the loop, the drums, the onset kit and the synth, after their faders, so they sum to the master |
+| `<stamp>-<tempo>-drums.mid` | every drum hit, steps and onset kit, to play other sounds with afterwards |
 | `<stamp>-<tempo>-tap.wav` | the dry instrument, mono, straight off the analysis tap |
 | `<stamp>-<tempo>-events.jsonl` | what happened: every record press, every take with the onsets it was analysed from and the readings it was offered, every next-reading press and where it landed, every threshold change — one JSON object per line, times in seconds from the stomp |
 
-**The names say what to set Live to**: `261007_143012-165.04bpm-7-8-master.wav`
-is the set stomped at 14:30:12 on 7 Oct 2026, at 165.04 BPM in 7/8. The tempo
-and the signature are the first in force while the set was recorded (the loop
-playing when it began, or the first take, overdub detection or reading that
-applied). They are not known until the set has a loop, so the files are written
-under the stamp alone and renamed when the set stops. A set that never had a
-tempo keeps `<stamp>-master.wav`. The stop also prints a line for Live: *"In
-Live: 165.04 BPM, 7/8. Drop the files at 1.1.1."*
+**The names carry the tempo and the meter**: `261007_143012-165.04bpm-7-8-master.wav`
+is the set stomped at 14:30:12 on 7 Oct 2026, at 165.04 BPM in 7/8, ready to
+drop into a DAW at that tempo. The tempo and the signature are the first in
+force while the set was recorded (the loop playing when it began, or the first
+take, overdub detection or reading that applied). They are not known until the
+set has a loop, so the files are written under the stamp alone and renamed when
+the set stops. A set that never had a tempo keeps `<stamp>-master.wav`.
 
-On **Megalooper SA** a set also leaves the parts of the mix as heard (`-guitar` for the instrument,
-`-loop`, `-drums` and `-onset.wav`, after their faders, so they sum to the
-master) and `-drums.mid`, every drum hit for Live's own racks. Their names carry the tempo and
-signature to set Live to before you drag them in.
-
-It has **no relationship to the transport**, which is the whole point: it is
-already running while you play the take that *produces* the first loop, and
-Live's arrangement cannot be. Every file of a set starts from the same server
-block, so they line up against each other to the sample. The master and the
-tap are int24 WAV; SA's stems are 32-bit float.
+It has **no relationship to the loop's start**, which is the whole point: it is
+already running while you play the take that *produces* the first loop. Every
+file of a set starts from the same server block, so they line up against each
+other to the sample. The master and the tap are int24 WAV; the parts are 32-bit
+float.
 
 The dry tap is not there to listen to. It is there so onset detection can be
 re-run offline at any threshold — every gig becomes labelled corpus, which is
@@ -1287,43 +1135,6 @@ the largest lever on meter detection that does not involve touching
 `MeterAnalyzer`. The event log is what makes that possible: without it the tap
 is audio nobody can place a take in, which is what the sets recorded before it
 existed turned out to be. See [Replaying a set](#replaying-a-set).
-
-`sessionChannel` is set in a Live rig's profile (the duo's `bhTsMega` uses
-BlackHole 1–2) and nil on `saSystem`, because it needs a matching track in the Ableton set — **Audio From:
-Resampling, Monitor: In, Audio To: Ext. Out 1/2** — and a rig with the number
-set but not the track records silence into the master file. See
-[docs/routing.md](routing.md) for the setup. Where it is nil the recorder
-writes the dry tap alone and the SET REC tile says
-*"dry tap + events only"*.
-
-**The production copy — Live's arrangement, from the transport.** A *separate*
-footswitch, **Live arrangement record** in the MIDI map's list, arms Live's Arrangement Record over AbletonOSC
-(`/live/song/set/record_mode`), so Live starts recording the moment megalooper
-starts the transport. That gives you every track separately plus the onset-note
-MIDI, so drum racks can be swapped and the set mixed afterwards.
-
-Two switches rather than one, because the two recorders cannot start at the same
-moment: SET REC begins writing instantly, Live's record can only arm. Wiring them together
-would have made one switch lie about the other. **For a set you mean to keep,
-press both.**
-
-Live's record state here is *optimistic* — megalooper posts what it last sent
-and never reads Live back, so toggling the button by hand in Live desyncs the
-footswitch, and one more press puts it right.
-
-It cannot start earlier, and this is not an implementation gap:
-
-> **Live's 1.1.1 is defined by the first loop.** megalooper is the phase master —
-> it cannot send MIDI Start until it knows the tempo *and* where the downbeat
-> falls, and it knows neither until a take has been committed. There is no grid
-> to record against before the loop exists.
-
-What megalooper does guarantee is that the recording is never destroyed once it
-starts. MIDI Start relocates Live to its cue point, so **while a session
-recording is running and the clock is already going, a later analysis keeps its
-tempo to itself** — the loop plays, the meter is detected, the readouts update,
-and the transport is left alone. Without that guard, recording a second take
-mid-set would jump Live back to 1.1.1 and overwrite the arrangement.
 
 ### Replaying a set
 
@@ -1358,8 +1169,8 @@ corrected takes come out right and how many accepted ones still agree, and
 names the takes that come out wrong at every threshold — those are the
 analyser's limit, not the threshold's. A reading with the same tempo and loop
 under another barring, 2/4 in two bars against 4/4 in one, is shown as ≈ rather
-than counted wrong: Live gets the same BPM and the loop the same pulse, only the
-bar line differs. It also checks itself: at the threshold
+than counted wrong: the drums get the same BPM and the loop the same pulse, only
+the bar line differs. It also checks itself: at the threshold
 that was in force on stage the replay should reproduce the stage reading, and
 the fidelity line says on how many takes it did. First takes only for now; an
 overdub detection folds its onsets onto the loop's phase, which the replay does
@@ -1401,23 +1212,6 @@ A tap recorded before the log existed can still be replayed with the takes
 placed by hand — `~replayTap = "…-tap.wav"; ~replayManual = [[startSec, durSec], …]`
 — but with nothing to score against; the report then shows readings only.
 
-### Tightening Live's timing
-
-Slaved to MIDI clock, Live's transport lands ~10–20 ms late (inherent to its
-clock-follower). Two adjustable offsets pull it back:
-
-- **Live sync (ms)** in the GUI (`~looper.abletonSyncMs`) shifts when SC sends
-  the Start/clock relative to the loop. Negative pulls Live earlier. It's applied
-  to the Start on the next play, and folded into the running clock stream live
-  (Live's follower slews to it), so you can sweep it by ear against Live's
-  metronome while a loop plays.
-- Live's own **MIDI Clock Sync Delay** (Preferences → Link/Tempo/MIDI, per input)
-  is the purpose-built per-input trim and can also go negative.
-
-Dial either until the loop's downbeat sits on Live's click. (Ableton Link was
-evaluated as an alternative but doesn't fit a looper-as-master workflow — Link is
-peer-to-peer and can't let SC drive Live's phase.)
-
 ## Calibrating the rig — the wizard
 
 The **Calibrate** tab walks the whole procedure one step at a time, which is
@@ -1433,76 +1227,46 @@ anything, and what to do.
 | Step | Needs | Sets |
 | --- | --- | --- |
 | Check the rig | — | re-runs the device preflight |
+| Input level | your instrument | — (the interface's input gain) |
 | Onset threshold | your instrument | `onsetThreshold` |
-| Overdub round trip | Live, and a cable from the main out into the instrument input | `latencyMs` |
-| Live's downbeat | Live playing a loop | `abletonSyncMs` |
-| Drum hits against the loop | Live, a loop, a drum rack | `onsetNoteOffsetMs` |
-| Loop-chain alignment *(optional)* | a chained loop | `chainRecOffsetMs` |
-| Write it down | — | prints the line for the profile |
+| Overdub round trip | the loop stopped, and a cable from output 1 into the instrument input | `latencyMs` |
 
-Three things worth knowing before you run it:
+Things worth knowing before you run it:
 
-- **Only the first two work without Ableton Live.** The other numbers have
-  Live's plugin chains inside them — that is why changing the chain invalidates
-  them — and a delay a plugin contributes cannot be measured without running the
-  plugin. The onset threshold needs nothing but your instrument, because the clean tap
-  reads the hardware directly and Live is not in that path at all.
-- **The round trip wants a patch cable**, from the interface's main output into
-  the instrument input, with the instrument unplugged. That cable stands in for "you
-  hear the loop and play in response", which is the only part of the round trip
-  with no delay of its own. Mute the instrument track's path to master first, or the
-  cable is a feedback loop.
+- **The round trip is everything between the loop leaving megalooper and your
+  instrument coming back into it**: the interface both ways, and the instrument
+  chain's effects and plugin. Measure it with the chain as you will play it.
+- **The cable** stands in for "you hear the loop and play in response", which
+  is the only part of the round trip with no delay of its own. The instrument's
+  strip is muted while it measures, so the cable is no feedback loop. On a
+  computer's own speakers and microphone there is nothing to patch: turn the
+  volume up and keep the room quiet.
 - **Measuring and applying are separate buttons on purpose.** A measurement you
   can see but have not applied is how you notice one that is obviously wrong.
-- **SC hears Live only on the loopback pairs**, and only what Live actually
-  routes there — Live's Main Out goes to the speakers (17/18 on the `bh*` rigs)
-  and never reaches SC. The two steps that listen to Live therefore each want a
-  **free loopback pair of their own**, which is what the unused BlackHole
-  channels (1–8, 15–16) are for:
-  - **Live's downbeat** uses the metronome, which follows Live's **Cue Out** —
-    routable independently of Main Out, in the Main track's I/O. Point Cue Out
-    at 5/6 (**SC channel 4**) and the click arrives on its own.
-  - **Drum hits** use the drum rack track's **Audio To**; 7/8 (**SC channel 6**)
-    keeps it clear of everything else.
 
-  Each of those steps has its own **Listen on ch** box, because the two pairs
-  are different, and a **Scan inputs** button that prints the peak level on
-  every input channel for four seconds — route something in Live, press it, and
-  the channel with a number beside it is the one.
+Each measurement repeats itself (eight clicks) and reports the **spread** across
+the trials as well as the number. That is the diagnostic that matters: one
+reading always produces a number, but eight that disagree is a clock problem —
+an aggregate's clock source, drift correction, or a member at the wrong sample
+rate — and the wizard says so rather than averaging it into a plausible-looking
+latency.
 
-Give them their own pairs and nothing has to be muted. Send either to the return
-pair (13/14) instead and you must mute the loop-return track first: our own loop
-comes back on that pair, and the measurement would lock onto it and report the
-audio round trip as a transport offset. Both steps refuse rather than return
-that number — a click once a bar is nearly all silence, a returning loop
-is not, and they check.
-
-Each measurement repeats itself and reports the **spread** across the trials as
-well as the number. That is the diagnostic that matters: one reading always
-produces a number, but eight that disagree is a clock problem — the aggregate's
-clock source, drift correction, or a member at the wrong sample rate — and the
-wizard says so rather than averaging it into a plausible-looking latency.
-
-Nothing is saved. The wizard applies what it measures to the running session and
-prints the line to paste into `~routingProfiles` in `scripts/setup-routing.scd`,
-because a rig that silently re-calibrates itself is a rig you cannot check
-against what it did last time.
+What you apply is kept for the rig in `calibration.json` in your megalooper
+folder, and every start begins with it; **Forget** goes back to the rig's own
+numbers.
 
 ## Calibrating overdub latency
 
 1. Record a clear pulse (e.g., 4 hits on the beat).
 2. Start overdubbing (trigger while playing) and play *on the beat* of what
    you hear.
-3. Listen back. If your overdub lands *late*, raise the **Overdub lat (ms)**
-   slider; if it lands *early*, lower it. Typical values:
-   - Straight into an interface, no Live in the path: 5–15 ms on pro audio
-     (e.g. RME Fireface), 20–40 ms on MacBook built-in audio.
-   - Through a BlackHole aggregate with the loop coming back out of Live —
-     which is how the `bh*` profiles run — expect **much** higher, because
-     Live's own buffers are inside the round trip being compensated for.
-     Measured by ear on the duo's two such rigs: 54 ms and 68 ms.
+3. Listen back. If your overdub lands *late*, raise **Overdub latency** on
+   Setup's Rig page; if it lands *early*, lower it. Expect about 30 ms: the
+   master limiter's 20 ms, plus about 10 ms for an interface at 64 to 128
+   frames; more on a computer's built-in audio.
 4. Once dialed in, the value sticks across loops, undo/redo, granular toggle,
-   and reverse mode (the shift direction follows the playback rate).
+   and reverse mode (the shift direction follows the playback rate). Press
+   **Start with this** on the Calibrate view to keep it for the rig.
 
 ## File structure
 
@@ -1553,7 +1317,7 @@ megalooper/
                                 kind of damage, headless
     replay-session.scd       -- replay a recorded set's dry tap through detection at a
                                 threshold sweep, scored against the next-reading presses
-    check-onset-notes.scd    -- walk the chain from detection to Live accepting notes
+    check-onset-notes.scd    -- walk the chain from detection to the notes played
     check-insert.scd         -- why Insert mode sounds like Gate: the duck's duty cycle
     check-chain-align.scd    -- measure a chained loop against the loop underneath
     check-loop-phase.scd     -- measure the engine's phase against loopStartTime
@@ -1569,7 +1333,7 @@ megalooper/
     manual.md            -- this file
     standalone.md        -- Megalooper SA: the effect chains, sounds and plugins
     drums.md             -- the drums' kits
-    routing.md           -- full rig setup: Fireface, Loopback bridge, BlackHole
+    routing.md           -- rigs of your own: what a profile says, and how to write one
     midi-maps.md         -- the MIDI map file format
   presets/
     bbcut/               -- the cutter setups megalooper ships; yours are in your megalooper folder
@@ -1664,16 +1428,13 @@ and everything that counts bars follows them:
 
 - **The bar grid and the counter.** The fourth bar is drawn an eighth longer, and
   the counter goes `BAR 4/4 · BEAT 8/8` there.
-- **The drums.** With Auto Retrigger on, as in the set, the step lanes start
+- **The drums.** With Auto Retrigger on (the default), the step lanes start
   again on the first step of every bar, so a 7/8 bar plays 14 steps of a
-  16-step lane and the 8/8 bar all 16. This is new for even bars too: Live's
-  device waited for "pseudo-bars" of *numerator* quarter notes, so in plain 7/8 a
-  lane used to reshape itself over four bars. `MegaSADrums.retrigAt = \live`
-  (on `~megaSA.drums`) brings Live's way back.
+  16-step lane and the 8/8 bar all 16. Set `MegaSADrums.retrigAt = \live`
+  (on `~megaSA.drums`) and a lane waits for "pseudo-bars" of *numerator*
+  quarter notes instead, so in plain 7/8 it reshapes itself over four bars.
 - **The click** accents every bar line; **the snap** makes a loop whole cycles of
   the bars, never whole bars of 7/8; **the dissolve** counts the mean bar.
-- **Live**, where it is used, is sent one bar per cycle (`29/8`), so its bar line
-  still meets the loop's.
 
 **Found by the analyser.** After a first take the analyser also looks for
 uneven bars (`MeterAnalyzer.analyzeUneven`): the pulse grids that fit the onsets
@@ -1906,13 +1667,11 @@ are the tools for measuring them there.
   the downbeat.
 - The BPM-near-110 tiebreaker can pick the wrong octave for very fast or very
   slow material.
-- MIDI Start always restarts Live from the cue point (typically 1.1.1). In
-  "Start only" transport mode, recording a second loop while Live is running
-  will jump Live back to the top. The workaround is to swap `midiOut.start`
-  for an AbletonOSC `/live/song/continue_playing` call — not wired up by
-  default.
-- Switching transport mode mid-play is not gracefully handled. Switch between
-  loops, not during.
+- Loop chaining (**Rec next loop**) needs a rig whose loop comes back through
+  a chain outside megalooper; on Megalooper SA there is none, so the tile says
+  *no return channel* and stays off.
+- Switching **Drums follow the loop** mid-play is not gracefully handled.
+  Switch between loops, not during.
 
 ## License
 

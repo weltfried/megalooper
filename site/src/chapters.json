@@ -85,19 +85,25 @@
       ]
     },
     {
-      "n": 9, "slug": "cutter", "title": "The Cutter", "group": "SOUND", "layer": "cut", "rig": "every",
+      "n": 9, "slug": "recording", "title": "Recording the set", "group": "PLAYING", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## Recording the set", "unwrap": true }
+      ]
+    },
+    {
+      "n": 10, "slug": "cutter", "title": "The Cutter", "group": "SOUND", "layer": "cut", "rig": "every",
       "sources": [
         { "file": "docs/manual.md", "heading": "## BBCut layer", "unwrap": true }
       ]
     },
     {
-      "n": 10, "slug": "grains", "title": "The Grains", "group": "SOUND", "layer": "grain", "rig": "every",
+      "n": 11, "slug": "grains", "title": "The Grains", "group": "SOUND", "layer": "grain", "rig": "every",
       "sources": [
         { "file": "docs/manual.md", "heading": "## Granular layer", "unwrap": true }
       ]
     },
     {
-      "n": 11, "slug": "chains", "title": "Effect chains and sounds", "group": "MEGALOOPER SA", "layer": "fx", "rig": "sa",
+      "n": 12, "slug": "chains", "title": "Effect chains and sounds", "group": "MEGALOOPER SA", "layer": "fx", "rig": "every",
       "sources": [
         { "file": "docs/standalone.md", "part": "intro", "unwrap": true },
         { "file": "docs/standalone.md", "heading": "## Starting it" },
@@ -109,37 +115,30 @@
       ]
     },
     {
-      "n": 12, "slug": "plugins", "title": "Plugins", "group": "MEGALOOPER SA", "layer": "fx", "rig": "sa",
+      "n": 13, "slug": "plugins", "title": "Plugins", "group": "MEGALOOPER SA", "layer": "fx", "rig": "every",
       "sources": [
         { "file": "docs/standalone.md", "heading": "## Plugins", "unwrap": true },
         { "file": "docs/standalone.md", "heading": "### A footswitch for something inside a plugin" }
       ]
     },
     {
-      "n": 13, "slug": "drums", "title": "Drums", "group": "MEGALOOPER SA", "layer": "drum", "rig": "sa",
+      "n": 14, "slug": "drums", "title": "Drums", "group": "MEGALOOPER SA", "layer": "drum", "rig": "every",
       "sources": [
         { "file": "docs/drums.md", "unwrap": true }
       ]
     },
     {
-      "n": 14, "slug": "synth", "title": "The synth", "group": "MEGALOOPER SA", "rig": "sa",
+      "n": 15, "slug": "synth", "title": "The synth", "group": "MEGALOOPER SA", "rig": "every",
       "sources": [
         { "file": "docs/synth.md", "unwrap": true }
       ]
     },
     {
-      "n": 15, "slug": "midi", "title": "MIDI and mapping", "group": "CONNECT", "rig": "every",
+      "n": 16, "slug": "midi", "title": "MIDI and mapping", "group": "CONNECT", "rig": "every",
       "sources": [
         { "file": "docs/manual.md", "heading": "### MIDI", "unwrap": true },
         { "file": "docs/standalone.md", "heading": "## MIDI", "part": "intro", "title": "On Megalooper SA" },
         { "file": "docs/midi-maps.md" }
-      ]
-    },
-    {
-      "n": 16, "slug": "live", "title": "Working with Ableton Live", "group": "CONNECT", "rig": "live",
-      "sources": [
-        { "file": "docs/manual.md", "heading": "## Live integration", "unwrap": true },
-        { "file": "docs/manual.md", "heading": "## Optional extras" }
       ]
     },
     {
@@ -179,14 +178,14 @@
       "n": 22, "slug": "limits", "title": "Known limits", "group": "REFERENCE", "rig": "every",
       "sources": [
         { "file": "README.md", "heading": "## Known limits", "unwrap": true },
-        { "file": "docs/manual.md", "heading": "## Known limitations", "title": "The analyser and Live's transport" }
+        { "file": "docs/manual.md", "heading": "## Known limitations", "title": "The analyser and the transport" }
       ]
     }
   ],
   "omit": [
     { "file": "docs/manual.md", "part": "intro", "why": "says where the other guides are; the rail does that" },
     { "file": "docs/manual.md", "heading": "## License", "why": "the README's Licence is in chapter 1" },
-    { "file": "docs/manual.md", "heading": "## Controls", "part": "intro", "why": "a container heading; its subsections are spread over chapters 4-8 and 15" },
+    { "file": "docs/manual.md", "heading": "## Controls", "part": "intro", "why": "a container heading; its subsections are spread over chapters 4-8 and 16" },
     { "file": "README.md", "heading": "## Guides", "why": "a table of the docs; the rail replaces it" }
   ]
 }

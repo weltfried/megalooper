@@ -4,14 +4,9 @@ A live looper for SuperCollider that works out the meter from what you played.
 Record a phrase in free time and megalooper finds its tempo and its meter,
 odd ones like 7/8 included, from the onsets in the audio.
 
-It runs in two ways:
-
-- **On its own (Megalooper SA).** megalooper also hosts the effect chains, VST
-  plugins, the drums and a synth, with no Live at all. This is how it starts
-  out of the box.
-- **Beside Ableton Live.** megalooper loops, analyses and sends MIDI clock;
-  Live plays the effects and the drums. This takes a rig profile of your own:
-  see [Rigs and routing](docs/routing.md).
+It is a whole instrument on its own, **Megalooper SA**: beside the looper it
+hosts effect chains for your instrument and the loop, your VST plugins, the
+drums and a synth.
 
 It was built for a guitar and bass duo and is used on stage, on macOS. A
 Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
@@ -110,7 +105,7 @@ and the looper plays while it records.
 1. Double-click **megalooper** on the Desktop (or run `./tools/megalooper`).
 2. The launcher offers **saSystem**: Megalooper SA on the system's input and
    output, with your instrument on input 1 and the mix on outputs 1 and 2. Rigs of
-   your own, for an interface or for Ableton Live beside megalooper, appear
+   your own, for an interface with more channels or a bass, appear
    beside it once you write them ([Rigs and routing](docs/routing.md#adding-a-rig)).
 3. Press **Start megalooper** and wait for the window. On a slower computer
    that clicks or drops out, pick 256 frames under **Buffer** first.
@@ -147,12 +142,12 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 
 | Guide | For |
 |---|---|
-| [Megalooper SA](docs/standalone.md) | Running without Live: the effect chains, sounds and plugins |
+| [Megalooper SA](docs/standalone.md) | The effect chains, sounds and plugins |
 | [The effects](docs/effects.md) | The seven built-in effects, and every setting they have |
 | [megalooper on Linux](docs/linux.md) | Installing and starting it there, and what differs |
 | [Drums](docs/drums.md) | Getting a kit, and making one from your own samples |
 | [The synth](docs/synth.md) | The note sequencer, the Wave synth, your wavetables and VST instruments |
-| [Rigs and routing](docs/routing.md) | Rigs of your own: an interface, a bass, Ableton Live beside megalooper |
+| [Rigs and routing](docs/routing.md) | Rigs of your own: an interface, a bass |
 | [The manual](docs/manual.md) | Every control, the MIDI map, the cutter, the grains, calibration, how the meter is found |
 | [MIDI map files](docs/midi-maps.md) | The JSON a map is kept in, to write or share one |
 | [AI apps](docs/ai.md) | Letting an AI app such as Claude Desktop read the set and change the drums, the synth and the effects |
