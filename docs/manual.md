@@ -45,45 +45,16 @@ counts (`list`), shows one in full (`inspect`), and cross-checks every reading
 against `system_profiler` (`selftest`). `list` output is the right thing to
 paste into a bug report.
 
-**Rigs of your own** go in `profiles.scd` in your megalooper folder
-(`~/Library/Application Support/SuperCollider/megalooper/`), never in the
-repository: one file of profiles, read at every start, each offered in the
-launcher beside `saSystem`. A rig for an interface with more channels, a bass
-on its own input, or a fixed sample rate or buffer is a profile there.
-[docs/routing.md](routing.md) says what each field means and how to write one.
-
-### Device preflight
-
-Aggregate devices fail *quietly*. A member drops out and the aggregate keeps
-working with fewer channels; SC asks for 17 inputs, CoreAudio grants 16, and the
-analysis tap reads a bus nothing ever fills — for the whole session, in silence,
-looking exactly like a detection bug. So before `s.boot`, megalooper asks the
-system what it actually has: **`~checkAudioDevice`** compares the device's real
-channel count, sample rate and expected member devices (`system_profiler`,
-~0.2 s) against the profile. Missing channels the rig needs **stop** the start;
-a missing analysis tap **degrades** — the tap is switched off, `s.options`
-corrected, and onset detection falls back to the recorded input, loudly.
-Sample-rate and member problems warn. It re-runs on demand,
-`~checkAudioDevice.(~routingProfile)`, and the full message reference is in
-[docs/routing.md](routing.md#the-device-preflight). `ServerOptions.devices` in
-SC prints the available device names. To add or tweak a rig, edit your
-`profiles.scd`; `saSystem` stays as megalooper ships it.
-
-Each profile also carries the rig's starting timing values: **`latencyMs`**
-(**Overdub latency** on Setup's Rig page), **`onsetThreshold`** and
-**`onsetNoteOffsetMs`** (the onset notes' **Offset**, negative sends them
-earlier). They measure that rig's paths and do not carry across devices. They
-are applied at boot, before the windows open, so the controls start there.
-What the Calibrate view applies is kept for the rig in `calibration.json` and
-wins over the profile; a value you dial by ear is not, so **write it back into
-the profile**, or the next boot starts from the old one. See [The calibrated
-values](routing.md#the-calibrated-values).
+**Rigs of your own** go in `profiles.scd` in your megalooper folder, never in
+the repository, and the launcher offers each beside `saSystem`.
+[Adding a rig](routing.md#adding-a-rig) says what each field means and how to
+write one.
 
 ## Running
 
 ### From the Desktop icon
 
-Build the app once:
+The installer builds the app. Rebuild it after moving the folder:
 
 ```bash
 ./tools/make-app.sh            # builds ~/Desktop/megalooper.app
@@ -109,6 +80,9 @@ Open. There is no post window under the icon, so all output goes to
 `~/Library/Logs/megalooper.log`, and boot failures also appear in the launcher's
 status line.
 
+On a screen smaller than 1440 × 900, `./tools/megalooper` scales the window
+down to fit (`MEGALOOPER_SCALE=1` turns that off); the Desktop icon does not.
+
 ### From the SuperCollider IDE
 
 Open `scripts/boot.scd` and evaluate the parenthesized boot block (place the
@@ -130,6 +104,11 @@ file and call its builder:
 ~buildAnalysisPane.();
 ~buildPerformPane.();
 ~buildRigPane.();
+~buildMidiPane.();
+~buildCalibratePane.();
+~buildEffectsPane.();
+~buildDrumsPane.();
+~buildSynthPane.();
 ~wireLooperController.(); // re-subscribe the GUI after rebuilding a pane
 ~setupMidiBindings.();    // rebuild the MIDI router's map and responders
 ```
@@ -159,11 +138,19 @@ opens on the Perform view (see [GUI](#gui)).
 | `M` | Multiply loop length (×2)                                         |
 | `U` | Undo (one level deep)                                             |
 | `V` | Reverse                                                           |
-| `G` | Toggle granular layer                                             |
-| `B` | Toggle BBCut (algorithmic re-splicing of the loop)                |
+| `G` | Grains on and off                                                 |
+| `B` | Cutter on and off                                                 |
+| `K` | Break: silence until a loop downbeat                              |
+| `D` | Dissolve: run the ending; again aborts                            |
+| `N` | Rec next loop                                                     |
 | `C` | Clear                                                             |
 | `A` | Next reading — the analyser's runner-up meter, then the one after; lands on a loop boundary |
+| `E` | Export the loop as training data                                  |
 | `Cmd+M` | MIDI Map mode on and off — see *Mapping your own controller* |
+
+`1`–`7` show the views, `T` switches the theme and `H` the help lines (see
+[GUI](#gui)). On the FX view, Cmd+Z undoes a chain edit and Shift+Cmd+Z redoes
+it.
 
 A letter with Cmd or Ctrl held is no shortcut: Cmd+C doesn't clear. In MIDI
 Map mode the letters still work, and Esc, Delete and Cmd+Z join them.
@@ -177,6 +164,12 @@ empty -> record  ->  play  ->  overdub  ->  play  ->  ...
 stopped -> play
 ```
 
+**Rec next loop** (`N`) records a new loop while this one plays: your
+instrument plus the loop after its effects. Press it and it starts on the next
+loop boundary. Press again to stop at the end of that pass; it keeps a whole
+number of repetitions. Pressed before it starts, it cancels. It needs a loop
+playing, not overdubbing.
+
 ### MIDI
 
 Which message does what is a **MIDI map**, and a control can be put on any
@@ -187,20 +180,19 @@ ships, **keys-and-knobs**, in Setup's MIDI map. A rig of yours may name a map
 of yours to start with (its profile's `midiMap:`).
 
 **A pedal's flicker.** An expression pedal can hop one step back and forth on
-its own when nobody touches it (the TSMega's sits at 68, 69, 68). So every
+its own when nobody touches it (one at rest can read 68, 69, 68). So every
 knob or pedal on a CC has one step of hysteresis unless its mapping says
 otherwise: a move counts if it is two steps or more, or one step on in the
 direction of the last. The control stays within a step of the pedal, and a
 threshold set with the Onset macro is not taken back by the next hop. The
 Knobs row of Setup's MIDI map sets the default.
 
-**keys-and-knobs**, for keyboards and knob boxes, any input. No rig starts
-with it; pick it in Setup's MIDI map, or learn your own controller's knobs instead.
+**keys-and-knobs**, for keyboards and knob boxes, on any input:
 
 | Message | Action |
 |---|---|
 | Note On 60–65 | Trigger, Stop, Multiply, Undo, Reverse, Clear |
-| Note On 66 | Toggle BBCut |
+| Note On 66 | Cutter on and off |
 | Note On 67 | Record next loop |
 | Note On 68 | Break |
 | Note On 69 | Dissolve — run the ending; press again to abort |
@@ -208,8 +200,8 @@ with it; pick it in Setup's MIDI map, or learn your own controller's knobs inste
 | Note On 71 | **Next reading** |
 | CC 11 | **Arc / intensity** — expression pedal. Drives the granular level and the cutter's density: heel = the dry loop with a cutter that barely chops and no grains, toe = everything as dialled in |
 | CC 40–47 | The Grains' Pitch, Grain and Read position sections (Sound) — see below |
-| CC 118 | Granular morph (0 = frozen drone, 127 = pulsed scan) |
-| CC 119 | Granular level |
+| CC 118 | The Grains' Morph (0 = frozen drone, 127 = pulsed scan) |
+| CC 119 | The Grains' Level |
 
 **CC 40–47** is one contiguous block covering three of the four sections of the
 Grains, in the order they list them — so a bank of eight knobs
@@ -229,16 +221,11 @@ lands on it without anything to remember:
 Every knob binding uses the **same law as its control's widget**, so a fader
 sweep and a mouse drag cover the same range in the same shape.
 
-> **Changed on 2026-10-25**, when the release came to ship one rig and one map.
-> The TSMega's map, which every rig but the looper-alone one started with until
-> then, went with the duo's rigs into their own folder, and so did the Program
-> Change numbers this manual used to give for it.
-
 #### Mapping your own controller
 
 **MIDI Map mode**. Press **MIDI MAP** in the top bar (on every
 view), or Cmd+M. Every control in the window is outlined in blue and says what
-drives it ("PC 4"). Click one, and move a knob or press a switch on your
+drives it ("note 60"). Click one, and move a knob or press a switch on your
 controller: that now drives it. Shift-click instead adds one more, so a control
 can answer two switches. While a control waits, its mask is amber and counts
 down its 15 s, and so does the map bar above the footer. Esc cancels, and
@@ -246,8 +233,7 @@ pressed again leaves. **Delete** (or the Delete key) takes the waiting
 control's MIDI away, and Cmd+Z or **Undo** brings it back.
 **Keep** keeps the map, and **Done** leaves; with changes not kept it asks
 first: Keep, Discard or Later. The controls don't move while map mode is on.
-MIDI goes on driving everything until you click a control; while one waits,
-every message goes to it, and no footswitch acts (15 s at most).
+MIDI goes on driving everything until you click a control.
 
 ![MIDI Map mode on Perform](images/map-mode.png)
 
@@ -312,8 +298,9 @@ views themselves (Show Perform, Show Sound, …, to put them on footswitches):
 
 *Fig: The MIDI map section with the shipped keys-and-knobs map: the input, the map, the Knobs defaults, a row per binding, and the chosen binding's settings under the list.*
 
-Yours live in `~/Library/Application Support/SuperCollider/megalooper/midi/`,
-outside the repo and shared by every checkout. The last five Keeps of each map
+Yours live in `midi/` in your megalooper folder ([Where your files
+are](../README.md#where-your-files-are)), outside the repo and shared by every
+checkout. The last five Keeps of each map
 are in `backups/<map>/`, and `settings.json` beside the folder holds each rig's
 choice, the inputs switched off or sent back to, and the Knobs row's defaults
 (they don't travel with a map). Keep makes the map this rig's choice; on a
@@ -332,6 +319,11 @@ marked as such. To silence the log, evaluate `~midiLog = false` in SC.
 `~setupMidiBindings.()` rebuilds it, and
 keeps a map's changes not kept yet.
 
+On a Mac with the IAC Driver switched on (Audio MIDI Setup), megalooper also
+sends its MIDI clock and transport there, for other apps on the Mac, and
+passes every message from your controllers on to it. `~midiProxy = false`
+stops the passing on.
+
 ### The arc — intensity and dissolve
 
 Two axes over the same three levels (the dry loop, the cutter, the granular
@@ -343,8 +335,9 @@ Perform. Heel is the dry loop with a cutter that is running but barely
 chopping and no grains; toe is the cutter chopping as you dialled it in and the
 granular layer at its set level.
 
-**Dissolve** is the ending. Arm it with the Dissolve button, or a footswitch mapped to it, and
-it runs over `dissolveBars`, so both hands are free for the last melody; press
+**Dissolve** is the ending. Arm it with the Dissolve button, key `D`, or a
+footswitch mapped to it, and it runs over **Dissolve bars** (Perform, 1–64,
+default 8), so both hands are free for the last melody; press
 again to abort and restore. Things leave in the order that sounds like a piece
 ending rather than like a fader going down — **the cutter first, then the body
 of the loop, and the granular haze last.**
@@ -354,15 +347,15 @@ the cutter is chopping**. The cutter's own level is not one of them — it was
 until 2026-10-05, and a cutter thinned to a few repeats *and* turned down read
 as the layer going away rather than as it chopping less, so now only the
 dissolve takes the cutter's level out. Each cut procedure names one parameter
-the pedal drives — `cutchance` for Break/Repeat, `stutterchance` for BBCutProc11,
-`rollchance` for ChooseCutProc — scaled from that parameter's own floor up to
+the pedal drives — **Cut chance** for Break/Repeat, **Stutter** for
+BBCutProc11, **RollPr** for ChooseCutProc — scaled from that parameter's own floor up to
 whatever you set. So at the heel Break/Repeat never breaks the loop up at all,
 and at the toe it does exactly what you dialled in. WarpCutProc1 and SQPusher1
 read their parameters once at build time, so the pedal does not reach them at
 all; driving them would rebuild the cutter on every message.
 
 That means **the Cutter pane's slider shows the value at full arc**, not
-necessarily what is running. The arc-driven row carries a live `arc → 0.20`
+necessarily what is running. The arc-driven row carries a live `arc 0.20`
 reading beside it so both numbers are visible at once.
 
 Both axes are **multipliers, never replacements**. The per-voice cutter mix, the
@@ -396,7 +389,7 @@ loop of room, stomp just before one and the hole is barely there. When you want 
 guaranteed full pass of silence no matter when you hit it, ask for 2 (Perform's
 BREAK LOOPS). The state block wears the Break hatch and counts down the seconds
 remaining, and so does the Break tile, so you always know when it is coming
-back.
+back. A deliberate silence then never looks like broken audio.
 
 It **mutes, never stops**: the engine and the drums' clock are untouched, so the
 loop comes back precisely where it would have been.
@@ -406,22 +399,22 @@ only something leave: the step sequencer switches to its **Break** pattern for
 exactly the break's length, and the Main pattern is back on the downbeat with
 the loop. Edit the Break pattern on the Drums view.
 
-A break silences everything the looper makes, the onset notes included. The state
-block wears the Break hatch while one is open, because a deliberate silence and
-genuinely broken audio otherwise look identical.
+A break silences everything the looper makes, the onset notes included.
 
 ### GUI
 
 megalooper is **one window**, laid out for a laptop screen (1440 × 900) and read
-from playing distance: a top bar, Perform's status band, four views and a
-footer.
+from playing distance: a top bar, Perform's status band, six views (Perform,
+Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 ![The Perform view](images/perform.png)
 
 *Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3. Under the status band, a column per layer, then the actions and the macros.*
 
 ```
-┌ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX □ │ 4 Drums □ │ 5 Setup ▾ □ │ CPU 14% │ ◐ │ ? │ RIG SA MIDI ● │ ■ MIDI MAP ⌘M │ ○ Record set    ┐
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX │ 4 Drums │ 7 Synth │ 5 Setup ▾   │  the top bar
+│ CPU 14% peak 21% │ ◐ │ ? │ RIG SASYSTEM MIDI ● │ ■ MIDI MAP ⌘M │ ○ Record set  │
 ├────────────────┬──────────────────────────────────────────┬────────────────────┤
 │ LOOPER STATE   │ TAKE · DETECTED                          │ INPUT              │
 │ ▶ PLAYING      │ 7/8   103.2   2   Dm                     │ ▇▇▇▇▇▇▇▇▇░░ -9 dB  │  the status band
@@ -429,34 +422,37 @@ footer.
 ├────────────────┴──────────────────────────────────────────┴────────────────────┤
 │ BAR 2/2 · BEAT 3/7                                              2.44 / 8.14 s  │
 │ │1 2 3 4 5 6 7│1 2 ▓ 4 5 6 7│ ← the beat under the playhead, in the state's colour
-├──────┬────────┬────────┬─────────┬───────┬─────────────────────────────────────┤
-│ Loop │ Cutter │ Grains │ Effects │ Drums │ ACTIONS · FOOTSWITCH                │
-│[FWD] │ [ON]   │ [OFF]  │ [2 ON]  │[MAIN] │ Trigger  Stop   Break  Next reading │  Perform
-│ ...  │ ...    │ ...    │ ...     │ ...   │ Dissolve Rec next loop Undo  Clear  │
-│      │        │        │         │       │ MACROS · Master  Arc  Onset         │
-├──────┴────────┴────────┴─────────┴───────┤                                     │
-│ LEVELS · Instrument Bass Loop Drums Onset kit Master (SA only, as on Setup)    │
-├──────────────────────────────────────────┴─────────────────────────────────────┤
-│ R trigger  S stop  M multiply  …                          Refused: nothing playing │  the footer
+├──────┬────────┬────────┬─────────┬───────┬───────┬─────────────────────────────┤
+│ Loop │ Cutter │ Grains │ Effects │ Drums │ Synth │ ACTIONS · FOOTSWITCH        │
+│[FWD] │ [ON]   │ [OFF]  │ [2 ON]  │[MAIN] │ [OFF] │ Trigger  Stop  Break        │  Perform
+│ ...  │ ...    │ ...    │ ...     │ ...   │ ...   │ Next reading  Dissolve      │
+│      │        │        │         │       │       │ Rec next loop  Undo  Clear  │
+│      │        │        │         │       │       │ MACROS · Master  Arc  Onset │
+├──────┴────────┴────────┴─────────┴───────┴───────┤                             │
+│ LEVELS · Instrument Bass Loop Drums Onset kit Synth Master (as on Setup)       │
+├──────────────────────────────────────────────────┴─────────────────────────────┤
+│ keys 1–5 7 views · 6 calibrate · T theme · H help     Refused: nothing playing │  the footer
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **The top bar**, on every view: the logo, a Möbius loop whose twist
   travels round once a pass while the loop plays (and stands when it
-  stops), the views' tabs (keys **1–5**, and **6**
+  stops), the views' tabs (keys **1–5** and **7**, and **6**
   for the Calibrate wizard, which has no tab; each tab's squares light in its
-  parts' colours while they run), the server's **CPU** (red past 60 %), **◐**
+  parts' colours while they run), the server's **CPU** (the average, with
+  "peak N %" under it; red when the peak passes 60 %), **◐**
   (dark or light, key **T**, kept for the next boot; with the loop
   stopped, since the rebuild holds the language for 65–80 ms), **?** (the help lines: the sentences that explain a page, hidden
-  or shown together, key **H**, kept for the next boot), the rig and a lamp
-  for MIDI arriving,
+  or shown together, key **H**, kept for the next boot), the rig
+  (`RIG SASYSTEM`) and a lamp for MIDI arriving,
   **MIDI MAP** and **Record set** — the set recorder, with what it writes
   under it.
 - **The status band**, on Perform: the **state block** (`EMPTY`, `● REC`,
   `▶ PLAYING`, `● OVERDUB`, `■ STOPPED`, filled in the state's colour, and the
   Break hatch while a break is open) with what R does next; the **take** —
   signature, BPM, bars, key, and the reading chip (`or 7/4 @ 206.4?` on a close
-  call, `→ 7/4 · lands in 1 loop` while a reading is armed) with **Revert**;
+  call, `→ 7/4 @ 206.4 BPM · 2 bars · lands in 1 loop` while a reading is
+  armed) with **Revert**;
   the **input** — the level in dB and the **onset lamp**; and the **bar grid**,
   a cell per beat with the bar lines in ink and the beat under the playhead
   filled. On every other view it folds into a 56 px **strip** — state, take,
@@ -465,11 +461,12 @@ footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level) and on Megalooper SA **Effects** and **Drums** — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve bars, and the **macros**: Master, Arc, Onset |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve bars, and the **macros**: Master, Arc, Onset |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
-| **FX** | 3 | Megalooper SA only: the **effects** chains (click a block to edit it, its square to switch it) and their sounds |
-| **Drums** | 4 | Megalooper SA only: the **drums** (step sequencer, timing, kits, mix) |
-| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars, SA's levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, and **AI apps** ([AI apps](ai.md)) |
+| **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
+| **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
+| **Synth** | 7 | The note sequencer, the Wave synth or a VST instrument, and their presets ([The synth](synth.md)) |
+| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars, the levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, and **AI apps** ([AI apps](ai.md)) |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
 ![The Sound view](images/sound.png)
@@ -480,20 +477,24 @@ footer.
 
 *Fig: Setup's MIDI & AI page on a fresh install: the MIDI map, still empty, AI APPS, and MIDI in.*
 
-- **The footer**: the keys, and one status line — `Refused: …` in red when the
-  looper would not do what was asked (from a key, a click or a footswitch),
-  what MIDI has to say, or "Typing…" while a name field has the keyboard.
+- **The footer**: the keys, and one status line. At rest it reads
+  `keys 1–5 7 views · 6 calibrate · T theme · H help`. It says `Refused: …` in
+  red when the looper would not do what was asked (from a key, a click or a
+  footswitch), what MIDI has to say, or "Typing…" while a name field has the
+  keyboard. While an AI app's change can be taken back, the
+  **↶ Revert AI change** tile shows beside it; each click takes back the
+  newest one.
 
 Everything shown is painted from a model notification, never from the click,
 so a refused action reports honestly — asking for the cutter with no loop
 recorded leaves its switch dark and its tab's square empty, and the footer
 says why. Panes are built once and kept alive; switching views only changes
 which one shows, so a MIDI CC arriving while you look at another view still
-moves the right bar. Every pane but Perform's effects is inside a
-`ScrollView`, so a smaller screen scrolls.
+moves the right bar. Every view scrolls, so a smaller screen scrolls instead
+of cutting it off.
 
 **Colour means one thing.** The layers' colours (loop blue, cutter violet,
-grains cyan, effects pink, drums yellow) mark which part a control belongs to;
+grains cyan, effects pink, drums yellow, synth tan) mark which part a control belongs to;
 the states' (rec red, play green, overdub orange, armed amber) fill the state
 block, the beat under the playhead and a tile that is live, nowhere else. A
 layer that is off loses its colour. MIDI Map's blue is its own.
@@ -514,10 +515,11 @@ The controls, by view:
     stops.
   - *Start only*: they start with the loop and play on after a stop.
   - *Off*: they do not start with the loop; switch them on yourself.
-- **Input** *(Setup › Rig)* — *Mono* (default) or *Stereo*. In mono mode the looper
-  reads `inChannel` only and duplicates it to both buffer channels so the
-  output is audible on both ears. In stereo mode it reads `inChannel` and
-  `inChannel + 1` independently. Takes effect on the next record or play.
+- **Input** *(Setup › Rig)* — *Mono* or *Stereo*; the profile's
+  `inChannelCount` sets it at boot (saSystem: Stereo). Stereo records both
+  sides of the instrument chain, so its stereo effects reach the loop. Mono
+  records one side and plays it on both ears. It takes effect on the next
+  record or play.
 - **Listen for onsets on** *(Setup › Rig)* — which input the onset and pitch detection listens
   to. *Clean tap* reads the instrument's **dry hardware input**, before the
   effects; *Same as input* analyses the processed instrument being recorded. Only the
@@ -525,17 +527,21 @@ The controls, by view:
   and ambient FX smear note attacks, and blurred onsets are the main cause of
   meter mis-detection, so the dry tap is the better default where the rig
   exposes one. If a take reports 0 onsets while recording fine, the tap is on
-  the wrong channel — the post window says so. The recorder also compares the
+  the wrong channel — the log says so. The recorder also compares the
   tap's peak with the recorded input's over every take and warns when the tap
   sits 30 dB or more below it: a tap that quiet still yields a few onsets at a
   low threshold, and the meter fitted to them is noise — fix the gain, not the
   threshold. See [docs/routing.md](routing.md).
-- **Master** *(Perform's macros)* — final post-limiter gain (0–1).
+- **Master** *(Perform's macros)* — the looper's own level: the loop, the
+  cutter and the grains together, after their limiter (0–1, starts at 0.7).
+  The whole mix's last fader is **Master** under Levels.
 - **Morph** *(Perform's Grains column)* — between frozen drone (0) and pulsed scan
   locked to the detected pulse (1). Mirrors the Grains' Morph on Sound (CC 118 in the
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.
 - **Overdub latency** *(Setup › Rig)* — round-trip latency compensation (0–100 ms).
   See "Calibrating overdub latency" below.
+- **Declick at the loop seam** *(Setup › Rig)* — the fade at the loop seam,
+  0–20 ms, default 3. Higher hides clicks but softens the seam.
 - **Feedback** *(Perform's Loop column)* — how much of the existing buffer content is preserved
   during overdub. `1.0` (default) is classic additive overdub: existing
   content stays at full level and the new input layers on top. `0.0` makes
@@ -581,7 +587,7 @@ notifications, so nothing here can be clicked into a state you didn't intend.
   `■ STOPPED`, filled so recording and overdub are unmistakable across a room,
   and the Break hatch while a break is open.
 
-**MIDI in** (Setup) is a scrolling monitor of incoming note / CC / program
+**MIDI in** (Setup › MIDI & AI) is a scrolling monitor of incoming note / CC / program
 messages, the same lines the post window shows. **Pause** freezes it while you
 read; **Clear** empties it. It keeps the last 200 lines and repaints at 10 Hz
 while its page shows, so a CC sweep can't stall the GUI. `~midiLog` silences only
@@ -627,19 +633,33 @@ In **Setup's Analysis page**:
 
 - **Monitor** toggle — a free-running detection chain that mirrors the recorder's
   exactly (same input, odf type, `mingap`, threshold). It needs no loop and no
-  transport, so you can set the threshold *before* committing a take. Starts when
-  the window opens and stops when it closes, so it costs nothing when unused.
+  transport, so you can set the threshold *before* committing a take. It runs
+  from the start on every view, because the status band's input meter and
+  onset lamp read it: switch it off and both go dark.
 - **Readout** — input peak in dB, onsets counted since the last reset, and the
   strength of the most recent onset (the same salience value `MeterAnalyzer`'s
-  accent test sees).
-
+  accent test sees). **Reset counts** starts the count again.
 - **Onset notes** — plays the loop's onsets on the onset kit. See
   [Onset notes](#onset-notes) below.
+- **Pitch range · Hz** — 30–2000: the band the pitch tracker believes.
+- **Min samples · total / per window** — 8 / 3: how many pitch readings a
+  take, and each chord window, needs before a key or a chord is named. From
+  the next take.
+- **Fallback meter / bars** — see [How meter detection
+  works](#how-meter-detection-works).
 
-The threshold is also an optional per-rig profile field, `onsetThreshold`,
-alongside `latencyMs` — how noisy the instrument input is depends
-on the interface and the tap. Tune it here, then write the number back into the
-profile.
+The threshold belongs to the rig: Calibrate's threshold step keeps it for this
+rig ([The calibrated values](routing.md#the-calibrated-values)). How noisy the
+instrument input is depends on the interface and the tap.
+
+If the clean tap hears a take 30 dB or more under the input, the log says the
+analyser was starved: check the tap's gain or channel before lowering the
+threshold.
+
+`mingap` (20 frames, about 107 ms: the shortest gap between two onsets) is not
+a control. `Onsets` sizes its state from it, so it cannot change on a running
+synth. It is set in one place, `Looper.prOnsetTrig`, which every detector
+shares.
 
 > **Why a lamp and not a waveform.** This pane used to draw a scrolling envelope
 > with the onsets marked on it. It was the most expensive thing in the GUI — 120
@@ -682,10 +702,10 @@ pattern, and the meter is derived from *that* instead, then the drums start.
   held until the loop next reaches that phase, so their first step lands on the
   music rather than wherever the analysis happened to finish.
 
-Two guards make this safe, and they exist because widening the search breaks
-things in both directions:
+Three guards, fixed in `Looper.sc`, make this safe, and they exist because
+widening the search breaks things in both directions:
 
-| Setting | Default | Why |
+| Value | Default | Why |
 | --- | --- | --- |
 | `overdubMaxBars` | 8 | The default 4-bar enumeration cannot describe a long pad. Measured: a 12 s loop at 120 BPM in 4/4 (**six** bars) is reported as *12/8 at 60 BPM* — confidently wrong — until the limit is raised. First-take detection keeps the tighter default. |
 | `overdubMinDensity` | 0.5 | A fine grid will always "fit" a few scattered onsets. At no density, five rubato onsets came out as *7/4*. Measured on synthetic patterns: 0.5 admits real playing and rejects rubato; 0.6 starts rejecting genuine syncopation. |
@@ -721,18 +741,14 @@ What it changes and what it leaves alone:
 down to it, so the bass player hears it coming the way a break is heard. Which
 boundary: a reading that changes how many quarter notes a loop holds makes the
 drums' bar line meet the loop boundary only every so many loops, so the looper
-picks the first of the next three boundaries where it will fall — usually the
-very next one.
+takes the next boundary or the one after, whichever the drums' bar line falls
+on; when neither does, it lands on the next one and the drums start again from
+it.
 
-Refused, with a line in the post window and nothing lit: when nothing is
-playing, and on a take that fit no grid, because the length-anchored fallback
-has no next reading to offer. A stop, a clear, a new take or an undo cancels a
+Refused, with a line in the log and nothing lit: when nothing is playing, on a
+take that fit no grid, because the length-anchored fallback has no next
+reading to offer, and on a take that only one reading fit. A stop, a clear, a new take or an undo cancels a
 reading that has not landed.
-
-`mingap` (currently 20 frames, ~107 ms — the minimum spacing between onsets) is
-deliberately *not* exposed: `Onsets` sizes internal state from it, so it is not
-safe to change on a running synth. Edit it in `Looper.loadSynthDefs` if you need
-to, in **both** the recorder and the monitor or the lamp starts lying.
 
 ## Onset notes
 
@@ -825,9 +841,9 @@ them takes effect on the very next hit — no rebuild, no restart, no gap.
 The loop's audio and the onset kit's hits leave through different strips of the
 mixer, and both are scheduled from the same origin — `loopStartTime`, the
 wall-clock moment the loop's audio starts — so what is left is a small, fixed
-per-rig difference. That is what **Offset** is for, and it is the same kind of
-number as **Overdub latency**: set by ear, then written back into the profile as
-`onsetNoteOffsetMs`.
+per-rig difference. That is what **Offset** is for. It belongs to the rig: set
+it by ear, then write it into your profile as `onsetNoteOffsetMs` ([The
+calibrated values](routing.md#the-calibrated-values)).
 
 Guessing at it by ear is hard, because a 10–20 ms flam is easier to hear than to
 size. To **measure** it instead, record the set: the loop and the onset kit are
@@ -840,19 +856,24 @@ stems of their own.
 3. If the drum hit is **later** than the loop transient by *n* ms, set Offset to
    **−*n***. Record again and confirm it closed.
 
-### Across multiply and undo
+### Across multiply, undo and loop chaining
 
 The pattern keeps **its own period** — the loop length it was built for — rather
-than following `loopFrames`. Multiply lengthens the loop by a whole-number
-factor and copies the audio with it, so a pattern at the original period tiles
-across the longer loop exactly as the audio does. Undo snapshots and
-restores the pattern with the buffer, so undoing a take does not leave the
-previous take's rhythm playing over it.
+than following `loopFrames`. Multiply and loop chaining both lengthen the loop
+by a whole-number factor and copy the audio with it, so a pattern at the
+original period tiles across the longer loop exactly as the audio does. Undo
+snapshots and restores the pattern with the buffer, so undoing a take does not
+leave the previous take's rhythm playing over it.
 
-And because the pattern is tied to an analysis, the **onset threshold is the
-ceiling on quality**. Ghost onsets become ghost
-notes and missed hits become missing ones, so this is one more reason to tune
-the threshold against the onset lamp in the status band.
+Two things follow from the pattern being tied to an analysis:
+
+- A **loop chained** over another inherits the old pattern, because chaining
+  records without analysing. The captured audio contains the old loop, so the
+  rhythm is still in there, but it describes the take underneath, not what you
+  just played over it.
+- The **onset threshold is the ceiling on quality**. Ghost onsets become ghost
+  notes and missed hits become missing ones, so this is one more reason to tune
+  the threshold against the onset lamp in the status band.
 
 ## Granular layer
 
@@ -865,8 +886,8 @@ UGen, sourced from the recorded loop region.
 
 ### Morph: the meta-control
 
-One parameter, on the main window's **Granular** slider (and CC 118 in the
-keys-and-knobs map), slides between two poles:
+One parameter, **Morph** (Perform's Grains column and the Grains' Blend
+section; CC 118 in keys-and-knobs), slides between two poles:
 
 - **Morph = 0** — Frozen drone: long (~0.4 s) grains, heavily overlapped, with
   a static pointer plus tiny jitter. A smear of one moment in the loop.
@@ -876,14 +897,13 @@ keys-and-knobs map), slides between two poles:
   the granulator matches the rhythm of what was played. The scan is read off
   the dry engine's own playhead, so it is locked to the loop by construction:
   toggle the layer on wherever you like, mid-pass or not, and the pulse lands
-  on the loop's own hits every time. (Before 2026-09-25 it free-ran from the
-  moment of the toggle, and each toggle put it somewhere else.) Over a stopped
+  on the loop's own hits every time. Over a stopped
   loop there is no playhead to follow and the scan runs free until play starts.
 
 Everything in between is a continuous lerp of the four underlying parameters
 (window size, overlaps, scan rate, jitter). A 100 ms lag smooths the CC stream.
 
-### Granular layer
+### The Grains pane
 
 Morph is a great *performance* control and a poor *sound-design* one: it moves
 four things at once and there is no way to ask it for "the pulsed grid, but an
@@ -892,13 +912,17 @@ octave down and sprayed loose". So the Grains, on the Sound view
 the rest of the granulator, and morph keeps its job — it sets the **base** of the
 texture, and every control here **bends that base**.
 
+**ON · G** toggles the layer like `G`; it is refused while no loop is
+recorded. The controls are in four sections, **Blend**, **Pitch**, **Grain**
+and **Read position**, with **GRAIN WINDOW** under them.
+
 Every default is **neutral**: with all of them untouched the layer sounds exactly
 as it did when morph was the only control. **Reset tweaks** puts them all back
 without disturbing morph itself.
 
 | Control | Range | What it does |
 | --- | --- | --- |
-| **Level** | 0–1 (0.7) | Granular level, summed with the engine before the master limiter. Was previously fixed. |
+| **Level** | 0–1 (0.7) | Granular level, summed with the engine before the master limiter. |
 | **Pitch** | ±24 st | Grain transposition. The read pointer is untouched, so this pitches the layer *without* changing how fast it moves through the loop. |
 | **Detune** | 0–12 st | Random detune redrawn for **every grain**. Under ~0.2 st it thickens like a chorus; a few semitones shatters the loop into pitched confetti. |
 | **Grain size** | ⅛–8 × | Grain length as a multiple of morph's (0.4 s drone, one beat pulsed). Below ~0.2× grains stop carrying pitch and read as texture. |
@@ -909,42 +933,25 @@ without disturbing morph itself.
 | **Scan** | ±2 /loop | **Extra** passes through the loop per loop duration, added to morph's own. Small values drift a frozen drone; negative runs the read head backwards; −1 exactly freezes a fully pulsed scan. |
 | **Spray** | 0–500 ms | Per-grain read-position randomness. Unlike morph's own jitter this survives at the pulsed end — it is how you loosen a locked grid without giving up the beat. |
 
-### Presets
+### Grains presets
 
-The preset bar at the top of the Grains stores the whole voice — morph
-plus every control below it, including the window shape — under a name. It works
-the same way the cutter's does, deliberately, so the two windows share muscle
-memory.
+The preset bar at the top of the Grains stores the whole voice — morph plus
+every control below it — under a name, in `granular/` in your megalooper
+folder. The bar works like the Cutter's (see [The Cutter's presets](#presets)).
+What differs:
 
-- **Save** writes `granular/<name>.scd` in your megalooper folder
-  (`~/Library/Application Support/SuperCollider/megalooper/`). The name is slugged, so "Frozen
-  Cathedral" becomes `frozen-cathedral.scd`; typing a new name is how you "save
-  as". Saving back the preset you *loaded* is one click — the button reads
-  **Save** — because the file it replaces is the one you have open. Typing the
-  name of a preset you did **not** load reads **Overwrite** and takes a second
-  click; that confirmation waits as long as you do.
-- **Recall** is a single click in the preset menu and applies **live** — a
-  running granular layer follows without stopping, because every value is written
-  through the model's setters straight to the playing synth. Recalling with the
-  layer off just loads the settings, and they are used the next time you press
-  `G`.
-- **Revert** re-reads the selected preset from disk, discarding edits since it
-  was loaded. **Delete** removes the file (two clicks). **↻** rescans the folder
-  for files added outside megalooper.
-- Preset files are plain SuperCollider literals, safe to hand-edit or commit.
-  Out-of-range numbers are clipped, non-numbers and missing fields fall back to
-  their defaults, and an unrecognised window shape falls back to Hann — all with
-  one summary warning in the post window. Only a file that isn't a preset at all
-  is refused, and then the granulator is untouched. A file saved by a newer
-  version of megalooper is refused rather than half-understood.
+- Recall **includes morph**, unlike **Reset tweaks**, which leaves it alone: a
+  preset is "this exact sound", where Reset is "undo my edits". A running
+  layer follows a recall without stopping; with the layer off it just loads
+  the settings for the next `G`.
 - The **window shape is stored by name**, not by index, so adding a shape in a
-  later version cannot silently re-point presets saved before it.
+  later version cannot re-point presets saved before it. An unknown shape falls
+  back to Hann.
 
-> Recall **includes morph**, unlike **Reset tweaks** which deliberately leaves it
-> alone: a preset is "this exact sound", where Reset is "undo my edits". Note
-> that morph, level, pitch, grain size, density and position are also on MIDI
-> CCs — a recall moves the values but not your faders, so those are stale until
-> you next touch them.
+Every control here can be on a knob (keys-and-knobs uses CC 118, 119 and
+40–47). A recall moves the values, not the knobs: with **Send back** on, a
+controller that takes MIDI back follows; otherwise the knob's takeover decides
+what happens when you next touch it.
 
 ### How the controls combine
 
@@ -978,10 +985,14 @@ running granular layer are both untouched.
 
 ## BBCut layer
 
-Press `B` (or click the BBCut button
-in the GUI) to algorithmically re-splice the current loop, in tempo, using
-[Nick Collins's BBCut library](https://github.com/nhthn/BBCut). When BBCut is
-on, the straight engine output is muted; you hear cuts of the loop instead.
+Press `B`, or the **ON · B** switch on the Cutter or Perform's Cutter column,
+to re-splice the loop in tempo, using
+[Nick Collins's BBCut library](https://github.com/nhthn/BBCut). The cutter
+needs an analysed take; without one it stays off and the footer says why.
+**Mix / Insert / Gate** sets how it sits against the dry loop. **Mix** plays
+the dry loop with the repeats on top. **Insert** (the default) ducks the dry
+loop only while a repeat plays. **Gate** mutes the dry loop, so you hear the
+cutter alone.
 
 ![The Cutter](images/cutter.png)
 
@@ -989,46 +1000,56 @@ on, the straight engine output is muted; you hear cuts of the loop instead.
 
 The cutter is a **multi-voice instrument**: each voice is an independent cutter
 (its own procedure, cut synth, effects, and clock) layered over one shared
-snapshot of the loop. Full controls live in the **BBCut window** (open it with
-the "Voices / procs / fx…" button in the main window).
+snapshot of the loop. Everything is on the Cutter, the left half of the Sound
+view (key 2): a tab per voice, **+ voice** (four at most) and **remove voice**.
 
 - **Polyrhythm** — each voice runs on its own clock at `baseBps × ratio`, where
   `baseBps = 1 / tau` (one tick per detected pulse) and `ratio` is chosen per
   voice (`1:1`, `3:2`, `2:3`, `4:3`, `3:4`, `1:2`, `2:1`). All voices are
   phase-aligned to the same loop downbeat at start, so non-unity ratios produce
-  true cross-rhythm. Add/remove voices in the BBCut window (up to 4).
+  true cross-rhythm.
 - **Cut procedure** (per voice) — choose from a curated set: **Break/Repeat**
   (the default, see below), **BBCutProc11** (d&b-derived 3+3+2
   splicing), **WarpCutProc1** (Warp-Records pitched rolls), **ChooseCutProc**
   (cut/repeat/roll chooser), **SQPusher1** (Squarepusher-style drum
-  programming). The proc's own parameters are rendered as controls; for
-  Break/Repeat, BBCutProc11 and ChooseCutProc they update live at the next
-  phrase, others rebuild the voice on change.
-- **Cut synth** (per voice) — **CutBuf1** (cheap head-jumping, no envelope),
-  **CutBuf2** (enveloped grain per cut, default), **CutBuf3** (uses the buffer's
-  analysed event positions).
+  programming). The procedure's own parameters are shown as bars. Most
+  parameters change at the next phrase or block. WarpCutProc1's **Accel** and
+  all of SQPusher1's are read when the voice is built, so changing one rebuilds
+  the voice when you let go of the bar. Hover a parameter for its range and
+  default.
+- **Arc** — a procedure tagged **arc** has one parameter the pedal drives (see
+  [The arc](#the-arc--intensity-and-dissolve)). Its bar is the value at full
+  arc, which is what presets save, and the tick is what is in use now.
+- **Cut synth** (per voice) — **Buf 1** (CutBuf1, the cheapest; it may click),
+  **Buf 2** (CutBuf2, an enveloped grain per cut; the default), **Buf 3**
+  (CutBuf3, keeps the original pitch at any tempo).
 - **Effects** (per voice) — toggle any of **Bit** (decimator), **Comb**, **BPF**,
   **BRF**, **Mod** (ring mod), **Rev** (reverb); inserted between the cut synth
   and the voice mixer.
 - **Amp / Pan** (per voice) — live via the voice's `CutMixer` (no rebuild).
-- The cut buffer's `beatlength` is the total pulse count in the loop
-  (`numerator × sub × k`). For 7/8 (one bar) that's 7 beats.
-- **Phrase** is in **beats** on every procedure, as an integer-stepped slider.
-  Break/Repeat and BBCutProc11 additionally *snap* it to a whole number of loop
-  passes, because both read repeats at `phrasepos % beatlength` while
-  `phrasepos` resets to zero each phrase — a partial pass would restart the
-  cutter's read head mid-loop and pull it out of alignment with the dry loop.
-  Warp and Choose take the beat count literally; they cut continuously rather
-  than tracking the dry loop, so nothing depends on the alignment.
-- Phase-aligned: BBCut starts on the next loop downbeat.
-- Snapshot semantics: enabling BBCut captures the current loop region to a
-  temp WAV (`/tmp/megalooper_bbcut.wav`). Subsequent overdubs/multiply/undo
-  do **not** refresh the snapshot — toggle off and on again to pick up new
-  audio. Structural changes (proc/synth/fx/ratio, add/remove voice) while the
-  cutter is on rebuild it in place. Re-recording or clearing the loop turns
-  BBCut off automatically.
-- Each voice's clock is independent of the drums' clock, so over many bars they
-  can phase-drift if the analyzer BPM is slightly off.
+- The cut buffer's `beatlength` is the number of pulses in the loop, every
+  bar's length added up: 7 for one bar of 7/8, 29 for 7+7+7+8.
+- **Phrase** is in **beats** on every procedure that has one (SQPusher1 has
+  none), as an integer-stepped bar. Break/Repeat and BBCutProc11 also *snap*
+  it to a whole number of loop passes, because both read repeats at
+  `phrasepos % beatlength` while `phrasepos` resets to zero each phrase — a
+  partial pass would restart the cutter's read head mid-loop and pull it out of
+  alignment with the dry loop. Warp and Choose take the beat count literally;
+  they cut continuously rather than tracking the dry loop, so nothing depends
+  on the alignment.
+- Phase-aligned: the cutter starts on the next loop downbeat.
+- Snapshot semantics: switching the cutter on captures the current loop region
+  to a temp WAV (`megalooper_bbcut.wav`). Later overdubs, multiplies and undos
+  do **not** refresh the snapshot — switch it off and on again to pick up new
+  audio. Structural changes (procedure, synth, effects, ratio, adding or
+  removing a voice) while the cutter is on rebuild it in place.
+- Recording a new loop, stopping or clearing switches the cutter off. A next
+  reading that changes the pulse rebuilds it on the new grid, from a fresh
+  snapshot.
+- Each voice runs on its own clock at the analysed tempo and is not corrected
+  afterwards. Over a long loop it can drift a little against the loop and the
+  drums, which follow the loop itself. Switch the cutter off and on to line it
+  up again.
 
 ### Break/Repeat — the cut procedure for played loops
 
@@ -1038,13 +1059,13 @@ the default for a new voice) inverts that: it mostly lets the loop through
 untouched and only now and then grabs a block and repeats it, like stepping on
 a beat-repeat pedal for a bar.
 
-| Control | What it does |
-| --- | --- |
-| **Cut chance** | Probability, rolled once per block, that a repeat happens at all. 0 leaves the loop completely alone; 0.25 gives an occasional interruption; 1 repeats continuously. |
-| **Min / Max block** | Size of the repeated chunk, in pulses (loop beats), 1–16. Set them equal for a fixed size, spread them for variety. This is what makes big repeats possible — a whole bar rather than a stutter. |
-| **Repeats** | How many times the chunk plays. 2 = it plays, then repeats once. |
-| **Phrase** | Phrase length in loop passes (1–4). Raise it when a long block will not fit inside one pass of the loop. |
-| **Roll chance** | Probability that a repeat comes out as a double-speed roll instead of a plain repeat. Leave at 0 for straight beat-repeat behaviour. |
+| Control | Range (default) | What it does |
+| --- | --- | --- |
+| **Cut chance** | 0–1 (0.25) | Probability, rolled once per block, that a repeat happens at all. 0 leaves the loop completely alone; 0.25 gives an occasional interruption; 1 repeats continuously. The arc drives it. |
+| **Min block** / **Max block** | 1–16 (2) / 1–16 (4) | Size of the repeated chunk, in pulses (loop beats). Set them equal for a fixed size, spread them for variety. This is what makes big repeats possible — a whole bar rather than a stutter. |
+| **Repeats** | 2–8 (2) | How many times the chunk plays. 2 = it plays, then repeats once. |
+| **Phrase** | 2–32 (8) | Phrase length in beats, rounded to a whole number of loop passes. Raise it when a long block will not fit inside one pass of the loop. |
+| **Roll chance** | 0–1 (0) | Probability that a repeat comes out as a double-speed roll instead of a plain repeat. Leave at 0 for straight beat-repeat behaviour. |
 
 How it interacts with the mix mode: a block that is *not* cut is emitted as a
 single cut, which the mixer and the insert gate both read as "no repetition".
@@ -1061,40 +1082,55 @@ breaks would silently vanish and Cut chance would read far lower than it is set.
 
 Every parameter is live: changes take effect at the next block with no rebuild.
 
+### The other procedures
+
+| Procedure | Control | Range (default) | What it does |
+| --- | --- | --- | --- |
+| BBCutProc11 | **Chop** | 2–32 (8) | Slices per loop pass: the cut grid. Higher is finer, busier chopping. |
+| | **Phrase** | 2–32 (24) | Phrase length in beats, rounded to whole loop passes; a new cut pattern each phrase. |
+| | **Stutter** | 0–1 (0.2) | Chance that a phrase ends in a stutter, a repeating one-slice roll. The arc drives it. |
+| | **StutSpd** | 1–8 (2) | Stutter speed as a multiple of the chop grid. |
+| WarpCutProc1 | **Phrase** | 2–32 (12) | Phrase length in beats before the next set of blocks is chosen. |
+| | **Accel** | 0.5–1.5 (0.9) | Roll shape: under 1 accelerates, over 1 decelerates. Rebuilds the voice. |
+| ChooseCutProc | **Phrase** | 2–32 (16) | Phrase length in beats before new cut sizes are chosen. |
+| | **RollPr** | 0–1 (0.1) | Chance of a roll near the end of each phrase. The arc drives it. |
+| | **RollLen** | 0.5–8 (2) | How many beats before the phrase end a roll may start. |
+| SQPusher1 | **Activity** | 0–1 (0.1) | Chance of 16th- rather than 8th-note activity in normal bars. Rebuilds the voice. |
+| | **FillFreq** | 1–16 (4) | A fill bar every this many bars. Rebuilds the voice. |
+| | **FillScr** | 0–1 (0) | Chance that a fill is scrambled rather than played as stored. Rebuilds the voice. |
+
 ### Presets
 
-The preset bar at the top of the BBCut window stores a whole cutter setup —
-every voice (procedure, cut synth, effects, ratio, amp, pan and all proc
-parameters) plus the Mix/Insert/Gate mode — under a name.
+The preset bar at the top of the Cutter stores a whole cutter setup — every
+voice (procedure, cut synth, effects, ratio, amp, pan and all procedure
+parameters) plus the Mix/Insert/Gate mode — under a name. Two cutter presets
+ship with megalooper and are copied into your folder on the first start.
 
-- **Save** writes `bbcut/<name>.scd` in your megalooper folder
-  (`~/Library/Application Support/SuperCollider/megalooper/`). The name is slugged, so
-  "Broken 3/2" becomes `broken-3-2.scd`; typing a new name is how you "save as".
-  Saving back the preset you *loaded* is one click (**Save**); typing the name
-  of a preset you did **not** load reads **Overwrite** and takes a second click,
-  which waits as long as you do.
+- **Save** writes `bbcut/<name>.scd` in your megalooper folder ([Where your
+  files are](../README.md#where-your-files-are)). The name is slugged, so
+  "Broken 3/2" becomes `broken-3-2.scd`. The button says what one click will
+  do: **Save new** for a new name, **Save** for the preset you loaded, and
+  **Overwrite** for another one, which then reads **Overwrite?** and writes on
+  the second click.
 - **Recall** is a single click in the preset menu, and applies **live**: voices
   are added/removed to match and each is rebuilt on the next beat. The dry loop
   keeps playing, the cut buffer is not re-written, and nothing is torn down.
   Recalling with the cutter off just loads the settings.
 - **Revert** re-reads the selected preset from disk, discarding edits since it
-  was loaded. **Delete** removes the file (two clicks) and leaves the running
-  cutter alone. **↻** rescans the folder for files added outside megalooper.
+  was loaded. **Delete** arms for 4 s and removes the file on the second click;
+  it leaves the running cutter alone. **↻** rescans the folder for files added
+  outside megalooper.
 - Preset files are plain SuperCollider literals, safe to hand-edit or commit.
   Unknown procedures/synths/effects, out-of-range numbers, parameters left over
   from another procedure and missing parameters are all corrected on load, with
-  one summary warning in the post window; only a file that isn't a preset at all
+  one summary warning in the log; only a file that isn't a preset at all
   is refused, and then the running cutter is untouched. A file saved by a newer
   version of megalooper is refused rather than half-understood.
 - A hand-edited `ratio` that isn't in the menu's list still plays as written; the
   menu just shows the nearest entry.
 
-Requires the BBCut quark:
-
-```supercollider
-Quarks.install("https://github.com/nhthn/BBCut.git");
-// then recompile the class library: Cmd+Shift+L
-```
+The cutter needs BBCut. The installer fetches it (see
+[Install](../README.md#install)).
 
 ## Recording the set
 
@@ -1109,11 +1145,11 @@ turns the recordings into something that can be analysed afterwards.
 
 | File | What it is |
 | --- | --- |
-| `<stamp>-<tempo>-master.wav` | what the room heard — stereo, the mix as it leaves for the interface |
+| `<stamp>-<tempo>-<meter>-master.wav` | what the room heard — stereo, the mix as it leaves for the interface |
 | `-guitar`, `-loop`, `-drums`, `-onset`, `-synth.wav` (and `-bass.wav` on a rig with a bass) | the parts of the mix as heard: your instrument, the loop, the drums, the onset kit and the synth, after their faders, so they sum to the master |
-| `<stamp>-<tempo>-drums.mid` | every drum hit, steps and onset kit, to play other sounds with afterwards |
-| `<stamp>-<tempo>-tap.wav` | the dry instrument, mono, straight off the analysis tap |
-| `<stamp>-<tempo>-events.jsonl` | what happened: every record press, every take with the onsets it was analysed from and the readings it was offered, every next-reading press and where it landed, every threshold change — one JSON object per line, times in seconds from the stomp |
+| `<stamp>-<tempo>-<meter>-drums.mid` | every drum hit, steps and onset kit, to play other sounds with afterwards |
+| `<stamp>-<tempo>-<meter>-tap.wav` | the dry instrument, mono, straight off the analysis tap |
+| `<stamp>-<tempo>-<meter>-events.jsonl` | what happened: every record press, every take with the onsets it was analysed from and the readings it was offered, every next-reading press and where it landed, every threshold change, every transport action (play, stop, overdub, multiply, undo, clear), and every drum hit that sounded — one JSON object per line, times in seconds from the stomp |
 
 **The names carry the tempo and the meter**: `261007_143012-165.04bpm-7-8-master.wav`
 is the set stomped at 14:30:12 on 7 Oct 2026, at 165.04 BPM in 7/8, ready to
@@ -1148,7 +1184,7 @@ the playing instrument.
 ```
 sclang scripts/replay-session.scd                # the newest set
 ~replaySession = "260928_183000";                # one set, by stamp, whatever tempo it was renamed with
-~replayThresholds = [0.3, 0.5, 0.7];             # the sweep; the stage threshold is always added
+~replayThresholds = [0.3, 0.5, 0.7];             # the sweep (default 0.2 0.3 0.4 0.5 0.6 0.8 1.0); the stage threshold is always added
 ~replayCsv = "/tmp/replay.csv";                  # every cell, for a spreadsheet
 ~replaySelfTest = true;                          # a synthetic set, rendered and asserted
 ```
@@ -1160,6 +1196,7 @@ nothing to collect:
 | --- | --- | --- |
 | played on as heard | **accepted** | the analyser's reading — a weak label: right, or wrong and not noticed |
 | moved with the switch | **corrected** | the reading it settled on; the analyser was wrong on this take |
+| gave bars by hand | **corrected** | the bars you gave |
 | moved and moved back | **reverted** | none; the analyser was wrong and the truth was not on its list |
 | undid | **discarded** | none |
 
@@ -1214,22 +1251,33 @@ placed by hand — `~replayTap = "…-tap.wav"; ~replayManual = [[startSec, durS
 
 ## Calibrating the rig — the wizard
 
-The **Calibrate** tab walks the whole procedure one step at a time, which is
-how a new interface gets its numbers without anyone having to remember this
-document. It shows every step and which ones are answered, and for the step you
-are on: why it exists, what has to be true in the room before you press
-anything, and what to do.
+Once per rig, open **Calibrate**: key **6**, or **Open the wizard** under
+Calibrate on Setup's Rig page. **Esc** goes back. The left column lists the
+four steps and which are answered. The middle says why the step exists, what
+has to be true in the room, and what to do. The right column shows this rig's
+**Onset threshold** and **Overdub latency**.
 
 ![The Calibrate wizard](images/calibrate.png)
 
 *Fig: The Calibrate wizard (6) at its first step: the four steps on the left, what to do in the middle, this rig's values on the right.*
 
-| Step | Needs | Sets |
-| --- | --- | --- |
-| Check the rig | — | re-runs the device preflight |
-| Input level | your instrument | — (the interface's input gain) |
-| Onset threshold | your instrument | `onsetThreshold` |
-| Overdub round trip | the loop stopped, and a cable from output 1 into the instrument input | `latencyMs` |
+1. **Check the rig.** Nothing to do: it runs the start's checks again and
+   shows the interface, its rate and block size, and whether VSTPlugin is
+   there.
+2. **Input level.** Press **Measure** and play hard for eight seconds. Turn
+   the interface's input gain until the loudest hit comes in between -12 and
+   -3 dBFS. Too quiet and soft notes go unnoticed; clipped and every hit looks
+   the same.
+3. **Onset threshold.** Set it on Setup's Analysis page while you play: raise
+   it until the lamp lights only on real hits, lower it until none are
+   missing. Then press **Done**.
+4. **Overdub round trip.** Stop the loop. With an interface, patch a cable
+   from output 1 into the instrument input; on a computer's own speakers and
+   microphone there is nothing to patch. Press **Measure**, then **Apply**. If
+   it cannot be measured, set **Overdub latency** by ear on Setup's Rig page
+   and press **Start with this**.
+
+**← Back**, **Skip**, **Next →** and **Start over** move through the steps.
 
 Things worth knowing before you run it:
 
@@ -1244,16 +1292,16 @@ Things worth knowing before you run it:
 - **Measuring and applying are separate buttons on purpose.** A measurement you
   can see but have not applied is how you notice one that is obviously wrong.
 
-Each measurement repeats itself (eight clicks) and reports the **spread** across
-the trials as well as the number. That is the diagnostic that matters: one
-reading always produces a number, but eight that disagree is a clock problem —
-an aggregate's clock source, drift correction, or a member at the wrong sample
-rate — and the wizard says so rather than averaging it into a plausible-looking
-latency.
+The round trip is measured eight times, and the wizard reports the **spread**
+across the trials as well as the number. That is the diagnostic that matters:
+one reading always produces a number, but eight that disagree is a clock
+problem — an aggregate's clock source, drift correction, or a member at the
+wrong sample rate — and the wizard says so rather than averaging it into a
+plausible-looking latency. A click too weak to trust is refused as well.
 
-What you apply is kept for the rig in `calibration.json` in your megalooper
-folder, and every start begins with it; **Forget** goes back to the rig's own
-numbers.
+A value is kept for the rig when you press **Apply**, **Done** or **Start with
+this**. It goes into `calibration.json` in your megalooper folder, and every
+start begins with it. **Forget** goes back to the rig's own numbers.
 
 ## Calibrating overdub latency
 
@@ -1272,11 +1320,13 @@ numbers.
 
 ```
 megalooper/
+  README.md, LICENSE, NOTICE
   classes/
     Looper.sc            -- state machine, SynthDefs, MIDI/OSC plumbing
     LooperBreakProc.sc   -- house BBCut procedure: occasional block repeats
     LooperCutGate.sc     -- drives the Insert-mode duck bus from each cut block
     LooperSessionRecorder.sc -- records the whole set to disk, from the stomp
+    LooperMidiFile.sc    -- Standard MIDI Files: the set's drums as .mid
     LooperMidiMap.sc     -- a MIDI map's rules: lookup, switches and knobs, hysteresis, the file
     LooperMidiLearn.sc   -- learning a mapping: which message a control takes
     LooperCalibrator.sc  -- the calibration wizard's steps, flow and arithmetic
@@ -1285,6 +1335,23 @@ megalooper/
     LooperSeg.sc         -- the window's segmented rows: every option of a short choice in sight
     MeterAnalyzer.sc     -- pure analysis: pulse fit + accent-template meter selection
     PitchAnalyzer.sc     -- pure analysis: per-segment chord/pitch detection
+    MegaFiles.sc         -- your megalooper folder, JSON read and written whole
+    MegaRemote.sc        -- megalooper as a tool for an AI app
+    MegaSA.sc            -- the instrument around the Looper: chains, mixer, drums, synth
+    MegaSAChain.sc       -- one chain of devices
+    MegaSADevice.sc      -- one device in a chain: a built-in effect or a plugin
+    MegaSAFx.sc          -- the built-in effects
+    MegaSAPlugin.sc      -- one hosted plugin (VSTPlugin)
+    MegaSAPlugins.sc     -- the plugin catalog and its scan
+    MegaSASound.sc       -- a sound: the chains as a document
+    MegaSADrums.sc       -- the drums: patterns, kits, the scheduler, the voices
+    MegaSADrumsFx.sc     -- the drums' effects
+    MegaSAKit.sc         -- one drum kit
+    MegaSASteps.sc       -- the step sequencer's rules and patterns
+    MegaSATransport.sc   -- the port the Looper drives the drums through
+    MegaSANoteSeq.sc     -- the synth's note sequencer
+    MegaSAWave.sc        -- the Wave synth
+    MegaSASynthFile.sc   -- a synth preset: the sequence and the Wave synth's settings
   scripts/
     boot.scd             -- orchestrator: pick the rig, load the parts, call them in order
     setup-routing.scd    -- ~routingProfiles table + the device / sample-rate guards
@@ -1292,6 +1359,8 @@ megalooper/
     setup-miditargets.scd -- every control a MIDI binding can drive
     setup-midimap.scd    -- the MIDI router: maps as files, learning, the responders, the proxy
     setup-model.scd      -- the Looper instance + the analysis/chord callbacks
+    setup-sa.scd         -- the chains, the mixer, the drums and the synth around the Looper
+    setup-remote.scd     -- AI apps: the switch that lets one in, and Revert
     gui-const.scd        -- ranges, menu contents, lifetimes; no window
     gui-theme.scd        -- the stage theme: palettes, type, tiles, bars, segmented rows
     gui-presets.scd      -- the preset bar's logic, shared by every preset family
@@ -1299,8 +1368,12 @@ megalooper/
     gui-perform.scd      -- Perform: the layers, the actions, the macros
     gui-bbcut.scd        -- the Cutter (Sound): voices, procedures, params, effects
     gui-granular.scd     -- the Grains (Sound): the Warp1 layer's full controls
+    gui-effects.scd      -- FX: the chains, their devices and sounds
+    gui-drums.scd        -- Drums: steps, timing, kits, mix
+    gui-synth.scd        -- Synth: the note sequencer and the Wave synth
     gui-analysis.scd     -- Analysis (Setup): monitor feed, counts, onset notes, export
-    gui-rig.scd          -- Rig (Setup): routing, timing, SA's levels, the MIDI map
+    gui-rig.scd          -- Rig (Setup): routing, timing, the MIDI map
+    gui-sa.scd           -- Rig (Setup): the mixer's levels and New loop
     gui-midimap.scd      -- the MIDI map section: inputs, maps, bindings, learning
     gui-mapmode.scd      -- MIDI Map mode: the MIDI MAP button, masks, the map bar
     gui-calibrate.scd    -- the Calibrate wizard, and its summary on Setup
@@ -1308,10 +1381,11 @@ megalooper/
     gui-shell.scd        -- THE window: top bar, status band, views, footer, keys
     gui-wiring.scd       -- SimpleController wiring + ~doExport
     launcher.scd         -- rig picker shown by the Desktop icon
+    render-screens.scd   -- the manual's screenshots, off screen
     check.scd            -- static check: parse + load every script, no server
     check-gui.scd        -- boots a rig, builds the window, asserts on it, quits
-    check-gui-midimap.scd -- builds the MIDI map section headless, drives it and MIDI Map mode, exits
-    check-gui-maptags.scd -- builds the whole window headless: is every control tagged for MIDI Map mode?
+    check-gui-*.scd      -- each pane built off screen and driven: ai, drums,
+                            effects, maptags, midimap, synth
     eval_meter_analyzer.scd  -- score the analyzer against labelled training loops
     probe-meter.scd          -- the analyzer's perception map: every meter, tempo and
                                 kind of damage, headless
@@ -1321,24 +1395,44 @@ megalooper/
     check-insert.scd         -- why Insert mode sounds like Gate: the duck's duty cycle
     check-chain-align.scd    -- measure a chained loop against the loop underneath
     check-loop-phase.scd     -- measure the engine's phase against loopStartTime
+    sa/                      -- offline renders (scsynth -N) of the chains, drums and synth
     tests/
       run-tests.scd      -- headless test suite, exits non-zero on failure
       _harness.scd       -- assertions + the server-free Looper fixture
       test-*.scd         -- one file per area (see Testing)
+      fixtures/          -- test rigs, MIDI maps, recorded pedal and switch streams
   tools/
+    install.sh           -- the installer
+    megalooper           -- start megalooper from a terminal
     make-app.sh          -- build megalooper.app (Desktop icon)
     make-icon.py         -- render the app icon, stdlib only
-    midi-log-streams.py  -- cut the TSMega's CC streams from the MIDI log, for the tests
+    coreaudio.py         -- CoreAudio devices and sample rates, stdlib only
+    run-checks.sh        -- every offline check, one at a time
+    megalooper-mcp.py    -- the AI apps' bridge (MCP over stdio)
+    mcp-tools.json       -- the tools the bridges offer
+    mcpb/                -- the Claude Desktop extension's manifest and bridge
+    make-mcpb.sh         -- build the extension (.mcpb)
+    test-megalooper-mcp.py -- checks the bridges
+    export-live-set.py   -- where the shipped drum patterns and kit maps came from
+    midi-log-streams.py  -- cut controller streams from the MIDI log, for the tests
   docs/
-    manual.md            -- this file
-    standalone.md        -- Megalooper SA: the effect chains, sounds and plugins
+    manual.md            -- the manual
+    standalone.md        -- the effect chains, sounds and plugins
+    effects.md           -- every effect
     drums.md             -- the drums' kits
+    synth.md             -- the synth
+    ai.md                -- AI apps
     routing.md           -- rigs of your own: what a profile says, and how to write one
     midi-maps.md         -- the MIDI map file format
+    linux.md             -- megalooper on Linux
+    images/              -- the screenshots
   presets/
     bbcut/               -- the cutter setups megalooper ships; yours are in your megalooper folder
+    granular/            -- empty; yours are in your megalooper folder
     midi/                -- the MIDI map megalooper ships (JSON): keys-and-knobs
-    sa/                  -- Megalooper SA: the effects' variations, the drum patterns, the kits' maps
+    sa/                  -- the effects' variations, the drum patterns, the kits' maps
+  site/                  -- the website: the homepage and this manual (Astro)
+  .github/workflows/     -- builds the website on GitHub Pages
   training-data/         -- exported labelled loops (WAV gitignored, JSON kept)
 ```
 
@@ -1346,12 +1440,14 @@ Each `setup-*` / `gui-*` file only **defines** functions, so loading one is free
 and the call order in `boot.scd` is the entire startup sequence. That is what
 makes a single window rebuildable in isolation.
 
-Presets work the same way in both windows because they are the same code.
-`gui-presets.scd` is the bar — menu, name field, two-click Save/Delete, status
-line — and each window registers a *family spec* giving the label, one line of
-help text, and which `Looper` methods to call; state and widgets live in that
-family rather than in per-window globals. On the model side, storage is one
-implementation driven by `Looper.prPresetFamilies`, with a one-line named
+Every preset bar works the same way because it is the same code:
+`gui-presets.scd` is the bar for the cutter, the grains, the effects' sounds,
+the drums and the synth — menu, name field, two-click Save/Delete, status
+line — and each pane registers a *family spec* giving the label, one line of
+help text, and which methods to call; state and widgets live in that family
+rather than in per-pane globals. On the model side, the cutter's and the
+grains' storage is one implementation driven by `Looper.prPresetFamilies`,
+with a one-line named
 method per family (`saveGranularPreset` and friends) because that reads better
 at a call site than passing a family symbol around.
 
@@ -1376,7 +1472,12 @@ be an argument inside a single def.
 For each candidate, an iterative least-squares fit picks the pulse period
 `tau` that best places onsets on a grid. The fit with the lowest residual
 *and* a BPM in `[50, 220]` wins, with a soft tiebreaker toward BPMs near 110.
-If nothing fits, a 4/4 fallback is reported with an `\error` field set.
+If no grid fits, the analyser tries uneven bars. If none fit either, the take
+is *length-anchored*: the loop is kept as whole bars of the **Fallback meter**
+(Setup's Analysis page, 4/4 by default), as many as put the tempo nearest
+110 BPM, or the number you set beside it. The status band says
+`TAKE · ANCHORED`, and the cutter will not start. Fewer than two onsets give no
+reading at all.
 
 ### Accent analysis
 
@@ -1411,12 +1512,14 @@ prior-only behavior, so previously-working results are unchanged.
 Once the take has a reading, `Looper.snapAnalysisToLoop` makes the loop a whole
 number of its bars, which mends a stop press that came a little early or late.
 It may move the loop by **half an eighth at most, and never more than 100 ms**
-(`MeterAnalyzer.snapLimit`, `snapLimitSecs`). Further than that is not the
+(`MeterAnalyzer.snapLimit`, `snapLimitSecs`), unless the reading's grid fits
+nearly every onset (`snapTrustFit`, 0.9), when the full half eighth is allowed.
+Further than that is not the
 hand: it is a bar that was played longer or shorter, like the 8/8 that ends
 7/8 7/8 7/8 8/8, and rounding it away would cut it off. A reading that would
 move the loop further gives way to the best reading that does not, and with none
 the take is length-anchored at its own length. Readings that would move it are
-not offered by the next-reading switch. The Post window says when this happens,
+not offered by the next-reading switch. The log says when this happens,
 and the take's log has it as `snapRefused`.
 
 ### Uneven bars
@@ -1428,13 +1531,13 @@ and everything that counts bars follows them:
 
 - **The bar grid and the counter.** The fourth bar is drawn an eighth longer, and
   the counter goes `BAR 4/4 · BEAT 8/8` there.
-- **The drums.** With Auto Retrigger on (the default), the step lanes start
+- **The drums.** With **Retrig** on (the default, on the Drums view), the step lanes start
   again on the first step of every bar, so a 7/8 bar plays 14 steps of a
   16-step lane and the 8/8 bar all 16. Set `MegaSADrums.retrigAt = \live`
   (on `~megaSA.drums`) and a lane waits for "pseudo-bars" of *numerator*
   quarter notes instead, so in plain 7/8 it reshapes itself over four bars.
-- **The click** accents every bar line; **the snap** makes a loop whole cycles of
-  the bars, never whole bars of 7/8; **the dissolve** counts the mean bar.
+- **The snap** makes a loop whole cycles of the bars, never whole bars of 7/8;
+  **the dissolve** counts the mean bar.
 
 **Found by the analyser.** After a first take the analyser also looks for
 uneven bars (`MeterAnalyzer.analyzeUneven`): the pulse grids that fit the onsets
@@ -1459,9 +1562,9 @@ press of the next-reading switch away. It never answers with even bars of its
 own, so straight takes read as they always did. It is tuned on synthetic takes so far;
 the duo's labelled takes will tune it (see below).
 
-**Given by hand**, when the analyser missed them: on the Analysis tab, **Bars
-by hand**, type one cycle (`7 7 7 8`), choose the denominator and press **Set
-bars**. The loop's length sets the tempo, and the reading in force decides how
+**Given by hand**, when the analyser missed them: on Setup's Analysis page,
+**Bars by hand**, type one cycle (`7 7 7 8`; spaces, commas or `+` between the
+bars), choose the denominator and press **Set bars** or Enter. The loop's length sets the tempo, and the reading in force decides how
 many cycles the loop holds. The reading lands on the next loop boundary like the
 next reading; the header says **TAKE · BARS BY HAND**, the next-reading switch
 passes through it, and **Revert** goes back to the analyser's answer. Bars the
@@ -1483,10 +1586,10 @@ commonest bar (7/8).
 ## Exporting training data
 
 The analyzer is only as good as the data it is tuned against, so the GUI can
-capture **labelled** loops. After recording, the export fields (in the main
-window, below "Fallback meter") pre-fill with the analyzer's guess; correct the
-**signature** and **bar length** if they are wrong, type a descriptive **name**,
-and click **Export → training-data** (or press `E`). Each export writes two files
+capture **labelled** loops. After recording, the fields at the bottom of
+Setup's Analysis page (**Training-data export**) pre-fill with the analyzer's
+guess; correct the **signature** and **bar length** if they are wrong, type a
+descriptive **name**, and click **Export · E** (or press `E`). Each export writes two files
 to `training-data/`:
 
 - A 24-bit WAV of the loop region, named
@@ -1498,12 +1601,12 @@ to `training-data/`:
   analyzer saw (`analyzerInput`), the raw onsets, the analyzer's guess at export
   time (`detected`), and the ground-truth labels (`groundTruth`).
 
-> **With the clean analysis tap on**, the WAV and the sidecar no longer describe
+> **With Listen for onsets on** set to *Clean tap* (Setup › Rig), the WAV and the sidecar no longer describe
 > the same signal: the WAV is the recorded (processed) loop, while `analyzerInput`
 > holds the onsets detected on the dry tap. Replaying the sidecar is unaffected —
 > that is the detector's actual input — but re-running *onset detection* over the
 > WAV offline measures the processed instrument instead, so it is no longer a faithful
-> proxy for the live path. Record with **Analysis in** set to *Same as input* when
+> proxy for the live path. Record with **Listen for onsets on** set to *Same as input* when
 > exporting loops meant for detector-parameter sweeps.
 
 Because `MeterAnalyzer` works on onsets, not audio, the sidecar is what makes
@@ -1540,19 +1643,25 @@ you did about it with the next-reading switch. See
 
 ## Testing
 
-Two headless gates, no server, no windows, no MIDI, no audio hardware. Both
-exit non-zero on failure, so either works as a pre-commit hook:
+`./tools/run-checks.sh` runs all twenty-one checks, one sclang at a time, in
+about six minutes. `./tools/run-checks.sh quick` runs only the unit tests, the
+static check and the AI bridge's test. Nothing opens an audio device or touches
+MIDI, and megalooper may be running beside it. Checks that need material the
+repository cannot ship (the kits' samples, one recorded take) are skipped and
+say so.
+
+`check.scd` parses every script, loads the part-files, asserts that everything
+`boot.scd` calls exists, and checks every routing profile. The failure it
+exists to prevent is a typo that only surfaces halfway through a boot which
+has already freed the previous Looper. `run-tests.scd` runs over three thousand
+assertions on the language-side logic: the looper, Megalooper SA's chains,
+drums and synth, the MIDI map, and the files. Both exit non-zero on failure,
+so either works as a pre-commit hook:
 
 ```sh
 sclang scripts/check.scd            # do the scripts still hold together?
 sclang scripts/tests/run-tests.scd  # does the model still compute what it did?
 ```
-
-`check.scd` parses every script, loads the part-files and asserts that
-everything `boot.scd` calls exists — the failure it exists to prevent is a typo
-that only surfaces halfway through a boot which has already freed the previous
-Looper. `run-tests.scd` runs ~270 assertions over `Looper`'s language-side logic
-in about a quarter of a second.
 
 ### How the model is testable at all
 
@@ -1568,7 +1677,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | File | Covers |
 | --- | --- |
 | `test-onset-notes.scd` | pattern building, velocity mapping, gain independence, MIDI range clipping |
-| `test-chain-timing.scd` | the "free multiply" start wait — a regression file, see below |
+| `test-chain-timing.scd` | the start wait when a new loop is recorded over the one playing — a regression file, see below |
 | `test-granular-presets.scd` | capture, serialise, validate, recall; hostile and stale input |
 | `test-bbcut-presets.scd` | the same for voices, procs, fx chains and per-proc params |
 | `test-gesture-fuzz.scd` | random sequences of the footswitch/pedal vocabulary, against invariants |
@@ -1579,13 +1688,30 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-synthdefs.scd` | every SynthDef's compiled graph, fingerprinted against a baseline |
 | `test-preset-storage.scd` | the storage both families share, on real files |
 | `test-preset-bar.scd` | the shared preset bar driven end to end with stub widgets |
-| `test-session-recorder.scd` | set recording: file naming with the set's tempo, refusals, the transport guard, SA's stems, the stop and the WAVs' clock, and the event log — its JSON, the takes and labels read back from it, and what the looper and the drums write |
+| `test-session-recorder.scd` | set recording: file naming with the set's tempo, refusals, the transport guard, the stems, the stop and the WAVs' clock, and the event log — its JSON, the takes and labels read back from it, and what the looper and the drums write |
 | `test-session-midi.scd` | the set's `.mid`: the MIDI file writer and reader, ticks at the file name's tempo, the three tracks |
 | `test-midimap.scd` | the MIDI router: a map's rules (lookup, checks, what a press or a knob does), its controls, the map the numbers make, its responders, and the pedal's hysteresis on its own streams from the MIDI log |
-| `test-midimap-learn.scd` | learning a mapping: the 3 steps, bursts, two presses, on the TSMega's own streams |
+| `test-midimap-learn.scd` | learning a mapping: the 3 steps, bursts, two presses, on recorded pedal and footswitch streams |
 | `test-midimap-store.scd` | maps as files: shipped and yours, backups, Keep, settings, the boot's choice, learning through the responders |
 | `test-midi-equivalence.scd` | the router against a copy of the responders it replaced (`legacy-midi-bindings.scd`, never run on its own): the same messages make the same calls, sends and log lines |
 | `test-source-guards.scd` | the collapsed duplication stays collapsed |
+| `test-arc.scd` | the arc: the pedal's intensity and the dissolve, as the shape of a performance |
+| `test-break.scd` | breaks: how long one lasts, when it is refused, and that the master gate never stays shut |
+| `test-loop-position.scd` | a playhead position folded onto the analysed grid: bar, beat, fraction |
+| `test-reading.scd` | the next reading: what a reading makes of the take, where it lands, when the cutter respawns, and the gesture |
+| `test-uneven-bars.scd` | uneven bars: the arithmetic, the snap, the position, what the cutter and the drums are told, and bars given by hand |
+| `test-miditargets.scd` | every control a MIDI binding can drive, on its widget's law, through the model's own methods |
+| `test-midiback.scd` | values and lights sent back to a controller: when they go, when they wait, echoes dropped |
+| `test-megafiles.scd` | the file kit: your folder, JSON read and written whole, the format and version rules |
+| `test-megaremote.scd` | megalooper as a tool for an AI app: who may ask, what is answered, the changes it may make and take back |
+| `test-megasa.scd` | Megalooper SA's frame: its routing, server options, the mixer's levels and mutes, its SynthDefs, the drums it owns, the stems |
+| `test-megasa-chains.scd`, `-edits`, `-drumchain`, `-bass` | the device chains: types, devices and chains as models and as built; insert, copy, remove, move, rename, undo and redo; the drums' chain; the bass's chain |
+| `test-megasa-sound.scd`, `-keep`, `test-sa-sounds.scd` | sounds: the document and its JSON, Keep and recall onto running chains, what a boot does with the kept sound, variations |
+| `test-megasa-plugins.scd` | the plugin catalog: what the browser offers, which entry a sound names, the scan's rules |
+| `test-megasa-random.scd` | an effect's Random: every setting inside its range, along its knob's curve |
+| `test-megasa-noteseq.scd`, `-wave`, `-instrument` | the synth: the note sequencer's rules and its notes on the drums' grid, the Wave synth, a VST instrument played in its place |
+| `test-megadrums.scd`, `-sched`, `-fx`, `-newloop` | the drums: the steps' rules, the kits, the transport; the scheduler on an injected clock; the drums' effects and presets; a new loop with the drums off |
+| `test-theme-contrast.scd` | text on every accent fill is readable in both themes (WCAG 4.5 : 1) |
 
 `test-chain-timing.scd` exists because that arithmetic got the chained loops
 wrong once: a positive calibrated offset made the recorder start a whole
@@ -1607,7 +1733,7 @@ static check.
 ### Testing the SynthDefs without a server
 
 `SynthDef` builds its graph in the *language*; only `.add` sends anything, and
-an unbooted server just means the message goes nowhere. So all eleven defs can
+an unbooted server just means the message goes nowhere. So Looper's eleven defs can
 be built headlessly and their compiled bytes fingerprinted —
 `test-synthdefs.scd` locks those fingerprints. Nothing about how they *sound*
 can be asserted this way, but a graph rewrite that changes no bytes cannot
@@ -1643,18 +1769,21 @@ record, and says so loudly if it ever stops reproducing. Two are marked today:
 neither a pass nor a failure; the summary counts and lists the skips. The MIDI
 router's tests put messages through real MIDI responders, so beside a running
 megalooper in the IDE they skip that part. In a headless run there is nothing
-to skip for, and a MIDI responder left registered fails them instead.
+to skip for, and a MIDI responder left registered fails them instead. Parts
+also skip where VSTPlugin is not installed, and where a private fixture is
+missing.
 
 ### What is not covered
 
-Everything that needs scsynth: SynthDef graphs, real onset detection, actual
-latency, and the GUI. Those still need the rig, and the `check-*.scd` scripts
-are the tools for measuring them there.
+Nothing here hears your rig: real onset detection on your input and the actual
+latency still need it, and the `check-*.scd` scripts are the tools for
+measuring them there. The pane checks build every window off screen, and the
+renders play the chains, drums and synth on an offline server.
 
 ## Known limitations
 
-- One bar per loop is the design assumption; multi-bar K is supported but only
-  up to 4 bars.
+- A loop is one to four bars (`MeterAnalyzer.maxK`), uneven ones like
+  7+7+7+8/8 included.
 - BPM is always reported as the quarter-note equivalent. Compound meters (e.g.
   6/8 dotted-quarter) are the user's interpretation.
 - Compound-vs-simple meters that share a pulse grid (e.g. 6/8 vs 3/4) are now
@@ -1662,14 +1791,11 @@ are the tools for measuring them there.
   subdivision tiebreaker, so a strongly-accented 3/4 can still report as 6/8.
   Tune the scoring weights against a labelled dataset captured via the GUI
   export (see [Exporting training data](#exporting-training-data)).
-- The detected downbeat phase (`result.phase`) is reported but not yet wired
-  into the metronome / BBCut alignment, which still assume the first onset is
-  the downbeat.
+- The accent analysis's own downbeat guess (`downbeatOffset`) is kept in the
+  result but not used for a first take: bar 1 beat 1 is where you pressed
+  record. A meter found from an overdub does use it.
 - The BPM-near-110 tiebreaker can pick the wrong octave for very fast or very
   slow material.
-- Loop chaining (**Rec next loop**) needs a rig whose loop comes back through
-  a chain outside megalooper; on Megalooper SA there is none, so the tile says
-  *no return channel* and stays off.
 - Switching **Drums follow the loop** mid-play is not gracefully handled.
   Switch between loops, not during.
 

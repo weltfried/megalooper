@@ -18,11 +18,10 @@ what each one does, and every setting it has.
   passes as it came. The three loop effects are stereo, each side on its own.
 - **A switch never clicks.** On and off crossfade over 30 ms, so a
   footswitch can switch an effect on the beat.
-- **Off costs nothing, mostly.** Once faded out, a switched-off Envelope
-  Filter, Drive or Crusher stops computing. Pitch Shift, Dual Delay, Pitch
-  Loops and Tape Echo keep running while off, so switched on they already
-  hold the last moments of your playing, and a delay starts with its
-  repeats.
+- **Off costs nothing, mostly**: see [On a slower
+  computer](standalone.md#on-a-slower-computer). Pitch Shift, Dual Delay,
+  Pitch Loops and Tape Echo keep running while off, so switched on they
+  already hold the last moments of your playing.
 - **Tempo.** The Envelope Filter's LFO and the Tape Echo's times follow the
   loop's tempo, which every new reading sets. Their changes glide.
 - **Random** sets every setting at random but the output levels and the
@@ -33,10 +32,9 @@ what each one does, and every setting it has.
   effect's settings; a sound is all the chains. [A variation or a
   sound?](standalone.md#a-variation-or-a-sound) says which to use when.
 - **Feedback** stops at 90 % on every effect that has it, and what goes
-  round is softened, so nothing can run away.
+  round is softened or filtered, so nothing can run away.
 - **Footswitches.** In MIDI MAP mode, map a switch on your controller to
-  an effect's square, any of its settings, Random or Reset. A second Dual
-  Delay gets entries of its own.
+  an effect's square, any of its settings, Random or Reset.
 
 megalooper's own sound, before you keep one of yours, has the instrument's four
 in its instrument chain and the loop's three in its loop chain, in that order,

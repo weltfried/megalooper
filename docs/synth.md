@@ -46,15 +46,14 @@ The **Sequence** row says how the steps run:
 - **Swing**: every second step late, up to half a step. 0 plays them
   straight.
 
-The **Key** row sets the notes the pitches play: the **Scale** switch, the
-**root**, the **scale** and the line's **Octave**. [The key and the
-scales](#the-key-and-the-scales) has the details.
-
 ## The key and the scales
 
 ![The key row](images/synth-key.png)
 
 *Fig: The Key row on the Synth view: Scale on, C minor, octave 0.*
+
+The **Key** row sets the notes the pitches play: the **Scale** switch, the
+**root**, the **scale** and the line's **Octave**.
 
 ### How a pitch becomes a note
 
@@ -203,10 +202,12 @@ lengths drift against each other: five pitches over a sixteen-step rhythm
 come round in a different place every bar, and a seven-step velocity lane
 puts the accents somewhere new each time.
 
-Each lane has its tools: **Random** draws every step of its span within the
-lane's range, **◀** and **▶** move its steps one earlier or later (the end
-coming round), **▲** and **▼** move every value one up or down, and
-**Reset** puts the lane back to its default.
+Each lane has its tools: **Random** draws every step of its span at random:
+pitches −12 to 12, octaves −1 to 1, velocities 67 to 127, lengths 40 to 100,
+shifts 0 to 30, ratchets 0 to 2 and conditions −4 to 4. **◀** and **▶**
+move its steps one earlier or later (the end coming round), **▲** and **▼**
+move every value one up or down, and **Reset** puts the lane back to its
+default.
 
 ## The Wave synth
 
@@ -306,6 +307,7 @@ of these and move a knob or press a switch (see
 - the switch, **Random sound** and **Reset sound**;
 - the sequence's **Rate**, **Swing**, **root** and **scale**;
 - every setting of the Wave synth;
+- the **Synth** strip's level and mute;
 - **Show Synth**, the view itself, in the MIDI map's list on Setup.
 
 ## AI apps

@@ -21,8 +21,8 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   overdubs shifted by your measured round-trip latency so they land in time.
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
   with presets.
-- **Effect chains (SA).** Chains for your instrument, the loop and the drums, and
-  for a bass on a second input, with seven built-in effects and your VST2
+- **Effect chains (SA).** Chains for your instrument, the loop, the drums and
+  the synth, and for a bass on a second input, with seven built-in effects and your VST2
   and VST3 plugins. Add, drag and remove effects while a loop plays. Random
   throws new settings at an effect, and a variation keeps the ones you like.
   A sound is one file: the chains, every setting and each plugin's state.
@@ -41,7 +41,9 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   dubbier echo, and hear it at once; one click reverts it. Off until you
   switch it on. See [AI apps](docs/ai.md).
 - **MIDI.** Every control can be mapped to your controller by clicking it and
-  moving a knob. MIDI clock and transport go out to other gear.
+  moving a knob. MIDI clock and transport go out on macOS's IAC bus, for
+  other apps on the Mac, when the IAC Driver is switched on in Audio MIDI
+  Setup.
 - **Records the set.** The audio of a whole set and a log of everything
   pressed, into `sessions/`.
 
@@ -129,12 +131,18 @@ folder:
 |---|---|
 | `profiles.scd` | Your own rigs, beside megalooper's saSystem ([Rigs and routing](docs/routing.md#adding-a-rig)) |
 | `bbcut/`, `granular/` | The cutter's and the grains' presets |
-| `midi/` | Your MIDI maps |
+| `midi/`, `midi/backups/` | Your MIDI maps, and the last five versions of each that **Keep** wrote over |
 | `sa/kept.json`, `sa/sounds/` | The sound a boot starts with, and the sounds you saved |
 | `sa/drum-presets/`, `sa/kept-drums/` | The drums' presets, and the drums a boot starts with |
 | `sa/synth-presets/`, `sa/kept-synth/`, `sa/wavetables/` | The synth's presets, the synth a boot starts with, and your wavetables |
 | `sa/plugins/` | The list of plugins megalooper found |
+| `settings.json` | Your choices: the MIDI map each rig uses, which MIDI inputs megalooper listens to, the theme, the help lines, AI apps on or off |
+| `calibration.json` | What the Calibrate view found, per rig |
 | `remote.json`, `remote/` | While AI apps are let in: how one reaches megalooper ([AI apps](docs/ai.md)) |
+| `megalooper.mcpb` | The Claude Desktop extension, made when you press **Install in Claude Desktop** |
+
+The launcher keeps the rig and the buffer you last picked in
+`~/Library/Application Support/SuperCollider/megalooper-launcher.txt`.
 
 Recorded sets go to `sessions/` in this folder, which git ignores.
 

@@ -1,4 +1,4 @@
-# Megalooper SA: megalooper on its own
+# Megalooper SA
 
 Megalooper SA plays the instrument's effects, the bass's, the loop's effects,
 the drums and the synth itself. This guide covers the effect chains, sounds and
@@ -7,53 +7,25 @@ manual](manual.md) says.
 
 ## Starting it
 
-Pick a rig whose profile has SA switched on:
+Megalooper SA plays on these rigs:
 
-- **saSystem**, megalooper's own and the one the launcher offers first, uses
-  the system's input and output, with your instrument on input 1 and the mix on
-  outputs 1 and 2. Nothing about your interface is changed.
-- A profile of your own in `profiles.scd`, for an interface with more
-  channels, a bass, or a fixed sample rate: [Rigs and
-  routing](routing.md#adding-a-rig) says how to write one.
+- **saSystem**, the one the launcher offers first, plays your instrument from
+  the system's input 1 and the mix on outputs 1 and 2 ([Rigs and
+  routing](routing.md)).
+- A profile of your own in `profiles.scd` suits an interface with more
+  channels, a bass or a fixed sample rate ([Rigs and
+  routing](routing.md#adding-a-rig)).
 
-**A bass.** A rig of yours with a bass on its own input says so in its
-profile: `bassChannel: 1` for input 2. The bass then plays through its own chain, the **BASS** row on the FX view, onto a strip of
-its own: **Bass** under Levels on Setup's Rig page and on Perform, with a MIDI
-target for its level and its mute. Recording the set (Record set) writes it
-as a stem of its own (`-bass.wav`). The loop records the instrument only; looping
-the bass is not there yet. saSystem has no bass input, because on a laptop
-input 2 is the microphone.
+A rig of yours can have a bass on its own input ([A bass](routing.md#a-bass)):
+it plays through its own chain, the **BASS** row on the FX view.
 
 Then open the **FX** view (key **3**) for the effects. The drums have a view
-of their own, **Drums** (key **4**).
+of their own, **Drums** (key **4**), and the synth, **Synth** (key **7**).
 
 **Set the latency once.** saSystem assumes 30 ms for the way out and back in.
-Run the round-trip step on the Calibrate view ([Calibrate](#calibrate)), or
-overdubs will land late or early.
-
-## Calibrate
-
-Once per rig, open **Calibrate** (key 6, or from Setup's Rig page). It has
-four steps:
-
-1. **Check the rig.** What megalooper found: the interface, its rate and
-   block size, and whether VSTPlugin is there.
-2. **Input level.** Press Measure and play hard for eight seconds. Turn the
-   interface's input gain until the loudest hit comes in between -12 and
-   -3 dBFS. Too quiet and soft notes go unnoticed; clipped and every hit
-   looks the same.
-3. **Onset threshold.** Set it on Setup's Analysis page while you
-   play, then press Done.
-4. **Overdub round trip.** Stop the loop. With an interface, patch a cable
-   from output 1 into the instrument input (the instrument is muted while it
-   measures, so there is no feedback); on a computer's own speakers and
-   microphone there is nothing to patch. Press Measure, then Apply. If it
-   cannot be measured, set Overdub latency by ear on Setup's Rig page and
-   press **Start with this**.
-
-What you apply is kept for that rig in `calibration.json` in your megalooper
-folder, and every start begins with it. **Forget** on the Calibrate view goes
-back to the rig's own numbers.
+Run the round-trip step on the Calibrate view
+([Calibrate](manual.md#calibrating-the-rig--the-wizard)), or overdubs will
+land late or early.
 
 ## The chains
 
@@ -63,6 +35,8 @@ back to the rig's own numbers.
 - **The loop chain** plays the recorded loop.
 - **The drums chain** plays the drums' steps, before their reverb. It starts
   empty. The onset kit does not pass through it.
+- **The synth chain** (the **SYNTH** row, last) plays the synth's notes,
+  before the Synth strip. It starts empty.
 
 Each chain is a row of tiles, played left to right.
 
@@ -75,26 +49,25 @@ Each chain is a row of tiles, played left to right.
 | Edit an effect | Click its tile: its settings appear below |
 | Switch it on or off | Click the square in its tile's corner (■ on, □ off), or press its footswitch. A click anywhere else on the tile never changes the sound |
 | Add an effect or a plugin | Press **+** at the end of the chain |
-| Move an effect | Drag its tile along the chain, or onto the other chain. Esc lets go |
+| Move an effect | Drag its tile along the chain, or onto another chain. Esc lets go |
 | Move or remove it by menu | Click its tile, then press **⋯** |
 | Put a setting back to its default | Double-click it, or **Reset** for the whole effect |
 | Keep an effect's settings | Type a name beside **Save variation**, under the effect's title, and press it. The variation holds every setting, and the menu beside it lists it for every effect of that type (both Delays, say). The same name again replaces it; **Delete:** in the menu removes it |
-| Try out a random sound | **Random** beside Reset: every setting of the effect at a random value. Output levels (and the Envelope Filter's Makeup) stay where they are, and **Reset** brings the starting values back. Random and Reset are also MIDI targets, so a footswitch can draw a new sound |
+| Try out a random sound | **Random** beside Reset: every setting at a random value. **Reset** brings the starting values back |
 | Undo an edit | Cmd+Z. Shift+Cmd+Z redoes |
 
 Edits are safe while a loop plays: the chain cross-fades to its new order.
 An effect brought back by Undo keeps its settings.
 
-The built-in effects are Pitch Shift, Dual Delay, Envelope Filter, Pitch
-Loops, Tape Echo, Drive and Crusher. You can add any of them more than once.
 [The effects](effects.md) says what each one does, with every setting.
 
 ### Variations
 
 Each effect's menu lists the variations megalooper ships (Dual Delay, Envelope
 Filter, Pitch Loops, Drive and Crusher have some), then yours, marked
-**· yours**. A shipped variation sets only some of the settings; one of yours
-sets them all. Yours are kept in `sa/fx-variations.json` in your megalooper
+**· yours**. Each shipped list starts with **as saved**: the settings the
+shipped variations move, back at their starting values. A shipped variation
+sets only some of the settings; one of yours sets them all. Yours are kept in `sa/fx-variations.json` in your megalooper
 folder, apart from the sounds; a shipped variation's name cannot be taken for
 one of yours.
 
@@ -104,11 +77,14 @@ A sound is all the chains as one file: which effects in which order, every switc
 and setting, and each plugin's own state.
 
 - **Save and recall.** The bar above the chains saves the sound under a name
-  and recalls it from the menu. A recall with the same effects changes only
-  settings and never flips a switch. One with other effects rebuilds the
-  chains, also while a loop plays.
-- **Start with this** makes this sound the one megalooper starts with. A dot on the
-  tile means something is not kept yet.
+  and recalls it from the menu. A recall never flips the switch of an effect
+  already in a chain. With the same effects it changes only settings. With
+  other effects it rebuilds the chains, also while a loop plays, and an
+  effect it adds comes in on or off as saved.
+- **Start with this** makes this sound the one megalooper starts with, every
+  switch included. A dot on **Start with this** means something is not kept
+  yet. A dot after an effect's name means one of its settings is off its
+  starting value.
 - **While a loop plays, a plugin's own sound is not written.** Writing it
   would silence the plugin for a moment. megalooper keeps the chains and says
   so; stop the loop and press again to keep the plugin's sound too.
@@ -129,7 +105,7 @@ effect's settings. A sound is everything on the FX view.
 | --- | --- | --- |
 | What it holds | The settings of one effect | Every chain: which effects, in which order, each switch, every setting, and each plugin's own state |
 | Where it applies | Any effect of its type: a Dual Delay variation is in both Delays' menus | All the chains at once |
-| On and off | Leaves the effect on or off as it was | Sets every switch |
+| On and off | Leaves the effect on or off as it was | Leaves the switches as they are; an effect the sound adds comes in as saved. **Start with this** keeps every switch for the next start |
 | Plugins | Built-in effects only. A plugin keeps its own presets in its window | Holds each plugin's state |
 | Saved and recalled | **Save variation** and the menu under the effect's title | The bar above the chains |
 | Kept in | `sa/fx-variations.json` | `sa/sounds/`, one file per sound |
@@ -139,8 +115,9 @@ in any sound: a delay time that suits a song, a filter that sweeps the way
 you like, a drive for loud parts. Pick one, then turn the knobs on from there.
 
 **Use a sound** for the whole setup of a song or a part of the set: which
-effects are in, in which order, which are switched on, the amp plugin and
-how it is dialled in. Recalling a sound sets all of that at once.
+effects are in, in which order, the amp plugin and how it is dialled in.
+Recalling a sound sets all of that at once, except the switches: those stay
+as you left them.
 
 **They work together.** A sound keeps the values of every setting, not the
 name of the variation they came from. Recalling a variation changes the
@@ -196,7 +173,9 @@ post window or in `~/Library/Logs/megalooper.log`.
 
 What to expect:
 
-- **Effects only.** Instruments are not listed. Audio Units are not hosted.
+- **Effects only here.** Instruments are not on the + menu: the Synth view's
+  **Instrument** menu plays them ([The synth](synth.md#a-vst-instrument)).
+  Audio Units are not hosted.
 - **Intel-only plugins are greyed.** megalooper does not use VSTPlugin's
   bridge yet.
 - **A plugin that adds delay is held back.** With more than 64 samples of
@@ -220,10 +199,11 @@ These are free and come as VST3. None of them was tested with megalooper:
 
 ## MIDI
 
-Every switch, every knob and each effect's Reset can be mapped: press
-**MIDI MAP** in the top bar, click the control, and move a knob or press a
-switch on your controller. A second Dual Delay gets its own entries.
-[The manual](manual.md#midi) has the details.
+In MIDI MAP mode every built-in effect's switch, its settings, **Random** and
+**Reset** can be mapped; a second Dual Delay gets entries of its own. A
+plugin's switch and knobs cannot: a footswitch reaches inside a plugin
+through its eight sends (below). [The manual](manual.md#midi) has the
+details.
 
 ### A footswitch for something inside a plugin
 
@@ -238,8 +218,6 @@ controllers, because megalooper does. So megalooper sends:
    (CC 20 to 27).
 4. Press **MIDI MAP**, click that number, and press your footswitch.
 
-A plugin's knobs cannot be mapped yet.
-
 ## On a slower computer
 
 - **Switch off what you don't play.** Once it has faded out, a switched-off
@@ -251,6 +229,8 @@ A plugin's knobs cannot be mapped yet.
   chain stop a second after the last drum has rung out, and the next hit
   wakes them. While a device on the drums' chain is on, the reverb stays
   awake for it.
+- **No room, no new effect.** Past 85 % CPU at its peak, or with the
+  effects' memory full, megalooper refuses to add an effect and says why.
 - **A bigger buffer.** If you hear clicks or gaps, pick 256 frames under
   **Buffer** in the launcher. At 48 kHz that adds about 5 ms each way, so run
   the round-trip step on the Calibrate view again afterwards.
@@ -260,7 +240,7 @@ A plugin's knobs cannot be mapped yet.
 ## When something is wrong
 
 - **The status line** under the chains names a plugin that failed, is
-  missing or is held back.
+  missing or is held back, and drum hits that had to be dropped.
 - **Copy diagnostics**, at the end of the **⋯** menu, puts megalooper's
   state on the clipboard: versions, the chains, each plugin's state. Paste it
   into a bug report.

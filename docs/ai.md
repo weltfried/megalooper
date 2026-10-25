@@ -27,9 +27,12 @@ nothing waits for a bar line.
 | **The synth** | The note sequence and the Wave synth's settings | Both, and the sequencer on or off; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
 
-Changing needs Megalooper SA, where megalooper hosts the drums, the synth
-and the effects ([Megalooper SA](standalone.md)). On a rig without it, the
-AI can only read the loop.
+It cannot change the loop, the Cutter, the Grains, the mixer, the drums'
+onset kit, Repeats, reverb or trims, or the MIDI map.
+
+Every change needs Megalooper SA (`sa: true`, as `saSystem` has), where
+megalooper hosts the drums, the synth and the effects
+([Megalooper SA](standalone.md)).
 
 **Plugins stay yours.** The AI may move a plugin in its chain and switch it
 on or off. It cannot add one, remove one, or touch the plugin's own
@@ -140,6 +143,8 @@ small files in `remote/`, beside it, in megalooper's folder
 - **Seven built-in effects.** It works with the effects megalooper has
   (Pitch Shift, Dual Delay, Envelope Filter, Pitch Loops, Tape Echo, Drive,
   Crusher), in any chain.
+- **Chain names.** The AI calls the Instrument chain `guitar`; ask for "the
+  instrument chain" and it will find it.
 
 ## When it does not connect
 

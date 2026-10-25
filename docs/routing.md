@@ -26,17 +26,19 @@ Channels are counted from 0: input 1 of the interface is channel 0.
 | `inChannelCount` | `2` records both sides of the instrument chain, so its stereo effects reach the loop |
 | `analysisChannel` | Optional: the one input the onset and pitch detection listens to. See [The analysis tap](#the-analysis-tap) |
 | `bassChannel` | Optional: a bass on an input of its own, with a chain and a strip of its own. See [A bass](#a-bass) |
-| `sa`, `live` | `sa: true, live: false`: Megalooper SA, with its mixer, effect chains, drums and synth |
+| `sa`, `live` | `sa: true, live: false`, both: Megalooper SA, with its mixer, chains, drums and synth. Leave `live: false` out and the Rig page shows controls meant for another setup, and the start runs checks it does not need |
 | `memSize` | `65536`: the memory the effects' delay lines need |
 | `sampleRate`, `setSampleRate` | Optional: the rate the rig is wired for. With `setSampleRate: true` the device is switched to it before the start |
 | `hardwareBufferSize` | Optional: the block size to start with, in frames. Smaller is a shorter round trip and more work for the computer |
 | `midiMap` | Optional: the MIDI map the rig starts with, by name |
 | `latencyMs`, `onsetThreshold`, `onsetNoteOffsetMs` | The rig's starting timing values. See [The calibrated values](#the-calibrated-values) |
+| `chainRecOffsetMs` | Optional: where **Rec next loop** starts recording, in ms, so a chained loop is not rotated in its buffer. Measured with `scripts/check-chain-align.scd` |
 | `members` | Optional, for an aggregate device: the devices it should hold, so the preflight can name one that is missing |
 
 The loop's output, the master and the recording need no channels of yours:
 Megalooper SA places them itself. The mix leaves on outputs 1 and 2, and
-**Record set** records that mix as it leaves.
+**Record set** records that mix as it leaves. **Rec next loop** records your
+instrument plus the loop after its effects.
 
 ## The analysis tap
 
@@ -73,7 +75,7 @@ the microphone.
 
 ## Boot-time guards
 
-Several checks run before every start, because each of these failures is
+These checks run before every start, because each of these failures is
 silent otherwise:
 
 - **Device present.** If the profile's device is missing, SuperCollider would
@@ -82,15 +84,9 @@ silent otherwise:
   device there is. Names match leniently (either one contained in the other),
   because SuperCollider shortens long and non-ASCII names: it lists
   "Das Zwölfer Microphone" as "Das Zwölfer Microphon".
-- **Analysis and bass channels sane.** Each must be an input the device
-  actually has. Past the inputs, a channel reads one of megalooper's own busses,
-  so a tap out of range would feed the looper's output back into the onset
-  detection.
 - **Sample rate.** On `saSystem` the default input and output must run at the
-  same rate, or SuperCollider refuses to start; megalooper names both and
-  `python3 tools/coreaudio.py match-default-rates` makes them agree. A rig that
-  declares `sampleRate` is warned when the device runs at another one, or
-  switched first with `setSampleRate: true`.
+  same rate, or SuperCollider refuses to start: megalooper names both, and
+  [Configuration](manual.md#configuration) says how to make them agree.
 
 ### The device preflight
 
@@ -111,7 +107,7 @@ install). Run it again at any time:
 | Finding | What it means | Result |
 | --- | --- | --- |
 | Fewer channels than `numChans` | A member has dropped out, and the rig's inputs and outputs cannot all exist | **Stops**, listing which expected members CoreAudio can still see |
-| Fewer channels than `numInChans` | Only the input above `numChans` is gone | **Goes on**: the tap is switched off and onset detection listens to the recorded input, and says so |
+| Fewer channels than `numInChans` | Only the input above `numChans` is gone | **Goes on**: the tap is switched off and onset detection listens to the recorded input, and says so; the bass too, if its input is gone |
 | Device rate ≠ profile rate | The aggregate trap, caught before the start instead of after | Warns |
 | A `members` entry not present | The channel count still fits, so the other members have **shifted down**: every channel above the gap is now something else | Warns |
 | A member at a different rate from the aggregate | CoreAudio is resampling it, the usual cause of an aggregate that works until it doesn't | Warns |
@@ -159,8 +155,11 @@ Some interfaces come up at 44.1 kHz when plugged in on their own.
 64 frames, a round trip of about 9 ms on a good interface.
 
 `./tools/run-checks.sh quick` checks your rigs with megalooper's own: a
-channel outside the device, a bass on the instrument's input or the tap, a
-bass on a rig without SA, a timing value outside its control.
+channel outside the inputs the profile opens, a bass on the instrument's input
+or the tap, a bass on a rig without SA, a timing value outside its control.
+The analysis tap and the bass must each be an input the profile opens. Past
+the inputs, a channel reads one of megalooper's own busses, so a tap out of
+range would feed the looper's output back into the onset detection.
 
 ### The calibrated values
 
@@ -169,6 +168,7 @@ bass on a rig without SA, a timing value outside its control.
 | `latencyMs` | How far back an overdub is written, so it lands where you played it. 0 to 100 ms | Measured by the Calibrate view's round-trip step, or by ear ("Overdub latency" on Setup's Rig page) |
 | `onsetThreshold` | How loud an attack must be to count as an onset. Defaults to 0.5 | The Calibrate view's threshold step, on Setup's Analysis page |
 | `onsetNoteOffsetMs` | When the onset notes are played, so they sit on the loop. Defaults to 0 | By ear ("Offset" under onset notes on Setup's Analysis page) |
+| `chainRecOffsetMs` | Where **Rec next loop** starts recording, so a chained loop is not rotated in its buffer. Defaults to 0; `saSystem` has 20 | Measured with `scripts/check-chain-align.scd`; the Calibrate view does not measure it |
 
 They belong to the rig because they measure its paths: a number calibrated on
 one interface is wrong on the next. The profile gives the **starting** value.

@@ -32,6 +32,10 @@ The script:
 On another distribution, install SuperCollider, sc3-plugins, git, Python 3
 and a JACK (PipeWire's or JACK 2) yourself, then run the script.
 
+Without sc3-plugins the script stops: megalooper's classes don't compile
+without it. `./tools/install.sh --help` lists its options (`--yes` installs
+without asking).
+
 ### Which SuperCollider your distribution ships
 
 megalooper is built and tested on SuperCollider 3.14.1. With an older one
@@ -120,8 +124,8 @@ SuperCollider's server speaks JACK. With `pipewire-jack`, PipeWire answers.
 - **Your files** are in `~/.local/share/SuperCollider/megalooper/`.
 - **Keys.** Where a guide says Cmd, use Ctrl: Ctrl+M for MIDI MAP, Ctrl+Z to
   undo a chain edit.
-- **MIDI clock out is off.** megalooper sends it to macOS's IAC bus. MIDI
-  in, and the MIDI map, work through ALSA.
+- **No MIDI clock out.** On a Mac it goes to the IAC bus, which Linux has
+  not. MIDI in and the MIDI map work through ALSA.
 - **A rig for your interface.** megalooper cannot pick an interface by name
   on Linux: JACK or PipeWire has it. Write a profile with
   `device: \systemDefault` and your channel numbers
@@ -132,8 +136,12 @@ SuperCollider's server speaks JACK. With `pipewire-jack`, PipeWire answers.
   VSTPlugin has to be built from
   [its source](https://git.iem.at/pd/vstplugin). BIAS FX 2 is not made for
   Linux.
-- **Copy diagnostics** needs `wl-copy` (the package `wl-clipboard`) or
-  `xclip`. Without one, the text goes to the log.
+- **AI apps.** There is no **Install in Claude Desktop** button. Any MCP app
+  works through **Copy config**, which runs `tools/megalooper-mcp.py` with
+  your `python3` (3.9 or later) ([AI apps](ai.md)).
+- **Copy diagnostics** and **Copy config** need `wl-copy` (`wl-clipboard`),
+  `xclip` or `xsel`. Without one, the diagnostics go to the log, and the
+  config is the one shown in [AI apps](ai.md).
 - **Drums.** The Drums view shows a note until one kit has its samples.
   There is no Ableton Live on Linux, so copy the kit folders you exported on
   a Mac (`presets/sa/drums/kits/<kit>/`, beside each kit's `.json`), or

@@ -32,8 +32,7 @@
         { "file": "README.md", "heading": "## What you need" },
         { "file": "README.md", "heading": "## Install" },
         { "file": "README.md", "heading": "## First run" },
-        { "file": "docs/manual.md", "heading": "## Running", "unwrap": true, "introTitle": "Running" },
-        { "file": "README.md", "heading": "## Where your files are" }
+        { "file": "docs/manual.md", "heading": "## Running", "unwrap": true, "introTitle": "Running" }
       ]
     },
     {
@@ -137,7 +136,7 @@
       "n": 16, "slug": "midi", "title": "MIDI and mapping", "group": "CONNECT", "rig": "every",
       "sources": [
         { "file": "docs/manual.md", "heading": "### MIDI", "unwrap": true },
-        { "file": "docs/standalone.md", "heading": "## MIDI", "part": "intro", "title": "On Megalooper SA" },
+        { "file": "docs/standalone.md", "heading": "## MIDI", "part": "intro", "title": "Effects and plugins" },
         { "file": "docs/midi-maps.md" }
       ]
     },
@@ -151,8 +150,7 @@
       "n": 18, "slug": "calibrating", "title": "Calibrating the rig", "group": "REFERENCE", "rig": "every",
       "sources": [
         { "file": "docs/manual.md", "heading": "## Calibrating the rig — the wizard", "unwrap": true },
-        { "file": "docs/manual.md", "heading": "## Calibrating overdub latency" },
-        { "file": "docs/standalone.md", "heading": "## Calibrate", "title": "Calibrating Megalooper SA" }
+        { "file": "docs/manual.md", "heading": "## Calibrating overdub latency" }
       ]
     },
     {
