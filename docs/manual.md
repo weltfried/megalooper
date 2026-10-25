@@ -12,16 +12,26 @@ it is about that rig.
 
 ## Configuration
 
-Audio routing is chosen by a **routing profile**: which audio device, how many
-channels, and where your instrument comes in. Pick it in the Desktop launcher's
-menu.
+Choose the audio in the Desktop launcher, before you start:
 
-megalooper ships one, **`saSystem`**: Megalooper SA, with its effect chains,
-drums and synth, on the system's default input and output, your instrument on
-input 1 and the mix on outputs 1 and 2. It names no device: SuperCollider
-opens whatever CoreAudio is currently defaulting to, so it is right on any Mac
-with nothing to set up. From the editor it is one line in
-`scripts/setup-routing.scd`:
+| Menu | What it is |
+|---|---|
+| **Input** | The device your instrument comes in on. **System default** follows the Mac's Sound settings |
+| **Output** | The device the mix plays on, on its outputs 1 and 2 |
+| **Instrument** | The input your instrument is plugged into. The looper records it through the Instrument chain and listens to it dry for the meter |
+| **Bass** | **None**, or the input a bass is plugged into: it gets a chain and a strip of its own ([A bass](routing.md#a-bass)) |
+| **Buffer** | The audio buffer. Bigger stops dropouts on a slower computer, and adds delay |
+
+megalooper keeps your choice in `settings.json` for the next start. A device
+that is not plugged in then gives way to the system's default, and the
+launcher says so. Changing the audio means starting megalooper again.
+
+Behind the menus is megalooper's one **routing profile**, **`saSystem`**:
+Megalooper SA, with its effect chains, drums and synth. With nothing chosen
+it names no device, and SuperCollider opens whatever CoreAudio is currently
+defaulting to, so it is right on any Mac with nothing to set up. From the
+editor it is one line in `scripts/setup-routing.scd`, and the choice made in
+the launcher still applies:
 
 ```supercollider
 ~defaultRoutingProfile = \saSystem;
@@ -29,10 +39,11 @@ with nothing to set up. From the editor it is one line in
 
 Two things to know before the first loop. **Use headphones**: the looper plays
 back while it records, so built-in mic into built-in speakers is a feedback
-loop. And **the default input and output must run at the same sample rate** —
+loop. And **the input and output must run at the same sample rate** —
 scsynth refuses to boot otherwise, and a stock Mac often has the microphone at
 44.1 kHz and the speakers at 48 kHz. megalooper checks this before booting,
-names both devices, and there is one command that fixes it:
+names both devices, and for the system's defaults there is one command that
+fixes it (for two devices you chose, set them to one rate in Audio MIDI Setup):
 
 ```bash
 python3 tools/coreaudio.py defaults             # do they agree?
@@ -45,8 +56,11 @@ counts (`list`), shows one in full (`inspect`), and cross-checks every reading
 against `system_profiler` (`selftest`). `list` output is the right thing to
 paste into a bug report.
 
-**Rigs of your own** go in `profiles.scd` in your megalooper folder, never in
-the repository, and the launcher offers each beside `saSystem`.
+**Rigs of your own** are for what the menus do not offer: an aggregate
+device, a sample rate switched before the start, several fixed setups. They go
+in `profiles.scd` in your megalooper folder, never in the repository, and the
+launcher then shows a **Rig** menu offering each beside `saSystem`, which
+says its own device and inputs.
 [Adding a rig](routing.md#adding-a-rig) says what each field means and how to
 write one.
 

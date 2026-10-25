@@ -105,10 +105,12 @@ library (Cmd+Shift+L).
 and the looper plays while it records.
 
 1. Double-click **megalooper** on the Desktop (or run `./tools/megalooper`).
-2. The launcher offers **saSystem**: Megalooper SA on the system's input and
-   output, with your instrument on input 1 and the mix on outputs 1 and 2. Rigs of
-   your own, for an interface with more channels or a bass, appear
-   beside it once you write them ([Rigs and routing](docs/routing.md#adding-a-rig)).
+2. In the launcher, choose where your instrument comes in and where the mix
+   goes: the **Input** and **Output** devices (System default follows the
+   Mac's Sound settings), the input your **Instrument** is plugged into, and a
+   **Bass** on an input of its own if you have one. The mix plays on the
+   output's 1 and 2. megalooper keeps your choice for the next start.
+   ([Audio routing](docs/routing.md))
 3. Press **Start megalooper** and wait for the window. On a slower computer
    that clicks or drops out, pick 256 frames under **Buffer** first.
 4. With the megalooper window in front, press **R** to record, play a
@@ -136,13 +138,14 @@ folder:
 | `sa/drum-presets/`, `sa/kept-drums/` | The drums' presets, and the drums a boot starts with |
 | `sa/synth-presets/`, `sa/kept-synth/`, `sa/wavetables/` | The synth's presets, the synth a boot starts with, and your wavetables |
 | `sa/plugins/` | The list of plugins megalooper found |
-| `settings.json` | Your choices: the MIDI map each rig uses, which MIDI inputs megalooper listens to, the theme, the help lines, AI apps on or off |
+| `settings.json` | Your choices: the audio devices and inputs, the MIDI map each rig uses, which MIDI inputs megalooper listens to, the theme, the help lines, AI apps on or off |
 | `calibration.json` | What the Calibrate view found, per rig |
 | `remote.json`, `remote/` | While AI apps are let in: how one reaches megalooper ([AI apps](docs/ai.md)) |
 | `megalooper.mcpb` | The Claude Desktop extension, made when you press **Install in Claude Desktop** |
 
-The launcher keeps the rig and the buffer you last picked in
-`~/Library/Application Support/SuperCollider/megalooper-launcher.txt`.
+The launcher keeps the rig you last picked in
+`~/Library/Application Support/SuperCollider/megalooper-launcher.txt`; the
+audio settings are in `settings.json`.
 
 Recorded sets go to `sessions/` in this folder, which git ignores.
 

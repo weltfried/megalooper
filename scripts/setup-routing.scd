@@ -115,6 +115,12 @@
     // pool, as on \sa. Both sides of the guitar chain are recorded, as on \sa.
     // No bassChannel: on a laptop the system's input 2 is its microphone. A
     // rig with a bass on input 2 says bassChannel: 1 in a profile of its own.
+    //
+    // audioSettings: true makes these the defaults under what you choose in
+    // the launcher (settings.json's "audio": the input and output devices,
+    // the instrument's and the bass's inputs, the buffer): ~audioProfile
+    // below turns the two into the profile the boot uses. With nothing
+    // chosen it is the system's default input and output, as written here.
     saSystem: (
         device: \systemDefault, numChans: 2, numInChans: 2,
         inChannel: 0, outChannel: nil, returnChannel: nil,
@@ -122,7 +128,7 @@
         sessionChannel: nil,
         inChannelCount: 2, latencyMs: 30, chainRecOffsetMs: 20,
         memSize: 65536,
-        sa: true, live: false)
+        sa: true, live: false, audioSettings: true)
 );
 
 // The tests' rigs (scripts/tests/fixtures/routing-profiles.scd, which the
@@ -226,6 +232,10 @@
         Error("megalooper: unknown routing profile '" ++ profileName
             ++ "'. Known: " ++ ~routingProfiles.keys.asArray.join(", ")).throw;
     };
+    // saSystem: under the audio settings (the launcher's, or settings.json's).
+    if(rp[\audioSettings] == true) {
+        rp = ~audioProfile.(rp, ~launcherAudio ?? { ~audioSettingsRead.() }, ~audioDevicesNow.());
+    };
 
     ~rp            = rp;
     ~audioDevice   = rp[\device];
@@ -241,14 +251,23 @@
     // default OUTPUT — which on a laptop are two different devices, so there is
     // no name to look up and nothing to guard against.
     ~systemDefaultDevice = ~audioDevice == \systemDefault;
-    s.options.device = if(~systemDefaultDevice) { nil } { ~audioDevice };
+    // A pair chosen in the audio settings opens its input and its output
+    // apart (-H "in" "out"); scsynth joins the two itself.
+    if(rp[\inDevice].notNil) {
+        s.options.inDevice = rp[\inDevice];
+        s.options.outDevice = rp[\outDevice];
+    } {
+        s.options.device = if(~systemDefaultDevice) { nil } { ~audioDevice };
+    };
     // Inputs may reach higher than outputs to expose the analysis tap — see the
     // numInChans note on the table above.
     s.options.numInputBusChannels  = rp[\numInChans] ? rp[\numChans];
     s.options.numOutputBusChannels = rp[\numChans];
     ~applyServerOptions.(rp);
 
-    found = ~systemDefaultDevice or: {
+    // The audio settings' devices were looked up already (~audioProfile),
+    // and one not connected gave way to the system's.
+    found = ~systemDefaultDevice or: { rp[\inDevice].notNil } or: {
         ~audioDeviceNames.().any { |d|
             var listed = d.asString, want = ~audioDevice.asString;
             (listed == want) or: { listed.contains(want) } or: { want.contains(listed) }
@@ -417,6 +436,156 @@
     info.detect { |d| ~audioNameMatches.(d[\name], name) }
 };
 
+// ---- The audio settings ------------------------------------------------------
+// docs/dev/audio-settings.md. On saSystem (audioSettings: true) you choose the
+// input and output devices, the instrument's input, the bass's and the buffer
+// in the launcher, rather than writing a profile. They are kept in
+// settings.json as "audio": {"inDevice", "outDevice", "inChannel",
+// "bassChannel", "hardwareBufferSize"}, every one optional, the devices by
+// the name SuperCollider gives them (what -H takes), the inputs counted from 0.
+
+// The devices there are, for the menus and for ~audioProfile: (inputs:,
+// outputs:, each [(name:, channels:)], channels nil where CoreAudio did not
+// say; defaultIn:, defaultOut:, the system's defaults by SuperCollider's
+// name, or nil). Empty off macOS, where JACK or PipeWire chooses.
+~audioDevicesNow = {
+    var info, list, sideOf, defaultOf;
+    if(MegaFiles.isMac.not) { (inputs: [], outputs: []) } {
+        info = ~audioDeviceInfo.();
+        list = { |names, side|
+            (names ? []).collect { |n| (name: n.asString, channels: ~audioDeviceFind.(info, n) !? { |d| d[side] }) }
+        };
+        defaultOf = { |entries, flag|
+            info.detect { |d| d[flag] == true } !? { |d|
+                entries.detect { |e| ~audioNameMatches.(e[\name], d[\name]) } !? { |e| e[\name] } }
+        };
+        sideOf = (inputs: list.((try { ServerOptions.inDevices }), \in),
+            outputs: list.((try { ServerOptions.outDevices }), \out));
+        sideOf.put(\defaultIn, defaultOf.(sideOf[\inputs], \defaultIn));
+        sideOf.put(\defaultOut, defaultOf.(sideOf[\outputs], \defaultOut));
+        sideOf
+    }
+};
+
+// The profile the boot uses: `base` (saSystem) under `audio` (the settings,
+// an Event of the five), against `devices` (~audioDevicesNow's). Never
+// throws, and never refuses: a device not connected gives way to the system's
+// default for that side, an input past the device's inputs to input 1 (the
+// bass's to none), and each is said in the answer's audioNotes. With one side
+// chosen, the other is the system's default by its name; with neither, the
+// profile is the system's default input and output, as saSystem always was.
+// Pure, so the tests hand it their own device lists.
+~audioProfile = { |base, audio, devices|
+    var rp = base.copy, notes = List.new, a = audio ? (), d = devices ? (inputs: [], outputs: []);
+    var pick = { |entries, name| name !? { |n| (entries ? []).detect { |e| ~audioNameMatches.(e[\name], n) } } };
+    var named = { |x| if(x.notNil and: { x.asString.notEmpty }) { x.asString } };
+    var inName = named.(a[\inDevice]), outName = named.(a[\outDevice]);
+    var inDev, outDev, inCount, inCh, bass;
+    if(inName.notNil) {
+        inDev = pick.(d[\inputs], inName);
+        if(inDev.isNil) {
+            notes.add("The input " ++ inName.quote ++ " is not connected: the system's default input instead.");
+            inName = nil;
+        };
+    };
+    if(outName.notNil) {
+        outDev = pick.(d[\outputs], outName);
+        if(outDev.isNil) {
+            notes.add("The output " ++ outName.quote ++ " is not connected: the system's default output instead.");
+            outName = nil;
+        };
+    };
+    if(inName.notNil or: { outName.notNil }) {
+        inDev = inDev ?? { pick.(d[\inputs], d[\defaultIn]) };
+        outDev = outDev ?? { pick.(d[\outputs], d[\defaultOut]) };
+        if(inDev.isNil or: { outDev.isNil }) {
+            notes.add("The system's default " ++ (if(inDev.isNil) { "input" } { "output" })
+                ++ " has no name here: both are the system's defaults.");
+            inName = nil;
+            outName = nil;
+        };
+    } {
+        // Only to count its inputs.
+        inDev = pick.(d[\inputs], d[\defaultIn]);
+    };
+    inCount = inDev !? { |x| x[\channels] };
+    inCh = (a[\inChannel] ? 0).asInteger;
+    if((inCh < 0) or: { inCount.notNil and: { inCh >= inCount } }) {
+        notes.add("The instrument's input " ++ (inCh + 1) ++ " is not on " ++ (inDev !? { |x| x[\name].quote } ? "the input")
+            ++ ": input 1 instead.");
+        inCh = 0;
+    };
+    bass = a[\bassChannel] !? { |b| b.asInteger };
+    if(bass.notNil and: { (bass < 0) or: { bass == inCh } or: { inCount.notNil and: { bass >= inCount } } }) {
+        notes.add(if(bass == inCh) { "The bass's input is the instrument's: no bass this time." } {
+            "The bass's input " ++ (bass + 1) ++ " is not on " ++ (inDev !? { |x| x[\name].quote } ? "the input")
+                ++ ": no bass this time." });
+        bass = nil;
+    };
+    rp[\inChannel] = inCh;
+    rp[\analysisChannel] = inCh;
+    rp[\bassChannel] = bass;
+    rp[\numChans] = 2;
+    rp[\numInChans] = [2, inCh + 1, (bass ? 0) + 1].maxItem;
+    if(inName.isNil and: { outName.isNil }) {
+        rp[\device] = \systemDefault;
+        rp[\inDevice] = nil;
+        rp[\outDevice] = nil;
+    } {
+        rp[\inDevice] = inDev[\name];
+        rp[\outDevice] = outDev[\name];
+        rp[\device] = if(inDev[\name] == outDev[\name]) { inDev[\name] } { inDev[\name] ++ " → " ++ outDev[\name] };
+    };
+    a[\hardwareBufferSize] !? { |n| rp[\hardwareBufferSize] = n.asInteger };
+    rp[\audioNotes] = notes.asArray;
+    rp
+};
+
+// The settings as kept, or () when there are none. settings.json is
+// setup-midimap.scd's (~midiSettingsPath); its numbers come back from
+// parseJSON as strings.
+~audioSettingsKeys = #[\inDevice, \outDevice, \inChannel, \bassChannel, \hardwareBufferSize];
+~audioSettingsRead = {
+    var path = (~midiSettingsPath !? { |f| f.value }) ?? { MegaFiles.userRoot +/+ "settings.json" };
+    var text = if(File.exists(path)) { try { File.readAllString(path) } };
+    var d = text !? { |t| try { t.parseJSON } };
+    var a = if(d.isKindOf(Dictionary)) { d["audio"] };
+    var out = ();
+    if(a.isKindOf(Dictionary)) {
+        a["inDevice"] !? { |x| out[\inDevice] = x.asString };
+        a["outDevice"] !? { |x| out[\outDevice] = x.asString };
+        [\inChannel, \bassChannel, \hardwareBufferSize].do { |k|
+            a[k.asString] !? { |x| if(x.isString.not or: { x.notEmpty and: { x.every { |c| c.isDecDigit or: { c == $- } } } }) {
+                out[k] = x.asInteger } } };
+    };
+    out
+};
+
+// Kept in settings.json (setup-midimap.scd's writer, which keeps everything
+// else there as it was). `sync` waits for the file: the launcher starts the
+// boot right after, and the boot reads the settings again.
+~audioSettingsWrite = { |audio, sync = false|
+    var s = ~midiSettingsNow.(), raw = Dictionary.new, out = Dictionary.new, was = ~midiWriteSync;
+    (s[\raw] ? ()).keysValuesDo { |k, v| raw.put(k, v) };
+    ~audioSettingsKeys.do { |k| audio[k] !? { |v| out.put(k.asString, v) } };
+    raw.put("audio", out);
+    s[\raw] = raw;
+    ~midiWriteSync = sync;
+    protect {
+        ~midiSettingsSave.({ |ok, why| if(ok != true) { ("megalooper: the audio settings were not kept: " ++ (why ? "")).warn } });
+    } { ~midiWriteSync = was };
+};
+
+// The devices a profile plays on, in words: the Rig page's Device row.
+~audioDeviceLabel = { |rp|
+    case
+    { rp.isNil } { "—" }
+    { rp[\inDevice].notNil } {
+        if(rp[\inDevice] == rp[\outDevice]) { rp[\inDevice] } { rp[\inDevice] ++ " → " ++ rp[\outDevice] } }
+    { rp[\device] == \systemDefault } { "System default input and output" }
+    { rp[\device].asString }
+};
+
 // Pre-boot health check for the profile's device. Run it AFTER
 // ~applyRoutingProfile (it reads, and may amend, what that set up) and BEFORE
 // s.boot — channel counts are fixed the moment the server starts.
@@ -426,13 +595,19 @@
 // analysing the recorded input — which is what tap-less rigs have always done —
 // and says so, rather than ending the session over a diagnostic.
 ~checkAudioDevice = { |profileName|
-    var rp    = ~routingProfiles[profileName];
+    // The profile the boot resolved, for the rig it boots: saSystem's comes
+    // from the audio settings and is not the table's.
+    var rp    = (if(profileName == ~routingProfile) { ~rp }) ?? { ~routingProfiles[profileName] };
     var info  = ~audioDeviceInfo.();
     var dev   = ~audioDeviceFind.(info, rp[\device]);
     var wantOut = rp[\numChans];
     var wantIn  = rp[\numInChans] ? rp[\numChans];
     var notes = List.new;
 
+    // What the audio settings could not have as chosen, and what took its place.
+    (rp[\audioNotes] ? []).do { |n| ("!!! megalooper: " ++ n).postln; notes.add(n) };
+
+    if(rp[\inDevice].notNil) { ~checkAudioPair.(rp, info, profileName, notes) } {
     if(rp[\device] == \systemDefault) {
         // No device name to look up — it is whatever CoreAudio is defaulting to.
         // There is exactly one thing worth checking, and it is not the channel
@@ -608,7 +783,35 @@
         };
     };
     };
+    };
     notes.asArray
+};
+
+// The input and output devices the audio settings chose: what they are, and
+// the one thing that stops a pair, two sample rates (scsynth refuses to start
+// on them, as on the system's defaults).
+~checkAudioPair = { |rp, info, profileName, notes|
+    var inDev = ~audioDeviceFind.(info, rp[\inDevice]), outDev = ~audioDeviceFind.(info, rp[\outDevice]);
+    var says = { |d, side| d !? { |x| "  " ++ x[side] ++ (if(side == \in) { " in, " } { " out, " }) ++ x[\rate] ++ " Hz" } ? "" };
+    "".postln;
+    ("megalooper: '" ++ profileName ++ "' on the devices chosen in the audio settings.").postln;
+    ("    in  : " ++ rp[\inDevice] ++ says.(inDev, \in) ++ ", the instrument on input " ++ (rp[\inChannel] + 1)
+        ++ (rp[\bassChannel] !? { |b| ", the bass on input " ++ (b + 1) } ? "")).postln;
+    ("    out : " ++ rp[\outDevice] ++ says.(outDev, \out) ++ ", the mix on outputs 1 and 2").postln;
+    if(inDev.notNil and: { outDev.notNil } and: { inDev[\rate] > 0 } and: { outDev[\rate] > 0 }
+        and: { inDev[\rate] != outDev[\rate] }) {
+        "".postln;
+        "!!! ============== megalooper SAMPLE RATE MISMATCH ==============".postln;
+        ("!!! '" ++ inDev[\name] ++ "' records at " ++ inDev[\rate] ++ " Hz but '" ++ outDev[\name]
+            ++ "' plays at " ++ outDev[\rate] ++ " Hz.").postln;
+        "!!! scsynth does not support that and will REFUSE TO START.".postln;
+        ("!!! In Audio MIDI Setup, set both to the same rate (" ++ outDev[\rate] ++ " Hz, say), or").postln;
+        ("!!!     python3 tools/coreaudio.py set-rate " ++ inDev[\name].quote ++ " --rate " ++ outDev[\rate]).postln;
+        "!!! =============================================================".postln;
+        notes.add("input and output sample rates differ");
+    };
+    if(notes.isEmpty) { "    devices ok".postln };
+    "".postln;
 };
 
 // ---- What LIVE opened ------------------------------------------------------

@@ -101,7 +101,7 @@
         ~guiTitle.("Rig", 24),
         // ---- What is actually connected -----------------------------------
         ~rigRow.("Profile", ~statusProfileLabel = ~guiText.((~routingProfile ? "—").asString, 15, nil, true)),
-        ~rigRow.("Device", ~statusDeviceLabel = ~guiText.(((~rp !? { |r| r[\device] }) ? "—").asString, 15, nil, true)),
+        ~rigRow.("Device", ~statusDeviceLabel = ~guiText.(~audioDeviceLabel.(~rp), 15, nil, true)),
         // Which input the onset/pitch detection listens to. The loop is
         // always RECORDED from the processed guitar on inChannel; this only
         // moves the ANALYSIS onto the guitar's dry hardware input, whose sharp

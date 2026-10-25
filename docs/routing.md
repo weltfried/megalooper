@@ -1,11 +1,17 @@
 # Audio routing
 
-Which audio device megalooper plays on, and where your instrument comes in, is
-a **routing profile**. megalooper ships one, **`saSystem`**: Megalooper SA on
-the system's default input and output, with nothing to set up (the manual's
-[Configuration](manual.md#configuration)). Every other rig is a profile of
-your own, in `profiles.scd` in your megalooper folder, offered in the launcher
-beside `saSystem`: [Adding a rig](#adding-a-rig) says how to write one.
+Which audio devices megalooper plays on, and where your instrument comes in,
+you choose in the launcher: the **Input** and **Output** devices, the input
+your **Instrument** is on, a **Bass** on an input of its own, and the
+**Buffer** (the manual's [Configuration](manual.md#configuration)). They are
+kept in `settings.json` and make megalooper's routing profile, **`saSystem`**,
+the one the rest of this page calls a profile: with nothing chosen it is the
+system's default input and output.
+
+Every other rig is a profile of your own, in `profiles.scd` in your megalooper
+folder, for what the menus do not offer: an aggregate, a sample rate switched
+before the start. The launcher then offers it in a **Rig** menu beside
+`saSystem`: [Adding a rig](#adding-a-rig) says how to write one.
 
 A profile drives the audio device, the server's channel count, the input the
 looper records, the input the analysis listens to, and the starting values of
@@ -66,12 +72,14 @@ the same input the instrument comes in on.
 
 ## A bass
 
-`bassChannel: 1` says a bass is on the interface's input 2. Megalooper SA plays
-it through the bass chain (the **BASS** row on the FX view) onto a strip of its
-own, **Bass** under Levels on Setup's Rig page and on Perform, and **Record
-set** writes it as a stem of its own. The looper does not record it. Leave it
-out on a rig without a bass; `saSystem` has none, because on a laptop input 2 is
-the microphone.
+**Bass: Input 2** in the launcher (in a profile of yours, `bassChannel: 1`)
+says a bass is on the interface's input 2. Megalooper SA plays it through the
+bass chain (the **BASS** row on the FX view) onto a strip of its own, **Bass**
+under Levels on Setup's Rig page and on Perform, and **Record set** writes it
+as a stem of its own. The looper does not record it. **None** is the start:
+on a laptop input 2 is the microphone. The bass's input is never the
+instrument's: that would play the instrument twice, and megalooper starts
+without the bass then, saying why.
 
 ## Boot-time guards
 

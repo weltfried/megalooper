@@ -10,14 +10,15 @@ manual](manual.md) says.
 Megalooper SA plays on these rigs:
 
 - **saSystem**, the one the launcher offers first, plays your instrument from
-  the system's input 1 and the mix on outputs 1 and 2 ([Rigs and
-  routing](routing.md)).
+  the input device and input you choose there, the system's input 1 until you
+  do, and the mix on the output's 1 and 2 ([Audio routing](routing.md)).
 - A profile of your own in `profiles.scd` suits an interface with more
   channels, a bass or a fixed sample rate ([Rigs and
   routing](routing.md#adding-a-rig)).
 
-A rig of yours can have a bass on its own input ([A bass](routing.md#a-bass)):
-it plays through its own chain, the **BASS** row on the FX view.
+A bass can come in on an input of its own, **Bass** in the launcher ([A
+bass](routing.md#a-bass)): it plays through its own chain, the **BASS** row on
+the FX view.
 
 Then open the **FX** view (key **3**) for the effects. The drums have a view
 of their own, **Drums** (key **4**), and the synth, **Synth** (key **7**).

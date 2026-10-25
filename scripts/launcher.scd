@@ -1,18 +1,21 @@
 // megalooper — standalone launcher.
 //
 // The entry point when megalooper is started from the Desktop icon rather than
-// from the SuperCollider IDE. Shows one window: pick a rig, press Start, the
-// looper boots. Build the icon with tools/make-app.sh.
+// from the SuperCollider IDE. Shows one window: choose the audio devices (or a
+// rig of yours), press Start, the looper boots. Build the icon with
+// tools/make-app.sh.
 //
 // Why a launcher at all: ~routingProfile is the one line that has to change per
 // rig, and picking the wrong one aborts the boot with a banner nobody sees when
 // there is no post window. So this asks first, and checks up front whether the
 // profile's audio device is actually plugged in.
 //
-// It sets ~launcherProfile, which boot.scd prefers over its own default, and
+// It sets ~launcherProfile, which boot.scd prefers over its own default,
 // ~launcherBufferSize, the audio buffer in frames (nil: as the rig sets it),
-// which setup-routing.scd prefers over the profile's. Running boot.scd from
-// the IDE is unaffected: both are nil there.
+// which setup-routing.scd prefers over the profile's, and on saSystem
+// ~launcherAudio, the audio settings chosen here (docs/dev/audio-settings.md),
+// also kept in settings.json for the next start. Running boot.scd from the IDE
+// is unaffected: they are nil there, and saSystem reads settings.json.
 //
 // Under the Desktop icon there is no post window — stdout goes to
 // ~/Library/Logs/megalooper.log (see tools/make-app.sh). The status line at the
@@ -25,6 +28,10 @@ var prefsPath = Platform.userAppSupportDir +/+ "megalooper-launcher.txt";
 var profileKeys, deviceOf, presentDevices, isPresent, labelFor;
 var lastUsed, startIdx, saved, lastBuffer;
 var win, menu, bufferMenu, statusText, startButton, setStatus, refresh;
+// The audio settings, on saSystem: the devices there are (devs), what is
+// chosen (audio), and the menus that choose it.
+var devs, audio, usesAudio, audioView, inMenu, outMenu, instMenu, bassMenu, rescan;
+var inEntries, outEntries, audioNow, fillAudioMenus, fillInputs, rigRow;
 // The audio buffer, in frames: nil keeps what the rig sets (64 on the duo's
 // TSMEGA, the device's own on the system's default). More frames give a slow
 // computer more time for each block, so it drops out less, and add as much
@@ -47,6 +54,8 @@ var rosettaNote = if(translated) {
 // boot.scd — load it rather than restating the rigs here, or the two lists
 // drift apart the first time a rig is added.
 (scriptDir +/+ "setup-routing.scd").load;
+// settings.json's reader and writer, where the audio settings are kept.
+(scriptDir +/+ "setup-midimap.scd").load;
 profileKeys = ~routingProfiles.keys.asArray.sort { |a, b| a.asString < b.asString };
 if(translated) { ("megalooper: running under Rosetta." ++ rosettaNote).warn };
 
@@ -54,10 +63,18 @@ if(translated) { ("megalooper: running under Rosetta." ++ rosettaNote).warn };
 // and nothing that can be missing, so it reads as a description instead.
 deviceOf = { |key|
     var dev = ~routingProfiles[key][\device];
-    if(dev == \systemDefault) {
+    case
+    { usesAudio.(key) } { "the audio settings below" }
+    { dev == \systemDefault } {
         if(MegaFiles.isLinux) { "system default (JACK or PipeWire)" } { "system default (built-in audio)" }
     } { dev.asString }
 };
+
+// saSystem takes its devices from the menus below; on Linux JACK or PipeWire
+// chooses, and there are none.
+usesAudio = { |key| (~routingProfiles[key][\audioSettings] == true) and: { MegaFiles.isMac } };
+devs = ~audioDevicesNow.();
+audio = ~audioSettingsRead.();
 
 // Same lenient match the boot guard uses: SC truncates long / non-ASCII device
 // names, so require only that either string contains the other.
@@ -91,7 +108,58 @@ startIdx = profileKeys.indexOf(lastUsed)
     ?? { profileKeys.indexOf(~defaultRoutingProfile) }
     ?? { profileKeys.detectIndex { |k| isPresent.(k) } } ? 0;
 
-win = Window("megalooper", Rect(240, 320, 460, 240)).userCanClose_(true);
+// What the menus say, as the audio settings: the devices by SuperCollider's
+// names (nil the system's default), the inputs counted from 0.
+audioNow = {
+    (inDevice: inEntries[inMenu.value] !? { |e| e[\name] },
+        outDevice: outEntries[outMenu.value] !? { |e| e[\name] },
+        inChannel: instMenu.value ? 0,
+        bassChannel: if((bassMenu.value ? 0) > 0) { bassMenu.value - 1 },
+        hardwareBufferSize: buffers[bufferMenu.value])
+};
+
+// The device menus from `devs`, on what `audio` chose. A device chosen before
+// and not connected now stays in the menu, marked, so the choice is not lost:
+// the start then takes the system's default for that side, and says so.
+fillAudioMenus = {
+    var entries = { |list, saved, default, side|
+        var e = [(name: nil, label: "System default" ++ (default !? { |n| " (" ++ n ++ ")" } ? ""))]
+            ++ (list ? []).collect { |x| (name: x[\name], label: x[\name]
+                ++ (x[\channels] !? { |c| "  ·  " ++ c ++ (if(side == \in) { " in" } { " out" }) } ? "")) };
+        if(saved.notNil and: { (list ? []).any { |x| ~audioNameMatches.(x[\name], saved) }.not }) {
+            e = e ++ [(name: saved, label: "✗  " ++ saved ++ " (not connected)")];
+        };
+        e
+    };
+    var at = { |e, saved| if(saved.isNil) { 0 } { e.detectIndex { |x| x[\name].notNil and: { ~audioNameMatches.(x[\name], saved) } } ? 0 } };
+    inEntries = entries.(devs[\inputs], audio[\inDevice], devs[\defaultIn], \in);
+    outEntries = entries.(devs[\outputs], audio[\outDevice], devs[\defaultOut], \out);
+    inMenu.items = inEntries.collect { |e| e[\label] };
+    inMenu.value = at.(inEntries, audio[\inDevice]);
+    outMenu.items = outEntries.collect { |e| e[\label] };
+    outMenu.value = at.(outEntries, audio[\outDevice]);
+    fillInputs.();
+};
+
+// The instrument's and the bass's menus: the inputs of the input device
+// chosen (two where CoreAudio did not say how many).
+fillInputs = {
+    var chosen = (inEntries[inMenu.value] !? { |e| e[\name] }) ?? { devs[\defaultIn] };
+    var count = (chosen !? { |n| (devs[\inputs] ? []).detect { |x| ~audioNameMatches.(x[\name], n) } !? { |x| x[\channels] } } ? 2).max(1);
+    instMenu.items = Array.fill(count, { |i| "Input " ++ (i + 1) });
+    instMenu.value = (audio[\inChannel] ? 0).clip(0, count - 1);
+    bassMenu.items = ["None"] ++ Array.fill(count, { |i| "Input " ++ (i + 1) });
+    bassMenu.value = (audio[\bassChannel] !? { |b| if(b < count) { b + 1 } }) ? 0;
+};
+
+rescan = {
+    devs = ~audioDevicesNow.();
+    audio = audioNow.();
+    fillAudioMenus.();
+    refresh.();
+};
+
+win = Window("megalooper", Rect(240, 300, 540, 330)).userCanClose_(true);
 
 setStatus = { |str, isError = false|
     statusText.string_(str).stringColor_(
@@ -101,11 +169,22 @@ setStatus = { |str, isError = false|
 // Rescan CoreAudio. Devices come and go while this window is open — plugging
 // the interface in after launching is the normal case, not the exception.
 refresh = {
-    var keep = menu.value;
+    var keep = menu.value, rp;
     menu.items = profileKeys.collect { |k| labelFor.(k) };
     menu.value = keep.clip(0, profileKeys.size - 1);
+    audioView.enabled = usesAudio.(profileKeys[menu.value]);
     if(booted.not) {
-        if(isPresent.(profileKeys[menu.value])) {
+        case
+        { usesAudio.(profileKeys[menu.value]) } {
+            rp = ~audioProfile.(~routingProfiles[profileKeys[menu.value]], audioNow.(), devs);
+            if(rp[\audioNotes].notEmpty) {
+                setStatus.(rp[\audioNotes].join("\n") ++ rosettaNote, true);
+            } {
+                setStatus.("Ready — " ++ ~audioDeviceLabel.(rp) ++ ".\n"
+                    ++ ~routingProfileSays.(profileKeys[menu.value]) ++ rosettaNote);
+            };
+        }
+        { isPresent.(profileKeys[menu.value]) } {
             setStatus.("Ready — " ++ deviceOf.(profileKeys[menu.value]) ++ " is connected.\n"
                 ++ ~routingProfileSays.(profileKeys[menu.value]) ++ rosettaNote);
         } {
@@ -121,33 +200,67 @@ win.layout_(VLayout(
         .font_(Font(Font.defaultSansFace, 22, true))
         .align_(\left),
     StaticText()
-        .string_("Pick the rig you are playing on, then start.")
+        .string_("Choose where your instrument comes in and where the mix goes, then start.")
         .stringColor_(Color.gray(0.4))
         .align_(\left),
-    HLayout(
-        StaticText().string_("Rig:").align_(\right).fixedWidth_(50),
+    // Only with rigs of your own (profiles.scd) beside megalooper's.
+    rigRow = View().layout_(HLayout(
+        StaticText().string_("Rig:").align_(\right).fixedWidth_(80),
         menu = PopUpMenu()
             .canFocus_(false)
-            .toolTip_("Routing profile: which audio device megalooper plays on, and where your\n"
-                "instrument comes in. ✓ = that device is connected right now. Rigs of your own\n"
-                "go in profiles.scd (docs/routing.md).")
-            .action_({ refresh.() }),
-        Button()
-            .canFocus_(false)
-            .fixedWidth_(80)
-            .toolTip_("Re-scan CoreAudio for devices plugged in since this window opened.")
-            .states_([["Rescan"]])
+            .toolTip_("Which rig: megalooper's, on the audio settings below, or one of yours from\n"
+                "profiles.scd (docs/routing.md), which says its own device and inputs.\n"
+                "✓ = that device is connected right now.")
             .action_({ refresh.() })
-    ),
+    ).margins_(0)),
+    audioView = View().layout_(VLayout(
+        HLayout(
+            StaticText().string_("Input:").align_(\right).fixedWidth_(80),
+            inMenu = PopUpMenu()
+                .canFocus_(false)
+                .toolTip_("The device your instrument comes in on. System default follows the Mac's\n"
+                    "Sound settings.")
+                .action_({ audio = audioNow.(); fillInputs.(); refresh.() })
+        ),
+        HLayout(
+            StaticText().string_("Output:").align_(\right).fixedWidth_(80),
+            outMenu = PopUpMenu()
+                .canFocus_(false)
+                .toolTip_("The device the mix plays on, on its outputs 1 and 2.")
+                .action_({ audio = audioNow.(); refresh.() })
+        ),
+        HLayout(
+            StaticText().string_("Instrument:").align_(\right).fixedWidth_(80),
+            instMenu = PopUpMenu()
+                .canFocus_(false)
+                .toolTip_("The input your instrument is plugged into. The looper records it\n"
+                    "through the Instrument chain, and listens to it dry for the meter.")
+                .action_({ audio = audioNow.(); refresh.() }),
+            StaticText().string_("Bass:").align_(\right).fixedWidth_(50),
+            bassMenu = PopUpMenu()
+                .canFocus_(false)
+                .toolTip_("A bass on an input of its own, with a chain and a strip of its own.\n"
+                    "None on a laptop, whose second input is its microphone.")
+                .action_({ audio = audioNow.(); refresh.() })
+        )
+    ).margins_(0)),
     HLayout(
-        StaticText().string_("Buffer:").align_(\right).fixedWidth_(50),
+        StaticText().string_("Buffer:").align_(\right).fixedWidth_(80),
         bufferMenu = PopUpMenu()
             .canFocus_(false)
             .items_(buffers.collect { |n| if(n.isNil) { "as the rig sets it" } { n.asString ++ " frames" } })
             .toolTip_("The audio buffer. On a slower computer a bigger one stops dropouts\n"
                 "(clicks, gaps) and adds delay: 256 frames at 48 kHz are 5 ms each way.\n"
                 "After a change, run the latency step on the Calibrate view,\n"
-                "so that overdubs land in time.")
+                "so that overdubs land in time."),
+        // Out here, not with the audio rows: a rig of yours greys those, and
+        // its device may be the one just plugged in.
+        Button()
+            .canFocus_(false)
+            .fixedWidth_(80)
+            .toolTip_("Look again for devices plugged in since this window opened.")
+            .states_([["Rescan"]])
+            .action_({ rescan.() })
     ),
     HLayout(
         startButton = Button()
@@ -167,12 +280,20 @@ win.layout_(VLayout(
                         // boot.scd reads these in preference to its own defaults.
                         ~launcherProfile = key;
                         ~launcherBufferSize = buffers[bufferMenu.value];
+                        // saSystem's audio settings, kept for the next start
+                        // too, written before the boot reads settings.json.
+                        ~launcherAudio = if(usesAudio.(key)) {
+                            audio = audioNow.();
+                            ~audioSettingsWrite.(audio, true);
+                            audio
+                        };
                         protect { File.use(prefsPath, "w", { |f|
                             f.write(key.asString ++ "\n" ++ (~launcherBufferSize ? "").asString) }) } { };
                         startButton.states_([["Running…", Color.gray(0.35), Color.gray(0.85)]]);
                         startButton.enabled = false;
                         menu.enabled = false;
                         bufferMenu.enabled = false;
+                        audioView.enabled = false;
                         setStatus.("Booting on " ++ key ++ " — windows will open shortly.");
                         // Deferred so this click returns and the label/status
                         // above actually repaint before boot.scd blocks the
@@ -185,6 +306,7 @@ win.layout_(VLayout(
                                     booted = false;
                                     menu.enabled = true;
                                     bufferMenu.enabled = true;
+                                    audioView.enabled = usesAudio.(key);
                                     startButton.enabled = true;
                                     startButton.states_([["Start megalooper",
                                         Color.white, Color.new(0.2, 0.55, 0.3)]]);
@@ -223,7 +345,12 @@ win.onClose = {
 
 menu.items = profileKeys.collect { |k| labelFor.(k) };
 menu.value = startIdx;
-bufferMenu.value = buffers.indexOf(lastBuffer) ? 0;
+// The buffer: the audio settings', else the one this window kept before them.
+bufferMenu.value = buffers.indexOf(audio[\hardwareBufferSize] ? lastBuffer) ? 0;
+bufferMenu.action = { audio = audioNow.(); refresh.() };
+rigRow.visible = profileKeys.size > 1;
+audioView.visible = MegaFiles.isMac;
+fillAudioMenus.();
 refresh.();
 win.front;
 )
