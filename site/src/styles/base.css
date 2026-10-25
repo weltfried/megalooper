@@ -1,6 +1,6 @@
 /* Design tokens and base styles, shared by the homepage and the manual.
-   Light is the manual's default; dark is the homepage's only theme and the
-   manual's other one. Square corners, 1 px rules, no shadows. */
+   Light and dark, switched in either header (ThemeToggle); the manual starts
+   from the system's, the homepage from dark. Square corners, 1 px rules, no shadows. */
 
 :root {
   --bg: #f6f6f3;

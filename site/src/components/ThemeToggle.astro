@@ -1,0 +1,21 @@
+---
+// The light / dark switch, in the homepage's and the manual's headers. The
+// choice is kept in localStorage ('ml-theme') for the whole site; Base.astro
+// reads it before the page paints.
+interface Props { class?: string }
+const { class: cls } = Astro.props;
+---
+<button class={cls} type="button" data-theme-toggle aria-label="Switch between light and dark">◐ <span data-theme-name>light</span></button>
+
+<script>
+  const root = document.documentElement;
+  const show = () => document.querySelectorAll('[data-theme-name]').forEach((el) => {
+    el.textContent = root.dataset.theme === 'dark' ? 'dark' : 'light';
+  });
+  show();
+  document.querySelectorAll('[data-theme-toggle]').forEach((btn) => btn.addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('ml-theme', root.dataset.theme); } catch { /* private window */ }
+    show();
+  }));
+</script>

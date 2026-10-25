@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import Base from '../layouts/Base.astro';
 import Wordmark from '../components/Wordmark.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
 import { chapterHref, GITHUB } from '../lib/manual';
 import '../styles/home.css';
 
@@ -32,10 +33,10 @@ const perform = fs.existsSync('../docs/images/perform.png') ? `${base}docs/image
 
 const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
 ---
-<Base title="megalooper — a live looper that works out the meter from what you played" theme="dark" class="home">
+<Base title="megalooper — a live looper that works out the meter from what you played" firstVisit="dark" class="home">
   <header class="hhead">
     <div class="hhead__in">
-      <Wordmark href="#top" only="dark" />
+      <Wordmark href="#top" />
       <nav aria-label="Sections">
         <a href="#features">Features</a>
         <a href="#meter">How it counts</a>
@@ -44,6 +45,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
         <a href={manual('welcome')}>Manual</a>
         <a href={GITHUB}>GitHub</a>
       </nav>
+      <ThemeToggle class="hhead__theme" />
       <a class="hhead__install btn--solid" href="#install">Install</a>
     </div>
   </header>
@@ -225,13 +227,6 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
           <figcaption class="figcap" style="padding:12px 22px">The FX view's chains, drawn simply. Built-in effects in pink, your plugins in grey with their format. Drag a tile along a chain or onto another one, even while the loop plays: the chain cross-fades to its new order.</figcaption>
         </figure>
 
-        <div class="points">
-          <div><h3>A sound is one file</h3><p>The chains, every switch and setting, and each plugin's own state, saved together and recalled by name. The synth keeps its instrument and the instrument's sound the same way.</p></div>
-          <div><h3>Footswitches inside a plugin</h3><p>An amp sim's scenes, say. megalooper sends the plugin CC 20 to 27 for it to learn, and you map your footswitch to that in MIDI MAP mode.</p></div>
-          <div><h3>Off costs nothing</h3><p>A plugin you switch off stops computing once it has faded out, so a set can carry the plugins it needs only for one song.</p></div>
-          <div><h3>Nothing gets lost</h3><p>A plugin missing on this Mac keeps its place and its state in the sound. One that crashed megalooper is skipped once, and tried again the start after.</p></div>
-        </div>
-
         <div class="goodtoknow">
           <span><b>Good to know:</b> VST2 and VST3 only, no Audio Units. Plugins that report more than 64 samples of delay are held back, and Intel-only plugins are listed but greyed.</span>
           <a href={manual('plugins')}>Chapter 12 · Plugins →</a>
@@ -325,7 +320,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
   <footer>
     <div class="hfoot">
       <div class="hfoot__about">
-        <Wordmark href="#top" only="dark" />
+        <Wordmark href="#top" />
         <p>Built for a guitar and bass duo, and used on stage. GPL-3.0-or-later, the same as SuperCollider.</p>
       </div>
       <nav aria-label="Footer">

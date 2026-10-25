@@ -4,6 +4,7 @@
 import { execSync } from 'node:child_process';
 import Base from './Base.astro';
 import Wordmark from '../components/Wordmark.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
 import { chapters, groups, chapterHref, GITHUB, type ChapterConfig, type Section } from '../lib/manual';
 import '../styles/manual.css';
 
@@ -32,7 +33,7 @@ const titleCase = (g: string) => (g === 'MEGALOOPER SA' ? 'Megalooper SA' : g.ch
         </div>
       </div>
       <div class="mhead__version">main · {month}</div>
-      <button class="mhead__btn" type="button" data-theme-toggle aria-label="Switch between light and dark">◐ <span data-theme-name>light</span></button>
+      <ThemeToggle class="mhead__btn" />
       <a class="mhead__btn mhead__btn--text" href={GITHUB}>GitHub</a>
     </div>
   </header>
@@ -76,17 +77,6 @@ const titleCase = (g: string) => (g === 'MEGALOOPER SA' ? 'Megalooper SA' : g.ch
 
 <script>
   const base = import.meta.env.BASE_URL;
-
-  // Theme: the choice persists; the first visit follows the system.
-  const root = document.documentElement;
-  const nameEl = document.querySelector('[data-theme-name]');
-  const show = () => { if (nameEl) nameEl.textContent = root.dataset.theme === 'dark' ? 'dark' : 'light'; };
-  show();
-  document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
-    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    try { localStorage.setItem('ml-theme', root.dataset.theme); } catch { /* private window */ }
-    show();
-  });
 
   // The rail folds away on a narrow screen, where it sits above the article.
   const rail = document.querySelector<HTMLDetailsElement>('[data-rail]');

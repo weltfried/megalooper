@@ -1,5 +1,6 @@
-/* The homepage. Dark only; sections separated by full-width rules,
-   content centred at 1280 with 24 px sides. */
+/* The homepage. Dark on a first visit, light or dark after the header's
+   switch; sections separated by full-width rules, content centred at 1280
+   with 24 px sides. */
 
 .home a { color: var(--ink); text-decoration-color: var(--dash); }
 .home a:hover { color: var(--loop); text-decoration-color: var(--loop); }
@@ -30,11 +31,14 @@
 .hhead .wordmark { padding-right: 24px; }
 .hhead nav { display: flex; align-items: stretch; flex: 1; overflow-x: auto; scrollbar-width: none; }
 .hhead nav a { display: flex; align-items: center; padding: 0 16px; text-decoration: none; font-size: 15px; white-space: nowrap; }
+.hhead__theme { display: flex; align-items: center; padding: 0 16px; border: 0; background: none; color: var(--ink); font: 500 12px var(--mono); white-space: nowrap; cursor: pointer; }
+.hhead__theme:hover { color: var(--loop); }
 .hhead__install { display: flex; align-items: center; padding: 0 20px; margin: 12px 0; text-decoration: none; font-weight: 500; font-size: 15px; white-space: nowrap; }
 @media (max-width: 640px) {
   .hhead__in { padding: 0 16px; }
   .hhead .wordmark { font-size: 0; letter-spacing: 0; gap: 0; padding-right: 8px; }
   .hhead nav a { padding: 0 10px; }
+  .hhead__theme { padding: 0 10px; }
   .hhead__install { padding: 0 14px; }
 }
 
@@ -70,11 +74,11 @@
 .cells { position: relative; height: 72px; display: flex; background: var(--bg); }
 .cell { flex: 1; position: relative; border-left: 1px solid var(--line); }
 .cell.bar { border-left: 3px solid var(--ink); }
-.cell i { position: absolute; left: 3px; right: 3px; bottom: 0; background: #5a5f66; }
+.cell i { position: absolute; left: 3px; right: 3px; bottom: 0; background: var(--dash); }
 .cell.bar.loud i { background: var(--ink); }
 .cell.past { background: var(--panel2); }
 .cell.now { background: var(--play); }
-.cell.now i { background: #0b0b0c; }
+.cell.now i { background: var(--on-accent); }
 .playhead { position: absolute; top: -5px; bottom: -5px; width: 3px; background: var(--ink); }
 .sband__bars { display: grid; grid-template-columns: 7fr 7fr 7fr 8fr; font: 500 11px var(--mono); color: var(--mute); }
 .sband figcaption, .figcap { padding: 12px 24px; border-top: 1px solid var(--line); font-size: 14px; color: var(--mute); line-height: 1.45; }
@@ -92,8 +96,10 @@
 .stack--48 { gap: clamp(32px, 4vw, 48px); }
 .split { display: flex; flex-wrap: wrap; gap: 20px 64px; justify-content: space-between; align-items: flex-end; }
 .split__main { flex: 1 1 520px; display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
-.card { background: var(--panel); display: flex; flex-direction: column; }
+/* Each card draws its own rule (an outline over the 1 px gap), so a row the
+   cards do not fill stays page-coloured instead of showing the rule's grey. */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 1px; padding: 1px; }
+.card { background: var(--panel); display: flex; flex-direction: column; outline: 1px solid var(--line); }
 .card__bar { height: 8px; }
 .card__in { padding: 22px 22px 26px; display: flex; flex-direction: column; gap: 10px; }
 .card__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }

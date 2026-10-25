@@ -1,6 +1,8 @@
 ---
-// Every page's <head>. `theme="dark"` pins the homepage dark; `auto` lets the
-// manual follow the reader's choice (localStorage 'ml-theme'), else the system.
+// Every page's <head>. `auto` follows the reader's choice (localStorage
+// 'ml-theme', set by ThemeToggle), else `firstVisit`: the system's (the
+// manual) or dark (the homepage, which was designed dark). `dark` and `light`
+// pin a page.
 import '../styles/base.css';
 import sansLight from '../fonts/IBMPlexSans-Light.woff2?url';
 import sansMedium from '../fonts/IBMPlexSans-Medium.woff2?url';
@@ -11,9 +13,10 @@ interface Props {
   title: string;
   description?: string;
   theme?: 'dark' | 'light' | 'auto';
+  firstVisit?: 'system' | 'dark';
   class?: string;
 }
-const { title, description = 'A live looper for SuperCollider that works out the meter from what you played.', theme = 'auto' } = Astro.props;
+const { title, description = 'A live looper for SuperCollider that works out the meter from what you played.', theme = 'auto', firstVisit = 'system' } = Astro.props;
 const base = import.meta.env.BASE_URL;
 // IBM Plex Sans and Plex Mono (SIL Open Font License, src/fonts/OFL.txt), in
 // the design's two weights. They stand in for the app's Nitti Grotesk and
@@ -27,10 +30,13 @@ const fonts = [
 ] as const;
 const fontFaces = fonts.map(([family, url, weight]) =>
   `@font-face{font-family:"${family}";src:url("${url}") format("woff2");font-weight:${weight};font-display:swap}`).join('');
-const themeScript = `(function(){var t;try{t=localStorage.getItem('ml-theme')}catch(e){}if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t})()`;
+const fallback = firstVisit === 'dark' ? `'dark'` : `matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'`;
+const themeScript = `(function(){var t;try{t=localStorage.getItem('ml-theme')}catch(e){}if(t!=='light'&&t!=='dark'){t=${fallback}}document.documentElement.dataset.theme=t})()`;
+// Without JS the page shows its first-visit theme: dark, or the system's.
+const initial = theme !== 'auto' ? theme : firstVisit === 'dark' ? 'dark' : undefined;
 ---
 <!doctype html>
-<html lang="en" data-theme={theme === 'auto' ? undefined : theme}>
+<html lang="en" data-theme={initial}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
