@@ -705,12 +705,12 @@
         var shown = { |paths| paths !? { |p| (p[\master] ? p[\tap]) !? { |x| x.basename } } };
         case
         { l.sessionRecording } {
-            "→ " ++ (shown.(rec.paths) ? "?") ++ (if(l.canRecordMaster) { "" } { " · dry instrument only" })
+            "→ " ++ (shown.(rec.paths) ? "?") ++ (if(l.canRecordMaster) { "" } { " · dry tap only" })
         }
         { rec.notNil and: { rec.startedAt.notNil } } {
             "last: " ++ (shown.(if(rec.settled) { rec.paths } { rec.finalPaths ? rec.paths }) ? "?")
         }
-        { if(l.canRecordMaster) { "master + dry instrument + events" } { "dry instrument + events" } }
+        { if(l.canRecordMaster) { "master + dry tap + events" } { "dry tap + events" } }
     } ? ""
 };
 

@@ -73,6 +73,10 @@ d.setKit(\steps, 'carbon-layer');
 d.setKit(\onset, 'one-hit');
 m.instVarPut(\drums, d);
 ~megaSA = m;
+// What setup-sa.scd does at boot: the recorder's master is SA's own mix, so
+// Record set says "master + dry tap + events" as on the rig.
+~sessionChannel = m.recordInChannel;
+~looper.sessionChannel = ~sessionChannel;
 // A sound to look at: two effects on in each chain.
 [\delay, \filter, \echo, \saturator].do { |k| m.setFx(k, true) };
 
