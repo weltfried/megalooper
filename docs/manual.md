@@ -23,78 +23,49 @@ about that rig.
 
 ## Configuration
 
-Audio routing is chosen by a **routing profile**. Pick it in the Desktop
-launcher's dropdown, or from the editor flip one line in
+Audio routing is chosen by a **routing profile**: which audio device, how many
+channels, and where your instrument, the loop and (on a rig beside Ableton Live)
+Live's channels sit. Pick it in the Desktop launcher's menu.
+
+megalooper ships one, **`saSystem`**: Megalooper SA, with its effect chains,
+drums and synth, on the system's default input and output, your instrument on
+input 1 and the mix on outputs 1 and 2. It names no device: SuperCollider
+opens whatever CoreAudio is currently defaulting to, so it is right on any Mac
+with nothing to set up. From the editor it is one line in
 `scripts/setup-routing.scd`:
 
 ```supercollider
-~defaultRoutingProfile = \standalone;
-// \standalone | \fireface | \loopback | \bhFireface | \bhTsMega | \bhBuiltin
+~defaultRoutingProfile = \saSystem;
 ```
 
-Each profile sets the audio device, server channel count, the SC↔Live channel
-offsets, the dry-guitar analysis tap, recording width, and default
-overdub-latency compensation:
+Two things to know before the first loop. **Use headphones**: the looper plays
+back while it records, so built-in mic into built-in speakers is a feedback
+loop. And **the default input and output must run at the same sample rate** —
+scsynth refuses to boot otherwise, and a stock Mac often has the microphone at
+44.1 kHz and the speakers at 48 kHz. megalooper checks this before booting,
+names both devices, and there is one command that fixes it:
 
-- **`\standalone`** — the default, and the only profile that needs no setup at
-  all. It names no device: SuperCollider opens whatever CoreAudio is currently
-  defaulting to, so it is correct on any Mac. Two channels in and out, the
-  recorded input doubles as the analysis tap (nothing processes it on the way in,
-  so it is already dry), and there is no Ableton Live in the picture.
+```bash
+python3 tools/coreaudio.py defaults             # do they agree?
+python3 tools/coreaudio.py match-default-rates  # make them agree
+```
 
-  What it cannot do, and says so rather than failing quietly: **loop chaining**
-  is off (chaining re-records what Live sends back, and there is no Live — the
-  "Rec next loop" button is disabled with a tooltip), and **MIDI clock** and
-  **Live sync** are inactive unless an IAC bus happens to exist.
+`tools/coreaudio.py` is a standard-library-only CoreAudio bridge — no
+dependencies, no build step. It also lists devices with their real channel
+counts (`list`), shows one in full (`inspect`), and cross-checks every reading
+against `system_profiler` (`selftest`). `list` output is the right thing to
+paste into a bug report.
 
-  Two things to know before the first loop. **Use headphones**: the looper plays
-  back while it records, so built-in mic into built-in speakers is a feedback
-  loop. And **the default input and output must run at the same sample rate** —
-  scsynth refuses to boot otherwise, and a stock Mac often has the microphone at
-  44.1 kHz and the speakers at 48 kHz. megalooper checks this before booting,
-  names both devices, and there is one command that fixes it:
-
-  ```bash
-  python3 tools/coreaudio.py defaults             # do they agree?
-  python3 tools/coreaudio.py match-default-rates  # make them agree
-  ```
-
-  `tools/coreaudio.py` is a standard-library-only CoreAudio bridge — no
-  dependencies, no build step. It also lists devices with their real channel
-  counts (`list`), shows one in full (`inspect`), and cross-checks every reading
-  against `system_profiler` (`selftest`). `list` output is the right thing to
-  paste into a bug report.
-
-- **`\bhFireface` / `\bhTsMega` / `\bhBuiltin`** — the low-latency rigs.
-  **BlackHole 16ch** carries the SC↔Live pairs while the guitar and the speakers
-  stay on real hardware, so monitoring is interface-in → Live → interface-out
-  with no virtual device in the path. Each profile names an Aggregate Device
-  (`MegaLoop BH (…)`) that pairs BlackHole with that rig's interface. **BlackHole
-  must be first in the aggregate**: CoreAudio concatenates sub-devices in list
-  order, so BlackHole then owns ch 1–16 on both sides and the interface always
-  starts at ch 17 — the same map for all three rigs. The SC↔Live pairs stay on
-  9/10, 11/12, 13/14 and SC's channels stay `8/10/12`; in Live only the guitar
-  input (3 → 17) and Master out (1/2 → 17/18) move, once, for all three rigs.
-  Both apps open the same aggregate, so there is one clock domain — and so SC can
-  also read the guitar's own input at ch 17 as the dry analysis tap
-  (`analysisChannel = 16`, inputs 17 / outputs 16). Full recipe — clock source,
-  drift correction, 48 kHz — in [docs/routing.md](routing.md).
-- **`\fireface`** — RME Fireface + TotalMix loopback. Guitar → analog 1 → Live,
-  Live → ADAT loopback → SC records, SC → ADAT loopback → Live. One 18-channel
-  device does everything, and with no virtual device anywhere it is still the
-  lowest-latency option when the Fireface is present.
-- **`\loopback`** — the older fallback, superseded by the `\bh*` profiles but
-  kept because it needs no aggregate. ONE **Rogue Amoeba Loopback** virtual device
-  (`SC-Live Bridge`, **14 channels**, Pass-Thru) is used **directly by both SC
-  and Live** — no Aggregate Device. It reproduces the Fireface's channel layout:
-  the guitar comes in as a Loopback **input source** on ch 3, the speakers are a
-  Loopback **monitor** on ch 1/2, and the SC↔Live pairs sit on ch 9/10, 11/12,
-  13/14 — the same channels your Ableton set already uses, so **Live needs no
-  changes**, and SC's channels stay `8/10/12` (same as `\fireface`). One shared
-  virtual clock means no aggregate drift. Trade-off: live guitar monitoring runs
-  through Loopback (~20–40 ms) — fine as a fallback, less so for tight playing.
-  Keep everything at 48 kHz and the same buffer size. Full steps in
-  [docs/routing.md](routing.md).
+**Rigs of your own** go in `profiles.scd` in your megalooper folder
+(`~/Library/Application Support/SuperCollider/megalooper/`), never in the
+repository: one file of profiles, read at every start, each offered in the
+launcher beside `saSystem`. A rig for an interface with a bass on its own
+input, with a fixed sample rate or buffer, or one **beside Ableton Live**
+(the looper loops and analyses, Live plays the effects and the drums) is a
+profile there. [docs/routing.md](routing.md) says what each field means and
+how to write one, and walks through the rigs megalooper was built on as
+worked examples: Live beside it over a BlackHole aggregate, an RME Fireface
+with TotalMix loopback, and the TSMega interface on its own.
 
 ### Device preflight
 
@@ -120,14 +91,14 @@ in [docs/routing.md](routing.md#the-device-preflight).
 
 > One thing no check can see: **Live's Input Config and Output Config are per
 > device.** Switching Live to another aggregate does not carry the enabled 17/18
-> pair across, and until you re-enable it Live cannot see the guitar on ch 17
+> pair across, and until you re-enable it Live cannot see the instrument on ch 17
 > while SC reads it perfectly.
 
-The full step-by-step setup for every rig (Loopback channel names, the Aggregate
-Device, TotalMix loopback, and Live's track routing) is in
+The full step-by-step setup for a rig beside Live (Loopback channel names, the
+Aggregate Device, TotalMix loopback, and Live's track routing) is in
 **[docs/routing.md](routing.md)**. `ServerOptions.devices` in SC prints the
-available device names. To add or tweak a rig, edit the `~routingProfiles` table
-in `scripts/setup-routing.scd`.
+available device names. To add or tweak a rig, edit your `profiles.scd`;
+`saSystem` stays as megalooper ships it.
 
 Each profile also carries that rig's four calibrated timing values —
 **`latencyMs`** (the "Overdub lat" slider), **`abletonSyncMs`** (the "Live sync"
@@ -143,6 +114,9 @@ The first three are dialled by ear. `chainRecOffsetMs` is not: chain a loop, run
 [check-chain-align.scd](../scripts/check-chain-align.scd), and set it to the number
 the tool prints — see [Across multiply, undo and loop
 chaining](#across-multiply-undo-and-loop-chaining).
+
+For example, on the two BlackHole rigs beside Live that megalooper was built on
+(the duo's own, in their `profiles.scd`):
 
 | Profile | `latencyMs` | `abletonSyncMs` | `onsetNoteOffsetMs` | `chainRecOffsetMs` |
 | --- | --- | --- | --- | --- |
@@ -266,41 +240,19 @@ stopped -> play
 ### MIDI
 
 Which message does what is a **MIDI map**, and a control can be put on any
-controller: see *Mapping your own controller* below. megalooper ships two maps
-in `presets/midi/`.
+controller: see *Mapping your own controller* below. A fresh install starts
+with no map at all, so a stranger's keyboard does nothing until it is mapped:
+map your own controller in MIDI Map mode, or pick the one map megalooper
+ships, **keys-and-knobs**, in Setup's MIDI map. A rig of yours may name a map
+of yours to start with (its profile's `midiMap:`).
 
-**tsmega**, the TSMega floor controller. Every rig but `standalone` starts with
-it (the profile's `midiMap:`). It answers only the input named TSMEGA, on any
-channel. The effects and the drums are Megalooper SA's; on a Live rig those
-programs reach Live's own devices through the proxy, as before.
-
-| Message | Action |
-|---|---|
-| Program Change 4 | Trigger |
-| Program Change 5 | Clear |
-| Program Change 6 | Record next loop (loop chaining) — was Stop until 2026-09-23 |
-| Program Change 7 | Break — drop out now, resume on a loop downbeat |
-| Program Change 8 | The delay on and off (SA) |
-| Program Change 9, 10, 11 | Pitch Loops, the Envelope Filter, Pitch Shift (SA) |
-| Program Change 12, 14, 15 | The loop's Echo, Saturator, Redux (SA) |
-| Program Change 13 | Toggle the granular layer |
-| Program Change 16 | Toggle onset notes — the drum part Live plays from the loop |
-| Program Change 17 | The drums' steps on and off (SA) |
-| Program Change 18 | Toggle BBCut |
-| Program Change 19 | **Next reading** — the take's runner-up meter, then the one after, round to the analyser's own; lands on a loop boundary |
-| Program Change 20 | **Record the set** (megalooper's own files) |
-| Program Change 21 | **Live arrangement record** — arms Live; it starts when the transport does |
-| CC 4 | Overdub feedback (0 = replace, 127 = full preserve) |
-| CC 7 | **Onset threshold** (0.01–2.0, exponential). Mirrors Perform's Onset macro; watch the onset lamp while you sweep it |
-
-**The pedal's flicker.** The TSMega's expression pedal hops one step back and
-forth on its own when nobody touches it (68, 69, 68 at rest on the SA rig).
-Its two CCs in the map carry `"hysteresis": 1`: a move counts if it is two
-steps or more, or one step on in the direction of the last. The control stays
-within a step of the pedal, and a threshold set with the Onset macro is no
-longer taken back by the next hop. Since phase 4 every knob or pedal on a CC
-has that one step unless its mapping says otherwise; the Knobs row of Setup's
-MIDI map sets the default.
+**A pedal's flicker.** An expression pedal can hop one step back and forth on
+its own when nobody touches it (the TSMega's sits at 68, 69, 68). So every
+knob or pedal on a CC has one step of hysteresis unless its mapping says
+otherwise: a move counts if it is two steps or more, or one step on in the
+direction of the last. The control stays within a step of the pedal, and a
+threshold set with the Onset macro is not taken back by the next hop. The
+Knobs row of Setup's MIDI map sets the default.
 
 **keys-and-knobs**, for keyboards and knob boxes, any input. No rig starts
 with it; pick it in Setup's MIDI map, or learn your own controller's knobs instead.
@@ -337,11 +289,10 @@ lands on it without anything to remember:
 Every knob binding uses the **same law as its control's widget**, so a fader
 sweep and a mouse drag cover the same range in the same shape.
 
-> **Changed on 2026-10-08**, when the maps became files (they had been numbers
-> in `setup-midi.scd`, which a copy in `scripts/tests/legacy-midi-bindings.scd`
-> keeps). Program Change 8 is the delay alone on every rig, so on a Live rig it
-> no longer toggles the cutter, which keeps 18. The notes and the knob CCs moved
-> to keys-and-knobs. And the TSMega's map answers only the TSMEGA.
+> **Changed on 2026-10-25**, when the release came to ship one rig and one map.
+> The TSMega's map, which every rig but the looper-alone one started with until
+> then, went with the duo's rigs into their own folder, and so did the Program
+> Change numbers this manual used to give for it.
 
 #### Mapping your own controller
 
@@ -358,6 +309,10 @@ first: Keep, Discard or Later. The controls don't move while map mode is on.
 MIDI goes on driving everything until you click a control; while one waits,
 every message goes to it, and no footswitch acts nor anything reaches Live
 (15 s at most).
+
+![Setup's MIDI & AI page](images/setup-midi.png)
+
+*Fig: Setup's MIDI & AI page on a fresh install: the MIDI map, still empty, AI APPS, and MIDI in.*
 
 Everything else is in the **MIDI map** section of Setup's MIDI & AI page, including
 the controls that have no widget, such as Live's arrangement record and the
@@ -406,7 +361,7 @@ views themselves (Show Perform, Show Sound, …, to put them on footswitches):
 - **Add a mapping**: pick a pane and a control, press **Learn**, then move a knob
   or press a switch. On the way:
   - a CC switch is pressed twice, which tells one that sends a message a press,
-    like the TSMega's, from one that sends press and release;
+    like many floor controllers, from one that sends press and release;
   - a knob counts once it has moved 3 steps, so a resting pedal's flicker is
     never learned;
   - if the message already drives another control, the section asks: **Move it
@@ -493,7 +448,7 @@ touched and never before.
 
 ### Breaks
 
-Hit Program Change 7 (the TSMega's map), the Break button, or a switch mapped to it, and the looper goes
+Hit the Break button, key `K`, or a switch mapped to it, and the looper goes
 silent so the room can play into the hole, coming back **on a loop downbeat**.
 
 The hole opens the instant you stomp — the mute is not quantised, so it lands
@@ -546,6 +501,10 @@ megalooper is **one window**, laid out for a laptop screen (1440 × 900) and rea
 from playing distance: a top bar, Perform's status band, four views and a
 footer.
 
+![The Perform view](images/perform.png)
+
+*Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3. Under the status band, a column per layer, then the actions and the macros.*
+
 ```
 ┌ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX □ │ 4 Drums □ │ 5 Setup ▾ □ │ CPU 14% │ ◐ │ ? │ RIG SA MIDI ● │ ■ MIDI MAP ⌘M │ ● SET REC 12:04 ┐
 ├────────────────┬──────────────────────────────────────────┬────────────────────┤
@@ -561,7 +520,7 @@ footer.
 │ ...  │ ...    │ ...    │ ...     │ ...   │ Dissolve Rec next loop Undo  Clear  │
 │      │        │        │         │       │ MACROS · Master  Arc  Onset         │
 ├──────┴────────┴────────┴─────────┴───────┤                                     │
-│ LEVELS · Guitar Bass Loop Drums Onset kit Master (SA only, as on Setup)        │
+│ LEVELS · Instrument Bass Loop Drums Onset kit Master (SA only, as on Setup)    │
 ├──────────────────────────────────────────┴─────────────────────────────────────┤
 │ R trigger  S stop  M multiply  …                          Refused: nothing playing │  the footer
 └────────────────────────────────────────────────────────────────────────────────┘
@@ -621,6 +580,10 @@ layer that is off loses its colour. MIDI Map's blue is its own.
 megalooper uses them; without them it falls back to the system's sans and mono
 at the same sizes.
 
+![Setup's Rig page](images/setup-rig.png)
+
+*Fig: Setup's Rig page on the saSystem rig: the profile and the device, the analysis input, the timing values and Megalooper SA's levels, with Calibrate beside them.*
+
 The controls, by view:
 
 - **Live transport** *(Setup › Rig)* — how the looper drives Live's transport:
@@ -633,9 +596,9 @@ The controls, by view:
   output is audible on both ears. In stereo mode it reads `inChannel` and
   `inChannel + 1` independently. Takes effect on the next record or play.
 - **Listen for onsets on** *(Setup › Rig)* — which input the onset and pitch detection listens
-  to. *Clean tap* reads the guitar's **dry hardware input** directly off the
+  to. *Clean tap* reads the instrument's **dry hardware input** directly off the
   shared audio device, with Live nowhere in the path; *Same as input* analyses
-  the processed guitar being recorded, as older versions always did. Only the
+  the processed instrument being recorded, as older versions always did. Only the
   analysis moves — the loop is recorded from `inChannel` either way. Distortion
   and ambient FX smear note attacks, and blurred onsets are the main cause of
   meter mis-detection, so the dry tap is the better default where the rig
@@ -690,7 +653,7 @@ notifications, so nothing here can be clicked into a state you didn't intend.
   once one is in force it says which, `reading 2/5`. See
   [The next reading](#the-next-reading).
 - **Input** — the level, off the analysis monitor's feed, in dB. The first
-  answer to "is the guitar getting through at all", so it is never behind a
+  answer to "is the instrument getting through at all", so it is never behind a
   view.
 - **State** — the block: `EMPTY`, `● REC`, `▶ PLAYING`, `● OVERDUB` or
   `■ STOPPED`, filled so recording and overdub are unmistakable across a room,
@@ -714,6 +677,10 @@ you do *while playing*, so the two controls that matter are on Perform — the
 lamp in the status band, the threshold among the macros — and the rest is in
 Setup's Analysis page (`scripts/gui-analysis.scd`).
 
+![Setup's Analysis page](images/setup-analysis.png)
+
+*Fig: Setup's Analysis page: the onset threshold, overdub detection, the onset notes, the pitch range, the fallback meter, Bars by hand and the export.*
+
 On **Perform**:
 
 - **Onset lamp** — a light that flashes for ~200 ms every time the detector
@@ -721,7 +688,7 @@ On **Perform**:
   threshold); a hit that leaves the lamp dark means it's too high. If it never
   flashes at all, check the input meter above it: a flat meter means the
   analysis input is silent (wrong channel), not that the threshold is wrong.
-- **Onset** macro, the threshold (0.01–2.0, default **0.5**), also **MIDI CC 7** —
+- **Onset** macro, the threshold (0.01–2.0, default **0.5**), also a MIDI target for a pedal —
   live on both the monitor *and* a running recorder, so you tune against what
   you're playing and the next take detects exactly what you just saw. The
   travel is **exponential**: a nudge of 1% of the slider moves the threshold by
@@ -744,7 +711,7 @@ In **Setup's Analysis page**:
   [Onset notes](#onset-notes) below.
 
 The threshold is also an optional per-rig profile field, `onsetThreshold`,
-alongside `latencyMs` and `abletonSyncMs` — how noisy the guitar input is depends
+alongside `latencyMs` and `abletonSyncMs` — how noisy the instrument input is depends
 on the interface and the tap. Tune it here, then write the number back into the
 profile.
 
@@ -806,8 +773,8 @@ real playing, exactly like the onset threshold itself.
 The analyser scores every meter that fits a take and keeps the ranked list, not
 only the winner. On realistic takes the winner is right about half the time,
 and when it is wrong the runner-up is the truth in a third of the cases. So the recovery for a
-wrong meter is one footswitch: **Program Change 19 (the TSMega's map), key `A`, or
-the Next reading tile on Perform** moves the take to the reading
+wrong meter is one footswitch: **key `A`, the Next reading tile on Perform, or a
+switch mapped to it** moves the take to the reading
 that scored second. Press it again and it moves on to the third; past the last
 it comes round to the analyser's own answer, so one switch always gets you
 back. **Revert**, beside the reading chip, goes straight home.
@@ -892,7 +859,7 @@ playing.
 
 ### Thinning the part
 
-Guitar picking is usually busier than the drum part you want out of it. **Chance**
+What you play is usually busier than the drum part you want out of it. **Chance**
 is the slider for that: at 100% every onset is sent, at 50% about half of them,
 at 0% none. Nothing is edited — the analysed pattern is left whole, so sweeping
 back up to 100% returns exactly what you played.
@@ -924,7 +891,7 @@ Dynamics window in dB. Two consequences worth knowing:
 
 - It is **gain-independent**. Moving the interface's input trim does not change
   the velocities, because nothing here is an absolute amplitude.
-- It is **dB, not linear**. Linear on amplitude piles nearly every guitar onset
+- It is **dB, not linear**. Linear on amplitude piles nearly every onset
   into the top of the velocity range; in dB the dynamics read the way they
   sounded.
 
@@ -993,6 +960,10 @@ Two things follow from the pattern being tied to an analysis:
 
 Press `G` to toggle a parallel granular voice using SuperCollider's `Warp1`
 UGen, sourced from the recorded loop region.
+
+![The Sound view, the Grains on the right](images/sound.png)
+
+*Fig: The Sound view (2). The Grains are on the right, in their four sections, with the grain window under them. The Cutter is on the left.*
 
 ### Morph: the meta-control
 
@@ -1109,10 +1080,14 @@ running granular layer are both untouched.
 
 ## BBCut layer
 
-Press `B` (or the TSMega's Program Change 18, or click the BBCut button
+Press `B` (or click the BBCut button
 in the GUI) to algorithmically re-splice the current loop, in tempo, using
 [Nick Collins's BBCut library](https://github.com/nhthn/BBCut). When BBCut is
 on, the straight engine output is muted; you hear cuts of the loop instead.
+
+![The Sound view, the Cutter on the left](images/sound.png)
+
+*Fig: The Sound view (2). The Cutter is on the left: its voice, the voice's procedure and parameters, its cut synth, ratio and voice effects. The Grains are on the right.*
 
 The cutter is a **multi-voice instrument**: each voice is an independent cutter
 (its own procedure, cut synth, effects, and clock) layered over one shared
@@ -1124,8 +1099,8 @@ the "Voices / procs / fx…" button in the main window).
   voice (`1:1`, `3:2`, `2:3`, `4:3`, `3:4`, `1:2`, `2:1`). All voices are
   phase-aligned to the same loop downbeat at start, so non-unity ratios produce
   true cross-rhythm. Add/remove voices in the BBCut window (up to 4).
-- **Cut procedure** (per voice) — choose from a curated set: **Break/Repeat
-  (guitar)** (the default, see below), **BBCutProc11** (d&b-derived 3+3+2
+- **Cut procedure** (per voice) — choose from a curated set: **Break/Repeat**
+  (the default, see below), **BBCutProc11** (d&b-derived 3+3+2
   splicing), **WarpCutProc1** (Warp-Records pitched rolls), **ChooseCutProc**
   (cut/repeat/roll chooser), **SQPusher1** (Squarepusher-style drum
   programming). The proc's own parameters are rendered as controls; for
@@ -1157,10 +1132,10 @@ the "Voices / procs / fx…" button in the main window).
 - Each voice's clock is independent of the MIDI Clock sent to Live, so over many
   bars they can phase-drift if the analyzer BPM is slightly off.
 
-### Break/Repeat — the guitar-oriented cut procedure
+### Break/Repeat — the cut procedure for played loops
 
 The classic BBCut procedures chop continuously, which suits a drum break but
-buries a played loop. `LooperBreakProc` (menu name **Break/Repeat (guitar)**,
+buries a played loop. `LooperBreakProc` (menu name **Break/Repeat**,
 the default for a new voice) inverts that: it mostly lets the loop through
 untouched and only now and then grabs a block and repeats it, like stepping on
 a beat-repeat pedal for a bar.
@@ -1245,13 +1220,13 @@ Two recordings, because they answer to different clocks and are read by
 different people — and beside them a log of what happened, which is what turns
 the recordings into something that can be analysed afterwards.
 
-**The archive — SuperCollider, from the stomp.** Program Change 20 (the TSMega's map), or
-the **SET REC** tile in the top bar, writes three files into `sessions/`:
+**The archive — SuperCollider, from the stomp.** The **SET REC** tile in the top
+bar, or a switch mapped to it, writes three files into `sessions/`:
 
 | File | What it is |
 | --- | --- |
 | `<stamp>-<tempo>-master.wav` | what the room heard — stereo, Live's master routed back to SC on `sessionChannel` |
-| `<stamp>-<tempo>-tap.wav` | the dry guitar, mono, straight off the analysis tap |
+| `<stamp>-<tempo>-tap.wav` | the dry instrument, mono, straight off the analysis tap |
 | `<stamp>-<tempo>-events.jsonl` | what happened: every record press, every take with the onsets it was analysed from and the readings it was offered, every next-reading press and where it landed, every threshold change — one JSON object per line, times in seconds from the stomp |
 
 **The names say what to set Live to**: `261007_143012-165.04bpm-7-8-master.wav`
@@ -1263,7 +1238,7 @@ under the stamp alone and renamed when the set stops. A set that never had a
 tempo keeps `<stamp>-master.wav`. The stop also prints a line for Live: *"In
 Live: 165.04 BPM, 7/8. Drop the files at 1.1.1."*
 
-On **Megalooper SA** a set also leaves the parts of the mix as heard (`-guitar`,
+On **Megalooper SA** a set also leaves the parts of the mix as heard (`-guitar` for the instrument,
 `-loop`, `-drums` and `-onset.wav`, after their faders, so they sum to the
 master) and `-drums.mid`, every drum hit for Live's own racks. Their names carry the tempo and
 signature to set Live to before you drag them in.
@@ -1281,8 +1256,8 @@ the largest lever on meter detection that does not involve touching
 is audio nobody can place a take in, which is what the sets recorded before it
 existed turned out to be. See [Replaying a set](#replaying-a-set).
 
-`sessionChannel` is set on **`\bhTsMega`** (BlackHole 1–2) and nil on the other
-profiles, because it needs a matching track in the Ableton set — **Audio From:
+`sessionChannel` is set in a Live rig's profile (the duo's `bhTsMega` uses
+BlackHole 1–2) and nil on `saSystem`, because it needs a matching track in the Ableton set — **Audio From:
 Resampling, Monitor: In, Audio To: Ext. Out 1/2** — and a rig with the number
 set but not the track records silence into the master file. See
 [docs/routing.md](routing.md) for the setup. Where it is nil the recorder
@@ -1290,13 +1265,13 @@ writes the dry tap alone and the SET REC tile says
 *"dry tap + events only"*.
 
 **The production copy — Live's arrangement, from the transport.** A *separate*
-footswitch, **Program Change 21**, arms Live's Arrangement Record over AbletonOSC
+footswitch, **Live arrangement record** in the MIDI map's list, arms Live's Arrangement Record over AbletonOSC
 (`/live/song/set/record_mode`), so Live starts recording the moment megalooper
 starts the transport. That gives you every track separately plus the onset-note
 MIDI, so drum racks can be swapped and the set mixed afterwards.
 
 Two switches rather than one, because the two recorders cannot start at the same
-moment: PC 20 begins writing instantly, PC 21 can only arm. Wiring them together
+moment: SET REC begins writing instantly, Live's record can only arm. Wiring them together
 would have made one switch lie about the other. **For a set you mean to keep,
 press both.**
 
@@ -1419,11 +1394,15 @@ document. It shows every step and which ones are answered, and for the step you
 are on: why it exists, what has to be true in the room before you press
 anything, and what to do.
 
+![The Calibrate wizard](images/calibrate.png)
+
+*Fig: The Calibrate wizard (6) at its first step: the four steps on the left, what to do in the middle, this rig's values on the right.*
+
 | Step | Needs | Sets |
 | --- | --- | --- |
 | Check the rig | — | re-runs the device preflight |
-| Onset threshold | the guitar | `onsetThreshold` |
-| Overdub round trip | Live, and a cable from the main out into the guitar input | `latencyMs` |
+| Onset threshold | your instrument | `onsetThreshold` |
+| Overdub round trip | Live, and a cable from the main out into the instrument input | `latencyMs` |
 | Live's downbeat | Live playing a loop | `abletonSyncMs` |
 | Drum hits against the loop | Live, a loop, a drum rack | `onsetNoteOffsetMs` |
 | Loop-chain alignment *(optional)* | a chained loop | `chainRecOffsetMs` |
@@ -1434,12 +1413,12 @@ Three things worth knowing before you run it:
 - **Only the first two work without Ableton Live.** The other numbers have
   Live's plugin chains inside them — that is why changing the chain invalidates
   them — and a delay a plugin contributes cannot be measured without running the
-  plugin. The onset threshold needs nothing but a guitar, because the clean tap
+  plugin. The onset threshold needs nothing but your instrument, because the clean tap
   reads the hardware directly and Live is not in that path at all.
 - **The round trip wants a patch cable**, from the interface's main output into
-  the guitar input, with the guitar unplugged. That cable stands in for "you
+  the instrument input, with the instrument unplugged. That cable stands in for "you
   hear the loop and play in response", which is the only part of the round trip
-  with no delay of its own. Mute the guitar track's path to master first, or the
+  with no delay of its own. Mute the instrument track's path to master first, or the
   cable is a feedback loop.
 - **Measuring and applying are separate buttons on purpose.** A measurement you
   can see but have not applied is how you notice one that is obviously wrong.
@@ -1463,7 +1442,7 @@ Give them their own pairs and nothing has to be muted. Send either to the return
 pair (13/14) instead and you must mute the loop-return track first: our own loop
 comes back on that pair, and the measurement would lock onto it and report the
 audio round trip as a transport offset. Both steps refuse rather than return
-that number — a click once a bar is nearly all silence, a returning guitar loop
+that number — a click once a bar is nearly all silence, a returning loop
 is not, and they check.
 
 Each measurement repeats itself and reports the **spread** across the trials as
@@ -1489,7 +1468,7 @@ against what it did last time.
    - Through a BlackHole aggregate with the loop coming back out of Live —
      which is how the `bh*` profiles run — expect **much** higher, because
      Live's own buffers are inside the round trip being compensated for.
-     Measured by ear: 54 ms on `bhTsMega`, 68 ms on `bhBuiltin`.
+     Measured by ear on the duo's two such rigs: 54 ms and 68 ms.
 4. Once dialed in, the value sticks across loops, undo/redo, granular toggle,
    and reverse mode (the shift direction follows the playback rate).
 
@@ -1562,7 +1541,7 @@ megalooper/
     midi-maps.md         -- the MIDI map file format
   presets/
     bbcut/               -- the cutter setups megalooper ships; yours are in your megalooper folder
-    midi/                -- the MIDI maps megalooper ships (JSON): tsmega, keys-and-knobs
+    midi/                -- the MIDI map megalooper ships (JSON): keys-and-knobs
     sa/                  -- Megalooper SA: the effects' variations, the drum patterns, the kits' maps
   training-data/         -- exported labelled loops (WAV gitignored, JSON kept)
 ```
@@ -1695,6 +1674,10 @@ next reading; the header says **TAKE · BARS BY HAND**, the next-reading switch
 passes through it, and **Revert** goes back to the analyser's answer. Bars the
 analyser already offers are armed as they are.
 
+![Bars by hand on Setup's Analysis page](images/setup-analysis.png)
+
+*Fig: Bars by hand, near the bottom of Setup's Analysis page, holding one cycle of 7 7 7 8 over eighths.*
+
 **Labelled takes.** With **Record set** on, a take whose bars were given by
 hand keeps them as its label in the set's log, even when the set stops before
 they land; one moved with the switch keeps the reading it landed on. And
@@ -1726,7 +1709,7 @@ to `training-data/`:
 > the same signal: the WAV is the recorded (processed) loop, while `analyzerInput`
 > holds the onsets detected on the dry tap. Replaying the sidecar is unaffected —
 > that is the detector's actual input — but re-running *onset detection* over the
-> WAV offline measures the processed guitar instead, so it is no longer a faithful
+> WAV offline measures the processed instrument instead, so it is no longer a faithful
 > proxy for the live path. Record with **Analysis in** set to *Same as input* when
 > exporting loops meant for detector-parameter sweeps.
 

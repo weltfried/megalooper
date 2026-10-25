@@ -70,10 +70,11 @@ From your application launcher, or from a terminal:
 ./tools/megalooper
 ```
 
-Pick **saSystem** for the looper with its effect chains and drums: only this
-rig has the FX and Drums views. **standalone** is the looper alone, and it is
-the rig the picker offers at the first start. The other rigs name audio interfaces as macOS knows
-them, so they show ✗ here.
+The picker offers **saSystem**: the looper with its effect chains, drums
+and synth, on JACK's or PipeWire's default ports. A rig of your own (in
+`profiles.scd`, [Rigs and routing](routing.md#adding-a-rig)) says
+`device: \systemDefault` here: JACK or PipeWire has the interface, and a
+device named as macOS knows it shows ✗.
 
 What megalooper says goes to the terminal and to
 `~/.local/state/megalooper/megalooper.log`.
@@ -101,10 +102,10 @@ MEGALOOPER_SCALE=1 ./tools/megalooper      # no scaling
 
 SuperCollider's server speaks JACK. With `pipewire-jack`, PipeWire answers.
 
-- **Which input and output.** megalooper uses the first input for the
-  guitar and the first two outputs. SuperCollider connects itself to JACK's
+- **Which input and output.** megalooper uses the first input for your
+  instrument and the first two outputs. SuperCollider connects itself to JACK's
   `system` ports.
-- **No sound, or no guitar.** PipeWire may name your interface's ports
+- **No sound, or no instrument.** PipeWire may name your interface's ports
   differently. Connect SuperCollider's ports to your interface in a patchbay
   such as `qpwgraph` or Helvum.
 - **Block size and rate.** Ask PipeWire before starting:

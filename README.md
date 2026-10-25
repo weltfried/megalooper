@@ -6,10 +6,12 @@ odd ones like 7/8 included, from the onsets in the audio.
 
 It runs in two ways:
 
-- **Beside Ableton Live.** megalooper loops, analyses and sends MIDI clock;
-  Live plays the effects and the drums.
 - **On its own (Megalooper SA).** megalooper also hosts the effect chains, VST
-  plugins and the drums, with no Live at all.
+  plugins, the drums and a synth, with no Live at all. This is how it starts
+  out of the box.
+- **Beside Ableton Live.** megalooper loops, analyses and sends MIDI clock;
+  Live plays the effects and the drums. This takes a rig profile of your own:
+  see [Rigs and routing](docs/routing.md).
 
 It was built for a guitar and bass duo and is used on stage, on macOS. A
 Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
@@ -24,11 +26,12 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   overdubs shifted by your measured round-trip latency so they land in time.
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
   with presets.
-- **Effect chains (SA).** Chains for the guitar, the loop and the drums, and
+- **Effect chains (SA).** Chains for your instrument, the loop and the drums, and
   for a bass on a second input, with seven built-in effects and your VST2
   and VST3 plugins. Add, drag and remove effects while a loop plays. Random
   throws new settings at an effect, and a variation keeps the ones you like.
   A sound is one file: the chains, every setting and each plugin's state.
+  See [The effects](docs/effects.md).
 - **Drums (SA).** Step patterns and a kit triggered by the loop's own onsets.
   They start with a new loop, or wait until you switch them on.
 - **A synth (SA).** A note sequencer of 8 or 16 steps, its seven lanes
@@ -36,7 +39,8 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   run at lengths of their own, with scales and swing, playing a built-in
   wavetable synth (on your own wavetables too) or one of your VST
   instruments. It keeps time with the loop and starts again on its bar
-  lines, uneven ones too. The Synth view (7), and a column on Perform.
+  lines, uneven ones too. The Synth view (7), and a column on Perform. See
+  [The synth](docs/synth.md).
 - **AI apps (SA, optional).** Ask an AI app such as Claude Desktop for a
   groove that fits your 7/8, a synth line over the chords you played, or a
   dubbier echo, and hear it at once; one click reverts it. Off until you
@@ -48,14 +52,15 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
 
 ## What you need
 
-- **macOS 11 or later**, on which everything was built and measured (an
-  Apple Silicon Mac). Or **Linux**, as a first port:
+- **macOS 11 or later**, on an Apple Silicon or an Intel Mac. megalooper was
+  built and measured on Apple Silicon, and installs and runs on Intel too.
+  Or **Linux**, as a first port:
   [megalooper on Linux](docs/linux.md) has its own install steps.
 - **SuperCollider 3.14.1 or later.** <https://supercollider.github.io/>, or
   `brew install --cask supercollider`.
-- **sc3-plugins**, the release built for your SuperCollider version.
-  <https://github.com/supercollider/sc3-plugins/releases>. Unzip it into
-  `~/Library/Application Support/SuperCollider/Extensions`.
+- **sc3-plugins**, the release built for your SuperCollider version. The
+  installer fetches it on macOS; on Linux it comes from your distribution's
+  packages.
 - **BBCut.** The installer fetches it.
 - **VSTPlugin 0.6.2**, only if you want plugins in the chains. The installer
   fetches it. [Plugins](docs/standalone.md#plugins) says how to add it by
@@ -79,13 +84,17 @@ cd megalooper
 
 The installer:
 
-1. checks that SuperCollider and sc3-plugins are there, and says what to do
-   if not;
-2. fetches BBCut, at the commit megalooper is tested against;
-3. fetches VSTPlugin 0.6.2, unless you have it (`--no-vstplugin` skips it);
-4. links megalooper's classes into SuperCollider's Extensions;
-5. runs the quick checks, which must end with `ALL CHECKS PASSED`;
-6. builds the Desktop icon.
+1. checks that SuperCollider is there, and says what to do if not;
+2. fetches sc3-plugins, the release built for your SuperCollider, unless you
+   have it;
+3. fetches BBCut, at the commit megalooper is tested against;
+4. fetches VSTPlugin 0.6.2, unless you have it (`--no-vstplugin` skips it);
+5. links megalooper's classes into SuperCollider's Extensions;
+6. runs the quick checks, which must end with `ALL CHECKS PASSED`;
+7. builds the Desktop icon.
+
+Each download is checked against the file megalooper was tested with, and
+everything goes into `~/Library/Application Support/SuperCollider/Extensions`.
 
 It deletes nothing of yours, and you can run it again, for instance after moving this
 folder. `./tools/install.sh --help` lists its options.
@@ -99,10 +108,10 @@ library (Cmd+Shift+L).
 and the looper plays while it records.
 
 1. Double-click **megalooper** on the Desktop (or run `./tools/megalooper`).
-2. Pick a rig from the dropdown:
-   - **standalone** is the looper alone, on the system's input and output;
-   - **saSystem** is Megalooper SA on the system's input and output, with the
-     guitar on input 1.
+2. The launcher offers **saSystem**: Megalooper SA on the system's input and
+   output, with your instrument on input 1 and the mix on outputs 1 and 2. Rigs of
+   your own, for an interface or for Ableton Live beside megalooper, appear
+   beside it once you write them ([Rigs and routing](docs/routing.md#adding-a-rig)).
 3. Press **Start megalooper** and wait for the window. On a slower computer
    that clicks or drops out, pick 256 frames under **Buffer** first.
 4. With the megalooper window in front, press **R** to record, play a
@@ -123,10 +132,12 @@ folder:
 
 | Folder | What it holds |
 |---|---|
+| `profiles.scd` | Your own rigs, beside megalooper's saSystem ([Rigs and routing](docs/routing.md#adding-a-rig)) |
 | `bbcut/`, `granular/` | The cutter's and the grains' presets |
 | `midi/` | Your MIDI maps |
 | `sa/kept.json`, `sa/sounds/` | The sound a boot starts with, and the sounds you saved |
 | `sa/drum-presets/`, `sa/kept-drums/` | The drums' presets, and the drums a boot starts with |
+| `sa/synth-presets/`, `sa/kept-synth/`, `sa/wavetables/` | The synth's presets, the synth a boot starts with, and your wavetables |
 | `sa/plugins/` | The list of plugins megalooper found |
 | `remote.json`, `remote/` | While AI apps are let in: how one reaches megalooper ([AI apps](docs/ai.md)) |
 
@@ -137,9 +148,11 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 | Guide | For |
 |---|---|
 | [Megalooper SA](docs/standalone.md) | Running without Live: the effect chains, sounds and plugins |
+| [The effects](docs/effects.md) | The seven built-in effects, and every setting they have |
 | [megalooper on Linux](docs/linux.md) | Installing and starting it there, and what differs |
 | [Drums](docs/drums.md) | Getting a kit, and making one from your own samples |
-| [Rigs and routing](docs/routing.md) | Profiles for an audio interface, and for Live |
+| [The synth](docs/synth.md) | The note sequencer, the Wave synth, your wavetables and VST instruments |
+| [Rigs and routing](docs/routing.md) | Rigs of your own: an interface, a bass, Ableton Live beside megalooper |
 | [The manual](docs/manual.md) | Every control, the MIDI map, the cutter, the grains, calibration, how the meter is found |
 | [MIDI map files](docs/midi-maps.md) | The JSON a map is kept in, to write or share one |
 | [AI apps](docs/ai.md) | Letting an AI app such as Claude Desktop read the set and change the drums, the synth and the effects |

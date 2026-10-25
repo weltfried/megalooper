@@ -57,6 +57,10 @@ macOS has a `python3` once its command line tools are in
 page, under **AI APPS**, switch **Let AI apps in** to **On**. It stays on
 across restarts. While it is off, no app can reach megalooper at all.
 
+![AI APPS on Setup's MIDI & AI page](images/setup-midi.png)
+
+*Fig: AI APPS, at the top right of Setup's MIDI & AI page: the switch, and the buttons that connect an app.*
+
 **2. Connect the app.**
 
 - **Claude Desktop:** click **Install in Claude Desktop**, under AI APPS.

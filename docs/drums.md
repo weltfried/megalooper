@@ -12,8 +12,12 @@ Each part plays a **kit**: a set of samples on pads.
 The steps start with every new loop you record. To have them wait instead,
 set **New loop** to **Drums off** on the Setup view's Rig page, under Megalooper SA's
 levels. A new loop then keeps the drums in time but silent, until you switch
-them on: Program Change 17, or the switch on the Drums view. Overdubs leave
+them on: the switch on the Drums view, or a footswitch mapped to it. Overdubs leave
 them as they are. megalooper keeps the choice for the next start.
+
+![The Drums view](images/drums.png)
+
+*Fig: The Drums view (4): the Main pattern on its Chance page, a lane per pad of the kit, and the timing under them.*
 
 ## Why the drums are hidden at first
 

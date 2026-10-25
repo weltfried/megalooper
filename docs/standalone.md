@@ -1,6 +1,6 @@
 # Megalooper SA: megalooper on its own
 
-Megalooper SA plays the guitar's effects, the bass's, the loop's effects and
+Megalooper SA plays the instrument's effects, the bass's, the loop's effects and
 the drums itself, so no Ableton Live is needed. This guide covers the effect chains,
 sounds and plugins. The looper, the cutter, the grains and the MIDI map work
 as [the manual](manual.md) says on every rig.
@@ -9,20 +9,20 @@ as [the manual](manual.md) says on every rig.
 
 Pick a rig whose profile has SA switched on:
 
-- **saSystem** uses the system's input and output, with the guitar on input 1
-  and the mix on outputs 1 and 2. Nothing about your interface is changed.
-- A profile of your own, for an interface with more channels:
-  [Rigs and routing](routing.md) says how to write one.
+- **saSystem**, megalooper's own and the one the launcher offers first, uses
+  the system's input and output, with your instrument on input 1 and the mix on
+  outputs 1 and 2. Nothing about your interface is changed.
+- A profile of your own in `profiles.scd`, for an interface with more
+  channels, a bass, or a fixed sample rate: [Rigs and
+  routing](routing.md#adding-a-rig) says how to write one.
 
-**A bass.** On the duo's TSMEGA rig (`sa`), the bass goes into input 2. It
-plays through its own chain, the **BASS** row on the FX view, onto a strip of
+**A bass.** A rig of yours with a bass on its own input says so in its
+profile: `bassChannel: 1` for input 2. The bass then plays through its own chain, the **BASS** row on the FX view, onto a strip of
 its own: **Bass** under Levels on Setup's Rig page and on Perform, with a MIDI
 target for its level and its mute. Recording the set (Record set) writes it
-as a stem of its own (`-bass.wav`). The loop records the guitar only; looping
+as a stem of its own (`-bass.wav`). The loop records the instrument only; looping
 the bass is not there yet. saSystem has no bass input, because on a laptop
-input 2 is the microphone. For a bass on another interface, give your profile
-`bassChannel: 1` (input 2), as [Rigs and routing](routing.md#adding-a-rig)
-says.
+input 2 is the microphone.
 
 Then open the **FX** view (key **3**) for the effects. The drums have a view
 of their own, **Drums** (key **4**).
@@ -45,7 +45,7 @@ Ableton Live it has four steps:
 3. **Onset threshold.** Set it on Setup's Analysis page while you
    play, then press Done.
 4. **Overdub round trip.** Stop the loop. With an interface, patch a cable
-   from output 1 into the guitar input (the guitar is muted while it
+   from output 1 into the instrument input (the instrument is muted while it
    measures, so there is no feedback); on a computer's own speakers and
    microphone there is nothing to patch. Press Measure, then Apply. If it
    cannot be measured, set Overdub latency by ear on Setup's Rig page and
@@ -57,7 +57,7 @@ back to the rig's own numbers.
 
 ## The chains
 
-- **The guitar chain** is what you play through. The loop records its output.
+- **The instrument chain** (the **INSTRUMENT** row) is what you play through. The loop records its output.
 - **The bass chain** is what the bass plays through, on a rig with a bass
   input. It goes to the mix only: the loop does not record it.
 - **The loop chain** plays the recorded loop.
@@ -65,6 +65,10 @@ back to the rig's own numbers.
   empty. The onset kit does not pass through it.
 
 Each chain is a row of tiles, played left to right.
+
+![The FX view](images/fx.png)
+
+*Fig: The FX view (3) on saSystem, with Dual Delay, Envelope Filter, Tape Echo and Drive switched on, and the Envelope Filter's panel open under the chains.*
 
 | To | Do this |
 |---|---|
@@ -75,7 +79,7 @@ Each chain is a row of tiles, played left to right.
 | Move or remove it by menu | Click its tile, then press **⋯** |
 | Put a setting back to its default | Double-click it, or **Reset** for the whole effect |
 | Keep an effect's settings | Type a name beside **Save variation**, under the effect's title, and press it. The variation holds every setting, and the menu beside it lists it for every effect of that type (both Delays, say). The same name again replaces it; **Delete:** in the menu removes it |
-| Try out a random sound | **Random** beside Reset: every setting of the effect at a random value. Output levels (and the Auto Filter's Makeup) stay where they are, and **Reset** brings the starting values back. Random and Reset are also MIDI targets, so a footswitch can draw a new sound |
+| Try out a random sound | **Random** beside Reset: every setting of the effect at a random value. Output levels (and the Envelope Filter's Makeup) stay where they are, and **Reset** brings the starting values back. Random and Reset are also MIDI targets, so a footswitch can draw a new sound |
 | Undo an edit | Cmd+Z. Shift+Cmd+Z redoes |
 
 Edits are safe while a loop plays: the chain cross-fades to its new order.
@@ -83,19 +87,12 @@ An effect brought back by Undo keeps its settings.
 
 The built-in effects are Pitch Shift, Dual Delay, Envelope Filter, Pitch
 Loops, Tape Echo, Drive and Crusher. You can add any of them more than once.
-
-Pitch Shift has two modes. **PitchShift**, the default, is SuperCollider's
-grain shifter with its settings exposed: **Window** (the grain length, 10 to
-200 ms; shorter smears attacks less but buzzes on low notes), **Pitch spread**
-and **Time spread** (random pitch and timing for each grain; a little time
-spread breaks up a metallic sound). **FFT** keeps a steadier pitch and smears
-attacks a little less, about 8 ms later. Every switch crossfades, so you can
-change them while playing.
+[The effects](effects.md) says what each one does, with every setting.
 
 ### Variations
 
 Each effect's menu lists the variations from the Live set megalooper was built
-after (Delay, Filter, Pitch Loops, Drive and Crusher have some), then yours,
+after (Dual Delay, Envelope Filter, Pitch Loops, Drive and Crusher have some), then yours,
 marked **· yours**. A Live set variation sets only the settings its rack's
 macros drove; one of yours sets them all. Yours are kept in
 `sa/fx-variations.json` in your megalooper folder, apart from the sounds; a
@@ -181,7 +178,7 @@ What to expect:
 ### An amp for the guitar
 
 megalooper has no amp simulator of its own, and a DI guitar through the
-built-in effects alone sounds thin. Add an amp plugin to the guitar chain.
+built-in effects alone sounds thin. Add an amp plugin to the instrument chain.
 These are free and come as VST3. None of them was tested with megalooper:
 
 - [Neural Amp Modeler](https://www.neuralampmodeler.com/)

@@ -1,18 +1,26 @@
 # Audio routing
 
-megalooper runs alongside Ableton Live and exchanges audio with it over a
-loopback of some kind. Which loopback is a **routing profile** — one line at the
-top of [`scripts/boot.scd`](../scripts/boot.scd):
+Which audio device megalooper plays on, and where its channels sit, is a
+**routing profile**. megalooper ships one, **`saSystem`**: Megalooper SA on
+the system's default input and output, with nothing to set up (the manual's
+[Configuration](manual.md#configuration)). Every other rig is a profile of
+your own, in `profiles.scd` in your megalooper folder, offered in the launcher
+beside `saSystem`: [Adding a rig](#adding-a-rig) says how to write one.
 
-```supercollider
-~routingProfile = \bhTsMega;
-// \fireface | \loopback | \bhFireface | \bhTsMega | \bhBuiltin | \standalone | \sa
-```
+Running megalooper **beside Ableton Live** needs one: megalooper and Live
+exchange audio over a loopback of some kind, and the profile says which. The
+rest of this guide is the rigs megalooper was built on, the duo's own, kept
+here as worked examples of each kind: a BlackHole aggregate beside Live, an
+RME Fireface with TotalMix loopback, a Rogue Amoeba Loopback device, and the
+TSMega interface on its own with a bass. Their profiles live in the duo's
+`profiles.scd`, not in megalooper; the device names are theirs, and yours go
+in a profile of your own.
 
-The profile table lives in [`scripts/setup-routing.scd`](../scripts/setup-routing.scd)
-and drives the audio device, the server's channel count, the looper's channel
-offsets, the recording width and the latency default. Changing device or channel
-count requires a server reboot.
+A profile drives the audio device, the server's channel count, the looper's
+channel offsets, the recording width and the latency default. megalooper's
+own is in [`scripts/setup-routing.scd`](../scripts/setup-routing.scd), which
+also says what every field means. Changing device or channel count requires
+a server reboot.
 
 ## The three channel roles
 
@@ -20,7 +28,7 @@ Every profile carries the same three 0-indexed stereo pairs. They mean:
 
 | Field | Direction | Carries |
 | --- | --- | --- |
-| `inChannel` | Live → SC | the guitar, **already processed in Live** |
+| `inChannel` | Live → SC | your instrument, **already processed in Live** |
 | `outChannel` | SC → Live | the loop, back to Live |
 | `returnChannel` | Live → SC | Live's **processed loop** return |
 
@@ -59,8 +67,8 @@ the dry tap alone and the Perform tab says so.
 2. That is BlackHole 1–2, which the `\bh*` rigs leave unused and SC already
    opens (`numInChans` reaches past them for the analysis tap), so it costs no
    channel-count change and no server reboot.
-3. On any profile other than `\bhTsMega`, set `sessionChannel: 0` in
-   [`scripts/setup-routing.scd`](../scripts/setup-routing.scd).
+3. In your rig's profile (in your `profiles.scd`), set `sessionChannel: 0`.
+   The duo's `\bhTsMega` has it.
 
 **Check it before you rely on it.** With Live running and something playing,
 the Perform tab should read *"master + dry tap"* rather than *"dry tap only"* —
@@ -77,7 +85,7 @@ it carries no loop audio at all:
 
 | Field | Direction | Carries |
 | --- | --- | --- |
-| `analysisChannel` | interface → SC | the **dry guitar**, for analysis only |
+| `analysisChannel` | interface → SC | the **dry instrument**, for analysis only |
 
 Meter detection sees nothing but onset times. Distortion and ambient FX smear
 note attacks, and blurred onsets are the documented root cause of meter
@@ -168,7 +176,7 @@ fixed the moment the server starts. Re-run either check at any time:
 | Finding | What it means | Result |
 | --- | --- | --- |
 | Fewer channels than `numChans` | A member has dropped out and the SC↔Live pairs cannot exist | **Aborts**, listing which expected members CoreAudio can still see |
-| Fewer channels than `numInChans` | Only the guitar's input is gone | **Degrades**: the tap is switched off, `s.options` corrected, onset detection falls back to the recorded input — and says so |
+| Fewer channels than `numInChans` | Only the instrument's input is gone | **Degrades**: the tap is switched off, `s.options` corrected, onset detection falls back to the recorded input — and says so |
 | Device rate ≠ profile rate | The classic aggregate trap, caught *before* the boot instead of after | Warns |
 | A `members` entry not present | The channel count still fits, so the remaining members have **shifted down** — every channel above the gap is now something else | Warns |
 | A member at a different rate from the aggregate | CoreAudio is resampling it. This is the usual cause of an aggregate that works until it doesn't | Warns |
@@ -233,7 +241,7 @@ The guitar arrives on a real analog input, so the clean analysis tap is just
    input row (use the loopback button on the output strip). Same for ADAT 3-4.
 2. In Live: set the guitar track's Audio To = "ADAT 1-2"; create a return track
    with Audio From = "ADAT 3-4".
-3. Set `~routingProfile = \fireface`.
+3. Pick `fireface` in the launcher.
 
 > **Gotcha.** Toggling loopback in TotalMix while Live is running often does not
 > propagate to Live's input meters until Live's audio engine is restarted. If a
@@ -282,7 +290,7 @@ offsets are 8/10/12, **identical to `\fireface`**:
    share the one device, and mismatched buffers can crash CoreAudio.
 3. **Live:** audio device = "SC-Live Bridge" (In and Out); enable I/O channels up
    to 14. Existing Fireface routings already match — change nothing.
-4. **SC:** `~routingProfile = \loopback` (channels 8/10/12, same as `\fireface`).
+4. **SC:** pick `loopback` in the launcher (channels 8/10/12, same as `\fireface`).
    `s.meter` should show 14 in / 14 out.
 
 **Trade-off.** Live's guitar monitoring now passes through Loopback (~20–40 ms) —
@@ -406,9 +414,9 @@ switch below.
 
 | Role | Channel | Carries |
 |---|---|---|
-| `inChannel` | 0 (TSMEGA input 1) | the guitar, dry. From Phase 2 the looper records the guitar chain instead |
+| `inChannel` | 0 (TSMEGA input 1) | the instrument, dry. From Phase 2 the looper records the instrument chain instead |
 | `outChannel` | the mixer's loop bus | the loop. The profile's 0 is replaced at boot by `scripts/setup-sa.scd` |
-| outputs 1/2 | 0, 1 | the mix: guitar, loop, master level, a hard clip as the last safety |
+| outputs 1/2 | 0, 1 | the mix: instrument, loop, master level, a hard clip as the last safety |
 | `returnChannel`, `analysisChannel`, `sessionChannel` | nil | no Live to return anything; analysis reads the recorded (dry) input |
 | `bassChannel` | 1 (TSMEGA input 2) | the bass, dry, into the bass chain and onto its own strip. The looper does not record it |
 
@@ -421,37 +429,50 @@ Two things the profile does that no other one does:
   the rig, against Live's 16.1 ms. The other profiles keep whatever buffer
   size the server had before any profile was applied.
 
-The node order is guitar group, then the default group (every Looper synth),
+The node order is the instrument's group, then the default group (every Looper synth),
 then the mixer group, so the mixer hears the loop the same block it is written.
 
 ---
 
 ## Adding a rig
 
-Add an entry to `~routingProfiles` in
-[`scripts/setup-routing.scd`](../scripts/setup-routing.scd):
+Write it into **`profiles.scd` in your megalooper folder**
+(`~/Library/Application Support/SuperCollider/megalooper/` on macOS,
+`~/.local/share/SuperCollider/megalooper/` on Linux). The file holds one
+Event, a profile per key:
 
 ```supercollider
-myRig: (
-    device: "Exact CoreAudio Name", numChans: 16, numInChans: 17,
-    inChannel: 8, outChannel: 10, returnChannel: 12,
-    analysisChannel: 16,
-    inChannelCount: 2, latencyMs: 15, abletonSyncMs: 0, sampleRate: 48000),
+// My rigs.
+(
+    myRig: (
+        device: "Exact CoreAudio Name", numChans: 16, numInChans: 17,
+        inChannel: 8, outChannel: 10, returnChannel: 12,
+        analysisChannel: 16,
+        inChannelCount: 2, latencyMs: 15, abletonSyncMs: 0, sampleRate: 48000)
+)
 ```
+
+It is read at every start, and each rig appears in the launcher beside
+`saSystem`; the launcher remembers the one you pick. A file that does not read
+is reported in the log (`~/Library/Logs/megalooper.log`) and megalooper starts
+with its own rig; a rig that names no device is left out. A rig of yours named
+`saSystem` replaces megalooper's. From the SuperCollider IDE, set
+`~defaultRoutingProfile = \myRig` in
+[`scripts/setup-routing.scd`](../scripts/setup-routing.scd).
 
 `ServerOptions.devices` lists the exact names, and the name must match — the boot
 guard compares leniently but `MegaLoop BH (TS Mega)` and `MegaLoop BH (TSMega)`
 do **not** match each other, so a rename in Audio MIDI Setup aborts the boot until
 the profile is updated. `sampleRate`, `numInChans`, `analysisChannel` and
 `abletonSyncMs` are all optional — omit `analysisChannel` on a rig where SC cannot
-see the guitar's own input, and the analysis falls back to reading `inChannel`.
-Then set `~routingProfile = \myRig` in [`scripts/boot.scd`](../scripts/boot.scd).
+see the instrument's own input, and the analysis falls back to reading `inChannel`.
+`./tools/run-checks.sh quick` checks your rigs with megalooper's own.
 
 On an SA profile (`sa: true`), `bassChannel: 1` says a bass is on the
 interface's input 2. Megalooper SA then plays it through the bass chain onto a
 strip of its own. Leave it out on a rig without a bass. The static check
 (`scripts/check.scd`) refuses one that is out of the profile's inputs, the
-guitar's input or the analysis tap, or set on a profile without SA.
+instrument's input or the analysis tap, or set on a profile without SA.
 
 ### The four calibrated values
 

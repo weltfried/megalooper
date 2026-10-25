@@ -1,12 +1,15 @@
 # MIDI map files
 
-A MIDI map is a JSON file: data only, nothing in it runs. megalooper ships two
-(`presets/midi/tsmega.json`, `presets/midi/keys-and-knobs.json`), and the maps
-you keep from MIDI MAP mode go to your megalooper folder. The easiest way to
+A MIDI map is a JSON file: data only, nothing in it runs. megalooper ships one
+(`presets/midi/keys-and-knobs.json`), and the maps you keep from MIDI MAP mode
+go to your megalooper folder. The easiest way to
 make one is MIDI MAP mode (the manual's *MIDI map* section); this page is for
 reading one, writing one by hand, or sharing one.
 
 ## An example
+
+Part of the map the duo keep for their TSMega floor controller: a program
+change for a footswitch, a CC for the expression pedal, and a CC switch.
 
 ```json
 {
@@ -35,7 +38,7 @@ line, with its keys in a fixed order, so two versions of a map compare well.
 | `chan` | 0–15 (megalooper's screens show 1–16) | any channel |
 | `num` | 0–127 | (bend has none) |
 | `device`, `port` | the MIDI input's two names, as Setup's MIDI & AI page lists them | any listening input |
-| `target` | the control's id, such as `looper.trigger` or `sa.fx.echoMix`; the shipped maps in `presets/midi/` use most of them | required |
+| `target` | the control's id, such as `looper.trigger` or `sa.fx.echoMix`; the manual's MIDI MAP mode lists them all | required |
 | `min`, `max` | in the control's own units; min above max turns it round | the full range |
 | `inLo`, `inHi` | the controller's own range | 0, 127 |
 | `hysteresis` | steps a knob must move before it counts | the map's default |
