@@ -538,6 +538,10 @@
     };
     a[\hardwareBufferSize] !? { |n| rp[\hardwareBufferSize] = n.asInteger };
     rp[\audioNotes] = notes.asArray;
+    // The choice as it took effect: what gave way is the system's (nil) or
+    // input 1, so the Rig page's menus show what plays.
+    rp[\audio] = (inDevice: inName, outDevice: outName, inChannel: inCh, bassChannel: bass,
+        hardwareBufferSize: a[\hardwareBufferSize] !? { |n| n.asInteger });
     rp
 };
 
@@ -574,6 +578,72 @@
     protect {
         ~midiSettingsSave.({ |ok, why| if(ok != true) { ("megalooper: the audio settings were not kept: " ++ (why ? "")).warn } });
     } { ~midiWriteSync = was };
+};
+
+// ---- The menus, the launcher's and the Rig page's -----------------------------
+// The buffers offered, in frames; nil is the device's own (or the rig's).
+~audioBuffers = [nil, 64, 128, 256, 512, 1024];
+~audioBufferLabel = { |n| if(n.isNil) { "the device's own" } { n.asString ++ " frames" } };
+
+// A device menu's entries, [(name:, label:)], the first the system's default
+// (name nil). A device chosen before and not connected now stays, marked, so
+// the choice is not lost: the start takes the system's default for it then.
+~audioMenuEntries = { |list, saved, default, side|
+    var e = [(name: nil, label: "System default" ++ (default !? { |n| " (" ++ n ++ ")" } ? ""))]
+        ++ (list ? []).collect { |x| (name: x[\name], label: x[\name]
+            ++ (x[\channels] !? { |c| "  ·  " ++ c ++ (if(side == \in) { " in" } { " out" }) } ? "")) };
+    if(saved.notNil and: { (list ? []).any { |x| ~audioNameMatches.(x[\name], saved) }.not }) {
+        e = e ++ [(name: saved, label: "✗  " ++ saved ++ " (not connected)")];
+    };
+    e
+};
+// Where `saved` is in `entries`: 0, the system's default, when it is nil.
+~audioMenuIndex = { |entries, saved|
+    if(saved.isNil) { 0 } { entries.detectIndex { |x| x[\name].notNil and: { ~audioNameMatches.(x[\name], saved) } } ? 0 }
+};
+// How many inputs the input device `name` has (nil: the system's default),
+// two where CoreAudio did not say.
+~audioInputCount = { |devices, name|
+    var chosen = name ?? { devices[\defaultIn] };
+    ((chosen !? { |n| (devices[\inputs] ? []).detect { |x| ~audioNameMatches.(x[\name], n) } !? { |x| x[\channels] } }) ? 2).max(1)
+};
+~audioInputLabels = { |count| Array.fill(count, { |i| "Input " ++ (i + 1) }) };
+
+// ---- Apply and restart -----------------------------------------------------------
+// The Rig page's way to new audio: the device is fixed when the server starts,
+// so megalooper starts again on it, in this process, as boot.scd run again
+// does (the loop goes; the effects, drums and synth come back as kept). The
+// settings are kept first and handed to the boot as the launcher's are.
+// Answers nil, or why not: a set being recorded must be stopped first, so its
+// files end where the player chose. ~audioRestartQuit, ~audioRestartLater
+// and ~audioRestartBoot are the checks' to replace.
+// A server that does not say it stopped is started again all the same.
+~audioRestartQuit = { |done| s.quit(done, done) };
+~audioRestartBoot = { ((~megalooperScripts ?? { Looper.repoRoot +/+ "scripts" }) +/+ "boot.scd").load };
+// The boot runs on the GUI's clock, as the launcher's does.
+~audioRestartLater = { |f| f.defer };
+~audioApply = { |audio|
+    case
+    { ~looper.notNil and: { ~looper.sessionRecording } } { "Stop Record set first: a restart would end it" }
+    { ~audioRestarting == true } { "megalooper is starting again already" }
+    {
+        ~audioRestarting = true;
+        // The new window says it (boot.scd).
+        ~audioRestarted = true;
+        ~audioSettingsWrite.(audio, true);
+        ~launcherAudio = audio;
+        ~launcherBufferSize = audio[\hardwareBufferSize];
+        // What talks to the server goes before it does.
+        ~megaRemote !? { |r| r.stop };
+        ~looper !? { |l| l.free };
+        ~looper = nil;
+        ~megaSA !? { |m| m.free };
+        ~megaSA = nil;
+        // The boot opens the server's level meter again: one is enough.
+        Window.allWindows.do { |w| if(w.name == (s.name.asString ++ " levels (dBFS)")) { w.close } };
+        ~audioRestartQuit.({ ~audioRestartLater.({ ~audioRestarting = false; ~audioRestartBoot.() }) });
+        nil
+    }
 };
 
 // The devices a profile plays on, in words: the Rig page's Device row.

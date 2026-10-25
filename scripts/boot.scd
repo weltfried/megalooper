@@ -231,6 +231,14 @@ s.waitForBoot {
     // Last: this one subscribes widgets from the header and EVERY pane.
     ~wireLooperController.();
 
+    // Started again by the Rig page's Apply and restart (setup-routing.scd):
+    // the status line says on what, or what gave way.
+    if(~audioRestarted == true) {
+        ~audioRestarted = false;
+        ~guiSay.(if((~rp[\audioNotes] ? []).notEmpty) { ~rp[\audioNotes].join(" ") }
+            { "Started again on " ++ ~audioDeviceLabel.(~rp) }, if((~rp[\audioNotes] ? []).notEmpty) { \bad });
+    };
+
     // AI apps (setup-remote.scd): let in if the Setup view's switch says so.
     ~remoteApply.();
 

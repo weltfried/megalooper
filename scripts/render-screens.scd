@@ -41,7 +41,12 @@ File.mkdir(~saDrumsPresetDir);
 ~midiNow = { now };
 // saSystem: the rig a new user starts Megalooper SA on (the README's).
 ~routingProfile = \saSystem;
-~rp = ~routingProfiles[\saSystem];
+// The Rig page's AUDIO section lists the devices there are: a MacBook's own
+// here, never this Mac's, and saSystem as the audio settings make it.
+~audioDevicesNow = { (inputs: [(name: "MacBook Pro Microphone", channels: 1)],
+    outputs: [(name: "MacBook Pro Speakers", channels: 2)],
+    defaultIn: "MacBook Pro Microphone", defaultOut: "MacBook Pro Speakers") };
+~rp = ~audioProfile.(~routingProfiles[\saSystem], (), ~audioDevicesNow.());
 ~liveRecordToggle = { };
 
 // The take: three bars of 7/8 and one of 8/8 at 103.2, playing, as on the

@@ -57,7 +57,7 @@ var parts = [
 var alsoParse = [
     "boot.scd", "check.scd", "launcher.scd", "check-onset-notes.scd",
     "check-chain-align.scd", "check-loop-phase.scd", "check-gui.scd", "check-gui-effects.scd",
-    "check-gui-drums.scd", "check-gui-midimap.scd", "check-gui-maptags.scd", "check-gui-ai.scd",
+    "check-gui-drums.scd", "check-gui-midimap.scd", "check-gui-maptags.scd", "check-gui-ai.scd", "check-gui-audio.scd",
     "eval_meter_analyzer.scd", "probe-meter.scd", "replay-session.scd",
     "sa/spike-biasfx-nrt.scd", "sa/spike-biasfx-rig.scd", "sa/nrt-drum-voices.scd",
     "sa/nrt-drums-fx.scd", "sa/nrt-drums.scd", "sa/nrt-session.scd"

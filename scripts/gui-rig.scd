@@ -91,6 +91,108 @@
     ).margins_(0).spacing_(8))
 };
 
+// AUDIO: on saSystem the devices and inputs it plays on, chosen here as in
+// the launcher (setup-routing.scd's audio settings), and Apply and restart:
+// the device is fixed when the server starts, so a change starts megalooper
+// again on it (~audioApply), after a second click. On a rig of yours
+// (profiles.scd) its name and device, which the profile says.
+~rigAudioMenu = { |width|
+    PopUpMenu().canFocus_(false).font_(~guiSans.(14)).background_(~gt[\panel]).stringColor_(~gt[\ink])
+        .fixedWidth_(width)
+};
+~rigAudioSection = {
+    var rp = ~rp, chosen, devs, entriesIn, entriesOut, now, fillInputs, paint, armed = false, armGen = 0;
+    var restartWords = "Changing the audio starts megalooper again on it: the loop goes, and the effects, "
+        "drums and synth come back as kept (Keep on their views).";
+    var notes = (rp !? { |r| r[\audioNotes] } ? []);
+    var noteText = ~guiText.(notes.join("\n"), 13, ~gt[\rec]).visible_(notes.notEmpty);
+    if(rp.isNil or: { rp[\audioSettings] != true } or: { MegaFiles.isMac.not }) {
+        View().layout_(VLayout(
+            ~guiCaption.("AUDIO", 11),
+            ~rigRow.("Profile", ~statusProfileLabel = ~guiText.((~routingProfile ? "—").asString, 15, nil, true)),
+            ~rigRow.("Device", ~statusDeviceLabel = ~guiText.(~audioDeviceLabel.(rp), 15, nil, true)),
+            ~guiHint.(if(MegaFiles.isMac) { "A rig of yours: its device and inputs are written in profiles.scd (docs/routing.md)." }
+                { "JACK or PipeWire connects megalooper's inputs and outputs (docs/linux.md)." })
+        ).margins_(0).spacing_(8))
+    } {
+    ~statusProfileLabel = nil;
+    ~statusDeviceLabel = nil;
+    chosen = (rp[\audio] ? ()).copy;
+    devs = ~audioDevicesNow.();
+    // What the menus say, as the audio settings.
+    now = {
+        (inDevice: entriesIn[~rigInDevMenu.value] !? { |e| e[\name] },
+            outDevice: entriesOut[~rigOutDevMenu.value] !? { |e| e[\name] },
+            inChannel: ~rigInstMenu.value ? 0,
+            bassChannel: if((~rigBassMenu.value ? 0) > 0) { ~rigBassMenu.value - 1 },
+            hardwareBufferSize: ~audioBuffers[~rigBufferMenu.value ? 0])
+    };
+    fillInputs = { |want|
+        var count = ~audioInputCount.(devs, entriesIn[~rigInDevMenu.value] !? { |e| e[\name] });
+        ~rigInstMenu.items = ~audioInputLabels.(count);
+        ~rigInstMenu.value = (want[\inChannel] ? 0).clip(0, count - 1);
+        ~rigBassMenu.items = ["None"] ++ ~audioInputLabels.(count);
+        ~rigBassMenu.value = (want[\bassChannel] !? { |b| if(b < count) { b + 1 } }) ? 0;
+    };
+    // Apply only when the menus say something other than what plays.
+    paint = {
+        var changed = ~audioSettingsKeys.any { |k| now.()[k] != chosen[k] };
+        if(changed.not) { armed = false };
+        ~rigAudioApply.enabled_(changed)
+            .states_([[if(armed) { "Click again to restart" } { "Apply and restart" }]])
+            .border_(if(armed) { ~gt[\rec] } { ~gt[\line] });
+    };
+    ~rigInDevMenu = ~rigAudioMenu.(300).toolTip_("The device your instrument comes in on. System default follows the Mac's Sound settings.");
+    ~rigOutDevMenu = ~rigAudioMenu.(300).toolTip_("The device the mix plays on, on its outputs 1 and 2.");
+    ~rigInstMenu = ~rigAudioMenu.(120).toolTip_("The input your instrument is plugged into. The looper records it through the\n"
+        "Instrument chain, and listens to it dry for the meter.");
+    ~rigBassMenu = ~rigAudioMenu.(120).toolTip_("A bass on an input of its own, with a chain and a strip of its own.");
+    ~rigBufferMenu = ~rigAudioMenu.(170).items_(~audioBuffers.collect { |n| ~audioBufferLabel.(n) })
+        .toolTip_("The audio buffer. Bigger stops dropouts on a slower computer, and adds delay: run\n"
+            "the Calibrate view's latency step after a change.");
+    entriesIn = ~audioMenuEntries.(devs[\inputs], chosen[\inDevice], devs[\defaultIn], \in);
+    entriesOut = ~audioMenuEntries.(devs[\outputs], chosen[\outDevice], devs[\defaultOut], \out);
+    ~rigInDevMenu.items_(entriesIn.collect { |e| e[\label] }).value_(~audioMenuIndex.(entriesIn, chosen[\inDevice]));
+    ~rigOutDevMenu.items_(entriesOut.collect { |e| e[\label] }).value_(~audioMenuIndex.(entriesOut, chosen[\outDevice]));
+    ~rigBufferMenu.value = ~audioBuffers.indexOf(chosen[\hardwareBufferSize]) ? 0;
+    fillInputs.(chosen);
+    ~rigAudioApply = LooperTile().border_(~gt[\line]).font_(~guiSans.(13)).fixedHeight_(28).pad_(10)
+        .states_([["Apply and restart"]]).toolTip_(restartWords)
+        .action_({
+            var why, gen;
+            if(armed) {
+                armed = false;
+                why = ~audioApply.(now.());
+                if(why.notNil) { ~guiSay !? { |f| f.value(why, \bad) }; paint.() } {
+                    ~guiSay !? { |f| f.value("Starting again on " ++ ~audioDeviceLabel.(~audioProfile.(~routingProfiles[~routingProfile],
+                        now.(), devs)) ++ "…") };
+                    ~rigAudioApply.enabled_(false).states_([["Starting again…"]]);
+                };
+            } {
+                armed = true;
+                armGen = armGen + 1;
+                gen = armGen;
+                paint.();
+                // A second click within four seconds, or it is as it was.
+                AppClock.sched(4, { if(armed and: { gen == armGen }) { armed = false; paint.() }; nil });
+            };
+        });
+    ~rigInDevMenu.action_({ fillInputs.(now.()); paint.() });
+    [~rigOutDevMenu, ~rigInstMenu, ~rigBassMenu, ~rigBufferMenu].do { |m| m.action_({ paint.() }) };
+    paint.();
+    View().layout_(VLayout(
+        ~guiCaption.("AUDIO", 11),
+        ~rigRow.("Input device", ~rigInDevMenu),
+        ~rigRow.("Output device", ~rigOutDevMenu),
+        ~rigRow.("Instrument on", View().layout_(HLayout(~rigInstMenu, ~guiLabel.("Bass on", 14), ~rigBassMenu)
+            .margins_(0).spacing_(10))),
+        ~rigRow.("Buffer", ~rigBufferMenu),
+        noteText,
+        View().layout_(HLayout([~guiText.(restartWords, 13, ~gt[\mute]), stretch: 1], ~rigAudioApply).margins_(0).spacing_(12))
+    ).margins_(0).spacing_(8))
+    }
+};
+
 ~buildRigPane = {
     var pane = View().background_(~gt[\bg]);
     var l = ~looper;
@@ -100,8 +202,7 @@
     pane.layout_(VLayout(
         ~guiTitle.("Rig", 24),
         // ---- What is actually connected -----------------------------------
-        ~rigRow.("Profile", ~statusProfileLabel = ~guiText.((~routingProfile ? "—").asString, 15, nil, true)),
-        ~rigRow.("Device", ~statusDeviceLabel = ~guiText.(~audioDeviceLabel.(~rp), 15, nil, true)),
+        ~rigAudioSection.(),
         // Which input the onset/pitch detection listens to. The loop is
         // always RECORDED from the processed guitar on inChannel; this only
         // moves the ANALYSIS onto the guitar's dry hardware input, whose sharp

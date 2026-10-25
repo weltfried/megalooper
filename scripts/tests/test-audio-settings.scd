@@ -144,6 +144,50 @@ protect {
     ~systemDefaultDevice = saved[16]; ~deviceFound = saved[17];
 };
 
+// ---- Apply and restart: what goes, in what order, and when it refuses
+{
+    var keys = #[\looper, \megaSA, \megaRemote, \audioRestartQuit, \audioRestartLater, \audioRestartBoot,
+        \launcherAudio, \launcherBufferSize, \audioRestarting, \audioRestarted];
+    var order = List.new, quitDone, was = keys.collect { |k| currentEnvironment[k] }, remote, looper, ticking;
+    var choice = (inDevice: "Interface", outDevice: "Interface", inChannel: 1, hardwareBufferSize: 256);
+    protect {
+        ~midiSettings = nil;
+        ~audioRestarting = false;
+        // Real ones (Object's own free and stop do nothing, so an Event can't
+        // stand in): a Looper with a routine of its own running, whose free
+        // stops it, and a MegaRemote listening, in the harness's scratch folder.
+        ~looper = (sessionRecording: true);
+        looper = ~tLooper.();
+        ticking = Routine { loop { 1.yield } };
+        ticking.next;
+        looper.instVarPut(\clickRoutine, ticking);
+        remote = MegaRemote({ () }).start(58999);
+        ~megaRemote = remote;
+        ~megaSA = ();
+        ~audioRestartQuit = { |done| order.add(\quit); quitDone = done };
+        ~audioRestartBoot = { order.add(\boot) };
+        ~audioRestartLater = { |f| f.value };
+        ~tEq.("a set being recorded refuses the restart, and nothing goes",
+            [~audioApply.(choice), order.asArray], ["Stop Record set first: a restart would end it", []]);
+        ~looper = looper;
+        ~tEq.("otherwise: the AI's listener stops, the looper is freed (its routines stop), it and SA go, the server quits, and nothing boots yet",
+            [~audioApply.(choice), remote.started, ticking.next, ~looper, ~megaSA, order.asArray],
+            [nil, false, nil, nil, nil, [\quit]]);
+        ~tEq.("...the choice is kept, and handed to the boot as the launcher's is",
+            [~audioSettingsRead.()[\inDevice], ~audioSettingsRead.()[\hardwareBufferSize], ~launcherAudio[\inChannel],
+                ~launcherBufferSize], ["Interface", 256, 1, 256]);
+        ~tEq.("...a second Apply while it starts again is refused",
+            ~audioApply.(choice), "megalooper is starting again already");
+        quitDone.value;
+        ~tEq.("the server gone, the boot runs (and will say it started again), and a later Apply may restart again",
+            [order.last, ~audioRestarted, ~audioRestarting], [\boot, true, false]);
+    } {
+        keys.do { |k, i| currentEnvironment.put(k, was[i]) };
+        File.delete(~midiSettingsPath.());
+        ~midiSettings = nil;
+    };
+}.value;
+
 // ---- the pair's preflight
 info = IdentityDictionary[
     'Interface' -> (name: "Interface", in: 4, out: 4, rate: 44100),

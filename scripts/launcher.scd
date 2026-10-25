@@ -36,7 +36,7 @@ var inEntries, outEntries, audioNow, fillAudioMenus, fillInputs, rigRow;
 // TSMEGA, the device's own on the system's default). More frames give a slow
 // computer more time for each block, so it drops out less, and add as much
 // delay: 256 at 48 kHz are 5.3 ms each way.
-var buffers = [nil, 64, 128, 256, 512, 1024];
+var buffers;
 var booted = false;
 // An Apple Silicon Mac running this interpreter as Intel. megalooper.app
 // starts sclang natively since tools/make-app.sh learnt to (macOS may run the
@@ -56,6 +56,7 @@ var rosettaNote = if(translated) {
 (scriptDir +/+ "setup-routing.scd").load;
 // settings.json's reader and writer, where the audio settings are kept.
 (scriptDir +/+ "setup-midimap.scd").load;
+buffers = ~audioBuffers;
 profileKeys = ~routingProfiles.keys.asArray.sort { |a, b| a.asString < b.asString };
 if(translated) { ("megalooper: running under Rosetta." ++ rosettaNote).warn };
 
@@ -118,37 +119,24 @@ audioNow = {
         hardwareBufferSize: buffers[bufferMenu.value])
 };
 
-// The device menus from `devs`, on what `audio` chose. A device chosen before
-// and not connected now stays in the menu, marked, so the choice is not lost:
-// the start then takes the system's default for that side, and says so.
+// The device menus from `devs`, on what `audio` chose (setup-routing.scd's
+// helpers, which the Rig page's Audio section uses too).
 fillAudioMenus = {
-    var entries = { |list, saved, default, side|
-        var e = [(name: nil, label: "System default" ++ (default !? { |n| " (" ++ n ++ ")" } ? ""))]
-            ++ (list ? []).collect { |x| (name: x[\name], label: x[\name]
-                ++ (x[\channels] !? { |c| "  ·  " ++ c ++ (if(side == \in) { " in" } { " out" }) } ? "")) };
-        if(saved.notNil and: { (list ? []).any { |x| ~audioNameMatches.(x[\name], saved) }.not }) {
-            e = e ++ [(name: saved, label: "✗  " ++ saved ++ " (not connected)")];
-        };
-        e
-    };
-    var at = { |e, saved| if(saved.isNil) { 0 } { e.detectIndex { |x| x[\name].notNil and: { ~audioNameMatches.(x[\name], saved) } } ? 0 } };
-    inEntries = entries.(devs[\inputs], audio[\inDevice], devs[\defaultIn], \in);
-    outEntries = entries.(devs[\outputs], audio[\outDevice], devs[\defaultOut], \out);
+    inEntries = ~audioMenuEntries.(devs[\inputs], audio[\inDevice], devs[\defaultIn], \in);
+    outEntries = ~audioMenuEntries.(devs[\outputs], audio[\outDevice], devs[\defaultOut], \out);
     inMenu.items = inEntries.collect { |e| e[\label] };
-    inMenu.value = at.(inEntries, audio[\inDevice]);
+    inMenu.value = ~audioMenuIndex.(inEntries, audio[\inDevice]);
     outMenu.items = outEntries.collect { |e| e[\label] };
-    outMenu.value = at.(outEntries, audio[\outDevice]);
+    outMenu.value = ~audioMenuIndex.(outEntries, audio[\outDevice]);
     fillInputs.();
 };
 
-// The instrument's and the bass's menus: the inputs of the input device
-// chosen (two where CoreAudio did not say how many).
+// The instrument's and the bass's menus: the inputs of the input device chosen.
 fillInputs = {
-    var chosen = (inEntries[inMenu.value] !? { |e| e[\name] }) ?? { devs[\defaultIn] };
-    var count = (chosen !? { |n| (devs[\inputs] ? []).detect { |x| ~audioNameMatches.(x[\name], n) } !? { |x| x[\channels] } } ? 2).max(1);
-    instMenu.items = Array.fill(count, { |i| "Input " ++ (i + 1) });
+    var count = ~audioInputCount.(devs, inEntries[inMenu.value] !? { |e| e[\name] });
+    instMenu.items = ~audioInputLabels.(count);
     instMenu.value = (audio[\inChannel] ? 0).clip(0, count - 1);
-    bassMenu.items = ["None"] ++ Array.fill(count, { |i| "Input " ++ (i + 1) });
+    bassMenu.items = ["None"] ++ ~audioInputLabels.(count);
     bassMenu.value = (audio[\bassChannel] !? { |b| if(b < count) { b + 1 } }) ? 0;
 };
 

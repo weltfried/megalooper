@@ -24,7 +24,8 @@ Choose the audio in the Desktop launcher, before you start:
 
 megalooper keeps your choice in `settings.json` for the next start. A device
 that is not plugged in then gives way to the system's default, and the
-launcher says so. Changing the audio means starting megalooper again.
+launcher says so. The same menus are on Setup's Rig page, where **Apply and
+restart** starts megalooper again on a change.
 
 Behind the menus is megalooper's one **routing profile**, **`saSystem`**:
 Megalooper SA, with its effect chains, drums and synth. With nothing chosen
@@ -519,9 +520,20 @@ at the same sizes.
 
 ![Setup's Rig page](images/setup-rig.png)
 
-*Fig: Setup's Rig page on the saSystem rig: the profile and the device, the analysis input, the timing values and Megalooper SA's levels, with Calibrate beside them.*
+*Fig: Setup's Rig page on the saSystem rig: the audio, the analysis input, the timing values and Megalooper SA's levels, with Calibrate beside them.*
 
 The controls, by view:
+
+- **Audio** *(Setup › Rig)* — the input and output devices, the input your
+  instrument and a bass are on, and the buffer, as in the launcher
+  ([Configuration](#configuration)). A change wakes **Apply and restart**;
+  click it twice and megalooper starts again on the new audio, because the
+  device is fixed when the audio server starts. The loop goes, and the
+  effects, drums and synth come back as kept (Keep on their views); while
+  Record set runs it refuses, so the set's files end where you chose. A
+  device that gave way at the start, or an input it does not have, is said
+  in red under the menus. On a rig of yours the section shows its name and
+  device instead: the profile says them.
 
 - **Drums follow the loop** *(Setup › Rig)* — whether the drums start and stop
   with the loop:
@@ -1657,7 +1669,7 @@ you did about it with the next-reading switch. See
 
 ## Testing
 
-`./tools/run-checks.sh` runs all twenty-one checks, one sclang at a time, in
+`./tools/run-checks.sh` runs all twenty-two checks, one sclang at a time, in
 about six minutes. `./tools/run-checks.sh quick` runs only the unit tests, the
 static check and the AI bridge's test. Nothing opens an audio device or touches
 MIDI, and megalooper may be running beside it. Checks that need material the
@@ -1718,6 +1730,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-midiback.scd` | values and lights sent back to a controller: when they go, when they wait, echoes dropped |
 | `test-megafiles.scd` | the file kit: your folder, JSON read and written whole, the format and version rules |
 | `test-megaremote.scd` | megalooper as a tool for an AI app: who may ask, what is answered, the changes it may make and take back |
+| `test-audio-settings.scd` | the audio settings: the profile they make against a device list, what gives way when a device or an input is missing, `settings.json`, the server's options, the sample-rate check, Apply and restart |
 | `test-megasa.scd` | Megalooper SA's frame: its routing, server options, the mixer's levels and mutes, its SynthDefs, the drums it owns, the stems |
 | `test-megasa-chains.scd`, `-edits`, `-drumchain`, `-bass` | the device chains: types, devices and chains as models and as built; insert, copy, remove, move, rename, undo and redo; the drums' chain; the bass's chain |
 | `test-megasa-sound.scd`, `-keep`, `test-sa-sounds.scd` | sounds: the document and its JSON, Keep and recall onto running chains, what a boot does with the kept sound, variations |
