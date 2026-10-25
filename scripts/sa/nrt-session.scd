@@ -1753,13 +1753,13 @@ checkHint = { |ctx|
     var rate = ctx[\rate] ? 1;
     var barExact = ((16 * ctx[\num]) / ctx[\den]) * ctx[\s16], barR = (ctx[\num] * (4 / ctx[\den])) * (60 / ctx[\bpmR]);
     var bar1 = numAfter.(hint, "bar 1 is at ") ?? { numAfter.(hint, "first bar line in the files is at ") };
-    var shift = numAfter.(hint, "move everything right by ") ?? { if(hint.contains("on Live's bar lines there")) { 0 } };
+    var shift = numAfter.(hint, "move everything right by ") ?? { if(hint.contains("on the DAW's bar lines there")) { 0 } };
     var fe = ctx[\filesEv] ? (), heard = og + MegaSADrums.loopAudioDelay, truth = heard - rec.audioAt, onBar, hit, g;
     var onsetSec, j, err, k2, err2, tol = (block / sr) + 0.0005, truthLine, placed, really, barW;
     say.("the post window's hint: " ++ hint);
     onBar = { |r| var q = (r[\grid] - og) / barExact; ((q - q.round).abs < 1e-6) and: { q > -1e-9 } };
     check.(label ++ ": the hint names " ++ fixed.(ctx[\bpmR], 2) ++ " BPM and " ++ ctx[\num] ++ "/" ++ ctx[\den] ++ ", bar 1 and the shift",
-        hint.beginsWith("In Live: " ++ fixed.(ctx[\bpmR], 2) ++ " BPM, " ++ ctx[\num] ++ "/" ++ ctx[\den] ++ ".")
+        hint.beginsWith("In a DAW: " ++ fixed.(ctx[\bpmR], 2) ++ " BPM, " ++ ctx[\num] ++ "/" ++ ctx[\den] ++ ".")
             and: { bar1.notNil } and: { shift.notNil }, hint);
     // The drums' bar 1 as the drums have it: their epoch's origin, heard, on
     // the log's clock from audioAt; or, already playing, the first of their

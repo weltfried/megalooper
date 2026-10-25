@@ -493,7 +493,7 @@ SA_RACKS = [
 
 # Variation names the set gives that megalooper shows otherwise: the window
 # names no instrument.
-VARIATION_NAMES = {"guitar-playback": "loop-playback"}
+VARIATION_NAMES = {"guitar-playback": "loop-playback", "as saved": "starting values"}
 
 # Live's synced LFO rates, slow to fast, in whole notes.
 SYNC_DIVISIONS = [8, 6, 4, 3, 2, 1.5, 1, 0.75, 0.5, 0.375, 1 / 3, 5 / 16, 0.25, 3 / 16,
@@ -783,11 +783,11 @@ def cmd_variations(root, parents, args):
     path = os.path.join(args.out, "fx-variations.json")
     text = json.dumps({
         "source": os.path.basename(args.set),
-        "notes": "Each effect's rack states as MegaSAFx settings: 'as saved' is the macros "
+        "notes": "Each effect's rack states as MegaSAFx settings: 'starting values' is the macros "
                  "as the set left them; the rest are the rack's own macro variations, each "
                  "with only the settings its macros drive (a recall leaves the rest). "
                  "'fixed' holds the settings no macro drives, at the device's stored values. "
-                 "MegaSAFx's defaults are 'as saved' plus 'fixed'. Macro positions go "
+                 "MegaSAFx's defaults are 'starting values' plus 'fixed'. Macro positions go "
                  "through Live's knob curves (tools/export-live-set.py CURVES).",
         "effects": effects,
     }, indent=1, ensure_ascii=False)

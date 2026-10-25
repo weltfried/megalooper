@@ -567,42 +567,42 @@ MegaSASteps {
             var only = if(n == 1) { " Only forward: step 1 cannot leave its cycle." } { "" };
             "Shifts step " ++ n ++ " of each Shuffle Length cycle (the device's \"respective\n"
             "clock division\"): +-50 % is +-0.4 of a step, later for plus, scaled by Global\n"
-            "Shuffle and put on Live's 1/64 grid." ++ only
-            ++ "\nThe set's dial is heard only with Global Shuffle above 0 %."
+            "Shuffle and put on a 1/64 grid." ++ only
+            ++ "\nThe dial is heard only with Global Shuffle above 0 %."
         };
         ^[
             (name: \clockSpeed, label: "Clock",
                 spec: ControlSpec(0, 5, \lin, 1, live[\clockSpeed]),
                 choices: this.clockSpeedLabels.collect { |l, i| [i, l] },
-                tip: "The clock speed: how long a step is. 100 % (the set's) is a\n"
+                tip: "The clock speed: how long a step is. 100 %, where it starts, is a\n"
                     "16th. The labels are the device's; 75 % really plays 0.8 and 150 % 1.33\n"
                     "times as fast."),
             (name: \rollRate, label: "Roll",
                 spec: ControlSpec(0, 8, \lin, 1, live[\rollRate]),
                 choices: this.rollRateLabels.collect { |l, i| [i, l] },
                 tip: "The frequency of note repeats in beat time: how far apart a roll's extra hits\n"
-                    "are, off the step grid. 1/16t in the set, two thirds of a 16th."),
+                    "are, off the step grid. Starts at 1/16t, two thirds of a 16th."),
             (name: \autoRetrigger, label: "Retrig", bool: true,
                 spec: ControlSpec(0, 1, \lin, 1, live[\autoRetrigger].binaryValue),
                 choices: [[0, "Off"], [1, "On"]],
-                tip: "Automatically resyncs all sequences, every Auto Trigger Rate. On in the set.\n"
+                tip: "Automatically resyncs all sequences, every Auto Trigger Rate. Starts on.\n"
                     "The lanes start again on the first step of every bar, uneven bars too, so\n"
-                    "in 7/8 a 16-step lane plays 14 steps a bar and an 8/8 bar all 16. Live's\n"
-                    "device waited for pseudo-bars of <numerator> quarter notes instead\n"
+                    "in 7/8 a 16-step lane plays 14 steps a bar and an 8/8 bar all 16. The\n"
+                    "original device waited for pseudo-bars of <numerator> quarter notes instead\n"
                     "(MegaSADrums.retrigAt = \\live)."),
             (name: \autoTriggerRate, label: "Retrig Rate",
                 spec: ControlSpec(0, 3, \lin, 1, live[\autoTriggerRate]),
                 choices: this.autoTriggerRateLabels.collect { |l, i| [i, l] },
-                tip: "With Auto Retrigger on, how often the sequences are resynced: every bar in\n"
-                    "the set."),
+                tip: "With Auto Retrigger on, how often the sequences are resynced. Starts at\n"
+                    "every bar."),
             (name: \shuffleLength, label: "Shuffle Len",
                 spec: ControlSpec(2, 8, \lin, 1, live[\shuffleLength]),
                 tip: "How many steps the shuffle's cycle spans: the cycle\n"
-                    "Shuffle 1..8 repeat over, counted from the transport's start. 7 in the set."),
+                    "Shuffle 1..8 repeat over, counted from the transport's start. Starts at 7."),
             (name: \globalShuffle, label: "Global Shuf.", units: " %",
                 spec: ControlSpec(0, 100, \lin, 0, live[\globalShuffle]),
-                tip: "Scales every Shuffle dial: the overall amount of timing deviation. 0 % in both\n"
-                    "of the set's devices, so the set plays straight 16ths whatever the dials say.")
+                tip: "Scales every Shuffle dial: the overall amount of timing deviation. Starts at 0 %\n"
+                    "in both patterns, so the steps play straight 16ths whatever the dials say.")
         ] ++ (1..8).collect { |n|
             (name: ("shuffle" ++ n).asSymbol, index: n - 1, label: "Shuffle " ++ n, units: " %",
                 centered: n > 1,
@@ -617,20 +617,20 @@ MegaSASteps {
         ^[
             (name: \note, label: "Note", spec: ControlSpec(36, 51, \lin, 1, live[\note][0]),
                 live: live[\note],
-                tip: "The drum pad this lane plays: 42, 37, 38 and 36 in the set (hats, sidestick,\n"
+                tip: "The drum pad this lane plays: 42, 37, 38 and 36 to start with (hats, sidestick,\n"
                     "snare, kick)."),
             (name: \altNote, label: "Alt", spec: ControlSpec(36, 51, \lin, 1, live[\altNote][0]),
                 live: live[\altNote],
                 tip: "The alternative pad, played when the lane's Alt step wins its own draw: 44,\n"
-                    "50, 40 and 41 in the set (the kick's never plays: its Alt steps are 0)."),
+                    "50, 40 and 41 to start with (the kick's never plays: its Alt steps are 0)."),
             (name: \delay, label: "D", units: " ms", spec: ControlSpec(0, 50, \lin, 0, live[\delay][0]),
                 live: live[\delay],
                 tip: "Moves this lane later by this many milliseconds: its notes and\n"
-                    "their rolls, later only. 0 in the set."),
+                    "their rolls, later only. Starts at 0."),
             (name: \mute, label: "M", bool: true,
                 spec: ControlSpec(0, 1, \lin, 1, live[\mute][0].binaryValue),
                 choices: [[0, "Off"], [1, "On"]], live: live[\mute],
-                tip: "Silences the lane. As in Live, a muted lane keeps drawing its dice and\n"
+                tip: "Silences the lane. A muted lane keeps drawing its dice and\n"
                     "running its rolls, so it comes back exactly where it would have been."),
             (name: \lock, label: "Lock", bool: true,
                 spec: ControlSpec(0, 1, \lin, 1, live[\lock][0].binaryValue),
@@ -640,7 +640,7 @@ MegaSASteps {
             (name: \globalLength, label: "Global Len",
                 spec: ControlSpec(2, 16, \lin, 1, live[\globalLength][0]), live: live[\globalLength],
                 tip: "The length in steps for the lane's whole sequence, every page at once, while\n"
-                    "Lock is on. 16 in the set."),
+                    "Lock is on. Starts at 16."),
             (name: \length, label: "L", spec: ControlSpec(2, 16, \lin, 1, live[\lengths][\chance][0]),
                 live: live[\lengths][\chance],
                 tips: (chance: "The length in steps for the Chance sequence.",
@@ -649,8 +649,8 @@ MegaSASteps {
                     roll: "The length in steps for the Roll sequence.",
                     slide: "The length in steps for the Slide (Modulation) sequence."),
                 tip: "The length in steps of this page of the lane: it wraps on its own, from the\n"
-                    "one lane step, so pages of different lengths drift against each other. 16 in\n"
-                    "the set.")
+                    "one lane step, so pages of different lengths drift against each other.\n"
+                    "Starts at 16.")
         ]
     }
 

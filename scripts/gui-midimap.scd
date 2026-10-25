@@ -344,7 +344,7 @@
                 { (device: g[\deviceNames][m.value - 1], port: \remove) }) } });
     g[\switchMenu] = menu.(PopUpMenu())
         .items_(["knob or pedal", "one message a press", "press and release"])
-        .toolTip_("What kind of switch sends this CC: the TSMega's send one message a press.")
+        .toolTip_("What kind of switch sends this CC: many floor controllers send one message a press.")
         .action_({ |m| ~midiGuiSelected.() !? { |b|
             ~midiBindingChange.(b, (switch: [\knob, \oneMessage, \pressRelease][m.value])) } });
     g[\modeMenu] = menu.(PopUpMenu()).items_(["press flips it", "on while held", "follows the switch"])

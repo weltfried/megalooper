@@ -123,7 +123,7 @@ low-pass through band-pass to high-pass as **Morph** goes from 0 to 100 %.
 | **Envelope** | −100 to 100 % | +76 % | How far your picking moves the cutoff; 100 % is four octaves. Negative moves it down instead |
 | **Sense** | 0.5 to 30× | 3× | How hard a pick has to be to reach the top of the envelope. Higher reacts to softer playing |
 | **Release** | 10 ms to 3 s | 250 ms | How fast the envelope lets go after a note |
-| **LFO Wave** | Sine, Triangle, Saw, Square, Ramp Up, Ramp Down, Wander, S&H | Ramp Up | The LFO's shape. Wander glides at random; S&H jumps at random |
+| **LFO Wave** | Sine, Triangle, Saw, Square, Ramp Up, Ramp Down, Wander, S&H | Ramp Up | The LFO's shape. Saw falls fast and settles; Ramp Down falls in a straight line. Wander glides at random; S&H jumps at random |
 | **LFO Amt** | 0 to 100 % | 89 % | How far the LFO moves the cutoff; 100 % is three octaves each way |
 | **LFO Sync** | Free, 1/64 to 2/1 | 1/4 | One LFO cycle per this note value at the loop's tempo, triplets (T) and dotted (D) too. It runs from its own phase, not from the bar line |
 | **LFO Rate** | 0.05 to 20 Hz | 1 Hz | The LFO's speed while Sync is Free |

@@ -519,9 +519,9 @@
     refresh = { if(save.isClosed.not) { save.states_([[label.(field.string.stripWhiteSpace), ~gt[\ink], ~gt[\panel]]]) } };
     menu = PopUpMenu().canFocus_(false).fixedWidth_(220).font_(~guiSans.(13))
         .background_(~gt[\panel]).stringColor_(~gt[\ink])
-        .toolTip_("This effect's variations: the ones from the Live set this rig was built\n"
-            "after ('as saved' is where these bars start; one moves only the settings\n"
-            "its rack drove), then yours (every setting). Delete removes one of yours.")
+        .toolTip_("This effect's variations: the ones megalooper ships ('starting values'\n"
+            "is where these bars start; one moves only the settings its rack drove),\n"
+            "then yours (every setting). Delete removes one of yours.")
         .items_([if(list.isEmpty) { "No variations yet" } { "Variation…" }] ++ picks.collect { |x| x[0] })
         .action_({ |mn|
             var pick = if(mn.value > 0) { picks[mn.value - 1] };
@@ -889,7 +889,7 @@
                 d[\rows] = ~effectsRowGeometry.();
                 v.hatch_(true);
                 ~presetSetStatus.(\saFx, "Moving " ++ ((~megaSA !? { |m| m.device(id) } !? { |dev| dev.name }) ? id)
-                    ++ ": drop it at the mark, on either chain. Esc cancels.");
+                    ++ ": drop it at the mark, on any chain. Esc cancels.");
             };
             if(d[\moving]) {
                 d[\to] = ~effectsDropAt.(v.mapToGlobal(Point(x, y)), d[\rows]);

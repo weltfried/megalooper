@@ -1,13 +1,13 @@
 {
  "source": "megalooper-slave.als",
- "notes": "Each effect's rack states as MegaSAFx settings: 'as saved' is the macros as the set left them; the rest are the rack's own macro variations, each with only the settings its macros drive (a recall leaves the rest). 'fixed' holds the settings no macro drives, at the device's stored values. MegaSAFx's defaults are 'as saved' plus 'fixed'. Macro positions go through Live's knob curves (tools/export-live-set.py CURVES).",
+ "notes": "Each effect's rack states as MegaSAFx settings: 'starting values' is the macros as the set left them; the rest are the rack's own macro variations, each with only the settings its macros drive (a recall leaves the rest). 'fixed' holds the settings no macro drives, at the device's stored values. MegaSAFx's defaults are 'starting values' plus 'fixed'. Macro positions go through Live's knob curves (tools/export-live-set.py CURVES).",
  "effects": {
   "delay": {
    "rack": "LFO | Delay",
    "track": "Guitar Rig",
    "variations": [
     {
-     "name": "as saved",
+     "name": "starting values",
      "settings": {
       "delayTimeL": 0.001,
       "delayTimeR": 0.437855,
@@ -60,7 +60,7 @@
    "track": "Guitar Rig",
    "variations": [
     {
-     "name": "as saved",
+     "name": "starting values",
      "settings": {
       "filterType": 4,
       "filterFreq": 311.094842,
@@ -175,7 +175,7 @@
    "track": "Guitar Rig",
    "variations": [
     {
-     "name": "as saved",
+     "name": "starting values",
      "settings": {
       "pitchLoopPitchL": 7.0,
       "pitchLoopPosL": 0.795768
@@ -224,7 +224,7 @@
    "track": "looper guitar",
    "variations": [
     {
-     "name": "as saved",
+     "name": "starting values",
      "settings": {
       "saturatorDrive": 6.499551,
       "saturatorBase": 35.819816,
@@ -317,7 +317,7 @@
    "track": "looper guitar",
    "variations": [
     {
-     "name": "as saved",
+     "name": "starting values",
      "settings": {
       "reduxRate": 7240.085839,
       "reduxJitter": 0.0248,

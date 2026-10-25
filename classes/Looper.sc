@@ -1436,7 +1436,7 @@ Looper {
             var wait = (target - now).mod(loopSecs);
             ("Overdub detect: " ++ result[\numerator] ++ "/" ++ result[\denominator]
                 ++ " @ " ++ result[\bpm].round(0.1) ++ " BPM over " ++ result[\k]
-                ++ " bars from " ++ result[\onsetCount] ++ " onsets — Live starts in "
+                ++ " bars from " ++ result[\onsetCount] ++ " onsets — the transport starts in "
                 ++ wait.round(0.01) ++ " s.").postln;
             wait.wait;
             this.startTempoClocks(result);
@@ -3700,8 +3700,8 @@ Looper {
             reading: Looper.resultForLog(result)));
         ("Next reading: " ++ Looper.prReadingString(result) ++ " in " ++ wait
             ++ " loop" ++ (if(wait > 1) { "s" } { "" })
-            ++ (if(restart) { " — no boundary in reach carries Live's bar line, so Start goes out again" }
-                { ", on Live's bar line" }) ++ ".").postln;
+            ++ (if(restart) { " — no boundary in reach carries the bar line, so Start goes out again" }
+                { ", on the bar line" }) ++ ".").postln;
         readingRoutine = Routine {
             // A cutter respawn writes the loop out and reads it back before it
             // can wait for the boundary itself (enableBBCut): half a second
@@ -3752,7 +3752,7 @@ Looper {
             if(p[\restart]) {
                 if(startsRelocate and: { this.sessionRecording }) {
                     ("Reading landed; the set is being recorded, so no Start — "
-                        "Live's bar line may sit off the loop's.").postln;
+                        "the transport's bar line may sit off the loop's.").postln;
                 } {
                     midiOut !? { |m| m.start };
                     clockTicksAtRef = 0;
@@ -4242,9 +4242,9 @@ Looper {
             // and nothing else, so a later analysis restarts them on the loop
             // whether or not the set is being recorded.
             if(startsRelocate and: { this.sessionRecording } and: { midiClockRoutine.notNil }) {
-                ("Session recording: not restarting Live's transport ("
+                ("Session recording: not restarting the transport ("
                     ++ result.bpm.round(0.1) ++ " BPM detected). A MIDI Start "
-                    "would jump Live back to 1.1.1 and overwrite the take.").postln;
+                    "would jump it back to bar 1 and overwrite the take.").postln;
             } {
                 this.startMidiClock(result.bpm, loopSecs);
             };

@@ -65,8 +65,8 @@ An effect brought back by Undo keeps its settings.
 
 Each effect's menu lists the variations megalooper ships (Dual Delay, Envelope
 Filter, Pitch Loops, Drive and Crusher have some), then yours, marked
-**· yours**. Each shipped list starts with **as saved**: the settings the
-shipped variations move, back at their starting values. A shipped variation
+**· yours**. Each shipped list starts with **starting values**: it puts the settings
+the shipped variations move back where they start. A shipped variation
 sets only some of the settings; one of yours sets them all. Yours are kept in `sa/fx-variations.json` in your megalooper
 folder, apart from the sounds; a shipped variation's name cannot be taken for
 one of yours.

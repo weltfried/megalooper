@@ -819,8 +819,10 @@ t1 = Main.elapsedTime - t0;
 // These sections swap globals a running megalooper uses (~looper, ~rp, the
 // numbers), so each puts them back however it ends.
 savedLooper = ~looper;
+savedRp = ~rp;
 protect {
     ~looper = nil;
+    ~rp = nil;   // no rig said: one beside Live, as every rig without `live: false`
     targets = ~midiTargetsBuild.();
     kinds = #[\trigger, \toggle, \continuous, \step, \choice];
     ~tEq.("the router still has the 36 controls today's numbers drive (none missing)",
@@ -856,7 +858,10 @@ protect {
     ~tAssert.("SA's seven effects and its drums are among them",
         MegaSAFx.keys.every { |k| targets.includesKey(("sa.fxOn." ++ k).asSymbol) } and: { targets.includesKey('sa.drums.on') });
     ~tEq.("...and not there without SA", targets['sa.drums.on'][\available].value, false);
-} { ~looper = savedLooper };
+    ~rp = (sa: true, live: false);
+    ~tEq.("Live's arrangement record is not offered on a rig without Live",
+        ~midiTargetsBuild.().includesKey('live.record'), false);
+} { ~looper = savedLooper; ~rp = savedRp };
 
 // --------------------------------------------------- the map from numbers --
 savedRp = ~rp;

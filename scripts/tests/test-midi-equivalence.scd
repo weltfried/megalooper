@@ -152,7 +152,11 @@ case
         ~megaSA = if((~rp[\sa] == true) and: { world[\noSA] != true }) { makeSA.value };
         ~midiOut = if(world[\noOut] == true) { nil } { out };
         ~midiProxy = world[\proxyOff] != true;
-        ~liveRecordToggle = if(world[\noLive] == true) { nil } { { calls.add([\model, \live, \toggle, from]); true } };
+        // A rig without Live has no arrangement record to toggle: the router
+        // does not offer one there (setup-miditargets.scd), so neither side
+        // gets one to call.
+        ~liveRecordToggle = if((world[\noLive] == true) or: { ~rp[\live] == false }) { nil }
+            { { calls.add([\model, \live, \toggle, from]); true } };
         if(world[\noLaws] == true) { ~onsetThresholdSpec = nil; ~granularParams = nil };
         ~midiLog = false;
         ~midiMonitorPush = { |line| calls.add([\log, line, from]) };

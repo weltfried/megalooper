@@ -128,9 +128,9 @@ win.layout_(VLayout(
         StaticText().string_("Rig:").align_(\right).fixedWidth_(50),
         menu = PopUpMenu()
             .canFocus_(false)
-            .toolTip_("Routing profile: which audio device carries the SC↔Live pairs.\n"
-                "✓ = that device is connected right now. Full setup per rig is in "
-                "docs/routing.md.")
+            .toolTip_("Routing profile: which audio device megalooper plays on, and where your\n"
+                "instrument comes in. ✓ = that device is connected right now. Rigs of your own\n"
+                "go in profiles.scd (docs/routing.md).")
             .action_({ refresh.() }),
         Button()
             .canFocus_(false)

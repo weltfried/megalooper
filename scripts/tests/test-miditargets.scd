@@ -161,12 +161,13 @@ d.setKit(\onset, 'mt-onset');
 
 // These swap globals a running megalooper uses (~looper, ~megaSA, Live's
 // record switch), so they are put back however it ends.
-saved = [~looper, ~megaSA, ~liveRecordToggle, ~liveRecordSet];
+saved = [~looper, ~megaSA, ~liveRecordToggle, ~liveRecordSet, ~rp];
 protect {
     // ------------------------------------------------------------ on a Live rig --
     l = ~tLooper.();
     ~looper = l;
     ~megaSA = nil;
+    ~rp = nil;   // no rig said: one beside Live, as every rig without `live: false`
     ~liveRecordToggle = { true };   // never Live's: that one sends OSC
     ~liveRecordSet = { |on| on };
     targets = ~tCheck.("the controls are made on a Live rig", { ~midiTargetsBuild.() }) ? IdentityDictionary.new;
@@ -401,6 +402,10 @@ protect {
     // -------------------------------------------------------------- on SA --
     ~megaSA = sa;
     targets = ~tCheck.("the controls are made on SA", { ~midiTargetsBuild.() }) ? IdentityDictionary.new;
+    ~rp = (sa: true, live: false);
+    ~tEq.("Live's arrangement record is offered only on a rig beside Live",
+        [targets.includesKey('live.record'), ~midiTargetsBuild.().includesKey('live.record')], [true, false]);
+    ~rp = nil;
     ~tEq.("the trims are the two kits' pads, and the steps kit's layer group (not its main one)",
         targets.keys.asArray.select { |id| id.asString.contains("rim.") }.sort,
         ['sa.drums.groupTrim.steps.layer', 'sa.drums.trim.onset.36', 'sa.drums.trim.onset.37',
@@ -738,7 +743,7 @@ protect {
                 (try { x[\available].value; x[\get].value; x[\format] !? { |f| f.value(x[\get].value) }; false } { true })
             }], [0, []]);
 } {
-    ~looper = saved[0]; ~megaSA = saved[1]; ~liveRecordToggle = saved[2]; ~liveRecordSet = saved[3];
+    ~looper = saved[0]; ~megaSA = saved[1]; ~liveRecordToggle = saved[2]; ~liveRecordSet = saved[3]; ~rp = saved[4];
     d !? { |x| x.free };
     sa !? { |x| x.free };
     ~tRemoveTree.(tmp);

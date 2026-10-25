@@ -306,12 +306,12 @@
     ~performAction.(\stop, "Stop", "S", 'looper.stop', { |lp| lp.stopPlayback }, "Stop playback.");
     ~breakButton = ~performAction.(\break, "Break", "K", 'looper.break', { |lp| lp.fireBreak },
         "Silence the looper from now until the downbeat the loop count below picks out.\n"
-            "The loop keeps running underneath — only the output goes away — so Live stays\n"
-            "in sync and the loop returns exactly where it would have been.");
+            "The loop keeps running underneath — only the output goes away — so the timing\n"
+            "holds and the loop returns exactly where it would have been.");
     ~nextReadingButton = ~performAction.(\reading, "Next reading", "A", 'looper.nextReading',
         { |lp| lp.nextReading },
         "Move the take to the analyser's NEXT reading of it — the meter that scored second,\n"
-            "then third, round to its own answer. Lands on a loop boundary where Live's bar line\n"
+            "then third, round to its own answer. Lands on a loop boundary where the bar line\n"
             "agrees, so nothing jumps; the audio and the onset notes never change.");
     ~dissolveButton = ~performAction.(\dissolve, "Dissolve", "D", 'looper.dissolve', { |lp| lp.toggleDissolve },
         "Run the ending over the bar count below; press again to abort and restore.\n"
@@ -322,7 +322,7 @@
             "Record the next loop while this one plays. Starts and ends on a loop boundary,\n"
                 "at a whole number of repetitions."
         } {
-            "Loop chaining needs a return channel from Live; this rig has none."
+            "This rig has no return channel, so loop chaining is off."
         });
     // A rig with no return channel has nothing to chain FROM: inert and
     // labelled, rather than a tile that does nothing.
@@ -722,7 +722,7 @@
         "Per set: master, dry tap, stems (" ++ stems.join(", ") ++ "), the event log and the drums' .mid."
     } {
         "Per set: master (what the room heard), dry tap (to re-run detection offline), the event log."
-    }) ++ "\nNamed at the stop with the tempo and signature to set Live to: "
+    }) ++ "\nNamed at the stop with the tempo and signature to set a DAW to: "
         "<stamp>-165.04bpm-7-8-master.wav (no tempo: <stamp>-master.wav)."
 };
 )

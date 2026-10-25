@@ -344,7 +344,7 @@
 };
 
 // The effect racks' macro states from the Live set, as MegaSAFx settings:
-// "as saved" (what the macros were left at, and the defaults) and each rack's
+// "starting values" (what the macros were left at, and the defaults) and each rack's
 // own variations. Written by `python3 tools/export-live-set.py variations`.
 // effect -> [[name, (setting -> value)], ...]; parseJSON hands numbers over as
 // strings, so they are converted here once.
@@ -433,7 +433,7 @@
     { d.isNil or: { d.isPlugin } } { action.value(false, "no effect to take its settings from") }
     { nm.isEmpty } { action.value(false, "it needs a name") }
     { (~saFxVariations[d.type] ? []).any { |v| (v[2] != true) and: { v[0] == nm } } } {
-        action.value(false, "'" ++ nm ++ "' is a variation from the Live set") }
+        action.value(false, "'" ++ nm ++ "' is a variation megalooper ships") }
     {
         own = ~saOwnVariations.();
         list = (own[d.type] ? []).asArray;
@@ -648,7 +648,7 @@
     if(plugin.notNil and: { sound.notNil } and: { bank.isNil }
         and: { sound.devices(\guitar).any { |d| (d[\type] == \plugin) and: { d[\state].isNil } } }) {
         ("megalooper: the kept sound holds no state for the plugin; it opens at its default sound. "
-            ++ "Run python3 tools/export-live-set.py biasfx for the Live set's bank, or set it up and Start with this.").warn;
+            ++ "Put a sound bank (.fxb) for it in presets/sa/biasfx, or set it up and Start with this.").warn;
     };
     if(plugin.notNil and: { \VSTPlugin.asClass.notNil } and: { sound.notNil }
         and: { sound.devices(\guitar).any { |d| d[\type] == \plugin }.not }) {

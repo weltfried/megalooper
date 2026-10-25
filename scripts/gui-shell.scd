@@ -261,9 +261,10 @@
 // Show a view. The status band is Perform's; every other view gets the strip.
 ~guiSelectView = { |key|
     var i = ~guiViewOrder.indexOf(key);
+    var live = (~rp !? { |r| r[\live] }) != false;
     if(i.isNil) {
-        if(key == \fx) { ~guiSay.("No FX on this rig: Live has them", \info) };
-        if(key == \drums) { ~guiSay.("No Drums on this rig: Live has them", \info) };
+        if(key == \fx) { ~guiSay.("No FX on this rig" ++ (if(live) { ": Live has them" } { "" }), \info) };
+        if(key == \drums) { ~guiSay.("No Drums on this rig" ++ (if(live) { ": Live has them" } { "" }), \info) };
         if(key == \synth) { ~guiSay.("No Synth on this rig: it is Megalooper SA's", \info) };
     } {
         ~guiView = key;
@@ -517,11 +518,24 @@
         .font_(~guiMono.(15, true)).subFont_(~guiMono.(11, false)).pad_(16)
         .action_({ ~looper !? { |l| l.toggleSessionRecording } });
     ~sessionRecButton = ~midiTip.(~guiSessionRecLabel, 'looper.sessionRecording',
-        "Write the whole set to disk: what the room heard plus the dry instrument.\n"
-            "Independent of the transport — it records the playing that PRODUCES\n"
-            "the first loop, which Live's arrangement cannot.\n"
-            "This does NOT arm Live: its arrangement record is a separate switch,\n"
-            "because it cannot start until the transport does.");
+        case
+        { (~rp !? { |r| r[\live] }) != false } {
+            "Write the whole set to disk: what the room heard plus the dry instrument.\n"
+                "Independent of the transport — it records the playing that PRODUCES\n"
+                "the first loop, which Live's arrangement cannot.\n"
+                "This does NOT arm Live: its arrangement record is a separate switch,\n"
+                "because it cannot start until the transport does."
+        }
+        { (~rp !? { |r| r[\sa] }) == true } {
+            "Write the whole set to disk: the master, each part of the mix, the drums'\n"
+                "notes as a .mid, the dry instrument and the event log.\n"
+                "Independent of the transport — it records the playing that PRODUCES\n"
+                "the first loop."
+        } {
+            "Write the whole set to disk: what the room heard, the dry instrument and the\n"
+                "event log. Independent of the transport — it records the playing that\n"
+                "PRODUCES the first loop."
+        });
     ~guiTabButtons = IdentityDictionary.new;
     ~guiTabCompact = false;
     // What the bar gives up when the window is too narrow for all of it, first

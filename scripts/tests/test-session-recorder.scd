@@ -708,11 +708,11 @@ var t44 = (bpm: 120, numerator: 4, denominator: 4);
 ~tNear.("one on a bar line needs no move", cls.barShift(4.0, 2.0), 0, 1e-12);
 ~tEq.("the sentence the post window ends with",
     cls.liveHint(t78, 12.345),
-    "In Live: 165.04 BPM, 7/8. The drums' bar 1 is at 12.345 s (drop the files at 1.1.1; to put the drums "
-    "on Live's bar lines, move everything right by " ++ cls.fixed(cls.barShift(12.345, bd), 3) ++ " s).");
+    "In a DAW: 165.04 BPM, 7/8. The drums' bar 1 is at 12.345 s (drop the files at bar 1; to put the drums "
+    "on the DAW's bar lines, move everything right by " ++ cls.fixed(cls.barShift(12.345, bd), 3) ++ " s).");
 ~tEq.("...which is 0.379 s here", cls.fixed(cls.barShift(12.345, bd), 3), "0.379");
-~tEq.("with no drums, the tempo and the signature", cls.liveHint(t44, nil), "In Live: 120.00 BPM, 4/4. Drop the files at 1.1.1.");
-~tAssert.("drums on a bar line already: no move", cls.liveHint(t44, 4.0).contains("the drums are on Live's bar lines there"),
+~tEq.("with no drums, the tempo and the signature", cls.liveHint(t44, nil), "In a DAW: 120.00 BPM, 4/4. Drop the files at bar 1.");
+~tAssert.("drums on a bar line already: no move", cls.liveHint(t44, 4.0).contains("the drums are on the DAW's bar lines there"),
     cls.liveHint(t44, 4.0));
 ~tAssert.("drums already playing at the start: their first bar line in the files",
     cls.liveHint(t78, -0.5).contains("first bar line in the files is at " ++ cls.fixed((-0.5).mod(bd), 3) ++ " s"),
@@ -722,8 +722,8 @@ var t44 = (bpm: 120, numerator: 4, denominator: 4);
 // would be 15 ms off by now.
 ~tEq.("drums playing for minutes before the set: their first bar line stepped back at THEIR bar, not Live's rounded one",
     cls.liveHint((bpm: 97.3349, numerator: 4, denominator: 4), -300.0),
-    "In Live: 97.33 BPM, 4/4. The drums were already playing; their first bar line in the files is at 0.817 s "
-    "(drop the files at 1.1.1; to put the drums on Live's bar lines, move everything right by 1.649 s).");
+    "In a DAW: 97.33 BPM, 4/4. The drums were already playing; their first bar line in the files is at 0.817 s "
+    "(drop the files at bar 1; to put the drums on the DAW's bar lines, move everything right by 1.649 s).");
 ~tNear.("...and the shift the files event gets", cls.liveShift((bpm: 97.3349, numerator: 4, denominator: 4), -300.0),
     1.649, 0.0005);
 ~tEq.("bar 1 itself when it is in the set", cls.firstBarLine(t78, 12.345), 12.345);
@@ -847,7 +847,7 @@ filesEv = events.detect { |e| e[\ev] == "files" } ? ();
 ~tEq.("...the hint for Live",
     filesEv[\liveHint], LooperSessionRecorder.liveHint(rec.tempoInfo, 1.0, clock));
 ~tEq.("...which names the tempo, the signature and the drums' bar 1 in the files (half a block after audioAt's 1.000 s)",
-    filesEv[\liveHint] !? { |h| h.copyRange(0, 61) }, "In Live: 165.04 BPM, 7/8. The drums' bar 1 is at 1.001 s (drop");
+    filesEv[\liveHint] !? { |h| h.copyRange(0, 62) }, "In a DAW: 165.04 BPM, 7/8. The drums' bar 1 is at 1.001 s (drop");
 ~tEq.("...and the numbers: bar 1 from audioAt",
     [filesEv[\tempo] !? { |t| [t[\bpm], t[\numerator], t[\denominator], t[\from]] }, filesEv[\bar1]],
     [[165.04, 7, 8, "drums"], 1.0]);
@@ -1035,7 +1035,7 @@ rec.logEvent(\take, (result: (numerator: 4, denominator: 4, bpm: 130.0), applied
 events = LooperSessionRecorder.readEvents(rec.paths[\events]);
 filesEv = events.detect { |e| e[\ev] == "files" } ? ();
 ~tEq.("...with no MIDI file (Live records its own) and the plain hint",
-    [rec.paths[\midi], filesEv[\liveHint]], [nil, "In Live: 100.00 BPM, 7/8. Drop the files at 1.1.1."]);
+    [rec.paths[\midi], filesEv[\liveHint]], [nil, "In a DAW: 100.00 BPM, 7/8. Drop the files at bar 1."]);
 
 stub = ~srStub.();
 rec = LooperSessionRecorder(stub, d);
@@ -1120,7 +1120,7 @@ rec.logHits([(at: a0 + 30.0, slot: \steps, kind: \step, note: 38, vel: 90, lane:
     [\master, \tap].collect { |w| stamp ++ "-165.04bpm-7-8-" ++ w ++ ".wav" }
         ++ [stamp ++ "-165.04bpm-7-8-events.jsonl", stamp ++ "-165.04bpm-7-8-drums.mid"]);
 ~tAssert.("...the hint is the first's, with its bar 1 where the drums started",
-    (rec.liveHint ? "").beginsWith("In Live: 165.04 BPM, 7/8. The drums' bar 1 is at 1.001 s"), rec.liveHint);
+    (rec.liveHint ? "").beginsWith("In a DAW: 165.04 BPM, 7/8. The drums' bar 1 is at 1.001 s"), rec.liveHint);
 back = rec.paths[\midi] !? { |p| LooperMidiFile.read(p) } ? ();
 ~tEq.("...the .mid at the first's tempo and in its signature, the landing a marker",
     back[\tracks] !? { |t| [t[0].detect { |e| e[\meta] == 0x51 } !? (_[\data]),
@@ -1357,7 +1357,7 @@ rec.logEvent(\take, (result: (numerator: 7, denominator: 8, k: 2, bpm: 100.0), a
 ~tEq.("...named for its own take, not for the first set's drums or loop",
     [\master, \tap, \events].collect { |w| rec.paths[w].basename },
     [stampB ++ "-100.00bpm-7-8-master.wav", stampB ++ "-100.00bpm-7-8-tap.wav", stampB ++ "-100.00bpm-7-8-events.jsonl"]);
-~tEq.("...with its own hint", rec.liveHint, "In Live: 100.00 BPM, 7/8. Drop the files at 1.1.1.");
+~tEq.("...with its own hint", rec.liveHint, "In a DAW: 100.00 BPM, 7/8. Drop the files at bar 1.");
 ~tEq.("...and no .mid: it had no drum hit, and the first set's are not its",
     [rec.finalPaths[\midi], (LooperSessionRecorder.globQuote(d) +/+ (stampB ++ "-*.mid")).pathMatch], [nil, []]);
 

@@ -165,10 +165,13 @@
         flip: { ~looper.onsetNotes = ~looper.onsetNotes.not }, get: { ~looper !? { |l| l.onsetNotes } },
         set: { |on| ~looper.onsetNotes = on }, available: looper));
     // Live's arrangement record, over AbletonOSC (setup-model.scd). What we
-    // last told Live, not what it is: nothing reads it back.
-    add.('live.record', "Live arrangement record", "Live", \toggle,
-        (flip: { ~liveRecordToggle.() }, get: { ~liveRecording },
-            set: { |on| ~liveRecordSet.(on) }, available: { ~liveRecordToggle.notNil }));
+    // last told Live, not what it is: nothing reads it back. Only on a rig
+    // beside Live: a rig with `live: false` (Megalooper SA) has none to offer.
+    if((~rp !? { |r| r[\live] }) != false) {
+        add.('live.record', "Live arrangement record", "Live", \toggle,
+            (flip: { ~liveRecordToggle.() }, get: { ~liveRecording },
+                set: { |on| ~liveRecordSet.(on) }, available: { ~liveRecordToggle.notNil }));
+    };
 
     // Levels, over a knob's whole travel. Straight 0..1, as CC 118 has always
     // set morph, not through ~granularParams. Each reads as its slider's label

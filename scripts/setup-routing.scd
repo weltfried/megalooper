@@ -471,7 +471,11 @@
             "!!! =============================================================".postln;
             notes.add("default in/out sample rates differ");
         };
-        "    Loop chaining and MIDI clock are off on this rig — see docs/routing.md.".postln;
+        // Megalooper SA has its own return channel, and sends MIDI clock to
+        // an IAC bus when there is one: only a plain default rig lacks both.
+        if(rp[\sa] != true) {
+            "    Loop chaining and MIDI clock are off on this rig — see docs/routing.md.".postln;
+        };
         // Built-in mic into built-in speakers is a feedback loop, and the looper
         // plays back while it records. Worth one line before it howls.
         "    >>> Use headphones. A built-in mic feeding the speakers will feed back.".postln;
@@ -550,7 +554,7 @@
                         ++ want ++ " Hz").postln;
                     if(~switchDeviceRate.(dev[\name], want).not) {
                         ("!!! megalooper: could not switch '" ++ dev[\name] ++ "' to " ++ want
-                            ++ " Hz. Quit any program using it (Live), or set it in Audio "
+                            ++ " Hz. Quit any program using it (a DAW, say), or set it in Audio "
                             ++ "MIDI Setup.").postln;
                         notes.add("could not switch the sample rate");
                     };

@@ -498,7 +498,7 @@
 ];
 // Your table: a wavetable WAV of yours (Serum's or Vital's 2048-sample
 // cycles), copied into sa/wavetables/ and played as the set "Your table".
-~synthTableText = { ~synthWave.() !? { |w| w.tableName } ?? { "none: the set plays Analog's" } };
+~synthTableText = { ~synthWave.() !? { |w| w.tableName } ?? { "none: megalooper plays Analog's" } };
 ~synthImportTable = { |path|
     var w = ~synthWave.(), r;
     if(w.notNil and: { path.notNil }) {
@@ -513,13 +513,13 @@
     ~synthWidgets.put(\tableName, (kind: \text, view: text, get: ~synthTableText));
     HLayout(
         ~synthRowLabel.("Your table", "A wavetable WAV of yours, as Serum and Vital write them: cycles of 2048\n"
-            "samples one after another. Eight of them, spread through the file, are the set's eight\n"
-            "positions. Choose \"Your table\" as A's or B's table to play it."),
+            "samples one after another. Eight of them, spread through the file, are the table's\n"
+            "eight positions. Choose \"Your table\" as A's or B's table to play it."),
         text,
         ~synthTool.("Load table…", 110, "Choose a WAV; it is copied into sa/wavetables/ in your megalooper folder\n"
             "and kept with the sound in presets and Start with this.",
             { Dialog.openPanel({ |path| ~synthImportTable.(path) }) }),
-        ~synthTool.("None", 60, "No table of yours: the set plays Analog's.", { ~synthWave.() !? { |w| w.clearTable } }),
+        ~synthTool.("None", 60, "No table of yours: megalooper plays Analog's.", { ~synthWave.() !? { |w| w.clearTable } }),
         nil
     ).spacing_(8)
 };

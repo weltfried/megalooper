@@ -252,7 +252,7 @@ s.waitForBoot {
             ++ s.options.hardwareBufferSize ++ " frames: instrument on input "
             ++ (~rp[\inChannel] + 1) ++ " through "
             ++ (~megaSA.guitarPlugin !? { |p| p.name } ? "nothing (dry)")
-            ++ ", the mix on outputs 1/2. No Live needed.").postln;
+            ++ ", the mix on outputs 1/2.").postln;
         "The effects and their sounds: the FX view (3). The drums: the Drums view (4). Levels: Setup (5).".postln;
         ("Sounds in " ++ ~saFxPresetDir ++ " ("
             ++ ~megaSA.soundNames(~saFxPresetDir).size ++ " saved). The kept one: " ++ ~saKeptPath.() ++ ".").postln;

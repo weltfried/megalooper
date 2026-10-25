@@ -201,11 +201,11 @@
     var d = ~drumsModel.(), info;
     info = d !? { |dd| dd.kit(slot) !? { |k| dd.kitInfo(k) } };
     (if(slot == \steps) {
-        "The kit the step sequencer plays. The set plays Kit-Carbon over a KJ Sawka 9 layer;\n"
+        "The kit the step sequencer plays. It starts on Kit-Carbon over a KJ Sawka 9 layer;\n"
         "Kit-Carbon + layer is that, with Core Library stand-ins for the KJ samples\n"
         "(Live's are encrypted)."
     } {
-        "The kit the Looper's onset notes play. The set plays the One Hit Kit; One Hit Kit\n"
+        "The kit the Looper's onset notes play. It starts on the One Hit Kit; One Hit Kit\n"
         "here has Core Library stand-ins for its samples (Live's are encrypted).\n"
         "The drums' footswitch does not switch it."
     }) ++ ((info !? { |i|
@@ -1155,8 +1155,8 @@
             };
         }), 'sa.drums.breakPattern',
         "Which pattern plays: lit while the Break pattern does. The Looper's break\n"
-        "switches it in and out, as the set's CC 100 did; a click switches it by hand until\n"
-        "the Looper's next break edge.");
+        "switches it in and out; a click switches it by hand until the Looper's next\n"
+        "break edge.");
     // The pattern shown's, so its tag is a function of it, as the knobs' are.
     var live = ~mapTag.(~drumsButton.().fixedSize_(Size(110, 34)).cycles_(false)
         .states_([["Reset pattern", ~gt[\ink], ~gt[\panel]]])
@@ -1203,11 +1203,10 @@
 ~drumsRepeatsButton = {
     var b = ~mapTag.(~drumsButton.().fixedWidth_(130)
         .action_({ |bt| ~drumsModel.() !? { |d| d.setRepeats(bt.value == 1) } }), 'sa.drums.repeats',
-        "Kit-Carbon's repeats, as the Live set has them on every Carbon pad: now and then\n"
-        "a pad's 16th repeats five times through a 2-bar cycle, falling in pitch and level.\n"
+        "Kit-Carbon's repeats, on every Carbon pad: now and then a pad's 16th repeats five\n"
+        "times through a 2-bar cycle, falling in pitch and level.\n"
         "The KJ layer is not repeated (it is not in the pads' chains).\n"
-        "On in the set, yet Live's recordings hold about one stutter in 12 minutes of drums,\n"
-        "far fewer than these dice give, so here it starts off: switch it on to hear them.");
+        "The dice stutter often, so it starts off: switch it on to hear them.");
     ~drumsWidgets.put(\repeats, (kind: \repeats, view: b,
         get: { ~drumsModel.() !? { |d| d.repeats } },
         available: { (~drumsModel.() !? { |d|
@@ -1224,7 +1223,7 @@
         set: { |v| ~drumsModel.() !? { |d| d.setGroupTrim(\steps, group, v) } },
         format: ~drumsDbText,
         tip: name ++ ": every layer of it on every pad, in dB (-24..+12), kept with this kit\n"
-            "and in presets. Live's balance against the rest cannot be read from its files\n"
+            "and in presets. Its balance against the rest cannot be read from the samples\n"
             "(both are normalised), so set it by ear. Double-click: 0 dB."))
 };
 
@@ -1320,7 +1319,7 @@
         HLayout(*([~drumsRowLabel.("Edit")]
             ++ [\main, \break].collect { |w|
                 ~drumsTile.(w, { ~drumsShowPattern.(w) },
-                    "Show the " ++ ~drumsPatternLabels[w] ++ " pattern below: the set's "
+                    "Show the " ++ ~drumsPatternLabels[w] ++ " pattern below: the "
                     ++ (if(w == \main) { "main pattern" } { "break pattern, switched in by the Looper's break" })
                     ++ ".\nShowing it changes nothing that plays. A dot: edited off the default.")
             }
@@ -1350,7 +1349,7 @@
             ++ ~drumsParamNames.select { |n| MegaSASteps.paramSpec(n)[\spec].step < 1 }
                 .collect { |n| ~drumsParamKnob.(n) }
             ++ [nil])).spacing_(2),
-        ~guiHint.("Global scales every dial: at the set's 0 % the steps play straight 16ths, "
+        ~guiHint.("Global scales every dial: at 0 %, where it starts, the steps play straight 16ths, "
             "whatever the dials say.")
     ]
 };
@@ -1361,9 +1360,9 @@
 ~drumsStripLabels = (drums: "Drums:", onsetKit: "Onset kit:");
 ~drumsStripTips = (
     drums: "The drums' strip in MegaSA's mixer: the step sequencer's kit, its repeats and reverb.\n"
-        "Live's fader was -10.6 dB. Setup shows the same strip.",
+        "Starts at -10.6 dB. Setup shows the same strip.",
     onsetKit: "The onset kit's strip: the One Hit Kit and its chain, playing the Looper's onset\n"
-        "notes. Live's fader was -15.7 dB. Setup shows the same strip."
+        "notes. Starts at -15.7 dB. Setup shows the same strip."
 );
 
 ~drumsHasStrip = { |m, key| m.notNil and: { m.level(key).notNil } };
@@ -1375,7 +1374,7 @@
 // \dry until the impulse responses are in or when there are none to be had,
 // then \loading and \ready; the folder tells which kind of dry it is.
 ~drumsReverbStates = (
-    ready: "wet: the set's Hybrid Reverb, from its impulse responses",
+    ready: "wet: Hybrid Reverb, from its impulse responses",
     loading: "loading the impulse responses…",
     noIR: "dry: no impulse responses (python3 tools/export-live-set.py kits)",
     dry: "dry: the impulse responses did not load (see the post window)",
@@ -1434,8 +1433,8 @@
             { ~drumsModel.() !? { |dd| dd.reverbMix } },
             { |v| ~drumsModel.() !? { |dd| dd.setReverbMix(v) } },
             0.1508, { |v| ((v ? 0) * 100).round(0.1).asString ++ " %" },
-            "The drums' reverb, Live's Hybrid Reverb on the drums group: 15.08 % wet in the\n"
-            "set (linear), on the steps kit only. Double-click: back to it.\n"
+            "The drums' reverb, a Hybrid Reverb on the drums group: starts at 15.08 % wet\n"
+            "(linear), on the steps kit only. Double-click: back to it.\n"
             "Greyed while the drums play dry, whatever the mix says: the line under it says why.",
             { ~drumsReverbWet.(~drumsModel.()) }, 'sa.drums.reverbMix'),
         ~drumsReverbStateRow.(),

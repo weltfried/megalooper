@@ -229,6 +229,9 @@
     var gen, pane = View().background_(~gt[\bg]);
     var stat = { |big, small| View().layout_(VLayout(big, ~guiText.(small, 12, ~gt[\mute])).margins_(12).spacing_(2)) };
     var grid;
+    // Megalooper SA plays the onset notes on its own onset kit; every other
+    // rig sends them out of midiOut (to Live on the Live rigs).
+    var sa = (~rp !? { |r| r[\sa] }) == true;
     ~analysisGen = ~analysisGen + 1;
     gen = ~analysisGen;
 
@@ -279,9 +282,15 @@
         .value_(if(~looper.notNil and: { ~looper.onsetNotes }) { 1 } { 0 })
         .action_({ |b| ~looper !? { |l| l.onsetNotes = (b.value == 1) } }),
         'looper.onsetNotes',
-        "Replay the loop's detected onsets out of midiOut as MIDI notes, so Live (or the\n"
-            "onset kit) can trigger a drum from the rhythm you played. Locked to the loop, not to\n"
-            "your playing: it keeps going when you stop, and it repeats exactly.");
+        if(sa) {
+            "Play the loop's detected onsets on the onset kit, a drum part from the rhythm you\n"
+                "played. Locked to the loop, not to your playing: it keeps going when you stop,\n"
+                "and it repeats exactly."
+        } {
+            "Replay the loop's detected onsets out of midiOut as MIDI notes, so Live (or the\n"
+                "onset kit) can trigger a drum from the rhythm you played. Locked to the loop, not to\n"
+                "your playing: it keeps going when you stop, and it repeats exactly."
+        });
     ~onsetNotesLabel = ~guiMonoText.("—", 12, ~gt[\mute]).align_(\right);
     ~onsetNotesLabel.setProperty(\wordWrap, false);
     ~onsetNoteField = ~mapTag.(~analysisBox.(NumberBox()
@@ -289,14 +298,24 @@
         .value_(~looper !? { |l| l.onsetNote } ? 36)
         .action_({ |nb| ~looper !? { |l| l.onsetNote = nb.value } }), 46),
         'looper.onsetNote',
-        "MIDI note number every onset sends. 36 (C1) is the first pad of Live's Drum Rack.\n"
-            "Octave numbering here matches Live's, not SC's.");
+        if(sa) {
+            "Note number every onset plays: which pad of the onset kit. 36 (C1) is the first pad.\n"
+                "Octave numbering here puts C1 at 36, as DAWs do, not SC's."
+        } {
+            "MIDI note number every onset sends. 36 (C1) is the first pad of Live's Drum Rack.\n"
+                "Octave numbering here matches Live's, not SC's."
+        });
     ~onsetNoteNameLabel = ~guiMonoText.(~midiNoteName.(~looper !? { |l| l.onsetNote } ? 36), 13, ~gt[\mute]);
     // Shown 1-16 because that is what Live shows; the model keeps the 0-15
     // that every MIDIOut call actually wants.
     ~onsetNoteChanField = ~analysisBox.(NumberBox()
-        .toolTip_("MIDI channel, numbered 1-16 as Live shows it. Defaults to 2, which is where the\n"
-            "rigs here are mapped; the onsets are the only notes on this IAC bus.")
+        .toolTip_(if(sa) {
+            "MIDI channel, numbered 1-16. The onset kit plays the notes on any channel; this matters\n"
+                "only on a rig that sends them out as MIDI."
+        } {
+            "MIDI channel, numbered 1-16 as Live shows it. Defaults to 2, which is where the\n"
+                "rigs here are mapped; the onsets are the only notes on this IAC bus."
+        })
         .clipLo_(1).clipHi_(16).step_(1).scroll_step_(1).decimals_(0)
         .value_((~looper !? { |l| l.onsetNoteChannel } ? 1) + 1)
         .action_({ |nb| ~looper !? { |l| l.onsetNoteChannel = nb.value - 1 } }));
@@ -329,8 +348,9 @@
             "gated does not. Automatically shortened so a gate can never run into the next hit.");
     ~onsetNoteOffsetField = ~analysisBox.(NumberBox()
         .toolTip_("Timing trim. NEGATIVE sends the notes EARLIER. The loop and the notes reach your\n"
-            "ears down different paths, so they need lining up per rig, like Overdub latency and\n"
-            "Live sync do. Takes effect on the next hit, so dial it while playing.")
+            "ears down different paths, so they need lining up per rig, like Overdub latency\n"
+            ++ (if(sa) { "does" } { "and Live sync do" })
+            ++ ". Takes effect on the next hit, so dial it while playing.")
         .clipLo_(-500).clipHi_(500).step_(1).scroll_step_(1).decimals_(0)
         .value_(~looper !? { |l| l.onsetNoteOffsetMs } ? 0)
         .action_({ |nb| ~looper !? { |l| l.onsetNoteOffsetMs = nb.value } }));
@@ -488,7 +508,7 @@
             PopUpMenu().canFocus_(false).font_(~guiMono.(13, true))
                 .background_(~gt[\panel]).stringColor_(~gt[\ink]).fixedWidth_(76)
                 .toolTip_("What a take that fits NO pulse grid is anchored to. The loop is kept exactly\n"
-                    "this many bars of this meter, so it still lines up with Live.")
+                    "this many bars of this meter, so it still lines up with the bar line.")
                 .items_(~fallbackMeterLabels)
                 .value_((~fallbackMeters.detectIndex { |m|
                     (m[0] == MeterAnalyzer.fallbackNum) and: { m[1] == MeterAnalyzer.fallbackDenom } }) ? 0)

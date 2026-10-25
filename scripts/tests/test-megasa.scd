@@ -482,13 +482,13 @@ MegaSAFx.keys.do { |k|
             [\delay, \filter, \pitchLoop, \saturator, \redux].every { |k| vars[k].notNil },
             vars.keys.asArray.asString);
         vars.keysValuesDo { |fx, list|
-            var saved = list.detect { |v| v[0] == "as saved" };
+            var saved = list.detect { |v| v[0] == "starting values" };
             fixed[fx.asString] !? { |e| e["fixed"].keysValuesDo { |k, x|
                 saved !? { |sv| sv[1].put(k.asSymbol, x.asFloat) } } };
             ~tAssert.(fx ++ ": every setting a variation names is one of the effect's",
                 list.every { |v| v[1].keys.every { |k| MegaSAFx.param(k).notNil
                     and: { MegaSAFx.param(k)[\fx] == fx } } });
-            ~tAssert.(fx ++ ": 'as saved' is where its knobs start",
+            ~tAssert.(fx ++ ": 'starting values' is where its knobs start",
                 saved.notNil and: { saved[1].keys.every { |k|
                     var want = MegaSAFx.param(k)[\spec].default;
                     (MegaSAFx.constrain(k, saved[1][k]) - want).abs <= (want.abs * 1e-4).max(1e-4)
@@ -502,17 +502,17 @@ MegaSAFx.keys.do { |k|
         ~tAssert.("recalling a variation answers true", ~saApplyVariation.(\delay, "short"));
         ~tNear.("and moves what its macros drive (the 'short' tap, 84 ms)", sa.fxParam(\delayTimeR), 0.0843, 0.001);
         ~tEq.("but leaves the rest", sa.fxParam(\delayModDepth), MegaSAFx.param(\delayModDepth)[\spec].default);
-        ~tAssert.("'as saved' brings the start back", ~saApplyVariation.(\delay, "as saved")
+        ~tAssert.("'starting values' brings the start back", ~saApplyVariation.(\delay, "starting values")
             and: { sa.fxEdited(\delay).not });
-        // Every rack: knock its first macro-driven setting off, recall 'as saved'.
+        // Every rack: knock its first macro-driven setting off, recall 'starting values'.
         vars.keysValuesDo { |fx, list|
-            var saved = list.detect { |v| v[0] == "as saved" };
+            var saved = list.detect { |v| v[0] == "starting values" };
             var name = saved !? { |sv| sv[1].keys.asArray.sort.first };
             name !? { |n|
                 sa.setFxParam(n, MegaSAFx.param(n)[\spec].map(0.37));
-                ~saApplyVariation.(fx, "as saved");
+                ~saApplyVariation.(fx, "starting values");
             };
-            ~tAssert.(fx ++ ": after 'as saved' it no longer counts as edited", sa.fxEdited(fx).not,
+            ~tAssert.(fx ++ ": after 'starting values' it no longer counts as edited", sa.fxEdited(fx).not,
                 MegaSAFx.paramsOf(fx).select { |p| (sa.fxParam(p[\name]) - p[\spec].default).abs > 1e-6 }
                     .collect { |p| p[\name] -> sa.fxParam(p[\name]) }.asString);
         };

@@ -187,7 +187,7 @@
             t[\chip] = "→ " ++ Looper.prReadingString(pend[\result]) ++ " · lands in " ++ loops
                 ++ " loop" ++ (if(loops > 1) { "s" } { "" });
             t[\chipLit] = true;
-            t[\hint] = "Lands on the loop boundary where Live's bar line agrees";
+            t[\hint] = "Lands on the loop boundary where the drums' bar line agrees";
         }
         { l.readingIndex > 0 } {
             t[\head] = if(r[\from] == \hand) { "TAKE · BARS BY HAND" }

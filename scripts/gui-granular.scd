@@ -84,8 +84,7 @@
     (key: \granularAmp, label: "Level", spec: ControlSpec(0, 1, \lin, 0, 0.7),
         round: 0.01, default: 0.7,
         tip: "Level of the granular layer, summed with the engine before the\n"
-            "master limiter. This used to be fixed at 0.7 — the layer arrived\n"
-            "at whatever volume it arrived at and you balanced it in Live."),
+            "master limiter. 0.7 by default."),
     (key: \granularPitch, label: "Pitch", spec: ControlSpec(-24, 24, \lin, 1, 0),
         round: 1, unit: " st", default: 0,
         tip: "Grain transposition in semitones. The read pointer is untouched,\n"

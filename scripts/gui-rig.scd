@@ -63,7 +63,7 @@
 // AI apps let in or not (setup-remote.scd): the switch, kept in
 // settings.json, and what it does. Off until switched on.
 ~rigAiSection = {
-    var tip = "An AI app that speaks MCP (Claude Desktop, for one) can read the set and change the\n"
+    var tip = "An AI app that speaks MCP (Claude Desktop, for one) can read what megalooper is doing and change the\n"
         "drums, the synth and the effects while this is on. Only apps on this Mac; plugins stay\n"
         "yours. Every change it makes can be taken back with Revert, at the bottom of the window.\n"
         "How to connect one: the buttons below, or docs/ai.md.";
@@ -115,7 +115,7 @@
             .toolTip_("Where onset + pitch detection listens. The recording itself is unaffected either way.\n"
                 "Same as input: analyse the processed instrument being recorded.\n"
                 "Clean tap: analyse the instrument's dry hardware input direct from the interface — crisper\n"
-                "attacks, better meter detection, and Live is not in the path at all.")
+                "attacks, better meter detection, and none of the effects are in the path.")
             .items_([
                 "Same as input (processed)",
                 if(~analysisChannel.notNil) {

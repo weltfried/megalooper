@@ -340,7 +340,7 @@ before = sa.fxParam(\delayTimeR);
     ~tEq.("saving under the same name replaces it", [got, ~saFxVariations[\delay].count { |v| v[0] == "wide" }, ~saFxVariations[\delay].last[1][\delayMix]],
         [[true, \replaced], 1, 0.5]);
     ~saSaveVariation.(\delay, "short", said);
-    ~tEq.("a name the Live set's variations of the type use is refused", got, [false, "'short' is a variation from the Live set"]);
+    ~tEq.("a name the Live set's variations of the type use is refused", got, [false, "'short' is a variation megalooper ships"]);
     ~saSaveVariation.(\delay, "   ", said);
     ~tEq.("...and no name", got, [false, "it needs a name"]);
     ~saSaveVariation.(\nothing, "x", said);

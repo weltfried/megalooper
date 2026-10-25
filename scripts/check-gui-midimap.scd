@@ -67,8 +67,9 @@ Routine {
     ok.("the list shows every binding of the map", g[\list].numItems == 20, g[\list].numItems.asString);
     ok.("...its rows in words", rows.value[0] == ["PC 4", "Trigger  ·  Perform", "", "", "", "TSMEGA"],
         rows.value[0].asString);
-    ok.("...SA's controls greyed on a rig with no SA built (PC 8-12, 14, 15, 17)",
-        g[\greyed].size == 8, g[\greyed].asString);
+    ok.("...SA's controls greyed on a rig with no SA built (PC 8-12, 14, 15, 17), and Live's record (PC 21) on a rig without Live",
+        (g[\greyed].size == 9) and: { ~midiGuiRow.(~midiGuiRows[g[\greyed].last])[1] == "live.record (this rig has no Live)" },
+        g[\greyed].asString);
     ok.("...the effects' rows saying why, and a setting's row naming its device",
         { var rows = ~midiGuiRows.select { |b| b[\target].asString.beginsWith("sa.fxOn.") };
           rows.notEmpty and: { rows.every { |b| ~midiGuiRow.(b)[1].contains("(Megalooper SA is not running)") } }

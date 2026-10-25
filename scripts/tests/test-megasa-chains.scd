@@ -240,7 +240,7 @@ baseline = (
     'megaSADevNull': [144, 992001537],
     'megaSADevShifter': [3148, 917785194],
     'megaSADevDelay': [2246, 880224587],
-    'megaSADevFilter': [4097, 907353534],
+    'megaSADevFilter': [4302, 917590315],
     'megaSADevPitchLoop': [5137, 789196505],
     'megaSADevEcho': [4036, 513022876],
     'megaSADevSaturator': [3088, 619047135],

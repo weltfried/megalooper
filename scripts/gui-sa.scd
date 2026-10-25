@@ -136,9 +136,9 @@
 // the grid). Kept in settings.json (~saDrumsNewLoopSet).
 ~saNewLoopRow = { |d|
     var tip = "What the drums do when you record a new loop.\n"
-        "Drums play: they start with the loop, as in Live's set.\n"
+        "Drums play: they start with the loop.\n"
         "Drums off: they keep time but stay silent until you switch them on\n"
-        "(PC 17, or the switch on the Drums view). Overdubs leave them as they are.";
+        "(the switch on the Drums view, or a footswitch mapped to it). Overdubs leave them as they are.";
     ~saNewLoopSeg = ~guiSeg.(["Drums play", "Drums off"], (height: 28, font: ~guiSans.(13),
         action: { |i| ~saDrumsNewLoopSet.(i == 1) }));
     ~guiSegSet.(~saNewLoopSeg, (d.newLoopOff == true).binaryValue);

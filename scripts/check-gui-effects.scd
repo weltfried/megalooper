@@ -135,7 +135,7 @@ Routine {
         tick.();
         menu = menuIn.(~effectsEditorHolder);
         ok.("a rack's effect has one, listing its variations",
-            menu.notNil and: { menu.items.includesEqual("short") and: { menu.items.includesEqual("as saved") } },
+            menu.notNil and: { menu.items.includesEqual("short") and: { menu.items.includesEqual("starting values") } },
             (menu !? { |mm| mm.items }).asString);
         menu.valueAction_(menu.items.indexOfEqual("short"));
         tick.();
@@ -143,9 +143,9 @@ Routine {
             m.fxParam(\delayTimeR).asString);
         ok.("and the knob shows it", ~effectsWidgets[\delayTimeR][\readout].string.contains("84"),
             ~effectsWidgets[\delayTimeR][\readout].string);
-        menu.valueAction_(menu.items.indexOfEqual("as saved"));
+        menu.valueAction_(menu.items.indexOfEqual("starting values"));
         tick.();
-        ok.("'as saved' is the start again", m.fxEdited(\delay).not);
+        ok.("'starting values' is the start again", m.fxEdited(\delay).not);
     }.value;
 
     "== knobs write the model, the model paints the knobs ==".postln;

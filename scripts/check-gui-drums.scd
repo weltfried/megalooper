@@ -568,8 +568,8 @@ Routine {
         ok.("and off again", rb.value == 0);
         d.setRepeats(repeats0);
         tick.();
-        ok.("its tip says why it starts off: Live's recordings stuttered rarely",
-            rb.toolTip.contains("12 minutes") and: { rb.toolTip.contains("starts off") }, rb.toolTip);
+        ok.("its tip says why it starts off: the dice stutter often",
+            rb.toolTip.contains("stutter often") and: { rb.toolTip.contains("starts off") }, rb.toolTip);
         om.valueAction_(om.items.indexOfEqual("808 Core Kit"));
         tick.();
         ok.("the onset menu sets the onset kit", d.kit(\onset) == 'core-808');

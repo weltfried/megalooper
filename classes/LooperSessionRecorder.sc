@@ -875,15 +875,15 @@ LooperSessionRecorder {
         bpm = this.roundBpm(tempo[\bpm]);
         num = tempo[\numerator];
         den = tempo[\denominator];
-        head = "In Live: " ++ this.fixed(bpm, 2) ++ " BPM, " ++ num ++ "/" ++ den ++ ".";
-        if(bar1.isNil) { ^head ++ " Drop the files at 1.1.1." };
+        head = "In a DAW: " ++ this.fixed(bpm, 2) ++ " BPM, " ++ num ++ "/" ++ den ++ ".";
+        if(bar1.isNil) { ^head ++ " Drop the files at bar 1." };
         barDur = this.barDur(bpm, num, den);
         first = this.wavTime(this.firstBarLine(tempo, bar1), 0, clock);
         shift = this.liveShift(tempo, bar1, clock);
         drop = if((shift < 0.0005) or: { (barDur - shift) < 0.0005 }) {
-            "drop the files at 1.1.1; the drums are on Live's bar lines there"
+            "drop the files at bar 1; the drums are on the DAW's bar lines there"
         } {
-            "drop the files at 1.1.1; to put the drums on Live's bar lines, move everything right by "
+            "drop the files at bar 1; to put the drums on the DAW's bar lines, move everything right by "
                 ++ this.fixed(shift, 3) ++ " s"
         };
         ^if(bar1 >= 0) {

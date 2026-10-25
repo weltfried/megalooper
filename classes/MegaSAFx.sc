@@ -175,7 +175,10 @@ MegaSAFx {
         var lfo = Select.kr(\filterLfoWave.kr(4), [
             SinOsc.kr(rate),             // Sine
             LFTri.kr(rate),              // Triangle
-            LFSaw.kr(rate).neg,          // Saw
+            // Saw: a falling saw with an exponential curve, a fast drop that
+            // settles, where Ramp Down falls in a straight line. The two were
+            // the same wave until 2026-10-25.
+            ((1 - ((LFSaw.kr(rate) + 1) * 0.5)).squared * 2) - 1,
             (LFPulse.kr(rate) * 2) - 1,  // Square
             LFSaw.kr(rate),              // Ramp Up
             LFSaw.kr(rate).neg,          // Ramp Down
@@ -625,10 +628,11 @@ MegaSAFx {
             // ---- Delay
             (fx: \delay, name: \delayTimeL, label: "L Time", units: " ms", scale: 1000,
                 spec: ControlSpec(0.001, 2.5, \exp, 0, 0.001),
-                tip: "The first tap, on the left: 1 ms by default, a near-dry copy."),
+                tip: "The first tap: 1 ms by default, a near-dry copy. The two taps\n"
+                    "are mixed together, in the middle."),
             (fx: \delay, name: \delayTimeR, label: "R Time", units: " ms", scale: 1000,
                 spec: ControlSpec(0.001, 2.5, \exp, 0, 0.437855),
-                tip: "The second tap, on the right: 438 ms by default. Changes glide,\n"
+                tip: "The second tap: 438 ms by default. Changes glide,\n"
                     "so the pitch bends while you turn it."),
             (fx: \delay, name: \delayFeedback, label: "Feedback", units: " %", scale: 100,
                 spec: ControlSpec(0, 0.9, \lin, 0, 0),
@@ -696,8 +700,8 @@ MegaSAFx {
                     [1 / 3, "1/8 T"], [0.375, "1/16 D"],
                     [0.5, "1/8"], [2 / 3, "1/4 T"], [0.75, "1/8 D"], [1, "1/4"], [4 / 3, "1/2 T"],
                     [1.5, "1/4 D"], [2, "1/2"], [3, "1/2 D"], [4, "1/1"], [8, "2/1"]],
-                tip: "One LFO cycle per this note value at the loop's tempo: one per beat in the\n"
-                    "set (Triplet 3/8). Free runs at LFO Rate. It runs from its own phase, not\n"
+                tip: "One LFO cycle per this note value at the loop's tempo: 1/4, one per beat,\n"
+                    "by default. Free runs at LFO Rate. It runs from its own phase, not\n"
                     "locked to the bar."),
             (fx: \filter, name: \filterLfoHz, label: "LFO Rate", units: " Hz",
                 spec: ControlSpec(0.05, 20, \exp, 0, 1.00031),
@@ -709,7 +713,7 @@ MegaSAFx {
             (fx: \filter, name: \filterOutput, label: "Output", units: " dB",
                 spec: ControlSpec(-24, 0, \lin, 0, 0),
                 tip: "Level after the soft clip: 0 dB by default, and the top,\n"
-                    "since more would clip into the amp after it."),
+                    "since more would clip into the effects after it."),
 
             // ---- PitchLoop89
             (fx: \pitchLoop, name: \pitchLoopMix, label: "Dry/Wet", units: " %", scale: 100,
@@ -780,7 +784,7 @@ MegaSAFx {
                     "it times the sides, which are silent on a mono loop."),
             (fx: \echo, name: \echoMidSide, label: "Channels",
                 spec: ControlSpec(0, 1, \lin, 1, 1), choices: [[0, "Stereo"], [1, "Mid/Side"]],
-                tip: "The set runs Mid/Side, so on the mono loop only the first line is heard,\n"
+                tip: "Mid/Side by default, so on the mono loop only the first line is heard,\n"
                     "in the middle. Stereo puts the two lines left and right."),
             (fx: \echo, name: \echoFeedback, label: "Feedback", units: " %", scale: 100,
                 spec: ControlSpec(0, 0.9, \lin, 0, 0.1667),

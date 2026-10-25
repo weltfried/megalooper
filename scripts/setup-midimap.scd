@@ -462,6 +462,7 @@
     { t.notNil and: { (try { t[\available].value } { false }) != false } } { nil }
     { t.notNil } { (try { t[\why].value } { nil }) ? "not there now" }
     { id.asString.beginsWith("sa.fx") } { "its effect is not in the chains now" }
+    { id == 'live.record' } { "this rig has no Live" }
     { "not in this megalooper" }
 };
 
@@ -1416,8 +1417,10 @@
     map.problems.do { |p| ("megalooper: MIDI map: " ++ p).warn };
     unknown.do { |b|
         ("megalooper: MIDI map: " ++ LooperMidiMap.describe(b) ++ " names " ++ b[\target]
-            ++ if(b[\target].asString.beginsWith("sa.fx")) { ", an effect the chains do not hold now; it does nothing until they do." } {
-                ", which this megalooper does not have; it does nothing." }).warn;
+            ++ (case
+                { b[\target].asString.beginsWith("sa.fx") } { ", an effect the chains do not hold now; it does nothing until they do." }
+                { b[\target] == 'live.record' } { ", Live's arrangement record; this rig has no Live, so it does nothing." }
+                { ", which this megalooper does not have; it does nothing." })).warn;
     };
     if(~midiOut.notNil) {
         LooperMidiMap.proxyProblems(map.bindings, ~breakMacroCc).do { |p| ("megalooper: MIDI map: " ++ p).warn };
@@ -1500,7 +1503,8 @@
     } { |err|
         ("megalooper: the MIDI map could not be made (" ++ err.errorString ++ "). "
             ++ if(~midiMap.notNil) { "The footswitches keep the one they had." }
-                { "The footswitches do nothing; Live still gets every message." }).warn;
+                { "The footswitches do nothing"
+                    ++ (if((~midiProxy == true) and: { ~midiOut.notNil }) { "; every message still goes on to the IAC bus." } { "." }) }).warn;
         targets = ~midiTargets ? IdentityDictionary.new;
         map = ~midiMap ?? { LooperMidiMap([], nil) };
         ~midiKept = ~midiKept ? map;
