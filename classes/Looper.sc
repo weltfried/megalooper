@@ -372,6 +372,17 @@ Looper {
     // straight from this, so adding a shape means editing both, in step.
     *granularEnvNames { ^["Hann (built in)", "Plateau", "Percussive", "Swell"] }
 
+    // What each shape does, index-aligned with the names: the line under the
+    // Grains view's tiles, and what an AI app is told (MegaRemote).
+    *granularEnvHints {
+        ^[
+            "Smooth and symmetrical, the default.",
+            "Flat top, short fades. Thicker drones, harder pulses.",
+            "Instant attack, long decay. Every grain becomes a little hit.",
+            "Reversed percussive. Attacks are erased, so even a plucked loop smears into a pad."
+        ]
+    }
+
     *prGranularEnvShapes {
         ^[
             // Plateau: short fades around a flat top. More energy per grain than

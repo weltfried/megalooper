@@ -7,21 +7,25 @@
   "2025-03-26",
   "2024-11-05"
  ],
- "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, and effect chains. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the chains), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth) and the effect chains (set_chain) can be changed and every change taken back (revert); the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them.",
+ "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, effect chains, a granular layer (the grains) and a cutter over the loop. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the chains, the grains, the cutter), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth), the effect chains (set_chain), the grains (set_grains) and the cutter (set_cutter) can be changed and every change taken back (revert); the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them.",
  "passedOn": [
   "revert",
+  "save_cutter_preset",
   "save_drum_preset",
+  "save_grains_preset",
   "save_sound",
   "save_synth_preset",
   "set_chain",
+  "set_cutter",
   "set_drum_pattern",
+  "set_grains",
   "set_synth"
  ],
  "tools": [
   {
    "name": "get_context",
    "title": "What megalooper is playing",
-   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, bpm in quarter notes, length in seconds; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings) and every effect chain (devices in order, their switches and settings). Ask for some parts only to keep the answer short.",
+   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, bpm in quarter notes, length in seconds; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -33,7 +37,9 @@
         "loop",
         "drums",
         "synth",
-        "chains"
+        "chains",
+        "grains",
+        "cutter"
        ]
       },
       "description": "Only these parts (the profile, the tempo and aiChanges always come)."
@@ -49,7 +55,7 @@
   {
    "name": "describe",
    "title": "What megalooper's settings mean",
-   "description": "How a part of megalooper works and what each of its settings means: names, ranges, steps, units, choices and the tips its window shows. Topics: drums (the step sequencer's pattern), synth (the note sequencer and the Wave synth), effects (every built-in effect and its settings).",
+   "description": "How a part of megalooper works and what each of its settings means: names, ranges, steps, units, choices and the tips its window shows. Topics: drums (the step sequencer's pattern), synth (the note sequencer and the Wave synth), effects (every built-in effect and its settings), grains (the granular layer), cutter (its procedures, cut synths, effects and modes).",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -58,7 +64,9 @@
       "enum": [
        "drums",
        "synth",
-       "effects"
+       "effects",
+       "grains",
+       "cutter"
       ]
      }
     },
@@ -215,9 +223,113 @@
    }
   },
   {
+   "name": "set_grains",
+   "title": "Change the grains",
+   "description": "Change the granular layer: its settings by name (settings, as get_context shows them under grains.settings), its grain window by name (window), and/or switch it on or off (on; it needs a recorded loop). Settings left out stay. For example {\"settings\": {\"morph\": 0.1, \"pitch\": -12}, \"window\": \"Swell\", \"on\": true} makes an octave-down drone (call describe with topic grains first). Values out of range are held to it and listed in the answer's corrections; a name that is no setting refuses the call. Every change can be taken back with revert.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "settings": {
+      "type": "object",
+      "description": "Setting name -> number."
+     },
+     "window": {
+      "type": "string",
+      "description": "A grain window's name, from describe's windows."
+     },
+     "on": {
+      "type": "boolean",
+      "description": "Whether the layer plays."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "set_cutter",
+   "title": "Change the cutter",
+   "description": "Change the cutter: its voices (voices, a list merged by place over the voices there, as get_context shows them under cutter.voices: an item null keeps that voice, a member left out keeps its value, params merge by name; a procedure changed starts from its own defaults; fx given replaces that voice's list), how many voices there are (voiceCount, 1..4), the mode (mix, insert or gate) and/or switch it on or off (on; it needs an analysed take and comes in at the next downbeat). For example {\"voices\": [null, {\"proc\": \"warp\", \"ratio\": 1.5, \"fx\": [\"bpf\"]}], \"mode\": \"insert\"} adds or changes a second voice (call describe with topic cutter first). Everything is checked first: one thing wrong refuses the whole call and changes nothing. Values held to their range are listed in the answer's corrections. Every change can be taken back with revert.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "voices": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+       "type": [
+        "object",
+        "null"
+       ],
+       "properties": {
+        "enabled": {
+         "type": "boolean"
+        },
+        "proc": {
+         "type": "string"
+        },
+        "synth": {
+         "type": "string"
+        },
+        "fx": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "ratio": {
+         "type": "number"
+        },
+        "amp": {
+         "type": "number"
+        },
+        "pan": {
+         "type": "number"
+        },
+        "params": {
+         "type": "object",
+         "description": "Parameter name -> number."
+        }
+       }
+      }
+     },
+     "voiceCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "How many voices; voices past it go."
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "mix",
+       "insert",
+       "gate"
+      ]
+     },
+     "on": {
+      "type": "boolean",
+      "description": "Whether the cutter plays."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false
+   }
+  },
+  {
    "name": "revert",
    "title": "Take back changes",
-   "description": "Put the drums, the synth and the chains back as they were before your newest change, or before the newest `count` changes. get_context's aiChanges says how many can be taken back (at most 32 are kept).",
+   "description": "Put the drums, the synth, the chains, the grains and the cutter back as they were before your newest change, or before the newest `count` changes. get_context's aiChanges says how many can be taken back (at most 32 are kept).",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -294,6 +406,60 @@
    "name": "save_drum_preset",
    "title": "Save the drums as a preset",
    "description": "Save the drums as they stand (both patterns, the kits, the levels) as a preset in megalooper's Drums view. A name already taken is refused unless overwrite is true: ask the player first.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "overwrite": {
+      "type": "boolean",
+      "description": "Replace a preset of that name."
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "save_grains_preset",
+   "title": "Save the grains as a preset",
+   "description": "Save the grains (every setting and the grain window) as it stands as a preset in megalooper's Grains view. A name already taken is refused unless overwrite is true: ask the player first.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "overwrite": {
+      "type": "boolean",
+      "description": "Replace a preset of that name."
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "save_cutter_preset",
+   "title": "Save the cutter as a preset",
+   "description": "Save the cutter (every voice and the mode) as it stands as a preset in megalooper's Cutter view. A name already taken is refused unless overwrite is true: ask the player first.",
    "inputSchema": {
     "type": "object",
     "properties": {

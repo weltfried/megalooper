@@ -9,6 +9,8 @@ megalooper is playing and changes it:
 - "Make the hats busier in the second half of the bar."
 - "Write a synth line in D dorian that follows the chords you heard."
 - "Put a dubby echo on the loop and make the drive gentler."
+- "Turn the grains into an octave-down drone."
+- "Give the cutter a second voice that cuts three against two."
 - "Revert that."
 
 You hear every change at once. **↶ Revert AI change**, at the bottom of the
@@ -26,13 +28,17 @@ nothing waits for a bar line.
 | **The drums** | Both step patterns, the kits and their pads | The patterns, the kit the steps play; save as a drum preset |
 | **The synth** | The note sequence and the Wave synth's settings | Both, and the sequencer on or off; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
+| **The Grains** | On or off, every setting, the grain window | All of them; save as a granular preset |
+| **The Cutter** | On or off, the mode, every voice (procedure, parameters, cut synth, effects, ratio, level, pan) | All of them, voices added and removed; save as a cutter preset |
 
-It cannot change the loop, the Cutter, the Grains, the mixer, the drums'
-onset kit, Repeats, reverb or trims, or the MIDI map.
+It cannot change the loop, the mixer, the drums' onset kit, Repeats, reverb
+or trims, the arc (the pedal's intensity) or the MIDI map.
 
-Every change needs Megalooper SA (`sa: true`, as `saSystem` has), where
-megalooper hosts the drums, the synth and the effects
-([Megalooper SA](standalone.md)).
+The drums, the synth and the effects need Megalooper SA (`sa: true`, as
+`saSystem` has), where megalooper hosts them
+([Megalooper SA](standalone.md)). The Grains and the Cutter work on the loop
+and need only a take: the Grains switch on over a recorded loop, the Cutter
+over an analysed one, and the Cutter comes in at the loop's next downbeat.
 
 **Plugins stay yours.** The AI may move a plugin in its chain and switch it
 on or off. It cannot add one, remove one, or touch the plugin's own
@@ -119,11 +125,13 @@ small files in `remote/`, beside it, in megalooper's folder
 - **In the conversation**: "revert that", or "revert the last three".
 - Revert puts back the part the AI changed as it was just before: the drums
   (both patterns, the kits, the pad trims, Repeats, the reverb), the synth
-  (the note sequence, the Wave synth, its switch) or the effects (devices,
-  places, settings, switches). A plugin's own sound is never touched, so it
-  needs nothing put back.
+  (the note sequence, the Wave synth, its switch), the effects (devices,
+  places, settings, switches), the Grains (settings, window, switch) or the
+  Cutter (voices, mode, switch). A plugin's own sound is never touched, so
+  it needs nothing put back.
 - What you changed by hand in the same part after the AI's change goes back
-  with it: Revert restores the whole drums, synth or effects as they were.
+  with it: Revert restores the whole drums, synth, effects, Grains or Cutter
+  as they were.
 - Reverting a change that added, removed or moved effects empties the
   Effects view's own undo, as recalling a sound does.
 - Switching AI APPS off, or restarting megalooper, keeps what the AI did and
@@ -162,12 +170,14 @@ What the app is offered, for reference. You never call these yourself.
 | Tool | What it does |
 |---|---|
 | `get_context` | What is playing and how it is set, the take included |
-| `describe` | What every setting of the drums, the synth or the effects means |
+| `describe` | What every setting of the drums, the synth, the effects, the Grains or the Cutter means |
 | `set_drum_pattern` | Change a drum pattern (main or break) and the steps' kit |
 | `set_synth` | Change the note sequence, the Wave synth, the sequencer's switch |
 | `set_chain` | Add, remove, move, set and switch effects |
+| `set_grains` | Change the Grains' settings, their window, their switch |
+| `set_cutter` | Change the Cutter's voices, its mode, its switch |
 | `revert` | Take back the newest change, or several |
-| `save_drum_preset`, `save_synth_preset`, `save_sound` | Save under a name, in the menus you already use |
+| `save_drum_preset`, `save_synth_preset`, `save_sound`, `save_grains_preset`, `save_cutter_preset` | Save under a name, in the menus you already use |
 
 Every change is checked before anything happens: a request with one wrong
 part changes nothing. Values outside a setting's range are moved into it,

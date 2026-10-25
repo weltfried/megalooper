@@ -3,8 +3,8 @@
   "name": "megalooper",
   "display_name": "megalooper",
   "version": "1.3.0",
-  "description": "Let Claude read what megalooper is playing and change its drums, synth and effects.",
-  "long_description": "megalooper is a live looper for SuperCollider that finds the meter of what you play. With this extension Claude reads the loop (its meter, uneven bars too, its tempo, and what the take played on the bar grid) and the drums, the synth and the effect chains of Megalooper SA, and changes them when you ask: a groove that fits your 7/8, a synth line over the chords you played, a dubbier echo. You hear every change at once, and megalooper's Revert takes it back. megalooper must be running, with AI APPS switched on in its Setup view. Only this Mac is talked to; no audio leaves it.",
+  "description": "Let Claude read what megalooper is playing and change its drums, synth, effects, grains and cutter.",
+  "long_description": "megalooper is a live looper for SuperCollider that finds the meter of what you play. With this extension Claude reads the loop (its meter, uneven bars too, its tempo, and what the take played on the bar grid) the drums, the synth and the effect chains of Megalooper SA, and the grains and the cutter, and changes them when you ask: a groove that fits your 7/8, a synth line over the chords you played, a dubbier echo, an octave-down drone. You hear every change at once, and megalooper's Revert takes it back. megalooper must be running, with AI APPS switched on in its Setup view. Only this Mac is talked to; no audio leaves it.",
   "author": {
     "name": "Wernfried Lackner",
     "url": "https://github.com/weltfried"
@@ -30,11 +30,11 @@
   "tools": [
     {
       "name": "get_context",
-      "description": "What megalooper is playing and how it is set: the loop's meter and tempo, what the take played, the drums, the synth, the effect chains."
+      "description": "What megalooper is playing and how it is set: the loop's meter and tempo, what the take played, the drums, the synth, the effect chains, the grains, the cutter."
     },
     {
       "name": "describe",
-      "description": "What every setting of the drums, the synth or the effects means."
+      "description": "What every setting of the drums, the synth, the effects, the grains or the cutter means."
     },
     {
       "name": "set_drum_pattern",
@@ -47,6 +47,14 @@
     {
       "name": "set_chain",
       "description": "Add, remove, move, set and switch built-in effects."
+    },
+    {
+      "name": "set_grains",
+      "description": "Change the granular layer's settings, its grain window and its switch."
+    },
+    {
+      "name": "set_cutter",
+      "description": "Change the cutter's voices, its mode and its switch."
     },
     {
       "name": "revert",
@@ -63,6 +71,14 @@
     {
       "name": "save_drum_preset",
       "description": "Save the drums as a preset in megalooper's Drums view."
+    },
+    {
+      "name": "save_grains_preset",
+      "description": "Save the grains as a preset in megalooper's Grains view."
+    },
+    {
+      "name": "save_cutter_preset",
+      "description": "Save the cutter as a preset in megalooper's Cutter view."
     }
   ],
   "keywords": [
@@ -71,7 +87,9 @@
     "supercollider",
     "drums",
     "synth",
-    "effects"
+    "effects",
+    "granular",
+    "cutter"
   ],
   "license": "GPL-3.0-or-later",
   "compatibility": {

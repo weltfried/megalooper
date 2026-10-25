@@ -183,12 +183,7 @@
 };
 
 // The window's tiles, and the line under them.
-~granularEnvHints = [
-    "Smooth and symmetrical, the default.",
-    "Flat top, short fades. Thicker drones, harder pulses.",
-    "Instant attack, long decay. Every grain becomes a little hit.",
-    "Reversed percussive. Attacks are erased, so even a plucked loop smears into a pad."
-];
+~granularEnvHints = Looper.granularEnvHints;
 ~granularPaintEnv = { |val|
     ~granularEnvSeg !? { |s| ~guiSegSet.(s, val) };
     ~granularEnvHint !? { |t|

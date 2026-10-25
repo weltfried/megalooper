@@ -170,13 +170,15 @@ class Protocol:
         tools = self.call("tools/list")["result"]["tools"]
         self.assertEqual(tools, SPEC["tools"])
         self.assertEqual([t["name"] for t in tools],
-                         ["get_context", "describe", "set_drum_pattern", "set_synth", "set_chain", "revert",
-                          "save_synth_preset", "save_sound", "save_drum_preset"])
+                         ["get_context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
+                          "set_cutter", "revert", "save_synth_preset", "save_sound", "save_drum_preset",
+                          "save_grains_preset", "save_cutter_preset"])
         for t in tools:
             self.assertEqual(t["inputSchema"]["type"], "object")
         self.assertEqual({t["name"] for t in tools if t["annotations"]["readOnlyHint"]}, {"get_context", "describe"})
         self.assertEqual({t["name"] for t in tools if t["annotations"].get("destructiveHint")},
-                         {"save_drum_preset", "save_synth_preset", "save_sound"})
+                         {"save_drum_preset", "save_synth_preset", "save_sound", "save_grains_preset",
+                          "save_cutter_preset"})
 
     def test_notifications_get_no_answer_and_ping_an_empty_one(self):
         got = self.session({"jsonrpc": "2.0", "method": "notifications/cancelled"},
@@ -238,6 +240,9 @@ class Asking:
             ("revert", {"count": 2}), ("revert", {}),
             ("save_drum_preset", {"name": "x"}), ("save_synth_preset", {"name": "y", "overwrite": True}),
             ("save_sound", {"name": "z"}),
+            ("set_grains", {"settings": {"morph": 0.2}, "window": "Swell", "on": True}),
+            ("set_cutter", {"voices": [None, {"proc": "warp", "params": {"accel": 1.1}}], "voiceCount": 2, "mode": "gate"}),
+            ("save_grains_preset", {"name": "g"}), ("save_cutter_preset", {"name": "c", "overwrite": True}),
         ]
         for name, args in cases:
             text, err = self.tool(name, args)
@@ -453,7 +458,7 @@ class RoundTrip:
         self.assertEqual([b["grid"][0] for b in take["bars"]], ["X", "x", ".", "."])
 
     def test_describe_over_osc(self):
-        for topic in ["drums", "synth", "effects"]:
+        for topic in ["drums", "synth", "effects", "grains", "cutter"]:
             text, err = self.tool("describe", {"topic": topic})
             self.assertFalse(err, text)
             self.assertIn("about", json.loads(text))
@@ -497,6 +502,35 @@ class RoundTrip:
         self.assertIn("no device nothing", text)
         self.assertFalse(self.tool("revert")[1])
         self.assertEqual(json.loads(self.tool("get_context", {"parts": ["chains"]})[0])["chains"], before)
+
+    def test_a_grains_change_over_osc_and_back(self):
+        before = json.loads(self.tool("get_context", {"parts": ["grains"]})[0])["grains"]
+        text, err = self.tool("set_grains", {"settings": {"pitch": -12, "spray": 9000}, "window": "swell"})
+        self.assertFalse(err, text)
+        got = json.loads(text)
+        self.assertEqual((got["settings"]["pitch"], got["settings"]["spray"], got["window"]), (-12, 2000, "Swell"))
+        self.assertEqual(len(got["corrections"]), 1)
+        text, err = self.tool("set_grains", {"settings": {"wobble": 1}})
+        self.assertTrue(err)
+        self.assertIn("no setting wobble", text)
+        self.assertFalse(self.tool("revert")[1])
+        self.assertEqual(json.loads(self.tool("get_context", {"parts": ["grains"]})[0])["grains"], before)
+
+    def test_a_cutter_change_over_osc_and_back(self):
+        before = json.loads(self.tool("get_context", {"parts": ["cutter"]})[0])["cutter"]
+        text, err = self.tool("set_cutter", {"voices": [None, {"proc": "bbcut11", "params": {"sdiv": 99}, "fx": ["rev"]}],
+                                             "mode": "mix"})
+        self.assertFalse(err, text)
+        got = json.loads(text)
+        self.assertEqual((len(got["voices"]), got["voices"][1]["proc"], got["voices"][1]["params"]["sdiv"],
+                          got["voices"][1]["fx"], got["mode"]), (2, "bbcut11", 32, ["rev"], "mix"))
+        self.assertEqual(got["voices"][0], before["voices"][0])
+        self.assertEqual(len(got["corrections"]), 1)
+        text, err = self.tool("set_cutter", {"voices": [{"proc": "shuffle"}]})
+        self.assertTrue(err)
+        self.assertIn("no procedure shuffle", text)
+        self.assertFalse(self.tool("revert")[1])
+        self.assertEqual(json.loads(self.tool("get_context", {"parts": ["cutter"]})[0])["cutter"], before)
 
     def test_several_asks_in_a_row(self):
         got = self.session(*[{"jsonrpc": "2.0", "id": i, "method": "tools/call",

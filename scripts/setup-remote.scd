@@ -14,7 +14,8 @@
 //                       Revert); what went wrong is said in the status line
 //
 // What MegaRemote reads and changes it gets from ~remoteSource: the running
-// Looper and SA, the preset folders, and the status line it speaks in.
+// Looper and SA, the preset folders, the Grains view's rows (their tips are
+// what the AI is told), and the status line it speaks in.
 
 ~remotePrefKey = "aiApps";
 
@@ -22,7 +23,8 @@
 
 ~remoteSource = {
     (looper: ~looper, sa: ~megaSA, profile: ~routingProfile, drumsPresetDir: ~saDrumsPresetDir,
-        synthPresetDir: ~saSynthPresetDir, soundDir: ~saFxPresetDir,
+        synthPresetDir: ~saSynthPresetDir, soundDir: ~saFxPresetDir, grainsPresetDir: ~granularPresetDir,
+        cutterPresetDir: ~bbcutPresetDir, grainParams: ~granularParams,
         say: { |msg| ~guiSay !? { |f| f.value(msg) } }.inEnvir)
 };
 

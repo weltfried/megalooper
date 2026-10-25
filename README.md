@@ -37,8 +37,8 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   lines, uneven ones too. The Synth view (7), and a column on Perform. See
   [The synth](docs/synth.md).
 - **AI apps (SA, optional).** Ask an AI app such as Claude Desktop for a
-  groove that fits your 7/8, a synth line over the chords you played, or a
-  dubbier echo, and hear it at once; one click reverts it. Off until you
+  groove that fits your 7/8, a synth line over the chords you played, a
+  dubbier echo or a granular drone, and hear it at once; one click reverts it. Off until you
   switch it on. See [AI apps](docs/ai.md).
 - **MIDI.** Every control can be mapped to your controller by clicking it and
   moving a knob. MIDI clock and transport go out on macOS's IAC bus, for
@@ -158,7 +158,7 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 | [Rigs and routing](docs/routing.md) | Rigs of your own: an interface, a bass |
 | [The manual](docs/manual.md) | Every control, the MIDI map, the cutter, the grains, calibration, how the meter is found |
 | [MIDI map files](docs/midi-maps.md) | The JSON a map is kept in, to write or share one |
-| [AI apps](docs/ai.md) | Letting an AI app such as Claude Desktop read the set and change the drums, the synth and the effects |
+| [AI apps](docs/ai.md) | Letting an AI app such as Claude Desktop read the set and change the drums, the synth, the effects, the Grains and the Cutter |
 
 ## Known limits
 

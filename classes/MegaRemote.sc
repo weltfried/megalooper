@@ -12,21 +12,28 @@
 // \describe (what every setting means). Writing: \set_drum_pattern (a
 // pattern, the steps' kit), \set_synth (the note sequencer's pattern, the
 // Wave synth's settings, the sequencer's switch), \set_chain (built-in
-// effects in, out and moved, settings, switches), \revert (the AI's own
-// changes, newest first), \save_drum_preset, \save_synth_preset and
-// \save_sound. Every change is snapshotted before it lands, so it can be
-// taken back. A plugin is never put in or taken out by the AI.
+// effects in, out and moved, settings, switches), \set_grains (the granular
+// layer's settings, its window, its switch), \set_cutter (the cutter's
+// voices, its mode, its switch), \revert (the AI's own changes, newest
+// first), \save_drum_preset, \save_synth_preset, \save_sound,
+// \save_grains_preset and \save_cutter_preset. Every change is snapshotted
+// before it lands, so it can be taken back. A plugin is never put in or
+// taken out by the AI.
 //
 // Everything a request reads or changes comes from `source`, a function
 // answering an Event (looper:, sa:, profile:, drumsPresetDir:,
-// synthPresetDir:, soundDir:, say:), so a test hands it stubs; boot.scd hands it the
-// running ~looper and ~megaSA, the presets' folders, and the window's status
-// line (say: a function of a String).
+// synthPresetDir:, soundDir:, grainsPresetDir:, cutterPresetDir:,
+// grainParams:, say:), so a test hands it stubs; setup-remote.scd hands it
+// the running ~looper and ~megaSA, the presets' folders, the Grains view's
+// rows (grainParams: their labels, window ranges and tips) and the window's
+// status line (say: a function of a String).
 MegaRemote {
     var <source, <token, <port, responder, onShutDown, <started = false;
     // The AI's changes, oldest first: (part:, label:, data:), data the part as
     // it was just before the change: the drums' presetData, the synth's
-    // (notes:, wave:, on:), or the chains' (sound:, on: [[id, flag] ...]).
+    // (notes:, wave:, on:), the chains' (sound:, on: [[id, flag] ...]), the
+    // grains' (preset:, on:) or the cutter's (preset:, on:), preset the
+    // Looper's own preset data for them.
     var changes;
 
     *new { |source| ^super.newCopyArgs(source) }
@@ -150,7 +157,7 @@ MegaRemote {
                 this.class.success(this.class.context(source.value).add("aiChanges", this.changeCount))
             }
             { command == "describe" } {
-                this.class.describe(args !? { |a| a.at("topic") }) !? { |d| this.class.success(d) }
+                this.class.describe(args !? { |a| a.at("topic") }, source.value) !? { |d| this.class.success(d) }
                     ?? { this.class.failure("no such topic; there are " ++ this.class.topics.join(", ")) }
             }
             { command == "set_drum_pattern" } { this.setDrumPattern(args) }
@@ -160,13 +167,18 @@ MegaRemote {
             { command == "save_synth_preset" } { this.saveSynthPreset(args) }
             { command == "set_chain" } { this.setChain(args) }
             { command == "save_sound" } { this.saveSound(args) }
+            { command == "set_grains" } { this.setGrains(args) }
+            { command == "set_cutter" } { this.setCutter(args) }
+            { command == "save_grains_preset" } { this.saveGrainsPreset(args) }
+            { command == "save_cutter_preset" } { this.saveCutterPreset(args) }
             { this.class.failure("no command " ++ command.asString.quote ++ "; there are "
                 ++ this.class.commands.join(", ")) }
         } { |err| this.class.failure("megalooper failed to answer: " ++ err.errorString) }
     }
 
-    *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "set_chain", "revert",
-        "save_drum_preset", "save_synth_preset", "save_sound"] }
+    *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
+        "set_cutter", "revert", "save_drum_preset", "save_synth_preset", "save_sound", "save_grains_preset",
+        "save_cutter_preset"] }
 
     *success { |result| ^this.obj([\ok, true, \result, result]) }
     *failure { |why| ^this.obj([\ok, false, \error, why]) }
@@ -242,13 +254,13 @@ MegaRemote {
     // earliest of them.
     revert { |args|
         var src = source.value, drums = this.prDrums(src), count, taken, parts, notes = List.new, why, undone;
-        if(drums.isNil) { ^this.prNoDrums };
+        if(drums.isNil and: { this.prLooper(src).isNil }) { ^this.prNoDrums };
         count = (args !? { |a| a.at("count") }) ? 1;
         if(count.isInteger.not or: { count < 1 }) { ^this.class.failure("count is a whole number, 1 or more") };
         if(this.changeCount == 0) { ^this.class.failure("nothing to revert: the AI has changed nothing since megalooper started") };
         count = count.min(this.changeCount);
         taken = changes.asArray.drop(changes.size - count);
-        parts = [\drums, \synth, \chains].select { |part| taken.any { |c| c[\part] == part } };
+        parts = [\drums, \synth, \chains, \grains, \cutter].select { |part| taken.any { |c| c[\part] == part } };
         parts.do { |part|
             why = why ?? { this.prRestore(src, part, taken.detect { |c| c[\part] == part }[\data], notes) };
         };
@@ -262,7 +274,17 @@ MegaRemote {
 
     // A part put back as a snapshot holds it: nil when done, else why not.
     prRestore { |src, part, data, notes|
-        var drums = this.prDrums(src), sa = src !? { |s| s[\sa] }, wave = sa !? { |m| m.wave };
+        var drums = this.prDrums(src), sa = src !? { |s| s[\sa] }, wave = sa !? { |m| m.wave }, looper = this.prLooper(src);
+        if(part == \grains) {
+            if(looper.applyGranularPreset(data[\preset]).not) { ^"the grains could not be put back" };
+            if(looper.granularOn != data[\on]) { looper.toggleGranular };
+            ^nil
+        };
+        if(part == \cutter) {
+            if(looper.applyBBCutPreset(data[\preset]).not) { ^"the cutter could not be put back" };
+            if(looper.bbcut != data[\on]) { looper.bbcut = data[\on] };
+            ^nil
+        };
         if(part == \chains) {
             // A recall (applySound) without the plugins' own sounds: the
             // structure on the cross-fade, the settings and the names. It
@@ -610,6 +632,215 @@ MegaRemote {
         ^given.deepCopy
     }
 
+    // ---- the grains and the cutter -------------------------------------------------
+    // Both are the Looper's, not Megalooper SA's: they work on the loop
+    // whatever else runs, and both are changed as their own presets are
+    // recalled (applyGranularPreset, applyBBCutPreset), so the AI's values
+    // meet the checks a preset file meets.
+
+    prLooper { |src| ^src !? { |s| s[\looper] } }
+
+    prNoLooper { ^this.class.failure("there is no looper running") }
+
+    // What `model` refuses (\refused, what, why) while `func` runs, as words.
+    prHeard { |model, func|
+        var heard = List.new, listener = { |obj, what, op, reason|
+            if(what == \refused) { heard.add(op.asString ++ " refused: " ++ reason) } };
+        model.addDependant(listener);
+        protect { func.value } { model.removeDependant(listener) };
+        ^heard
+    }
+
+    // The granular layer's settings by name (settings: (name: number), the
+    // names the context's grains.settings has), its grain window by name
+    // (window), and/or the layer on or off (on). Settings are merged over
+    // what plays; a value held to its range is said in the corrections.
+    setGrains { |args|
+        var src = source.value, looper = this.prLooper(src), settings, window, on, names, data, label, notes, w;
+        if(looper.isNil) { ^this.prNoLooper };
+        settings = args !? { |a| a.at("settings") };
+        window = args !? { |a| a.at("window") };
+        on = args !? { |a| a.at("on") };
+        if(settings.isNil and: { window.isNil } and: { on.isNil }) {
+            ^this.class.failure("nothing to change: give settings, window, on, or several")
+        };
+        names = Looper.granularPresetFields.collect { |f| f[0].asString };
+        if(settings.notNil) {
+            if(settings.isKindOf(MegaJsonObject).not) { ^this.class.failure("settings must be an object: name -> number") };
+            settings.keysValuesDo { |k, v|
+                if(w.isNil) {
+                    if(names.includesEqual(k).not) { w = "the grains have no setting " ++ k ++ "; they have " ++ names.join(", ") } {
+                        if(v.isNumber.not) { w = "grains." ++ k ++ " must be a number" } };
+                };
+            };
+            if(w.notNil) { ^this.class.failure(w) };
+        };
+        if(window.notNil and: { this.class.grainWindowIndex(window).isNil }) {
+            ^this.class.failure("there is no grain window " ++ window.asString.quote ++ "; there are "
+                ++ Looper.granularEnvNames.join(", "))
+        };
+        if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
+        label = "grains' " ++ [settings !? { "settings" }, window !? { "window" }, on !? { "switch" }]
+            .reject(_.isNil).join(" and ");
+        this.prSnapshot(\grains, label, (preset: looper.granularPresetData("before the AI's change"),
+            on: looper.granularOn));
+        notes = this.prHeard(looper, {
+            if(settings.notNil or: { window.notNil }) {
+                data = looper.granularPresetData("ai");
+                settings !? { |set| set.keysValuesDo { |k, v| data[k.asSymbol] = v } };
+                window !? { data[\env] = Looper.granularEnvNames[this.class.grainWindowIndex(window)] };
+                looper.applyGranularPreset(data);
+            };
+            on !? { |flag| if(flag != looper.granularOn) { looper.toggleGranular } };
+        });
+        settings !? { |set| set.keysValuesDo { |k, v|
+            this.class.corrections(v, looper.perform(Looper.granularPresetFields.detect { |f| f[0].asString == k }[1]),
+                "grains." ++ k, notes) } };
+        this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
+        ^this.class.success(this.class.grainsOf(looper).add("corrections", notes.asArray).add("aiChanges", this.changeCount))
+    }
+
+    // A grain window's index in Looper.granularEnvNames from its name, the
+    // case not minded, or nil.
+    *grainWindowIndex { |name|
+        ^if(name.isString.not) { nil } {
+            Looper.granularEnvNames.detectIndex { |n| n.asString.toLower == name.toLower }
+        }
+    }
+
+    // The cutter's voices (voices: a list merged by place over the voices
+    // there: an item null keeps that voice, a member left out keeps its
+    // value; a procedure changed starts from that procedure's defaults, and
+    // fx given replaces the list), how many voices there are (voiceCount,
+    // 1..4: voices past it go, new ones start as a new voice does), the mode
+    // (mix, insert or gate) and/or the cutter on or off (on). Everything is
+    // checked first; one thing wrong refuses it all. Values held to a range
+    // are said in the corrections.
+    setCutter { |args|
+        var src = source.value, looper = this.prLooper(src), voices, count, mode, on, why, current, data, label, notes;
+        if(looper.isNil) { ^this.prNoLooper };
+        voices = args !? { |a| a.at("voices") };
+        count = args !? { |a| a.at("voiceCount") };
+        mode = args !? { |a| a.at("mode") };
+        on = args !? { |a| a.at("on") };
+        if([voices, count, mode, on].every(_.isNil)) {
+            ^this.class.failure("nothing to change: give voices, voiceCount, mode, on, or several")
+        };
+        current = looper.bbcutPresetData("before the AI's change");
+        why = this.class.cutterWhy(looper, current, voices, count, mode, on);
+        if(why.notNil) { ^this.class.failure(why) };
+        voices = this.class.plain(voices) ? [];
+        count = count ?? { current[\voices].size.max(voices.size) };
+        label = "cutter's " ++ [if(voices.notEmpty or: { args.at("voiceCount").notNil }) { "voices" },
+            mode !? { "mode" }, on !? { "switch" }].reject(_.isNil).join(" and ");
+        this.prSnapshot(\cutter, label, (preset: current, on: looper.bbcut));
+        data = (version: looper.bbcutPresetVersion, name: "ai", mode: (mode ? current[\mode]).asSymbol,
+            voices: Array.fill(count, { |i| this.class.cutterVoice(looper, current[\voices][i], voices[i]) }));
+        notes = this.prHeard(looper, {
+            looper.applyBBCutPreset(data);
+            on !? { |flag| looper.bbcut = flag };
+        });
+        this.class.corrections(voices, looper.bbcutPresetData[\voices], "voices", notes);
+        if(on == true and: { looper.bbcut.not } and: { notes.isEmpty }) {
+            notes.add("the cutter comes in at the loop's next downbeat")
+        };
+        this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
+        ^this.class.success(this.class.cutterOf(looper).add("corrections", notes.asArray).add("aiChanges", this.changeCount))
+    }
+
+    // Voice `given` (an Event, or nil to keep it) over `base` (a voice as
+    // bbcutPresetData has it, or nil for a new one), as a preset holds it.
+    *cutterVoice { |looper, base, given|
+        var out = (base ?? { looper.bbcutVoiceData(looper.defaultBBCutVoice) }).deepCopy, proc;
+        if(given.isNil) { ^out };
+        proc = (given[\proc] ? out[\proc]).asSymbol;
+        if(proc != out[\proc]) { out[\params] = looper.defaultParamsFor(proc) };
+        out = this.mergePattern(out, given.copy.put(\fx, nil));
+        out[\proc] = proc;
+        given[\fx] !? { |fx| out[\fx] = fx.collect(_.asSymbol) };
+        ^out
+    }
+
+    // Why a set_cutter request can't be done as it stands, or nil.
+    *cutterWhy { |looper, current, voices, count, mode, on|
+        var procs = looper.bbcutProcOrder.collect(_.asString), synths = looper.bbcutSynthKeys.collect(_.asString);
+        var fxs = looper.bbcutFxOrder.collect(_.asString), keys = #["enabled", "proc", "synth", "fx", "ratio", "amp", "pan", "params"];
+        var w, proc, params, tag;
+        if(mode.notNil and: { #["mix", "insert", "gate"].includesEqual(mode).not }) { ^"mode is mix, insert or gate" };
+        if(on.notNil and: { on.isKindOf(Boolean).not }) { ^"on is true or false" };
+        if(count.notNil and: { count.isInteger.not or: { count < 1 } or: { count > 4 } }) { ^"voiceCount is 1, 2, 3 or 4" };
+        if(voices.isNil) { ^nil };
+        if(voices.isKindOf(Array).not) { ^"voices must be a list of objects (or null to keep a voice)" };
+        if(voices.size > (count ? 4)) { ^"there are " ++ voices.size ++ " voices given, more than " ++ (count ? 4) };
+        voices.do { |x, i|
+            tag = "voice " ++ (i + 1);
+            if(w.isNil and: { x.notNil }) {
+                if(x.isKindOf(MegaJsonObject).not) { w = tag ++ " is an object (or null to keep it)" } {
+                    x.keysValuesDo { |k, v|
+                        if(w.isNil and: { keys.includesEqual(k).not }) {
+                            w = tag ++ " has no " ++ k ++ "; a voice has " ++ keys.join(", ") }
+                    };
+                    proc = x.at("proc") ?? { (current[\voices][i] !? { |vd| vd[\proc] } ? looper.defaultBBCutProc).asString };
+                    case
+                    { w.notNil } { }
+                    { procs.includesEqual(proc).not } { w = tag ++ ": there is no procedure " ++ proc.asString ++ "; there are " ++ procs.join(", ") }
+                    { x.at("synth").notNil and: { synths.includesEqual(x.at("synth")).not } } {
+                        w = tag ++ ": there is no cut synth " ++ x.at("synth").asString ++ "; there are " ++ synths.join(", ") }
+                    { x.at("fx").notNil and: { x.at("fx").isKindOf(Array).not
+                        or: { x.at("fx").any { |f| fxs.includesEqual(f).not } } } } {
+                        w = tag ++ ": fx is a list of " ++ fxs.join(", ") }
+                    { x.at("enabled").notNil and: { x.at("enabled").isKindOf(Boolean).not } } { w = tag ++ ": enabled is true or false" }
+                    { #["ratio", "amp", "pan"].any { |k| x.at(k).notNil and: { x.at(k).isNumber.not } } } {
+                        w = tag ++ ": ratio, amp and pan are numbers" }
+                    { x.at("params").notNil and: { x.at("params").isKindOf(MegaJsonObject).not } } {
+                        w = tag ++ ": params must be an object: name -> number" }
+                    { x.at("params").notNil } {
+                        params = looper.bbcutProcSpecs[proc.asSymbol][\params].collect { |e| e[\key].asString };
+                        x.at("params").keysValuesDo { |k, v|
+                            if(w.isNil) {
+                                if(params.includesEqual(k).not) {
+                                    w = tag ++ ": " ++ proc ++ " has no parameter " ++ k ++ "; it has " ++ params.join(", ") } {
+                                    if(v.isNumber.not) { w = tag ++ ": " ++ k ++ " must be a number" } };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        ^w
+    }
+
+    // The granular layer as it stands, as a preset in the Grains view's
+    // menu. A name taken is refused unless `overwrite` is true.
+    saveGrainsPreset { |args|
+        ^this.prSaveLooperPreset(args, \grainsPresetDir, "grains", \granularPresetPath, \granularPresetSlug,
+            \saveGranularPreset)
+    }
+
+    // The cutter as it stands (every voice and the mode), as a preset in the
+    // Cutter view's menu. A name taken is refused unless `overwrite` is true.
+    saveCutterPreset { |args|
+        ^this.prSaveLooperPreset(args, \cutterPresetDir, "cutter", \bbcutPresetPath, \bbcutPresetSlug,
+            \saveBBCutPreset)
+    }
+
+    prSaveLooperPreset { |args, dirKey, what, pathSel, slugSel, saveSel|
+        var src = source.value, looper = this.prLooper(src), dir = src !? { |s| s[dirKey] }, name, slug, path;
+        if(looper.isNil) { ^this.prNoLooper };
+        name = args !? { |a| a.at("name") };
+        if(name.isKindOf(String).not or: { name.stripWhiteSpace.isEmpty }) { ^this.class.failure("name the preset") };
+        if(dir.isNil) { ^this.class.failure("there is no folder for " ++ what ++ " presets") };
+        path = looper.perform(pathSel, dir, name);
+        if(File.exists(path) and: { (args.at("overwrite") == true).not }) {
+            ^this.class.failure("there is a " ++ what ++ " preset " ++ looper.perform(slugSel, name).quote
+                ++ " already; overwrite: true replaces it")
+        };
+        slug = looper.perform(saveSel, dir, name);
+        if(slug.isNil) { ^this.class.failure("the preset was not written (the post window says why)") };
+        this.prSay(src, "The AI saved the " ++ what ++ " as " ++ slug.quote);
+        ^this.class.success(this.class.obj([\saved, slug, \path, path]))
+    }
+
     // ---- the context -----------------------------------------------------------
 
     // What is playing and how it is set, from `src` (looper:, sa:, profile:).
@@ -624,7 +855,43 @@ MegaRemote {
             \tempo, sa !? { |m| m.tempo },
             \drums, drums !? { |d| this.drumsOf(d) },
             \synth, sa !? { |m| this.synthOf(m) },
-            \chains, sa !? { |m| m.sessionInfo[\chains] }
+            \chains, sa !? { |m| m.sessionInfo[\chains] },
+            \grains, looper !? { |l| this.grainsOf(l) },
+            \cutter, looper !? { |l| this.cutterOf(l) }
+        ])
+    }
+
+    // The granular layer: on or off, its settings by name, its grain window,
+    // and the arc's intensity, which scales its level.
+    *grainsOf { |looper|
+        var data = looper.granularPresetData;
+        ^this.obj([
+            \on, looper.granularOn,
+            \settings, this.obj(Looper.granularPresetFields.collect { |f| [f[0], data[f[0]]] }.flatten(1)),
+            \window, data[\env],
+            \intensity, looper.intensity
+        ])
+    }
+
+    // The cutter: on or off, its mode, the arc's intensity, which scales each
+    // procedure's pedal parameter, and its voices as a cutter preset holds
+    // them, their parameters in the window's order, whole or not as a preset
+    // recall makes them (a new voice holds a default 0 that a recall makes
+    // 0.0).
+    *cutterOf { |looper|
+        var data = looper.bbcutPresetData;
+        ^this.obj([
+            \on, looper.bbcut,
+            \mode, data[\mode],
+            \intensity, looper.intensity,
+            \voices, data[\voices].collect { |vd|
+                var spec = looper.bbcutProcSpecs[vd[\proc]];
+                this.obj([\enabled, vd[\enabled], \proc, vd[\proc], \synth, vd[\synth], \fx, vd[\fx],
+                    \ratio, vd[\ratio], \amp, vd[\amp], \pan, vd[\pan],
+                    \params, this.obj(spec[\params].collect { |e|
+                        [e[\key], vd[\params][e[\key]] !? { |v| if(e[\int] == true) { v.round.asInteger } { v.asFloat } }]
+                    }.flatten(1))])
+            }
         ])
     }
 
@@ -747,16 +1014,19 @@ MegaRemote {
 
     // ---- describe --------------------------------------------------------------
 
-    *topics { ^#["drums", "synth", "effects"] }
+    *topics { ^#["drums", "synth", "effects", "grains", "cutter"] }
 
     // What every setting of `topic` means, or nil for a topic there is not.
-    // With no topic: the list of them.
-    *describe { |topic|
+    // With no topic: the list of them. `src` is the source's Event, for the
+    // Grains view's rows and the running Looper's cutter tables.
+    *describe { |topic, src|
         ^case
         { topic.isNil } { this.obj([\topics, this.topics]) }
         { topic == "drums" } { this.describeDrums }
         { topic == "synth" } { this.describeSynth }
         { topic == "effects" } { this.describeEffects }
+        { topic == "grains" } { this.describeGrains(src !? { |s| s[\grainParams] }) }
+        { topic == "cutter" } { this.describeCutter(src !? { |s| s[\looper] }) }
         { nil }
     }
 
@@ -851,6 +1121,70 @@ MegaRemote {
                 this.obj([\key, t[\key], \track, t[\track], \about, t[\blurb],
                     \settings, MegaSAFx.paramsOf(t[\key]).collect { |r| this.rowOf(r) }])
             }
+        ])
+    }
+
+    // The granular layer's settings: the ranges the Looper holds them to,
+    // and from the Grains view's rows (`rows`, ~granularParams, when the
+    // window has them) the label, the range its slider covers and the tip.
+    *describeGrains { |rows|
+        ^this.obj([
+            \about, "The grains are a granular layer (SuperCollider's Warp1) reading the recorded loop, "
+                "played over it. It needs a recorded loop to switch on. morph is the meta-control: 0 a "
+                "frozen drone (long overlapped grains, a still read point), 1 a pulsed scan (a grain per "
+                "beat of the reading, moving through the loop in time, so its rhythm is what was played); "
+                "size, density and scan bend what morph asks for (size and density multiply it, 1 leaves "
+                "it), position is where the grains read (0..1 of the loop; at the drone end the freeze "
+                "point), pitch transposes without changing the read speed, detune and spray randomise "
+                "each grain. amp is the level at full intensity: the arc pedal (the context's intensity, "
+                "0..1) scales it, and the Dissolve takes it out last. window is the grain's shape. "
+                "Density is the CPU's bill: the result is held to 16 overlaps.",
+            \settings, Looper.granularPresetFields.collect { |f|
+                var row = (rows ? []).detect { |r| r[\key] == f[1] }, spec = row !? { |r| r[\spec] };
+                this.obj([\name, f[0], \label, row !? { |r| r[\label] }, \min, f[2], \max, f[3], \default, f[4],
+                    \windowMin, spec !? { |x| x.minval }, \windowMax, spec !? { |x| x.maxval },
+                    \units, row !? { |r| r[\unit] !? { |u| u.stripWhiteSpace } },
+                    \tip, row !? { |r| r[\tip] !? { |t| t.replace("\n", " ") } }])
+            },
+            \windows, Looper.granularEnvNames.collect { |n, i| this.obj([\name, n, \about, Looper.granularEnvHints[i]]) }
+        ])
+    }
+
+    // The cutter's procedures, cut synths, effects and modes, from the
+    // running Looper's tables (a fresh one's when there is none: they are the
+    // same in every Looper).
+    *describeCutter { |looper|
+        looper = looper ?? { Looper.newCopyArgs.initBBCut };
+        ^this.obj([
+            \about, "The cutter (Nick Collins's BBCut) re-splices the loop in tempo. Switched on, it takes a "
+                "snapshot of the loop (overdubs after it are not in it until it is switched off and on) and "
+                "comes in at the loop's next downbeat; it needs an analysed take. It has one to four voices, "
+                "each its own cutter over the same snapshot: a procedure (how it cuts) with its parameters, a "
+                "cut synth, effects on its cuts, a ratio (its clock against the loop's beat: voices at "
+                "different ratios stay locked to the same downbeat, so 1.5 against 1 is three cuts against "
+                "two; the window offers 1, 3/2, 2/3, 4/3, 3/4, 1/2, 2; 0.01..8 is taken), amp (0..1) and pan "
+                "(-1..1); enabled false silences a voice. Lengths in beats count the reading's pulses (a 7/8 "
+                "loop is 7 beats); phrase lengths round to whole loop passes. A procedure's pedal parameter is "
+                "how much it chops at full intensity: the arc pedal (the context's intensity, 0..1) scales it "
+                "from the parameter's minimum up, so heel barely chops and toe is what is set. A parameter "
+                "that is not live rebuilds the voice at the next beat. A procedure changed starts from its "
+                "defaults. mode: how the cutter sits against the dry loop.",
+            \modes, [["mix", "the dry loop with the repeats on top"],
+                ["insert", "the dry loop ducks only while a repeat plays (the default)"],
+                ["gate", "the dry loop muted: the cutter alone"]],
+            \procedures, looper.bbcutProcOrder.collect { |k|
+                var spec = looper.bbcutProcSpecs[k];
+                this.obj([\key, k, \name, spec[\name], \about, spec[\desc], \pedal, spec[\intensityKey],
+                    \params, spec[\params].collect { |e|
+                        this.obj([\name, e[\key], \label, e[\label], \min, e[\lo], \max, e[\hi], \default, e[\default],
+                            \whole, e[\int] == true, \live, (spec[\live] ? []).includes(e[\key]), \tip, e[\hint]])
+                    }])
+            },
+            \synths, [["cutbuf1", "one PlayBuf per cut: the cheapest, no envelope, it may click"],
+                ["cutbuf2", "a fresh enveloped grain per cut (the default)"],
+                ["cutbuf3", "event-aware playback: keeps the original pitch at any tempo"]],
+            \effects, looper.bbcutFxOrder.collect { |k|
+                this.obj([\key, k, \name, looper.bbcutFxSpecs[k][\name], \about, looper.bbcutFxSpecs[k][\desc]]) }
         ])
     }
 }

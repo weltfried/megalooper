@@ -4,8 +4,9 @@
 // setting means), the drums, the synth and the chains it may change and
 // take back (a pattern merged over the one playing, the steps' kit, the note
 // sequence, the Wave synth, the sequencer's switch, built-in effects in, out,
-// moved, set and switched, revert across all of them, presets and sounds
-// saved), and that
+// moved, set and switched, the grains' settings, window and switch, the
+// cutter's voices, mode and switch, revert across all of them, presets and
+// sounds saved), and that
 // every answer is JSON that reads back. The OSC
 // round trip itself is tools/megalooper-mcp.py's check
 // (tools/test-megalooper-mcp.py).
@@ -38,9 +39,9 @@ got = ask.(r, "{\"command\": \"describe\", \"args\": [1]}");
 
 // ---- describe ----------------------------------------------------------------------
 got = ask.(r, "{\"command\": \"describe\"}");
-~tEq.("describe with no topic lists the topics", got.at("result").at("topics"), ["drums", "synth", "effects"]);
+~tEq.("describe with no topic lists the topics", got.at("result").at("topics"), ["drums", "synth", "effects", "grains", "cutter"]);
 got = ask.(r, "{\"command\": \"describe\", \"args\": {\"topic\": \"kazoo\"}}");
-~tEq.("...a topic there is not is refused", [got.at("ok"), got.at("error").contains("drums, synth, effects")], [false, true]);
+~tEq.("...a topic there is not is refused", [got.at("ok"), got.at("error").contains("drums, synth, effects, grains, cutter")], [false, true]);
 
 got = ask.(r, "{\"command\": \"describe\", \"args\": {\"topic\": \"drums\"}}").at("result");
 o = got.at("settings").detect { |row| row.at("name") == "clockSpeed" };
@@ -477,3 +478,139 @@ protect {
 sa.free;
 }.value;
 
+// ---- the grains and the cutter, changed and taken back -------------------------------------
+{
+var l, r, got, o, src, said, dirs, before, cutBefore, refusals, rows;
+var ask = { |remote, text| MegaFiles.parseObject(MegaFiles.json(remote.handle(text))) };
+var scripts = thisProcess.nowExecutingPath.dirname.dirname;
+if(~granularParams.isNil) { (scripts +/+ "gui-granular.scd").load };
+l = ~tLooper.();
+said = List.new;
+dirs = ~tTempPath.("megaremote-looper-presets");
+src = (looper: l, grainsPresetDir: dirs +/+ "granular", cutterPresetDir: dirs +/+ "bbcut", grainParams: ~granularParams,
+    say: { |m| said.add(m) });
+r = MegaRemote({ src });
+
+// ---- describe
+got = ask.(r, "{\"command\": \"describe\", \"args\": {\"topic\": \"grains\"}}").at("result");
+o = got.at("settings").detect { |row| row.at("name") == "pitch" };
+~tEq.("the grains: every setting with the range it is held to, the window's range, units and tip; the windows",
+    [got.at("settings").size, o.at("label"), o.at("min"), o.at("max"), o.at("windowMin"), o.at("windowMax"), o.at("units"),
+        o.at("tip").contains("semitones"), o.at("tip").contains("\n"), got.at("windows").size, got.at("windows")[3].at("name"),
+        got.at("about").contains("morph")],
+    [Looper.granularPresetFields.size, "Pitch", -48, 48, -24, 24, "st", true, false, 4, "Swell", true]);
+~tEq.("...without the window's rows, the ranges alone",
+    MegaRemote.describe("grains", ()).at("settings").collect { |row| [row.at("min"), row.at("tip")] }.first, [0, nil]);
+got = ask.(r, "{\"command\": \"describe\", \"args\": {\"topic\": \"cutter\"}}").at("result");
+o = got.at("procedures").detect { |p| p.at("key") == "break" };
+~tEq.("the cutter: its procedures with their parameters, live or not, the pedal's; the synths, the effects, the modes",
+    [got.at("procedures").collect { |p| p.at("key") }, o.at("pedal"), o.at("params").size,
+        o.at("params")[1].at("whole"), o.at("params")[1].at("live"), o.at("params")[0].at("tip").isString,
+        got.at("synths").collect(_.first), got.at("effects").size, got.at("modes").collect(_.first)],
+    [["break", "bbcut11", "warp", "choose", "sqpusher"], "cutchance", 6, true, true, true,
+        ["cutbuf1", "cutbuf2", "cutbuf3"], 6, ["mix", "insert", "gate"]]);
+~tEq.("...and with no looper running, from a fresh one's tables",
+    MegaRemote.describe("cutter", ()).at("procedures").size, 5);
+
+// ---- the context
+got = ask.(r, "{\"command\": \"context\"}").at("result");
+~tEq.("the context: the grains (off, their settings, window, the arc's intensity) and the cutter (off, mode, one voice)",
+    [got.at("grains").at("on"), got.at("grains").at("settings").at("amp"), got.at("grains").at("window"),
+        got.at("grains").at("intensity"), got.at("cutter").at("on"), got.at("cutter").at("mode"),
+        got.at("cutter").at("voices").size, got.at("cutter").at("voices")[0].at("proc"),
+        got.at("cutter").at("voices")[0].at("params").keys.asArray.sort],
+    [false, 0.7, "Hann (built in)", 1.0, false, "insert", 1, "break",
+        ["cutchance", "maxblock", "minblock", "phraselength", "repeats", "rollchance"]]);
+
+// ---- the grains
+before = MegaFiles.json(MegaRemote.grainsOf(l));
+got = ask.(r, "{\"command\": \"set_grains\", \"args\": {\"settings\": {\"pitch\": -12, \"spray\": 9000, \"morph\": 0.25}, \"window\": \"percussive\"}}");
+~tEq.("set_grains sets the settings named and the window, says a value held to its range, leaves the rest",
+    [got.at("ok"), l.granularPitch, l.granularSpray, l.granularMorph, l.granularEnv, l.granularAmp,
+        got.at("result").at("corrections"), got.at("result").at("window"), r.changeCount],
+    [true, -12, 2000, 0.25, 2, 0.7, ["grains.spray 9000 -> 2000.0"], "Percussive", 1]);
+got = ask.(r, "{\"command\": \"set_grains\", \"args\": {\"on\": true}}");
+~tEq.("...on with no loop recorded is refused by the looper, and the answer says so",
+    [got.at("ok"), l.granularOn, got.at("result").at("corrections").first.contains("no loop recorded")], [true, false, true]);
+refusals = [
+    "{\"command\": \"set_grains\", \"args\": {}}",
+    "{\"command\": \"set_grains\", \"args\": {\"settings\": {\"wobble\": 1}}}",
+    "{\"command\": \"set_grains\", \"args\": {\"settings\": {\"pitch\": \"low\"}}}",
+    "{\"command\": \"set_grains\", \"args\": {\"settings\": [1]}}",
+    "{\"command\": \"set_grains\", \"args\": {\"window\": \"Gauss\"}}",
+    "{\"command\": \"set_grains\", \"args\": {\"on\": 1}}"
+].collect { |t| ask.(r, t) };
+~tEq.("refused, changing nothing: nothing given, a setting that is none, a value no number, a window that is none, a switch no flag",
+    refusals.collect { |x| x.at("ok") } ++ [r.changeCount, l.granularPitch], (false ! refusals.size) ++ [2, -12]);
+got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 2}}");
+~tEq.("revert puts the grains back as they were, window too",
+    [got.at("ok"), MegaFiles.json(MegaRemote.grainsOf(l)) == before, l.granularEnv],
+    [true, true, 0]);
+
+// ---- the cutter
+cutBefore = MegaFiles.json(MegaRemote.cutterOf(l));
+got = ask.(r, "{\"command\": \"set_cutter\", \"args\": {\"voices\": [{\"params\": {\"cutchance\": 0.5, \"repeats\": 20}}, "
+    "{\"proc\": \"warp\", \"ratio\": 1.5, \"fx\": [\"bpf\", \"rev\"], \"params\": {\"accel\": 1.2}}], \"mode\": \"gate\"}}");
+o = l.bbcutVoices;
+~tEq.("set_cutter merges a voice's params, adds a voice with its own procedure (its defaults under what is given), sets the mode",
+    [got.at("ok"), o.size, o[0][\params][\cutchance], o[0][\params][\minblock], o[0][\params][\repeats],
+        o[1][\proc], o[1][\ratio], o[1][\fx], o[1][\params][\accel], o[1][\params][\phraselength], l.bbcutMode],
+    [true, 2, 0.5, 2, 8, \warp, 1.5, [\bpf, \rev], 1.2, 12, \gate]);
+~tEq.("...says a value held to its range, and answers the cutter as it now stands",
+    [got.at("result").at("corrections"), got.at("result").at("voices").size, got.at("result").at("voices")[1].at("fx")],
+    [["voices[0].params.repeats 20 -> 8"], 2, ["bpf", "rev"]]);
+got = ask.(r, "{\"command\": \"set_cutter\", \"args\": {\"voices\": [null, {\"fx\": []}], \"voiceCount\": 3}}");
+~tEq.("...null keeps a voice, fx given replaces the list, voiceCount adds a new voice",
+    [got.at("ok"), l.bbcutVoices.size, l.bbcutVoices[0][\params][\cutchance], l.bbcutVoices[1][\fx], l.bbcutVoices[1][\proc],
+        l.bbcutVoices[2][\proc]],
+    [true, 3, 0.5, [], \warp, \break]);
+got = ask.(r, "{\"command\": \"set_cutter\", \"args\": {\"on\": true}}");
+~tEq.("...on with no analysed take is refused by the looper, and the answer says so",
+    [got.at("ok"), l.bbcut, got.at("result").at("corrections").first.contains("analysed take")], [true, false, true]);
+refusals = [
+    "{\"command\": \"set_cutter\", \"args\": {}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"mode\": \"blend\"}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voiceCount\": 5}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": [null, null], \"voiceCount\": 1}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": {\"proc\": \"warp\"}}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": [{\"proc\": \"shuffle\"}]}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": [{\"synth\": \"cutbuf9\"}]}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": [{\"fx\": [\"flanger\"]}]}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": [{\"speed\": 2}]}}",
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": [{\"ratio\": \"fast\"}]}}",
+    // accel is warp's, not break's (voice 1 plays break)
+    "{\"command\": \"set_cutter\", \"args\": {\"voices\": [{\"params\": {\"accel\": 1}}]}}",
+    // Valid but for its last part: nothing of it may happen.
+    "{\"command\": \"set_cutter\", \"args\": {\"mode\": \"mix\", \"on\": \"yes\"}}"
+].collect { |t| ask.(r, t) };
+~tEq.("refused whole, changing nothing: nothing given, a mode, a count, more voices than the count, a list no list, a procedure, a synth, an effect, a member, a value, a parameter of another procedure, or one part wrong",
+    refusals.collect { |x| x.at("ok") } ++ [l.bbcutMode, l.bbcutVoices.size], (false ! refusals.size) ++ [\gate, 3]);
+~tAssert.("...each saying why", refusals.every { |x| x.at("error").isString and: { x.at("error").size > 10 } },
+    refusals.collect { |x| x.at("error") }.join(" | "));
+got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 3}}");
+~tEq.("revert puts the cutter back: its voices and its mode",
+    [got.at("ok"), MegaFiles.json(MegaRemote.cutterOf(l)) == cutBefore, l.bbcutMode, r.changeCount], [true, true, \insert, 0]);
+
+// ---- presets
+protect {
+    got = ask.(r, "{\"command\": \"save_grains_preset\", \"args\": {\"name\": \"AI Drone\"}}");
+    ~tEq.("save_grains_preset writes the grains as a preset in the Grains view's folder",
+        [got.at("ok"), got.at("result").at("saved"), l.granularPresetNames(src[\grainsPresetDir])], [true, "ai-drone", ["ai-drone"]]);
+    got = ask.(r, "{\"command\": \"save_cutter_preset\", \"args\": {\"name\": \"AI Chop\"}}");
+    ~tEq.("save_cutter_preset writes the cutter as a preset in the Cutter view's folder, and it reads back",
+        [got.at("ok"), got.at("result").at("saved"), l.bbcutPresetNames(src[\cutterPresetDir]),
+            l.loadBBCutPreset(src[\cutterPresetDir], "ai-chop")], [true, "ai-chop", ["ai-chop"], true]);
+    ~tEq.("...a name taken is refused unless overwrite is true",
+        [ask.(r, "{\"command\": \"save_cutter_preset\", \"args\": {\"name\": \"AI Chop\"}}").at("ok"),
+            ask.(r, "{\"command\": \"save_cutter_preset\", \"args\": {\"name\": \"AI Chop\", \"overwrite\": true}}").at("ok"),
+            ask.(r, "{\"command\": \"save_grains_preset\", \"args\": {\"name\": \"AI Drone\"}}").at("ok")],
+        [false, true, false]);
+} { ~tRemoveTree.(dirs) };
+~tEq.("every grains and cutter change, revert and save was said in the status line",
+    [said.count { |m| m.contains("grains") }, said.count { |m| m.contains("cutter") }], [2 + 1 + 1, 3 + 1 + 2]);
+~tEq.("with no looper the grains and the cutter are refused",
+    ["set_grains", "set_cutter", "save_grains_preset", "save_cutter_preset"].collect { |c|
+        MegaRemote({ () }).handle("{\"command\": \"" ++ c ++ "\", \"args\": {\"name\": \"x\", \"on\": true}}").at(\error)
+            .contains("no looper") },
+    [true, true, true, true]);
+}.value;
