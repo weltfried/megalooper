@@ -1,7 +1,7 @@
 {
  "about": "The tools megalooper offers an AI app, read by both bridges: tools/megalooper-mcp.py and the Claude Desktop extension's tools/mcpb/server/index.js. passedOn: the tools whose arguments go to megalooper as they are.",
  "serverName": "megalooper",
- "serverVersion": "1.3.0",
+ "serverVersion": "1.4.0",
  "protocolVersions": [
   "2025-06-18",
   "2025-03-26",
