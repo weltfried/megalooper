@@ -135,7 +135,7 @@
 .fig__layer { height: 8px; }
 .fig__body { padding: 22px; }
 .fig__body--img { padding: 0; }
-.fig__body--img img { display: block; width: 100%; height: auto; }
+.fig__body--img img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 .fig__body--img a { display: block; cursor: zoom-in; }
 .fig figcaption { padding: 12px 22px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.5; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
 .fig figcaption > b { font: 500 12px var(--mono); white-space: nowrap; padding-top: 2px; }

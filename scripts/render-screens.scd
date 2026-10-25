@@ -99,7 +99,7 @@ Routine {
             ("  wrote " ++ path).postln;
         } { |err| failed.add(name ++ ": " ++ err.errorString); ("  FAILED " ++ name ++ ": " ++ err.errorString).postln };
     };
-    var show = { |view, name, page|
+    var goto = { |view, page|
         ~guiSelectView.(view);
         page !? { |p| ~guiSetupShow.(p) };
         wait.();
@@ -110,13 +110,87 @@ Routine {
         ~statusRepaintGrids !? { |f| f.value };
         ~rootLabel !? { |v| if(v.isClosed.not) { v.string_("Dm") } };
         wait.(0.3);
-        grab.(name);
     };
+    var show = { |view, name, page| goto.(view, page); grab.(name) };
     // A pane scrolled to its end: the ScrollView round the given widget.
     var scrollDown = { |widget|
         var p = widget;
         while { p.notNil and: { p.isKindOf(ScrollView).not } } { p = p.parent };
         p !? { |sv| sv.visibleOrigin = Point(0, 100000) };
+    };
+    // ---- Parts of the window, for the sections that explain them ----------
+    // A part is a view's own rect, or a band of rows: everything between the
+    // row of one label and the row of another. Labels find their views, not
+    // places, so a layout change moves the crop with it.
+    var rectOf = { |v|
+        var at = v.mapToGlobal(0@0) - ~guiWindow.view.mapToGlobal(0@0);
+        Rect(at.x, at.y, v.bounds.width, v.bounds.height)
+    };
+    var textOf = { |v|
+        var s = try {
+            if(v.respondsTo(\states) and: { v.states.notNil }) { v.states[0][0] } {
+                if(v.respondsTo(\string)) { v.string } }
+        };
+        (s ? "").asString
+    };
+    var leaves = { |root|
+        var found = List.new, walk;
+        walk = { |v| v.children.do { |c| if(c.visible) { if(c.children.isEmpty) { found.add(c) } { walk.(c) } } } };
+        walk.(root);
+        found
+    };
+    var find = { |root, text, nth = 0| leaves.(root).select { |v| textOf.(v) == text }[nth] };
+    var label = { |l| if(l.isString) { [l, 0] } { l } };
+    // The page's ScrollView moved so that `v` sits near the top.
+    var scrollTo = { |v|
+        var sv = v.parent;
+        while { sv.notNil and: { sv.isKindOf(ScrollView).not } } { sv = sv.parent };
+        sv !? { |s|
+            s.visibleOrigin = Point(0, (s.visibleOrigin.y + rectOf.(v).top - rectOf.(s).top - 24).max(0));
+            wait.(0.3);
+        };
+    };
+    var cropTo = { |r, name, pad = 12|
+        var img, path = out +/+ (name ++ ".png"), w = ~guiWindow.view.bounds;
+        r = Rect.fromPoints(Point((r.left - pad).max(0), (r.top - pad).max(0)),
+            Point((r.right + pad).min(w.width), (r.bottom + pad).min(w.height)));
+        try {
+            img = Image.fromWindow(~guiWindow, r);
+            img.write(path, "png");
+            img.free;
+            shots.add(path);
+            ("  wrote " ++ path ++ " (" ++ r.width.round ++ " x " ++ r.height.round ++ " pt)").postln;
+        } { |err| failed.add(name ++ ": " ++ err.errorString); ("  FAILED " ++ name ++ ": " ++ err.errorString).postln };
+    };
+    var part = { |view, name, pad = 0|
+        var r;
+        if(view.isNil) { failed.add(name ++ ": no view"); ("  FAILED " ++ name ++ ": no view").postln } {
+            // Down to its last widget: a pane stretched to the page's foot
+            // ends in nothing.
+            scrollTo.(view);
+            r = rectOf.(view);
+            r.height = (leaves.(view).collect { |v| rectOf.(v).bottom }.maxItem ? r.bottom) + 16 - r.top;
+            cropTo.(r.height_(r.height.min(rectOf.(view).height)), name, pad)
+        }
+    };
+    // The rows from `top`'s to `bottom`'s (or up to it, with through false),
+    // as wide as what they hold. A label is a string, or [string, nth].
+    var band = { |root, top, bottom, name, through = true, pad = 8|
+        var a, b, y0, y1, rects;
+        a = find.(root, *label.(top));
+        b = find.(root, *label.(bottom));
+        if(a.isNil or: { b.isNil }) {
+            failed.add(name ++ ": no label '" ++ (if(a.isNil) { top } { bottom }) ++ "'");
+            ("  FAILED " ++ name ++ ": no label").postln;
+        } {
+            scrollTo.(a);
+            y0 = rectOf.(a).top;
+            y1 = if(through) { rectOf.(b).bottom } { rectOf.(b).top - 2 };
+            // Rules (a pixel or two high) are no content: one under the
+            // last row would stretch the crop to it.
+            rects = leaves.(root).collect(rectOf).select { |q| (q.top < y1) and: { q.bottom > y0 } and: { q.height > 2 } };
+            cropTo.(rects.inject(rects[0], { |u, q| u.union(q) }), name, pad);
+        }
     };
     // One effect's panel (~effectsEditor) in a window of its own, as small
     // as its layout lets it be, grabbed down to the last widget it draws.
@@ -154,6 +228,13 @@ Routine {
         w !? { |x| if(x.isClosed.not) { x.close } };
     };
     try {
+        // The builders whose views are parts below: kept as they are made.
+        ~renderParts = IdentityDictionary.new;
+        [\buildStatusBand, \buildBBCutPane, \buildGranularPane, \buildAnalysisPane, \buildDrumsPane,
+            \buildSynthPane, \buildMidiMapSection, \rigAiSection].do { |k|
+            var f = currentEnvironment[k];
+            currentEnvironment[k] = { |...args| var v = f.valueArray(args); ~renderParts[k] = v; v };
+        };
         ~buildGuiWindow.(false);
         wait.();
         ~guiWindow.alpha_(0).visible_(true);
@@ -181,6 +262,36 @@ Routine {
         ~effectsPerRow = 4;
         MegaSAFx.keys.do { |key| panel.(key) };
         ~effectsPerRow = 7;
+        // Parts of views, each for the section that explains it.
+        goto.(\perform);
+        part.(~renderParts[\buildStatusBand], "status-band");
+        part.(find.(~guiWindow.view, "BREAK LOOPS") !? { |v| v.parent }, "perform-actions");
+        part.(find.(~guiWindow.view, "○ Record set"), "record-set");
+        goto.(\sound);
+        part.(~renderParts[\buildBBCutPane], "cutter");
+        part.(~renderParts[\buildGranularPane], "grains");
+        goto.(\drums);
+        band.(~renderParts[\buildDrumsPane], "KITS", "MIX", "drum-kits", false);
+        goto.(\synth);
+        band.(~renderParts[\buildSynthPane], "Key", "Key", "synth-key");
+        band.(~renderParts[\buildSynthPane], "STEPS AND LANES", "Condition", "synth-lanes");
+        goto.(\setup, \analysis);
+        band.(~renderParts[\buildAnalysisPane], "Analysis", "Overdub meter detection", "onsets", false);
+        band.(~renderParts[\buildAnalysisPane], "Onset notes → onset kit", "Pitch range · Hz", "onset-notes", false);
+        goto.(\setup, \midi);
+        part.(~renderParts[\rigAiSection], "ai-apps");
+        // The MIDI parts show the shipped map, keys-and-knobs, and its tags.
+        ~midiMap = ~midiMapLoad.("keys-and-knobs")[\map];
+        ~midiKept = ~midiMap;
+        ~midiMapFrom = \shipped;
+        ~midiChanged.(\map);
+        wait.(0.6);
+        part.(~renderParts[\buildMidiMapSection], "midi-map");
+        goto.(\perform);
+        ~mapModeOn.();
+        wait.(0.6);
+        part.(find.(~guiWindow.view, "BREAK LOOPS") !? { |v| v.parent }, "map-mode");
+        ~mapModeOff.();
     } { |err| failed.add("render: " ++ err.errorString); ("FAILED: " ++ err.errorString).postln };
     ~guiWindow !? { |w| if(w.isClosed.not) { w.close } };
     ("RENDERED " ++ shots.size ++ (if(failed.isEmpty) { "" } { ", FAILED " ++ failed.size })).postln;

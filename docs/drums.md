@@ -95,6 +95,10 @@ Rename those and run it again.
 Each part has a kit menu on the Drums pane. A kit's line says whether it is
 ready, and how many pads it plays. **— none —** silences a part.
 
+![The kits on the Drums view](images/drum-kits.png)
+
+*Fig: The kits on the Drums view: a menu and a line for each part, and the trims in dB under them.*
+
 ## Where things are
 
 - **Kits** are in `presets/sa/drums/kits/` in megalooper's folder: one

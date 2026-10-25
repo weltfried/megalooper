@@ -21,6 +21,22 @@ import { h } from 'hastscript';
 import config from '../chapters.json';
 
 export const REPO_ROOT = process.env.REPO_ROOT ?? path.resolve(process.cwd(), '..');
+
+// A screenshot's size in CSS pixels: render-screens.scd draws at 2x, so half
+// the PNG's own (its IHDR width and height). Null for anything else.
+function shotSize(src: string): { width: number; height: number } | null {
+  const at = src.indexOf('docs/images/');
+  if (at < 0 || !src.endsWith('.png')) return null;
+  try {
+    const fd = fs.openSync(path.join(REPO_ROOT, src.slice(at)), 'r');
+    const head = Buffer.alloc(24);
+    fs.readSync(fd, head, 0, 24, 0);
+    fs.closeSync(fd);
+    return { width: Math.round(head.readUInt32BE(16) / 2), height: Math.round(head.readUInt32BE(20) / 2) };
+  } catch {
+    return null;
+  }
+}
 export const GITHUB = 'https://github.com/weltfried/megalooper';
 const FIGURES_DIR = path.join(process.cwd(), 'src', 'figures');
 
@@ -464,9 +480,11 @@ function components(tree: any) {
           const first = em.children[0];
           if (first?.type === 'text') first.value = first.value.replace(/^Fig:\s*/, '');
           parent.children.splice(j, 1);
-          // A screenshot shrinks to the article's width: a click opens it
-          // at full size.
+          // A screenshot shows at its own size, shrunk to the article's width
+          // when it is wider: a click opens it at full size.
           const img = kids[0];
+          const size = shotSize(String(img.properties.src ?? ''));
+          if (size) Object.assign(img.properties, size);
           img.properties.loading = 'lazy';
           img.properties.decoding = 'async';
           parent.children[index] = h('figure', { className: ['fig'] }, [

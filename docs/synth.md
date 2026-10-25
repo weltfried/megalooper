@@ -52,6 +52,10 @@ scales](#the-key-and-the-scales) has the details.
 
 ## The key and the scales
 
+![The key row](images/synth-key.png)
+
+*Fig: The Key row on the Synth view: Scale on, C minor, octave 0.*
+
 ### How a pitch becomes a note
 
 Each step's note is worked out the same way:
@@ -155,6 +159,10 @@ sharp: in C minor, D# is E♭.
 The **Steps** strip is the sixteen steps, each on (lit) or off. Click one to
 switch it, or drag across to switch a run the same way. A frame shows where
 the sequence is.
+
+![Steps and lanes](images/synth-lanes.png)
+
+*Fig: Steps and lanes on the Synth view: the sixteen steps, then a lane for each setting, with its own length, direction and tools.*
 
 Under it are seven **lanes**, a value per step each:
 

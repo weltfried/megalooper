@@ -310,9 +310,9 @@ MIDI goes on driving everything until you click a control; while one waits,
 every message goes to it, and no footswitch acts nor anything reaches Live
 (15 s at most).
 
-![Setup's MIDI & AI page](images/setup-midi.png)
+![MIDI Map mode on Perform](images/map-mode.png)
 
-*Fig: Setup's MIDI & AI page on a fresh install: the MIDI map, still empty, AI APPS, and MIDI in.*
+*Fig: MIDI Map mode with the shipped keys-and-knobs map: each control says what drives it, note 60 for Trigger, CC 11 for the Arc macro.*
 
 Everything else is in the **MIDI map** section of Setup's MIDI & AI page, including
 the controls that have no widget, such as Live's arrangement record and the
@@ -369,6 +369,10 @@ views themselves (Show Perform, Show Sound, …, to put them on footswitches):
   - while a control is learning, up to 15 s, MIDI drives nothing and nothing
     goes on to Live. Once it counts a switch's presses, up to 4 s more, only
     that switch is held back.
+
+![The MIDI map section](images/midi-map.png)
+
+*Fig: The MIDI map section with the shipped keys-and-knobs map: the input, the map, the Knobs defaults, a row per binding, and the chosen binding's settings under the list.*
 
 Yours live in `~/Library/Application Support/SuperCollider/megalooper/midi/`,
 outside the repo and shared by every checkout. The last five Keeps of each map
@@ -450,6 +454,10 @@ touched and never before.
 
 Hit the Break button, key `K`, or a switch mapped to it, and the looper goes
 silent so the room can play into the hole, coming back **on a loop downbeat**.
+
+![Perform's actions](images/perform-actions.png)
+
+*Fig: Perform's actions with their keys. Under them, how many loops a break lasts and how many bars a dissolve takes, then the macros.*
 
 The hole opens the instant you stomp — the mute is not quantised, so it lands
 exactly where your foot did. Only the **resume** is on the grid: it waits out
@@ -558,6 +566,14 @@ footer.
 | **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Live transport, the three timing bars, SA's levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, and **AI apps** ([AI apps](ai.md)) |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
+![The Sound view](images/sound.png)
+
+*Fig: The Sound view (2): the Cutter on the left, the Grains on the right.*
+
+![Setup's MIDI & AI page](images/setup-midi.png)
+
+*Fig: Setup's MIDI & AI page on a fresh install: the MIDI map, still empty, AI APPS, and MIDI in.*
+
 - **The footer**: the keys, and one status line — `Refused: …` in red when the
   looper would not do what was asked (from a key, a click or a footswitch),
   what MIDI has to say, or "Typing…" while a name field has the keyboard.
@@ -634,6 +650,10 @@ The top of Perform (`scripts/gui-status.scd` builds and paints it) answers
 every other view. It is **read-only** but for Revert — painted from model
 notifications, so nothing here can be clicked into a state you didn't intend.
 
+![The status band](images/status-band.png)
+
+*Fig: The status band on Perform: the looper's state, the take as it was read (7+7+7+8/8 at 103.2 BPM, four bars, D minor), the input, and the bar grid with the beat that is playing.*
+
 - **Bar grid** — a cell per beat, bar lines in ink, the beats played this pass
   shaded and the beat under the playhead filled in the state's colour (the
   hatch on a break), with `BAR 2/2 · BEAT 3/7` and `3.42 / 7.00 s` over it.
@@ -676,6 +696,10 @@ coming out 7/8, and the **onset threshold** is the lever. Tuning it is something
 you do *while playing*, so the two controls that matter are on Perform — the
 lamp in the status band, the threshold among the macros — and the rest is in
 Setup's Analysis page (`scripts/gui-analysis.scd`).
+
+![Onset analysis on Setup's Analysis page](images/onsets.png)
+
+*Fig: The top of Setup's Analysis page: the input's peak, the onsets counted and the last one's strength, and the onset threshold.*
 
 ![Setup's Analysis page](images/setup-analysis.png)
 
@@ -842,6 +866,10 @@ also gets an atmospheric loop a drum part.
 
 ### Controls
 
+![Onset notes on Setup's Analysis page](images/onset-notes.png)
+
+*Fig: Onset notes on Setup's Analysis page, with the settings the table below lists.*
+
 | Control | Default | What it does |
 | --- | --- | --- |
 | **Onset notes** | off | Toggle. Starts and stops with the loop; stopping releases any note still gated, so nothing hangs in Live. |
@@ -961,9 +989,9 @@ Two things follow from the pattern being tied to an analysis:
 Press `G` to toggle a parallel granular voice using SuperCollider's `Warp1`
 UGen, sourced from the recorded loop region.
 
-![The Sound view, the Grains on the right](images/sound.png)
+![The Grains](images/grains.png)
 
-*Fig: The Sound view (2). The Grains are on the right, in their four sections, with the grain window under them. The Cutter is on the left.*
+*Fig: The Grains, on the right of the Sound view (2): their four sections, and the grain window under them.*
 
 ### Morph: the meta-control
 
@@ -1085,9 +1113,9 @@ in the GUI) to algorithmically re-splice the current loop, in tempo, using
 [Nick Collins's BBCut library](https://github.com/nhthn/BBCut). When BBCut is
 on, the straight engine output is muted; you hear cuts of the loop instead.
 
-![The Sound view, the Cutter on the left](images/sound.png)
+![The Cutter](images/cutter.png)
 
-*Fig: The Sound view (2). The Cutter is on the left: its voice, the voice's procedure and parameters, its cut synth, ratio and voice effects. The Grains are on the right.*
+*Fig: The Cutter, on the left of the Sound view (2): its voice, the voice's procedure and parameters, its cut synth, ratio and voice effects.*
 
 The cutter is a **multi-voice instrument**: each voice is an independent cutter
 (its own procedure, cut synth, effects, and clock) layered over one shared
@@ -1219,6 +1247,10 @@ follow it for transport sync, not just for the tempo display.
 Two recordings, because they answer to different clocks and are read by
 different people — and beside them a log of what happened, which is what turns
 the recordings into something that can be analysed afterwards.
+
+![Record set](images/record-set.png)
+
+*Fig: Record set, at the top right of every view, and under it what the set will write.*
 
 **The archive — SuperCollider, from the stomp.** The **SET REC** tile in the top
 bar, or a switch mapped to it, writes three files into `sessions/`:
