@@ -1,0 +1,56 @@
+---
+import Manual from '../../layouts/Manual.astro';
+import { chapters, chapterHref, renderChapter, GITHUB, type ChapterConfig } from '../../lib/manual';
+
+export function getStaticPaths() {
+  return chapters.map((chapter) => ({ params: { slug: chapter.slug }, props: { chapter } }));
+}
+
+const { chapter } = Astro.props as { chapter: ChapterConfig };
+const base = import.meta.env.BASE_URL;
+const { html, lead, sections } = renderChapter(chapter.slug, base);
+const i = chapters.indexOf(chapter);
+const prev = chapters[i - 1];
+const next = chapters[i + 1];
+
+const RIGS: Record<string, [string, 'outline' | 'fill']> = {
+  every: ['EVERY RIG', 'outline'],
+  sa: ['SA ONLY', 'fill'],
+  live: ['LIVE RIGS', 'fill'],
+  linux: ['LINUX', 'fill'],
+  macos: ['macOS', 'fill'],
+};
+const [rigText, rigKind] = RIGS[chapter.rig];
+
+const files = [...new Set(chapter.sources.map((s) => s.file))];
+const firstHeading = chapter.sources[0]?.heading?.replace(/^#+\s*/, '');
+---
+<Manual chapter={chapter} sections={sections}>
+  <header class="chead">
+    <div class="chead__row">
+      <span class="chead__label">CHAPTER {chapter.n}</span>
+      <span class="chead__rule"></span>
+      <span class={`rigtag rigtag--${rigKind}`} data-pagefind-ignore>{rigText}</span>
+    </div>
+    {chapter.layer && <div class="chead__layer" style={`background:var(--${chapter.layer})`}></div>}
+    <h1 data-pagefind-meta="title">{chapter.title}</h1>
+    {lead && <Fragment set:html={lead} />}
+  </header>
+
+  <div class="prose" set:html={html} />
+
+  <nav class="pager" aria-label="Previous and next chapter" data-pagefind-ignore>
+    {prev ? (
+      <a href={chapterHref(base, prev.slug)}><span class="label">← Previous · {prev.n}</span><b>{prev.title}</b></a>
+    ) : <a href={base}><span class="label">← Home</span><b>megalooper</b></a>}
+    {next && (
+      <a class="next" href={chapterHref(base, next.slug)}><span class="label">Next · {next.n} →</span><b>{next.title}</b></a>
+    )}
+  </nav>
+  {files.length > 0 && (
+    <div class="srcnote" data-pagefind-ignore>
+      <span>From {files.map((f, j) => <>{j > 0 && ', '}<code>{f}</code></>)}{firstHeading && <> · {firstHeading}</>}</span>
+      <a href={`${GITHUB}/edit/main/${files[0]}`}>Edit on GitHub</a>
+    </div>
+  )}
+</Manual>

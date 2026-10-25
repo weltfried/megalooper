@@ -1,0 +1,378 @@
+---
+// The homepage. Copy is final as written in the design (Site Home).
+import fs from 'node:fs';
+import Base from '../layouts/Base.astro';
+import Wordmark from '../components/Wordmark.astro';
+import { chapterHref, GITHUB } from '../lib/manual';
+import '../styles/home.css';
+
+const base = import.meta.env.BASE_URL;
+const manual = (slug: string) => chapterHref(base, slug);
+
+// The status band's take: 7+7+7+8/8, and how hard each eighth landed.
+const BARS = [7, 7, 7, 8];
+const STARTS = [0, 7, 14, 21];
+const HITS = [1, 0, .5, 0, .6, .3, .4, .9, 0, .5, 0, .6, .3, .4, .9, 0, .5, 0, .6, .3, .4, .9, .3, .5, .4, .6, .7, .8, .9];
+// The frame drawn before the script runs, and the only one with reduced motion.
+const FRAME = 9;
+const t0 = (FRAME + .5) / HITS.length;
+const bar = STARTS.filter((s) => s <= FRAME).length - 1;
+const posText = `BAR ${bar + 1}/4 · BEAT ${FRAME - STARTS[bar] + 1}/${BARS[bar]}`;
+
+// The AI section's drum grid: two bars of 7, sharing the band's clock.
+const DRUMS: [string, number[]][] = [
+  ['KICK', [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0]],
+  ['SNARE', [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0]],
+  ['HAT', [1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0]],
+];
+const step0 = Math.floor(t0 * 14);
+
+// The Perform view, from docs/images/ (scripts/render-screens.scd makes it).
+const perform = fs.existsSync('../docs/images/perform.png') ? `${base}docs/images/perform.png` : null;
+
+const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
+---
+<Base title="megalooper — a live looper that works out the meter from what you played" theme="dark" class="home">
+  <header class="hhead">
+    <div class="hhead__in">
+      <Wordmark href="#top" only="dark" />
+      <nav aria-label="Sections">
+        <a href="#features">Features</a>
+        <a href="#meter">How it counts</a>
+        <a href="#plugins">Plugins</a>
+        <a href="#ai">AI apps</a>
+        <a href={manual('welcome')}>Manual</a>
+        <a href={GITHUB}>GitHub</a>
+      </nav>
+      <a class="hhead__install btn--solid" href="#install">Install</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="band">
+      <div class="wrap hero">
+        <div class="hero__top">
+          <div class="hero__text">
+            <div class="eyebrow">A LIVE LOOPER FOR SUPERCOLLIDER · GPL-3.0</div>
+            <h1>Play in 7/8.<br />It counts along.</h1>
+            <p class="hero__lead">Record a phrase in free time. megalooper works out its tempo and its meter from the onsets in the audio, odd meters and uneven bars included, then cuts, granulates and drums along with it.</p>
+          </div>
+          <div class="hero__cta">
+            <div>
+              <a class="btn btn--solid" href="#install">Install<span aria-hidden="true">↓</span></a>
+              <a class="btn btn--line" href={manual('welcome')}>Read the manual<span aria-hidden="true">→</span></a>
+            </div>
+            <div class="hero__platforms">macOS 11+ · Apple Silicon or Intel · Linux (new) · free and open source</div>
+          </div>
+        </div>
+
+        <figure class="sband" data-band>
+          <div class="sband__top">
+            <div class="sband__state">
+              <div class="k">LOOPER STATE</div>
+              <div class="v">▶ PLAYING</div>
+              <div class="h">R → overdub · S stop</div>
+            </div>
+            <div class="sband__take">
+              <div class="eyebrow" style="font-size:11px;letter-spacing:.12em">TAKE · DETECTED · UNEVEN BARS</div>
+              <div class="sband__read">
+                <div class="sband__sig">7+7+7+8<span>/8</span></div>
+                <div class="sband__num"><b>103.2</b><span>BPM</span></div>
+                <div class="sband__num"><b>4</b><span>BARS</span></div>
+                <div class="sband__num"><b>Dm</b><span>KEY</span></div>
+              </div>
+              <div class="sband__chip"><span>or 29/8 @ 103.2?</span>One footswitch tries the runner-up.</div>
+            </div>
+          </div>
+          <div class="sband__grid">
+            <div class="sband__pos"><span data-pos>{posText}</span><span>the fourth bar is an eighth longer</span></div>
+            <div class="cells" aria-hidden="true">
+              {HITS.map((hit, i) => (
+                <div class:list={['cell', { bar: STARTS.includes(i), loud: STARTS.includes(i) && hit > .8, now: i === FRAME, past: i < FRAME }]}>
+                  <i style={`height:${Math.round(hit * 70)}%`}></i>
+                </div>
+              ))}
+              <div class="playhead" data-playhead style={`left:${(t0 * 100).toFixed(2)}%`}></div>
+            </div>
+            <div class="sband__bars"><span>BAR 1 · 7/8</span><span>BAR 2 · 7/8</span><span>BAR 3 · 7/8</span><span>BAR 4 · 8/8</span></div>
+          </div>
+          <figcaption>The status band, as the app draws it. Bars are the hits you played, as heard by the onset detector, with height showing how hard each one landed. The meter, the downbeat and the odd bar come from those hits alone.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="wrap ways">
+        <div>
+          <div class="eyebrow">RUN IT · 01</div>
+          <h2>On its own: Megalooper SA</h2>
+          <p class="body">megalooper also hosts effect chains for your instrument, a bass, the loop and the drums, your VST2 and VST3 plugins, the drums themselves and a step synth. No Live at all. This is how it starts out of the box.</p>
+        </div>
+        <div>
+          <div class="eyebrow">RUN IT · 02</div>
+          <h2>Beside Ableton Live</h2>
+          <p class="body">megalooper loops, analyses and sends MIDI clock, with Live's downbeat placed on the music. Live plays the effects and the drums. A break tells Live about itself, so a rack can swap patterns for exactly its length. It takes a rig profile of your own: <a href={manual('routing')}>Rigs and routing</a>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="band">
+      <div class="wrap pad stack stack--36">
+        <div class="split" style="gap:16px 48px">
+          <h2 class="h2" style="max-width:720px">One colour per layer, on stage and in this manual.</h2>
+          <p class="body" style="font-size:16px;color:var(--mute);max-width:420px">Each layer has its own colour, on its controls, its tab and its chapter. State colours (recording, playing, overdub) only ever fill the state block.</p>
+        </div>
+        <div class="cards">
+          {[
+            ['Loop', 'var(--loop)', 'R · S · M · U · V', 'Overdub with undo, reverse, multiply and loop chaining. Overdubs are shifted by your measured round-trip latency, so they land where you played them.'],
+            ['Cutter', 'var(--cut)', 'B', 'A BBCut layer that re-splices the loop on its own grid, with a Break/Repeat procedure made for played loops, several voices and presets.'],
+            ['Grains', 'var(--grain)', 'G', 'A granular layer over the loop. One morph control moves between a frozen drone and a pulsed scan locked to the detected beat.'],
+            ['Effects', 'var(--fx)', 'SA', 'Seven built-in effects and your plugins, in chains you rearrange while the loop plays. Random throws new settings at an effect; a variation keeps the ones you like.'],
+            ['Drums', 'var(--drum)', 'SA', "Step patterns locked to the loop's meter, and a kit played by the loop's own onsets. Uneven bars restart the lanes on every bar line."],
+            ['Synth', 'var(--ink)', 'SA · 7', 'An 8- or 16-step sequencer with seven lanes running at lengths of their own, playing a built-in wavetable synth or one of your VST instruments.'],
+          ].map(([name, colour, keys, text]) => (
+            <article class="card">
+              <div class="card__bar" style={`background:${colour}`}></div>
+              <div class="card__in">
+                <div class="card__head"><h3>{name}</h3><span class="card__keys">{keys}</span></div>
+                <p>{text}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div class="points points--300">
+          <div><h3>MIDI map, by clicking</h3><p>Press MIDI MAP, click any control, move a knob. Footswitches, pedals with pickup takeover, sends back to controllers with lights.</p></div>
+          <div><h3>Records the set</h3><p>The whole set's audio, a dry tap and a log of everything pressed, named with the tempo and signature to set Live to.</p></div>
+          <div><h3><a href="#ai">AI apps, if you want them ↓</a></h3><p>Ask Claude Desktop for a groove that fits your 7/8 and hear it at once. Off until you switch it on; one click reverts.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="wrap shot">
+        <div class:list={['slot', { 'slot--filled': perform }]}>
+          {perform
+            ? <img src={perform} alt="megalooper's Perform view: the status band, a column per layer, and the actions" />
+            : <span>Screenshot: the Perform view, 1440 × 900</span>}
+        </div>
+        <div class="shot__cap"><span>The Perform view: status band, a column per layer, and the actions with their footswitches.</span><span>KEYS 1–6 SWITCH VIEWS</span></div>
+      </div>
+    </section>
+
+    <section id="meter" class="band">
+      <div class="wrap pad counts">
+        <div class="counts__text">
+          <div class="eyebrow">HOW IT COUNTS</div>
+          <h2 class="h2">It never hears the audio. Only when you hit.</h2>
+          <p class="body" style="max-width:520px">The analyser sees onset times and how hard each one landed. It tries every meter that could hold them, folds the accents into a bar, and asks where the downbeat falls.</p>
+          <a class="btn btn--line" href={manual('meter')}>Chapter 7 · How the meter is found →</a>
+        </div>
+        <ol class="numlist">
+          <li><span>01</span><div><b>Twelve meters, one to four bars</b><span>2/4 to 12/8, each fitted to a pulse grid by least squares, between 50 and 220 BPM.</span></div></li>
+          <li><span>02</span><div><b>Accents decide the downbeat</b><span>6/8 and 3/4 share a grid. Their accent shapes don't. Neither do one bar and two.</span></div></li>
+          <li><span>03</span><div><b>Uneven bars, from the notes</b><span>Three bars of 7/8 and a turnaround of 8: found by which notes repeat, or typed in by hand.</span></div></li>
+          <li><span>04</span><div><b>Wrong? One footswitch.</b><span>The next reading lands on a loop boundary, counted down, the way a break is heard coming.</span></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="plugins" class="band">
+      <div class="wrap pad stack stack--48">
+        <div class="split">
+          <div class="split__main">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="eyebrow">PLUGINS · VST2 + VST3</span><span class="badge" style="background:var(--panel2)">MEGALOOPER SA</span></div>
+            <h2 class="h2">Bring your own amp, your own reverb, your own synth.</h2>
+            <p class="body" style="max-width:620px">megalooper hosts your VST2 and VST3 plugins next to its seven built-in effects. Effects go anywhere in the instrument, bass, loop and drum chains. A VST instrument plays the synth's note sequence in place of the built-in Wave synth, in time with the loop and its uneven bars.</p>
+          </div>
+          <div class="aside-note" style="border-left-color:var(--fx)">A DI guitar through the built-ins alone sounds thin. Put an amp simulator first in the instrument chain; the manual lists some free ones.</div>
+        </div>
+
+        <figure class="chain">
+          <div class="chain__in">
+            <div class="chain__row">
+              <span class="chain__name">INSTRUMENT</span>
+              <div class="tile tile--plugin tile--selected"><div class="tile__head"><b>Neural Amp Modeler</b><span class="fmt">VST3</span></div><small>■ on · ⋯ Open its window</small></div>
+              <div class="tile tile--fx"><b>Pitch Shift</b><small>■ on · built-in</small></div>
+              <div class="tile tile--fx"><b>Dual Delay</b><small>■ on · built-in</small></div>
+              <div class="tile tile--add" aria-label="Add an effect">+</div>
+            </div>
+            <div class="chain__row">
+              <span class="chain__name">BASS</span>
+              <div class="tile tile--plugin"><div class="tile__head"><b>Your bass amp</b><span class="fmt">VST2</span></div><small>□ off · costs nothing</small></div>
+              <div class="tile tile--fx"><b>Envelope Filter</b><small>■ on · built-in</small></div>
+              <div class="tile tile--add" aria-label="Add an effect">+</div>
+              <div></div>
+            </div>
+            <div class="chain__row">
+              <span class="chain__name">LOOP</span>
+              <div class="tile tile--fx"><b>Tape Echo</b><small>■ on · built-in</small></div>
+              <div class="tile tile--plugin"><div class="tile__head"><b>Your reverb</b><span class="fmt">VST3</span></div><small>■ on</small></div>
+              <div class="tile tile--held"><div class="tile__head"><b>A look-ahead limiter</b><span class="fmt fmt--off">VST3</span></div><small>held back · 512 samples delay</small></div>
+              <div class="tile tile--add" aria-label="Add an effect">+</div>
+            </div>
+            <div class="chain__row chain__row--synth">
+              <span class="chain__name">SYNTH</span>
+              <div class="tile" style="border:1px solid var(--line)">
+                <div class="tile__head"><b>Note sequencer · 16 steps</b><small style="color:var(--mute)">7 LANES</small></div>
+                <div class="steps16">{SYNTH_STEPS.map((v) => <i style={`height:${v}%`}></i>)}</div>
+              </div>
+              <div class="synth-arrow">
+                <span aria-hidden="true">→</span>
+                <div class="tile tile--plugin tile--selected" style="justify-content:space-between"><div class="tile__head"><b>Your VST instrument</b><span class="fmt">VST3</span></div><small>or the built-in Wave synth, on your own wavetables</small></div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="figcap" style="padding:12px 22px">The FX view's chains, drawn simply. Built-in effects in pink, your plugins in grey with their format. Drag a tile along a chain or onto another one, even while the loop plays: the chain cross-fades to its new order.</figcaption>
+        </figure>
+
+        <div class="points">
+          <div><h3>A sound is one file</h3><p>The chains, every switch and setting, and each plugin's own state, saved together and recalled by name. The synth keeps its instrument and the instrument's sound the same way.</p></div>
+          <div><h3>Footswitches inside a plugin</h3><p>An amp sim's scenes, say. megalooper sends the plugin CC 20 to 27 for it to learn, and you map your footswitch to that in MIDI MAP mode.</p></div>
+          <div><h3>Off costs nothing</h3><p>A plugin you switch off stops computing once it has faded out, so a set can carry the plugins it needs only for one song.</p></div>
+          <div><h3>Nothing gets lost</h3><p>A plugin missing on this Mac keeps its place and its state in the sound. One that crashed megalooper is skipped once, and tried again the start after.</p></div>
+        </div>
+
+        <div class="goodtoknow">
+          <span><b>Good to know:</b> VST2 and VST3 only, no Audio Units. Plugins that report more than 64 samples of delay are held back, and Intel-only plugins are listed but greyed.</span>
+          <a href={manual('plugins')}>Chapter 12 · Plugins →</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="ai" class="band">
+      <div class="wrap pad stack stack--48">
+        <div class="split">
+          <div class="split__main">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="eyebrow">AI APPS · MCP</span><span class="badge" style="border:1px solid var(--line);color:var(--mute)">OPTIONAL · OFF UNTIL YOU SWITCH IT ON</span></div>
+            <h2 class="h2">Ask for a groove that fits your 7/8. Hear it at once.</h2>
+            <p class="body" style="max-width:600px">megalooper is a tool for AI apps that speak MCP, such as Claude Desktop. The app reads what you played (the meter, the hits on the grid, their pitches, the chords) and changes the drums, the synth and the effects in plain words. One click takes it back.</p>
+          </div>
+          <div class="aside-note">For preparing a set, not for the stage: an answer takes a few seconds, and nothing waits for a bar line.</div>
+        </div>
+
+        <div class="ai">
+          <div class="convo">
+            <div class="label">IN THE CONVERSATION</div>
+            <div class="convo__you">Give me a sparse 808 groove that fits this 7/8, with the snare on the 3-group.</div>
+            <div class="convo__tools"><span class="chip">get_context</span><span class="chip">describe drums</span><span class="chip chip--drum">set_drum_pattern · main · core-808</span></div>
+            <div class="convo__app">Your take reads 7/8 at 103.2, grouped 2+2+3. I put the kick on 1 and 5, the snare on the head of the 3-group and kept the hats on the eighths but left beat 7 open. It's playing now.</div>
+            <div class="drumgrid" aria-hidden="true" data-drums>
+              {DRUMS.map(([name, steps]) => (
+                <div class="drumgrid__row">
+                  <span>{name}</span>
+                  <div class="drumgrid__steps">
+                    {steps.map((on, i) => <i class:list={{ on: !!on, now: i === step0, barline: i === 7 }}></i>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div class="convo__you">Busier hats in the second bar. And a dubbier echo on the loop.</div>
+            <div class="convo__tools"><span class="chip chip--drum">set_drum_pattern</span><span class="chip chip--fx">set_chain · loop · Tape Echo</span></div>
+            <div class="convo__foot"><span>In megalooper's footer:</span><span>↶ Revert AI change (2)</span></div>
+          </div>
+
+          <div class="reach">
+            <div class="reach__label label">WHAT IT CAN READ AND CHANGE</div>
+            {[
+              ['var(--loop)', 'The loop', 'READ ONLY', 'Meter (uneven bars too), tempo, length, and what the first take played: the hits on the bar grid, their pitches, the chords heard.'],
+              ['var(--drum)', 'The drums', 'READ · CHANGE · SAVE', 'Both step patterns, main and break, and the kit the steps play. Saved as a drum preset.'],
+              ['var(--ink)', 'The synth', 'READ · CHANGE · SAVE', 'The note sequence and the Wave synth: "a line in D dorian that follows the chords you heard".'],
+              ['var(--fx)', 'The effects', 'READ · CHANGE · SAVE', 'Built-in effects added, removed, moved, set and switched in any chain. Saved as a sound.'],
+            ].map(([colour, name, what, text]) => (
+              <div class="reach__row">
+                <div style={`background:${colour};padding:0`}></div>
+                <div><div class="reach__head"><b>{name}</b><span>{what}</span></div><p>{text}</p></div>
+              </div>
+            ))}
+            <div class="reach__foot">Changing needs Megalooper SA. Beside Live it reads the loop only. <b>Plugins stay yours:</b> it can move one or switch it, never add, remove or touch its settings.</div>
+          </div>
+        </div>
+
+        <div class="points">
+          <div><h3>No audio leaves your Mac</h3><p>The app gets the set as text: the meter, patterns, settings, the hits on the grid. megalooper answers only this Mac, with a token made new at every start.</p></div>
+          <div><h3>Every change can be taken back</h3><p>Up to 32 of them, from the window or by saying "revert the last three". A request with one wrong part changes nothing at all.</p></div>
+          <div><h3>No API key</h3><p>megalooper talks to no AI service itself. Claude Desktop needs one click to install the extension; any other MCP app takes a copied config.</p></div>
+        </div>
+
+        <div class="setupline">
+          <div><span class="m">SETUP · 5</span><span>AI APPS → Let AI apps in: On</span><span class="m">→</span><span>Install in Claude Desktop</span></div>
+          <a href={manual('ai')}>Chapter 17 · AI apps →</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="band">
+      <div class="wrap pad install">
+        <div class="stack" style="gap:18px">
+          <div class="eyebrow">INSTALL</div>
+          <h2 class="h2">Three lines, then R.</h2>
+          <pre class="install__cmd"><span class="m">$</span> git clone https://github.com/weltfried/megalooper.git
+<span class="m">$</span> cd megalooper
+<span class="m">$</span> ./tools/install.sh</pre>
+          <p class="body soft" style="font-size:15px;max-width:520px">The installer fetches sc3-plugins, BBCut and VSTPlugin, links the classes, runs the checks (they must end with <code>ALL CHECKS PASSED</code>) and puts an icon on the Desktop. It deletes nothing of yours. Use headphones on the first run.</p>
+        </div>
+        <div class="reqs">
+          <div><span>System</span><b>macOS 11 or later, Apple Silicon or Intel · Linux, new</b></div>
+          <div><span>SuperCollider</span><b>3.14.1 or later</b></div>
+          <div><span>sc3-plugins</span><b>fetched by the installer</b></div>
+          <div><span>BBCut</span><b>fetched by the installer</b></div>
+          <div><span>VSTPlugin</span><b>0.6.2, for plugins only</b></div>
+          <div><span>Ableton Live</span><b>optional</b></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="hfoot">
+      <div class="hfoot__about">
+        <Wordmark href="#top" only="dark" />
+        <p>Built for a guitar and bass duo, and used on stage. GPL-3.0-or-later, the same as SuperCollider. Ableton and Live are trademarks of Ableton AG; megalooper is not affiliated with or endorsed by Ableton.</p>
+      </div>
+      <nav aria-label="Footer">
+        <a href={manual('welcome')}>Manual</a>
+        <a href={`${base}manual/design-system/`}>Manual design system</a>
+        <a href={GITHUB}>GitHub</a>
+        <a href={`${GITHUB}/blob/main/LICENSE`}>Licence</a>
+      </nav>
+    </div>
+  </footer>
+</Base>
+
+<script>
+  // The status band's playhead sweeps the 29 eighths over 16.9 s, repainted
+  // at 20 Hz; the AI section's drum grid runs on the same clock. With reduced
+  // motion the page keeps the static frame it was built with.
+  const LOOP = 16.9;
+  const STARTS = [0, 7, 14, 21];
+  const BARS = [7, 7, 7, 8];
+  const band = document.querySelector('[data-band]');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  if (band && !reduce.matches) {
+    const cells = [...band.querySelectorAll<HTMLElement>('.cell')];
+    const head = band.querySelector<HTMLElement>('[data-playhead]')!;
+    const pos = band.querySelector<HTMLElement>('[data-pos]')!;
+    const steps = [...document.querySelectorAll<HTMLElement>('[data-drums] .drumgrid__steps')].map((row) => [...row.children] as HTMLElement[]);
+    const start = performance.now() - ((9 + .5) / cells.length) * LOOP * 1000;
+    let lastCell = -1, lastStep = -1;
+    const paint = () => {
+      const t = (((performance.now() - start) / 1000) % LOOP) / LOOP;
+      head.style.left = `${(t * 100).toFixed(2)}%`;
+      const bi = Math.floor(t * cells.length);
+      if (bi !== lastCell) {
+        lastCell = bi;
+        cells.forEach((c, i) => { c.classList.toggle('now', i === bi); c.classList.toggle('past', i < bi); });
+        let bar = 0;
+        while (bar < 3 && STARTS[bar + 1] <= bi) bar++;
+        pos.textContent = `BAR ${bar + 1}/4 · BEAT ${bi - STARTS[bar] + 1}/${BARS[bar]}`;
+      }
+      const step = Math.floor(t * 14);
+      if (step !== lastStep) {
+        lastStep = step;
+        steps.forEach((row) => row.forEach((c, i) => c.classList.toggle('now', i === step)));
+      }
+    };
+    let timer = setInterval(paint, 50);
+    reduce.addEventListener('change', () => { if (reduce.matches) clearInterval(timer); else timer = setInterval(paint, 50); });
+  }
+</script>

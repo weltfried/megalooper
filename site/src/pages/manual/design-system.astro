@@ -1,0 +1,320 @@
+---
+// The manual's component spec (design: Manual Design System). Built from the
+// same classes the Markdown renders into, so it doubles as their test page.
+import Base from '../../layouts/Base.astro';
+import Wordmark from '../../components/Wordmark.astro';
+import { chapterHref, renderChapter } from '../../lib/manual';
+import '../../styles/manual.css';
+
+const base = import.meta.env.BASE_URL;
+// A real cross-reference, so the example stays true as the docs change.
+const nextReading = renderChapter('meter', base).sections.find((s) => s.title === 'The next reading')!;
+const NEUTRALS = [
+  ['bg', '#f6f6f3', '#0d0e10'], ['panel', '#fdfdfd', '#131518'], ['panel2', '#e2e2dd', '#1e2125'],
+  ['line', '#bdbdb7', '#2c2f34'], ['mute', '#45494f', '#9095a0'], ['ink', '#000000', '#f3f3f1'],
+];
+const LAYERS = [
+  ['loop', 'loop · ch 5–8', '#0074bd'], ['cut', 'cutter · ch 9', 'oklch .52 .17 300'], ['grain', 'grains · ch 10', 'oklch .52 .10 205'],
+  ['fx', 'effects · ch 11–12', 'oklch .53 .19 355'], ['drum', 'drums · ch 13', 'oklch .52 .13 125'],
+];
+const TYPE = [
+  ['Chapter title', '500 · 58/1.0', 'font-weight:500;font-size:clamp(34px,5vw,58px);line-height:1;letter-spacing:-.015em', 'How the meter is found'],
+  ['Lead', '300 · 20/1.45', 'font-size:20px;line-height:1.45', 'You play a phrase in free time and press R again.'],
+  ['Body', '300 · 17/1.6', 'font-size:17px;line-height:1.6;max-width:620px', 'The analyser never hears audio. It is handed two lists: the time of every onset, and how strongly each one landed.'],
+  ['Caption / small', '300 · 14/1.5', 'font-size:14px;line-height:1.5', 'The comparison is tried at every phase.'],
+  ['Label · mono', '500 · 11–13 · +.14em', 'font:500 12px var(--mono);letter-spacing:.14em', 'CHAPTER 7 · IN THIS CHAPTER · FIG 7.1'],
+  ['Code', '300 · 15/1.7', 'font:300 15px/1.7 var(--mono)', '~defaultRoutingProfile = \\standalone;'],
+];
+---
+<Base title="Manual design system · megalooper" theme="light">
+  <header class="mhead">
+    <div class="mhead__in">
+      <Wordmark href={base} only="light" />
+      <div class="mhead__title">Manual design system</div>
+      <nav class="ds-nav">
+        <a href="#colour" style="margin-left:auto">Colour</a>
+        <a href="#type">Type</a>
+        <a href="#layout">Layout</a>
+        <a href="#inline">Inline</a>
+        <a href="#blocks">Blocks</a>
+        <a href="#nav">Navigation</a>
+        <a class="ds-nav__ex" href={chapterHref(base, 'meter')}>Example chapter →</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="ds">
+    <section class="ds-intro">
+      <div class="ds-col">
+        <div class="label">FOR THE MANUAL PAGES · v1</div>
+        <h1>A manual you can read<br />from the floor.</h1>
+      </div>
+      <div class="ds-col ds-intro__text">
+        <p>The manual is organised the way a reference manual is: numbered chapters in a fixed left rail, numbered sections, numbered figures with captions, and a previous and next link at the end of every chapter. It is set in the same type, colours and square edges as the app, so a control looks the same on the page as on screen.</p>
+        <p class="m">Four rules: <b class="i">square corners, 1 px rules, no shadows, colour only where it means something.</b></p>
+      </div>
+    </section>
+
+    <section id="colour" class="ds-sec">
+      <div class="ds-h"><span>01</span><h2>Colour</h2></div>
+      <p class="ds-p">Reading pages default to light; the reader can switch to dark, and it matches the app's dark stage theme. The accents are the app's light-theme values: dark enough for white text on top and for links to pass 4.5:1 on paper.</p>
+      <div class="ds-col">
+        <div class="ds-k">NEUTRALS · LIGHT / DARK</div>
+        <div class="swatches">
+          {NEUTRALS.map(([n, l, d]) => (
+            <div><div class="swatches__pair"><div style={`background:${l}`}></div><div style={`background:${d}`}></div></div><div class="swatches__t"><b>{n}</b><span>{l} · {d}</span></div></div>
+          ))}
+        </div>
+      </div>
+      <div class="ds-two">
+        <div class="ds-col">
+          <div class="ds-k">LAYERS · WHICH PART IT IS ABOUT</div>
+          <div class="layers">
+            {LAYERS.map(([v, t, code]) => (
+              <div><div style={`height:28px;background:var(--${v})`}></div><b>{t}</b><span>{code}</span></div>
+            ))}
+          </div>
+          <p class="ds-note">Used for: the 6 px chapter mark in the rail, the 8 px bar on a layer's figure, and a data fill inside figures. Never for body text or headings.</p>
+        </div>
+        <div class="ds-col">
+          <div class="ds-k">STATES · ONLY WHEN THE PAGE SHOWS A STATE</div>
+          <div class="states">
+            <div style="background:var(--rec)"><b>● REC</b><span>rec · also Refused</span></div>
+            <div style="background:var(--play)"><b>▶ PLAYING</b><span>play</span></div>
+            <div style="background:var(--dub)"><b>● OVERDUB</b><span>dub</span></div>
+            <div style="background:var(--armed)"><b>→ ARMED</b><span>armed · pending</span></div>
+            <div class="states__break"><b>BREAK</b><span>a hatch, not a colour</span></div>
+          </div>
+          <p class="ds-note">Used to reproduce what the app shows, such as a state block, a reading chip or a refused-action callout. A paragraph never turns red to sound urgent.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="type" class="ds-sec">
+      <div class="ds-h"><span>02</span><h2>Type</h2></div>
+      <p class="ds-p"><b class="i">IBM Plex Sans</b> for reading, <b class="i">IBM Plex Mono</b> for anything you would type, press or read off the screen: keys, MIDI messages, numbers, paths, labels. Both are free (SIL Open Font License) and stand in for the app's Nitti Grotesk and Nitti. Two weights only, Light 300 and Medium 500. Body text is 17 px with a line height of 1.6, in a 740 px measure.</p>
+      <div class="ds-rows">
+        {TYPE.slice(0, 2).map(([n, spec, style, text]) => (
+          <div class="ds-row"><span class="ds-spec">{n}<br />{spec}</span><span style={style}>{text}</span></div>
+        ))}
+        <div class="ds-row prose"><span class="ds-spec">Section · H2<br />500 · 28/1.15</span><h2><span class="num">7.3</span>Accents decide the downbeat</h2></div>
+        <div class="ds-row prose"><span class="ds-spec">Subsection · H3<br />500 · 20/1.25</span><h3 style="margin:0"><span class="num">7.3.1</span>Irregular meters</h3></div>
+        {TYPE.slice(2).map(([n, spec, style, text]) => (
+          <div class="ds-row"><span class="ds-spec">{n}<br />{spec}</span><span style={style}>{text}</span></div>
+        ))}
+      </div>
+    </section>
+
+    <section id="layout" class="ds-sec">
+      <div class="ds-h"><span>03</span><h2>Layout</h2></div>
+      <div class="ds-layout">
+        <div class="ds-layout__top">TOP BAR · 60 · sticky · wordmark · Manual · search · version · ◐ · GitHub</div>
+        <div class="ds-layout__cols">
+          <div style="flex:1 1 160px;max-width:220px;border-right:1px solid var(--line)"><span class="ds-k m">CHAPTER RAIL</span><span>260–300 px, sticky, scrolls on its own. Grouped, numbered, layer mark at right.</span></div>
+          <div style="flex:999 1 280px;align-items:center"><span class="ds-k m">ARTICLE · 740 MAX</span><div class="ds-wire"><div style="height:10px;background:var(--ink);width:70%"></div><div></div><div></div><div style="width:80%"></div><div style="height:60px;border:1px solid var(--line);background:none;margin-top:6px"></div><div></div></div></div>
+          <div style="flex:1 1 140px;max-width:200px;border-left:1px solid var(--line)"><span class="ds-k m">IN THIS CHAPTER</span><span>220–260 px, sticky. Section numbers only.</span></div>
+        </div>
+      </div>
+      <p class="ds-p">The three columns wrap rather than switch at a breakpoint. On a narrow screen the rail lands above the article and the section list below it. Spacing is set in steps of 4; sections are 48 apart, paragraphs 18.</p>
+    </section>
+
+    <section id="inline" class="ds-sec">
+      <div class="ds-h"><span>04</span><h2>Inline elements</h2></div>
+      <p class="ds-p">The manual names the same things over and over: a key, a footswitch message, a view, a rig, a button on screen. Each of those always gets the same mark, so you can scan for it.</p>
+      <div class="ds-rows">
+        <div class="ds-inline">
+          <div><b>Key</b><span>A keyboard key. Thicker bottom edge. <code>&lt;kbd&gt;R&lt;/kbd&gt;</code>, or a single capital in backticks.</span></div>
+          <div class="ds-chips"><kbd class="big">R</kbd><kbd class="big">⌘ M</kbd><kbd class="big">Esc</kbd></div>
+          <div>Press <kbd>R</kbd> to record.</div>
+        </div>
+        <div class="ds-inline">
+          <div><b>MIDI message</b><span>Solid ink. What a footswitch or knob sends. <code>`PC 7`</code>, or a table cell reading Program Change 7.</span></div>
+          <div class="ds-chips"><span class="midi big">PC 7</span><span class="midi big">CC 11</span><span class="midi big">NOTE 71</span><span class="midi big">CC 100 · CH 16</span></div>
+          <div>Hit <span class="midi">PC 7</span> and the looper goes silent.</div>
+        </div>
+        <div class="ds-inline">
+          <div><b>View tag</b><span>Where on screen, with its key. <code>[[Setup 5]]</code></span></div>
+          <div class="ds-chips"><span class="viewtag">PERFORM · 1</span><span class="viewtag">SOUND · 2</span><span class="viewtag">SETUP · 5</span></div>
+          <div>Set it under Analysis <span class="viewtag viewtag--sm">SETUP · 5</span>.</div>
+        </div>
+        <div class="ds-inline">
+          <div><b>Rig tag</b><span>Says which rigs a chapter applies to. Goes in the chapter header (<code>rig</code> in chapters.json).</span></div>
+          <div class="ds-chips"><span class="rigtag rigtag--outline">EVERY RIG</span><span class="rigtag rigtag--fill">SA ONLY</span><span class="rigtag rigtag--fill">LIVE RIGS</span><span class="rigtag rigtag--fill">macOS</span></div>
+          <div></div>
+        </div>
+        <div class="ds-inline">
+          <div><b>On-screen label</b><span>A button or field name. Medium weight, never quoted. <code>**Set bars**</code></span></div>
+          <div>Press <b>Set bars</b>, then <b>Revert</b>.</div>
+          <div>Status text as shown: <span class="status">TAKE · ANCHORED</span></div>
+        </div>
+        <div class="ds-inline">
+          <div><b>Code, path, value</b><span>Mono, no background, so it can sit in a sentence.</span></div>
+          <div class="prose-inline"><code>scripts/setup-routing.scd</code> · <code>latencyMs</code> · <code>7+7+7+8/8</code></div>
+          <div></div>
+        </div>
+        <div class="ds-inline">
+          <div><b>Cross-reference</b><span>The section number goes first, so it works in print. Added by the build when the link text is the section's title.</span></div>
+          <div>see <a href={`${chapterHref(base, 'meter')}#${nextReading.id}`}>{nextReading.number} The next reading</a></div>
+          <div>see <a href={`${chapterHref(base, 'meter')}#fig-7-1`}>Fig 7.1</a></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="blocks" class="ds-sec prose">
+      <div class="ds-h"><span>05</span><h2>Blocks</h2></div>
+      <div class="ds-blocks">
+        <div class="ds-col">
+          <div class="ds-k">CALLOUTS · FOUR KINDS, NO MORE</div>
+          <aside class="callout callout--stage"><div class="callout__bar"></div><div class="callout__body"><div class="callout__label">ON STAGE</div><p>What to do mid-set. The one practical tip a chapter has. <code>&gt; [!NOTE]</code></p></div></aside>
+          <aside class="callout callout--tip"><div class="callout__bar"></div><div class="callout__body"><div class="callout__label">TIP</div><p>Optional, useful, safe to skip. <code>&gt; [!TIP]</code></p></div></aside>
+          <aside class="callout callout--warn"><div class="callout__bar"></div><div class="callout__body"><div class="callout__label">REFUSED WHEN · CAUTION</div><p>When an action won't run, or something can lose audio or a loop. <code>&gt; [!WARNING]</code></p></div></aside>
+          <aside class="callout callout--changed"><div class="callout__bar"></div><div class="callout__body"><div class="callout__label">CHANGED ON 2026-10-08</div><p>A dated change note. Replaces the manual's "&gt; Changed on …" blockquotes, and the "Why …" asides that explain a design decision.</p></div></aside>
+        </div>
+
+        <div class="ds-col">
+          <div class="ds-k">FIGURE · NUMBERED PER CHAPTER</div>
+          <figure class="fig fig--layer">
+            <div class="fig__layer" style="background:var(--grain)"></div>
+            <div class="fig__body" style="padding:20px;display:grid;grid-template-columns:repeat(8,1fr);gap:4px;align-items:end;height:130px">
+              {[20, 35, 55, 80, 100, 70, 45, 25].map((v, i) => <div style={`height:${v}%;background:${i === 4 ? 'var(--ink)' : 'var(--grain)'}`}></div>)}
+            </div>
+            <figcaption><b>FIG 10.2</b><span>A diagram drawn in HTML. The layer bar on top says it belongs to the Grains chapter. Screenshots use the same frame, with no bar.</span></figcaption>
+          </figure>
+        </div>
+
+        <div class="ds-col">
+          <div class="ds-k">CONTROL REFERENCE · THE MANUAL'S "CONTROLS, BY VIEW"</div>
+          <dl class="ref">
+            <div class="ref__row"><dt><b>Feedback</b><span class="viewtag viewtag--sm">PERFORM · 1</span></dt><dd><p>How much of the buffer survives an overdub. <code>1.0</code> adds, <code>0.0</code> replaces. <span class="midi">CC 4</span></p></dd></div>
+            <div class="ref__row"><dt><b>Live sync</b><span class="viewtag viewtag--sm">SETUP · 5</span></dt><dd><p>MIDI-clock offset, <code>±150 ms</code>. Negative pulls Live earlier.</p></dd></div>
+          </dl>
+        </div>
+
+        <div class="ds-col">
+          <div class="ds-k">STEPS · ONLY FOR ORDERED PROCEDURES</div>
+          <ol class="steps">
+            <li><div>Stop the loop.</div></li>
+            <li><div>Patch output 1 into the guitar input.</div></li>
+            <li><div><span>Press <b>Measure</b>, then <b>Apply</b>.</span></div></li>
+          </ol>
+        </div>
+
+        <div class="ds-col">
+          <div class="ds-k">MESSAGE TABLE · MIDI MAPS, KEYS</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th style="width:130px">Message</th><th>Action</th></tr></thead>
+              <tbody>
+                <tr><td><span class="midi">PC 4</span></td><td>Trigger</td></tr>
+                <tr><td><span class="midi">PC 7</span></td><td>Break: drop out now, back on a downbeat</td></tr>
+                <tr><td><span class="midi">PC 17</span></td><td>Drums on and off <span class="rigtag rigtag--fill" style="font-size:10px;padding:1px 5px">SA</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="ds-col">
+          <div class="ds-k">CODE BLOCK · TERMINAL AND SUPERCOLLIDER</div>
+          <pre><code><span class="mute">$</span> python3 tools/coreaudio.py defaults
+<span class="mute">$</span> python3 tools/coreaudio.py match-default-rates</code></pre>
+          <pre><code><span class="mute">// rebuild one pane, loop untouched</span>
+~buildGranularPane.();</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="nav" class="ds-sec" style="border-bottom:0">
+      <div class="ds-h"><span>06</span><h2>Navigation</h2></div>
+      <div class="ds-navs">
+        <div class="ds-col">
+          <div class="ds-k">CHAPTER RAIL</div>
+          <div style="border:1px solid var(--line);background:var(--bg);padding:8px 0">
+            <div class="rail__group label" style="padding:10px 18px 4px">SOUND</div>
+            <div class="rail__item" style="padding:6px 14px 6px 18px"><span class="rail__n">9</span><span>The Cutter</span><span class="rail__mark" style="background:var(--cut)"></span></div>
+            <div class="rail__item" aria-current="page" style="padding:6px 14px 6px 18px"><span class="rail__n">10</span><span>The Grains</span><span class="rail__mark" style="background:var(--grain)"></span></div>
+            <div class="rail__item" style="padding:6px 14px 6px 18px"><span class="rail__n">11</span><span>Effect chains</span><span class="rail__mark" style="background:var(--fx)"></span></div>
+          </div>
+          <p class="ds-note">The current chapter gets a panel2 fill and medium weight. The layer mark only appears on chapters about one layer.</p>
+        </div>
+        <div class="ds-col">
+          <div class="ds-k">CHAPTER HEADER</div>
+          <div style="padding:20px;border:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;gap:10px">
+            <div class="chead__row"><span class="chead__label" style="font-size:12px">CHAPTER 13</span><span class="chead__rule"></span><span class="rigtag rigtag--fill" style="font-size:10px;padding:2px 7px">SA ONLY</span></div>
+            <div class="chead__layer" style="background:var(--drum)"></div>
+            <div style="font-weight:500;font-size:34px;line-height:1">Drums</div>
+            <div style="font-size:16px;line-height:1.45">Two parts: the steps, and a kit played by the loop's own onsets.</div>
+          </div>
+        </div>
+        <div class="ds-col">
+          <div class="ds-k">PREVIOUS / NEXT</div>
+          <div class="pager" style="margin:0;grid-template-columns:1fr 1fr">
+            <a href={chapterHref(base, 'plugins')} style="padding:14px 16px;gap:4px"><span class="label" style="font-size:10px">← 12</span><b style="font-size:16px">Plugins</b></a>
+            <a class="next" href={chapterHref(base, 'synth')} style="padding:14px 16px;gap:4px"><span class="label" style="font-size:10px">14 →</span><b style="font-size:16px">The synth</b></a>
+          </div>
+          <p class="ds-note">Closes every chapter, followed by the source file and an Edit on GitHub link.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .ds-nav { flex: 1; min-width: 0; display: flex; align-items: stretch; overflow-x: auto; }
+  .ds-nav a { display: flex; align-items: center; padding: 0 14px; color: var(--ink); text-decoration: none; font-size: 15px; white-space: nowrap; }
+  .ds-nav a:hover { color: var(--link); }
+  .ds-nav .ds-nav__ex { padding: 0 16px; margin-left: 8px; border-left: 1px solid var(--line); font-weight: 500; }
+  .ds { max-width: 1200px; margin: 0 auto; padding: 48px 24px 96px; display: flex; flex-direction: column; }
+  .ds-intro { padding-bottom: 48px; border-bottom: 1px solid var(--ink); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 32px 64px; }
+  .ds-intro h1 { margin: 0; font-weight: 500; font-size: clamp(40px, 5vw, 64px); line-height: .98; letter-spacing: -.015em; }
+  .ds-intro__text { font-size: 17px; line-height: 1.55; gap: 14px; }
+  .ds-intro__text p { margin: 0; }
+  .m { color: var(--mute); }
+  .i { color: var(--ink); }
+  .ds-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .ds-sec { padding: 56px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 28px; }
+  .ds-h { display: flex; gap: 16px; align-items: baseline; }
+  .ds-h span { font: 500 14px var(--mono); color: var(--mute); min-width: 36px; }
+  .ds-h h2 { margin: 0; font-weight: 500; font-size: 32px; }
+  .ds-p { margin: 0; max-width: 680px; font-size: 16px; line-height: 1.55; color: var(--mute); }
+  .ds-k { font: 500 11px var(--mono); letter-spacing: .14em; }
+  .ds-note { margin: 0; font-size: 14px; line-height: 1.5; color: var(--mute); }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .swatches > div { background: #fff; display: flex; flex-direction: column; }
+  .swatches__pair { height: 64px; display: grid; grid-template-columns: 1fr 1fr; }
+  .swatches__t { padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .swatches__t b { font-weight: 500; font-size: 14px; }
+  .swatches__t span, .layers span { font: 300 12px var(--mono); color: var(--mute); }
+  .ds-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 28px; }
+  .layers { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); }
+  .layers > div { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .layers > div:last-child { border-bottom: 0; }
+  .layers b { font-weight: 500; font-size: 15px; }
+  .states { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .states > div { color: #fff; padding: 14px; display: flex; flex-direction: column; gap: 18px; }
+  .states b { font-weight: 500; font-size: 20px; }
+  .states span { font: 300 12px var(--mono); }
+  .states .states__break { grid-column: span 2; background: var(--hatch); color: #f3f3f1; flex-direction: row; justify-content: space-between; align-items: baseline; }
+  .ds-rows { display: flex; flex-direction: column; border-top: 1px solid var(--ink); }
+  .ds-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 20px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .ds-row:last-child { border-bottom: 0; }
+  .ds-spec { font: 500 12px var(--mono); color: var(--mute); }
+  .ds-layout { border: 1px solid var(--ink); background: var(--panel); display: flex; flex-direction: column; }
+  .ds-layout__top { height: 36px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 14px; font: 500 11px var(--mono); letter-spacing: .1em; color: var(--mute); }
+  .ds-layout__cols { display: flex; flex-wrap: wrap; min-height: 220px; }
+  .ds-layout__cols > div { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.4; }
+  .ds-wire { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 6px; }
+  .ds-wire > div { height: 6px; background: var(--panel2); }
+  .ds-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px 28px; padding: 18px 0; border-bottom: 1px solid var(--line); align-items: center; font-size: 15px; line-height: 1.5; }
+  .ds-inline:last-child { border-bottom: 0; }
+  .ds-inline > div:first-child { display: flex; flex-direction: column; gap: 4px; }
+  .ds-inline > div:first-child b { font-weight: 500; font-size: 16px; }
+  .ds-inline > div:first-child span { font-size: 14px; color: var(--mute); }
+  .ds-inline code, .prose-inline code { font: 500 13px var(--mono); }
+  .ds-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  kbd.big { min-width: 30px; height: 30px; padding: 0 9px; border-bottom-width: 3px; font-size: 14px; }
+  .midi.big { padding: 5px 9px; font-size: 13px; }
+  .ds-blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 36px 48px; }
+  .ds-blocks .callout p, .ds-blocks .steps li { font-size: 15px; line-height: 1.5; }
+  .ds-blocks .ref__row dd p { font-size: 15px; }
+  .ds-navs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 36px 48px; align-items: start; }
+</style>

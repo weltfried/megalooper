@@ -64,3 +64,7 @@ docs/dev/
 
 # The Claude Desktop extension tools/make-mcpb.sh makes (attached to releases)
 /megalooper.mcpb
+
+# The website design handoff (with the licensed Nitti fonts) stays local.
+design_handoff_megalooper_site/
+Megalooper UI redesign.zip

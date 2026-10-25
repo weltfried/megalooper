@@ -1,0 +1,142 @@
+/* Design tokens and base styles, shared by the homepage and the manual.
+   Light is the manual's default; dark is the homepage's only theme and the
+   manual's other one. Square corners, 1 px rules, no shadows. */
+
+:root {
+  --bg: #f6f6f3;
+  --panel: #fdfdfd;
+  --panel2: #e2e2dd;
+  --line: #bdbdb7;
+  --mute: #45494f;
+  --soft: #45494f;
+  --ink: #000000;
+  --link: #0074bd;
+  --dash: #8c8c86;
+
+  --loop: #0074bd;
+  --cut: oklch(0.52 0.17 300);
+  --grain: oklch(0.52 0.10 205);
+  --fx: oklch(0.53 0.19 355);
+  --drum: oklch(0.52 0.13 125);
+
+  --rec: oklch(0.53 0.21 27);
+  --play: oklch(0.52 0.15 150);
+  --dub: oklch(0.60 0.16 55);
+  --armed: oklch(0.62 0.14 85);
+  --on-accent: #fff;
+  --hatch: repeating-linear-gradient(45deg, #2c2c2c 0 10px, #0b0b0c 10px 20px);
+
+  --grotesk: "IBM Plex Sans", Verdana, sans-serif;
+  --mono: "IBM Plex Mono", monospace;
+  --header-h: 60px;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d0e10;
+  --panel: #131518;
+  --panel2: #1e2125;
+  --line: #2c2f34;
+  --mute: #9095a0;
+  --soft: #c4c7cc;
+  --ink: #f3f3f1;
+  --link: #5cb6f0;
+  --dash: #5a5f66;
+
+  --loop: #2b9be3;
+  --cut: oklch(0.72 0.15 300);
+  --grain: oklch(0.80 0.12 195);
+  --fx: oklch(0.72 0.17 350);
+  --drum: oklch(0.86 0.16 110);
+
+  --rec: oklch(0.63 0.22 27);
+  --play: oklch(0.74 0.18 150);
+  --dub: oklch(0.79 0.16 65);
+  --armed: oklch(0.88 0.16 95);
+  --on-accent: #0b0b0c;
+  color-scheme: dark;
+}
+
+/* Before the theme script has run, or without JS: follow the system. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0d0e10;
+    --panel: #131518;
+    --panel2: #1e2125;
+    --line: #2c2f34;
+    --mute: #9095a0;
+    --soft: #c4c7cc;
+    --ink: #f3f3f1;
+    --link: #5cb6f0;
+    --dash: #5a5f66;
+    --loop: #2b9be3;
+    --cut: oklch(0.72 0.15 300);
+    --grain: oklch(0.80 0.12 195);
+    --fx: oklch(0.72 0.17 350);
+    --drum: oklch(0.86 0.16 110);
+    --rec: oklch(0.63 0.22 27);
+    --play: oklch(0.74 0.18 150);
+    --dub: oklch(0.79 0.16 65);
+    --armed: oklch(0.88 0.16 95);
+    --on-accent: #0b0b0c;
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--grotesk);
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+a { color: var(--link); text-decoration-color: currentColor; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { color: var(--ink); }
+::selection { background: var(--loop); color: #fff; }
+b, strong { font-weight: 500; }
+p { text-wrap: pretty; }
+h1, h2, h3, h4 { text-wrap: balance; }
+img { max-width: 100%; }
+:focus-visible { outline: 2px solid var(--loop); outline-offset: 2px; }
+
+.mono { font-family: var(--mono); font-weight: 500; }
+.label { font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The wordmark: the Möbius logo and MEGALOOPER. Both logo files are in the
+   page; the theme decides which one shows. */
+.wordmark { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); font: 500 14px var(--mono); letter-spacing: .32em; white-space: nowrap; }
+.wordmark:hover { color: var(--ink); }
+.wordmark img { display: block; width: 54px; height: 22px; }
+.wordmark .logo-dark { display: none; }
+:root[data-theme="dark"] .wordmark .logo-light { display: none; }
+:root[data-theme="dark"] .wordmark .logo-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .wordmark .logo-light { display: none; }
+  :root:not([data-theme]) .wordmark .logo-dark { display: block; }
+}
+
+/* Inline marks, the same in the manual and on the homepage. */
+kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  border: 1px solid var(--ink); border-bottom-width: 2px;
+  font: 500 12px var(--mono); vertical-align: 1px; color: var(--ink); background: none;
+}
+.midi { padding: 1px 6px; background: var(--ink); color: var(--bg); font: 500 12px var(--mono); white-space: nowrap; }
+.status { padding: 2px 7px; background: var(--panel2); font: 500 12px var(--mono); white-space: nowrap; }
+.viewtag { font: 500 11px var(--mono); padding: 1px 6px; border: 1px solid var(--line); color: var(--mute); white-space: nowrap; text-transform: uppercase; }
+.viewtag--sm { font-size: 10px; padding: 1px 5px; }
+.rigtag { font: 500 11px var(--mono); padding: 3px 8px; white-space: nowrap; }
+.rigtag--outline { border: 1px solid var(--line); color: var(--mute); }
+.rigtag--fill { background: var(--panel2); color: var(--ink); }
+
+/* An image still to be supplied. */
+.slot { width: 100%; border: 1px solid var(--line); display: grid; place-items: center; background: var(--panel); color: var(--mute); font: 500 12px var(--mono); letter-spacing: .08em; text-align: center; padding: 16px; }
+.slot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.slot--filled { padding: 0; }

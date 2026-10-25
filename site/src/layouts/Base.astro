@@ -1,0 +1,50 @@
+---
+// Every page's <head>. `theme="dark"` pins the homepage dark; `auto` lets the
+// manual follow the reader's choice (localStorage 'ml-theme'), else the system.
+import '../styles/base.css';
+import sansLight from '../fonts/IBMPlexSans-Light.woff2?url';
+import sansMedium from '../fonts/IBMPlexSans-Medium.woff2?url';
+import monoLight from '../fonts/IBMPlexMono-Light.woff2?url';
+import monoMedium from '../fonts/IBMPlexMono-Medium.woff2?url';
+
+interface Props {
+  title: string;
+  description?: string;
+  theme?: 'dark' | 'light' | 'auto';
+  class?: string;
+}
+const { title, description = 'A live looper for SuperCollider that works out the meter from what you played.', theme = 'auto' } = Astro.props;
+const base = import.meta.env.BASE_URL;
+// IBM Plex Sans and Plex Mono (SIL Open Font License, src/fonts/OFL.txt), in
+// the design's two weights. They stand in for the app's Nitti Grotesk and
+// Nitti, which have no web licence. The complete files, not a Latin subset:
+// the manual needs the arrows and the maths signs (← → − ≈ ≥).
+const fonts = [
+  ['IBM Plex Sans', sansLight, 300],
+  ['IBM Plex Sans', sansMedium, 500],
+  ['IBM Plex Mono', monoLight, 300],
+  ['IBM Plex Mono', monoMedium, 500],
+] as const;
+const fontFaces = fonts.map(([family, url, weight]) =>
+  `@font-face{font-family:"${family}";src:url("${url}") format("woff2");font-weight:${weight};font-display:swap}`).join('');
+const themeScript = `(function(){var t;try{t=localStorage.getItem('ml-theme')}catch(e){}if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t})()`;
+---
+<!doctype html>
+<html lang="en" data-theme={theme === 'auto' ? undefined : theme}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <link rel="icon" type="image/png" sizes="32x32" href={`${base}favicon-32.png`} />
+    <link rel="apple-touch-icon" sizes="180x180" href={`${base}apple-touch-icon.png`} />
+    <style is:inline set:html={fontFaces}></style>
+    {theme === 'auto' && <script is:inline set:html={themeScript}></script>}
+    <slot name="head" />
+  </head>
+  <body class:list={Astro.props.class}>
+    <slot />
+  </body>
+</html>

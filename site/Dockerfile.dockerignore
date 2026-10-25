@@ -1,0 +1,8 @@
+*
+!README.md
+!docs/*.md
+!docs/images/
+!site/
+site/node_modules/
+site/dist/
+site/.astro/

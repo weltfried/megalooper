@@ -1,0 +1,55 @@
+# Builds the website (site/) from README.md and docs/*.md and publishes it to
+# GitHub Pages. Turn Pages on once under Settings → Pages → Source: GitHub Actions.
+#
+# It is served at https://weltfried.github.io/megalooper/. For a domain of your
+# own, set two repository variables (Settings → Secrets and variables → Actions
+# → Variables): SITE_URL=https://the.domain and SITE_BASE=/, add the domain
+# under Settings → Pages → Custom domain, and run this workflow again.
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'docs/**', 'README.md', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          SITE_BASE: ${{ vars.SITE_BASE }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

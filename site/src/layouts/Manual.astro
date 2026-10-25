@@ -1,0 +1,191 @@
+---
+// A manual page: sticky header (search, version, theme, GitHub), the chapter
+// rail, the article in the slot, and the "In this chapter" list.
+import { execSync } from 'node:child_process';
+import Base from './Base.astro';
+import Wordmark from '../components/Wordmark.astro';
+import { chapters, groups, chapterHref, GITHUB, type ChapterConfig, type Section } from '../lib/manual';
+import '../styles/manual.css';
+
+interface Props { chapter: ChapterConfig; sections: Section[] }
+const { chapter, sections } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+let month = new Date().toISOString().slice(0, 7);
+try { month = execSync('git log -1 --format=%cs', { cwd: '..' }).toString().trim().slice(0, 7); } catch { /* not a checkout */ }
+
+const titleCase = (g: string) => (g === 'MEGALOOPER SA' ? 'Megalooper SA' : g.charAt(0) + g.slice(1).toLowerCase());
+---
+<Base title={`${chapter.n}. ${chapter.title} · megalooper manual`} description={chapter.lead ?? `Chapter ${chapter.n} of the megalooper manual: ${chapter.title}.`}>
+  <header class="mhead">
+    <div class="mhead__in">
+      <Wordmark href={base} />
+      <a class="mhead__title" href={chapterHref(base, chapters[0].slug)}>Manual</a>
+      <div class="mhead__search">
+        <div class="search" data-search>
+          <label class="search__field">
+            <span class="search__key" aria-hidden="true">/</span>
+            <span class="visually-hidden">Search the manual</span>
+            <input type="search" placeholder="Search the manual" autocomplete="off" spellcheck="false" aria-controls="search-results" />
+          </label>
+          <div class="search__results" id="search-results" role="listbox" hidden></div>
+        </div>
+      </div>
+      <div class="mhead__version">main · {month}</div>
+      <button class="mhead__btn" type="button" data-theme-toggle aria-label="Switch between light and dark">◐ <span data-theme-name>light</span></button>
+      <a class="mhead__btn mhead__btn--text" href={GITHUB}>GitHub</a>
+    </div>
+  </header>
+
+  <div class="shell">
+    <details class="rail" open data-rail>
+      <summary><span class="rail__n">{chapter.n}</span><span>{chapter.title}</span></summary>
+      <nav class="rail__in" aria-label="Chapters">
+        {groups.map((g) => (
+          <>
+            <div class="rail__group label">{g}</div>
+            {chapters.filter((c) => c.group === g).map((c) => (
+              <a class="rail__item" href={chapterHref(base, c.slug)} aria-current={c.slug === chapter.slug ? 'page' : undefined}>
+                <span class="rail__n">{c.n}</span>
+                <span>{c.title}</span>
+                <span class="rail__mark" style={c.layer ? `background:var(--${c.layer})` : undefined}></span>
+              </a>
+            ))}
+          </>
+        ))}
+      </nav>
+    </details>
+
+    <main class="main">
+      <article class="article" data-pagefind-body>
+        <div class="crumbs" data-pagefind-ignore><a href={base}>megalooper</a><span>/</span><span>Manual</span><span>/</span><span>{titleCase(chapter.group)}</span></div>
+        <slot />
+      </article>
+    </main>
+
+    {sections.length > 0 && (
+      <aside class="toc" aria-label="In this chapter" data-toc>
+        <div class="label">In this chapter</div>
+        {sections.map((s) => (
+          <a href={`#${s.id}`}><span>{s.number}</span>{s.title}</a>
+        ))}
+      </aside>
+    )}
+  </div>
+</Base>
+
+<script>
+  const base = import.meta.env.BASE_URL;
+
+  // Theme: the choice persists; the first visit follows the system.
+  const root = document.documentElement;
+  const nameEl = document.querySelector('[data-theme-name]');
+  const show = () => { if (nameEl) nameEl.textContent = root.dataset.theme === 'dark' ? 'dark' : 'light'; };
+  show();
+  document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('ml-theme', root.dataset.theme); } catch { /* private window */ }
+    show();
+  });
+
+  // The rail folds away on a narrow screen, where it sits above the article.
+  const rail = document.querySelector<HTMLDetailsElement>('[data-rail]');
+  if (rail && matchMedia('(max-width: 860px)').matches) rail.open = false;
+
+  // In this chapter: the section being read.
+  const toc = document.querySelector('[data-toc]');
+  if (toc && 'IntersectionObserver' in window) {
+    const links = new Map<string, HTMLAnchorElement>();
+    toc.querySelectorAll<HTMLAnchorElement>('a').forEach((a) => links.set(a.hash.slice(1), a));
+    const visible = new Set<string>();
+    const mark = () => {
+      const heads = [...document.querySelectorAll<HTMLElement>('.sec > h2')];
+      let current = heads.find((h) => visible.has(h.id))?.id;
+      if (!current) {
+        // between headings: the last one scrolled past
+        const past = heads.filter((h) => h.getBoundingClientRect().top < 80);
+        current = past[past.length - 1]?.id;
+      }
+      links.forEach((a, id) => {
+        if (id === current) a.setAttribute('aria-current', 'true');
+        else a.removeAttribute('aria-current');
+      });
+    };
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const id = (e.target as HTMLElement).querySelector('h2')?.id;
+        if (!id) continue;
+        if (e.isIntersecting) visible.add(id); else visible.delete(id);
+      }
+      mark();
+    }, { rootMargin: '-60px 0px -55% 0px' });
+    document.querySelectorAll('.sec').forEach((s) => io.observe(s));
+  }
+
+  // Search: Pagefind, built after the site. "/" focuses the field.
+  const box = document.querySelector<HTMLElement>('[data-search]');
+  const input = box?.querySelector('input');
+  const results = box?.querySelector<HTMLElement>('.search__results');
+  type Pagefind = { options: (o: object) => Promise<void>; debouncedSearch: (q: string) => Promise<{ results: { data: () => Promise<any> }[] } | null> };
+  let pagefind: Pagefind | null | undefined;
+  const load = async () => {
+    if (pagefind !== undefined) return pagefind;
+    try {
+      pagefind = (await import(/* @vite-ignore */ `${base}pagefind/pagefind.js`)) as Pagefind;
+      await pagefind.options({ baseUrl: base });
+    } catch {
+      pagefind = null;
+    }
+    return pagefind;
+  };
+  const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  let selected = -1;
+  const select = (i: number) => {
+    const hits = results ? [...results.querySelectorAll<HTMLElement>('.search__hit')] : [];
+    if (!hits.length) return;
+    selected = (i + hits.length) % hits.length;
+    hits.forEach((h, j) => h.setAttribute('aria-selected', String(j === selected)));
+    hits[selected].scrollIntoView({ block: 'nearest' });
+  };
+  input?.addEventListener('input', async () => {
+    if (!results) return;
+    const q = input.value.trim();
+    if (!q) { results.hidden = true; results.innerHTML = ''; return; }
+    const pf = await load();
+    if (!pf) {
+      results.innerHTML = '<div class="search__none">Search works in the built site (npm run build, then npm run preview).</div>';
+      results.hidden = false;
+      return;
+    }
+    const found = await pf.debouncedSearch(q);
+    if (!found || input.value.trim() !== q) return;
+    const data = await Promise.all(found.results.slice(0, 8).map((r) => r.data()));
+    selected = -1;
+    results.innerHTML = data.length
+      ? data.map((d) => {
+          const sub = d.sub_results?.[0];
+          const url = sub?.url ?? d.url;
+          const title = sub && sub.title !== d.meta.title ? `${d.meta.title} · ${sub.title}` : d.meta.title;
+          return `<a class="search__hit" role="option" href="${escape(url)}"><b>${escape(title)}</b><span>${sub?.excerpt ?? d.excerpt}</span></a>`;
+        }).join('')
+      : `<div class="search__none">Nothing in the manual for “${escape(q)}”.</div>`;
+    results.hidden = false;
+  });
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); select(selected + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); select(selected - 1); }
+    else if (e.key === 'Enter' && selected >= 0) {
+      e.preventDefault();
+      results?.querySelectorAll<HTMLAnchorElement>('.search__hit')[selected]?.click();
+    } else if (e.key === 'Escape') { input.value = ''; if (results) results.hidden = true; input.blur(); }
+  });
+  input?.addEventListener('focus', () => { load(); });
+  document.addEventListener('click', (e) => { if (results && box && !box.contains(e.target as Node)) results.hidden = true; });
+  document.addEventListener('keydown', (e) => {
+    const t = e.target as HTMLElement;
+    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) && !t.isContentEditable) {
+      e.preventDefault();
+      input?.focus();
+    }
+  });
+</script>

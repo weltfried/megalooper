@@ -1,0 +1,12 @@
+---
+// The Möbius-loop logo and MEGALOOPER. Both logo files are in the page and
+// the theme shows one: the dark one on dark grounds, the light one on light.
+interface Props { href: string; only?: 'dark' | 'light'; class?: string }
+const { href, only, class: cls } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+<a href={href} class:list={['wordmark', cls]}>
+  {only !== 'dark' && <img class={only ? '' : 'logo-light'} src={`${base}assets/megalooper-logo-light.svg`} alt="" width="54" height="22" />}
+  {only !== 'light' && <img class={only ? '' : 'logo-dark'} src={`${base}assets/megalooper-logo-dark.svg`} alt="" width="54" height="22" />}
+  <span>MEGALOOPER</span>
+</a>

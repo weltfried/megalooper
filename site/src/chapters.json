@@ -1,0 +1,192 @@
+{
+  "$comment": [
+    "Drives the manual: the rail, the numbering, prev/next and what each chapter is made of.",
+    "A source is a heading range in one of the repo's Markdown files, which stay the single source of truth.",
+    "  file      path from the repo root",
+    "  heading   '## Text' (level and text must match one top-level heading); left out = the whole file under its H1",
+    "  part      'intro' = only the text before the heading's first subheading",
+    "  unwrap    true = drop the heading itself and promote its subheadings to sections",
+    "  title     replaces the heading's text (wrapped sources only)",
+    "  introTitle  with unwrap: give the text before the first subheading a section of its own",
+    "The first unwrapped source's intro becomes the chapter's opening text; its first paragraph is the lead unless 'lead' is set.",
+    "omit lists what is left out on purpose, so the build's coverage check stays quiet about it."
+  ],
+  "groups": ["START", "PLAYING", "SOUND", "MEGALOOPER SA", "CONNECT", "REFERENCE"],
+  "fileHomes": {
+    "README.md": "welcome",
+    "docs/manual.md": "looping"
+  },
+  "chapters": [
+    {
+      "n": 1, "slug": "welcome", "title": "Welcome", "group": "START", "rig": "every",
+      "sources": [
+        { "file": "README.md", "part": "intro", "unwrap": true },
+        { "file": "README.md", "heading": "## What it does" },
+        { "file": "README.md", "heading": "## Licence" },
+        { "file": "README.md", "heading": "## Trademarks" }
+      ]
+    },
+    {
+      "n": 2, "slug": "install", "title": "Installing and the first run", "group": "START", "rig": "every",
+      "sources": [
+        { "file": "README.md", "heading": "## What you need" },
+        { "file": "README.md", "heading": "## Install" },
+        { "file": "README.md", "heading": "## First run" },
+        { "file": "docs/manual.md", "heading": "## Running", "unwrap": true, "introTitle": "Running" },
+        { "file": "README.md", "heading": "## Where your files are" }
+      ]
+    },
+    {
+      "n": 3, "slug": "routing", "title": "Rigs and routing", "group": "START", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## Configuration", "unwrap": true },
+        { "file": "docs/routing.md", "unwrap": true }
+      ]
+    },
+    {
+      "n": 4, "slug": "window", "title": "The window", "group": "START", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "### GUI", "unwrap": true },
+        { "file": "docs/manual.md", "heading": "### The status band" }
+      ]
+    },
+    {
+      "n": 5, "slug": "looping", "title": "Looping", "group": "PLAYING", "layer": "loop", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "### Keyboard (the megalooper window must be focused)", "title": "Keyboard" }
+      ]
+    },
+    {
+      "n": 6, "slug": "breaks", "title": "Breaks and the arc", "group": "PLAYING", "layer": "loop", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "### Breaks" },
+        { "file": "docs/manual.md", "heading": "### The arc — intensity and dissolve" }
+      ]
+    },
+    {
+      "n": 7, "slug": "meter", "title": "How the meter is found", "group": "PLAYING", "layer": "loop", "rig": "every",
+      "lead": "You play a phrase in free time and press R again. In the time it takes the loop to come round, megalooper decides the tempo, the meter, how many bars and where beat 1 is. This chapter is about how it decides, and what to do when it decides wrong.",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## How meter detection works", "unwrap": true, "introTitle": "Fitting a grid" },
+        { "file": "docs/manual.md", "heading": "### The next reading" },
+        { "file": "docs/manual.md", "heading": "### Overdub meter detection" },
+        { "file": "docs/manual.md", "heading": "## Exporting training data" }
+      ],
+      "figures": [
+        { "section": "Accent analysis", "after": 1, "file": "fig-accent-template.html" },
+        { "section": "Uneven bars", "after": 2, "file": "fig-uneven-bars.html" }
+      ]
+    },
+    {
+      "n": 8, "slug": "onsets", "title": "Onsets and onset notes", "group": "PLAYING", "layer": "loop", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "### Onset analysis" },
+        { "file": "docs/manual.md", "heading": "## Onset notes" }
+      ]
+    },
+    {
+      "n": 9, "slug": "cutter", "title": "The Cutter", "group": "SOUND", "layer": "cut", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## BBCut layer", "unwrap": true }
+      ]
+    },
+    {
+      "n": 10, "slug": "grains", "title": "The Grains", "group": "SOUND", "layer": "grain", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## Granular layer", "unwrap": true }
+      ]
+    },
+    {
+      "n": 11, "slug": "chains", "title": "Effect chains and sounds", "group": "MEGALOOPER SA", "layer": "fx", "rig": "sa",
+      "sources": [
+        { "file": "docs/standalone.md", "part": "intro", "unwrap": true },
+        { "file": "docs/standalone.md", "heading": "## Starting it" },
+        { "file": "docs/standalone.md", "heading": "## The chains" },
+        { "file": "docs/effects.md", "title": "The built-in effects" },
+        { "file": "docs/standalone.md", "heading": "## Sounds" },
+        { "file": "docs/standalone.md", "heading": "## On a slower computer" },
+        { "file": "docs/standalone.md", "heading": "## When something is wrong" }
+      ]
+    },
+    {
+      "n": 12, "slug": "plugins", "title": "Plugins", "group": "MEGALOOPER SA", "layer": "fx", "rig": "sa",
+      "sources": [
+        { "file": "docs/standalone.md", "heading": "## Plugins", "unwrap": true },
+        { "file": "docs/standalone.md", "heading": "### A footswitch for something inside a plugin" }
+      ]
+    },
+    {
+      "n": 13, "slug": "drums", "title": "Drums", "group": "MEGALOOPER SA", "layer": "drum", "rig": "sa",
+      "sources": [
+        { "file": "docs/drums.md", "unwrap": true }
+      ]
+    },
+    {
+      "n": 14, "slug": "synth", "title": "The synth", "group": "MEGALOOPER SA", "rig": "sa",
+      "sources": [
+        { "file": "docs/synth.md", "unwrap": true }
+      ]
+    },
+    {
+      "n": 15, "slug": "midi", "title": "MIDI and mapping", "group": "CONNECT", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "### MIDI", "unwrap": true },
+        { "file": "docs/standalone.md", "heading": "## MIDI", "part": "intro", "title": "On Megalooper SA" },
+        { "file": "docs/midi-maps.md" }
+      ]
+    },
+    {
+      "n": 16, "slug": "live", "title": "Working with Ableton Live", "group": "CONNECT", "rig": "live",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## Live integration", "unwrap": true },
+        { "file": "docs/manual.md", "heading": "## Optional extras" }
+      ]
+    },
+    {
+      "n": 17, "slug": "ai", "title": "AI apps", "group": "CONNECT", "rig": "every",
+      "sources": [
+        { "file": "docs/ai.md", "unwrap": true }
+      ]
+    },
+    {
+      "n": 18, "slug": "calibrating", "title": "Calibrating the rig", "group": "REFERENCE", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## Calibrating the rig — the wizard", "unwrap": true },
+        { "file": "docs/manual.md", "heading": "## Calibrating overdub latency" },
+        { "file": "docs/standalone.md", "heading": "## Calibrate", "title": "Calibrating Megalooper SA" }
+      ]
+    },
+    {
+      "n": 19, "slug": "files", "title": "Files and folders", "group": "REFERENCE", "rig": "every",
+      "sources": [
+        { "file": "README.md", "heading": "## Where your files are" },
+        { "file": "docs/manual.md", "heading": "## File structure" }
+      ]
+    },
+    {
+      "n": 20, "slug": "linux", "title": "megalooper on Linux", "group": "REFERENCE", "rig": "linux",
+      "sources": [
+        { "file": "docs/linux.md", "unwrap": true }
+      ]
+    },
+    {
+      "n": 21, "slug": "testing", "title": "Testing", "group": "REFERENCE", "rig": "every",
+      "sources": [
+        { "file": "docs/manual.md", "heading": "## Testing", "unwrap": true }
+      ]
+    },
+    {
+      "n": 22, "slug": "limits", "title": "Known limits", "group": "REFERENCE", "rig": "every",
+      "sources": [
+        { "file": "README.md", "heading": "## Known limits", "unwrap": true },
+        { "file": "docs/manual.md", "heading": "## Known limitations", "title": "The analyser and Live's transport" }
+      ]
+    }
+  ],
+  "omit": [
+    { "file": "docs/manual.md", "part": "intro", "why": "says where the other guides are; the rail does that" },
+    { "file": "docs/manual.md", "heading": "## License", "why": "the README's Licence is in chapter 1" },
+    { "file": "docs/manual.md", "heading": "## Controls", "part": "intro", "why": "a container heading; its subsections are spread over chapters 4-8 and 15" },
+    { "file": "README.md", "heading": "## Guides", "why": "a table of the docs; the rail replaces it" }
+  ]
+}
