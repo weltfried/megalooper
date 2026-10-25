@@ -118,6 +118,41 @@ Routine {
         while { p.notNil and: { p.isKindOf(ScrollView).not } } { p = p.parent };
         p !? { |sv| sv.visibleOrigin = Point(0, 100000) };
     };
+    // One effect's panel (~effectsEditor) in a window of its own, as small
+    // as its layout lets it be, grabbed down to the last widget it draws.
+    var panel = { |key|
+        var w, view, origin, walk, img, right = 0, bottom = 0;
+        var path = out +/+ ("fx-" ++ key.asString.toLower ++ ".png");
+        try {
+            ~effectsSelected = key;
+            ~effectsWidgets = IdentityDictionary.new;
+            view = ~effectsEditor.(key);
+            w = Window("panel", Rect(0, 0, 100, 100), border: false).background_(~gt[\bg]);
+            w.layout_(VLayout(view).margins_(24));
+            w.alpha_(0).visible_(true);
+            wait.(0.5);
+            origin = w.view.mapToGlobal(0@0);
+            walk = { |v|
+                v.children.do { |c|
+                    var at;
+                    if(c.visible) {
+                        if(c.children.isEmpty) {
+                            at = c.mapToGlobal(0@0);
+                            right = max(right, at.x - origin.x + c.bounds.width);
+                            bottom = max(bottom, at.y - origin.y + c.bounds.height);
+                        } { walk.(c) }
+                    }
+                }
+            };
+            walk.(view);
+            img = Image.fromWindow(w, Rect(0, 0, right + 24, bottom + 24));
+            img.write(path, "png");
+            img.free;
+            shots.add(path);
+            ("  wrote " ++ path ++ " (" ++ (right + 24) ++ " x " ++ (bottom + 24) ++ " pt)").postln;
+        } { |err| failed.add(key ++ ": " ++ err.errorString); ("  FAILED " ++ key ++ ": " ++ err.errorString).postln };
+        w !? { |x| if(x.isClosed.not) { x.close } };
+    };
     try {
         ~buildGuiWindow.(false);
         wait.();
@@ -137,6 +172,15 @@ Routine {
         show.(\setup, "setup-analysis", \analysis);
         show.(\setup, "setup-midi", \midi);
         show.(\calibrate, "calibrate");
+        // Each effect's panel on its own, for the top of its section in
+        // docs/effects.md: the editor the FX view shows under the chains,
+        // built in a window of its own, four settings to a row so it reads
+        // at the manual's width. Cropped to what it draws.
+        ~guiSelectView.(\fx);
+        wait.();
+        ~effectsPerRow = 4;
+        MegaSAFx.keys.do { |key| panel.(key) };
+        ~effectsPerRow = 7;
     } { |err| failed.add("render: " ++ err.errorString); ("FAILED: " ++ err.errorString).postln };
     ~guiWindow !? { |w| if(w.isClosed.not) { w.close } };
     ("RENDERED " ++ shots.size ++ (if(failed.isEmpty) { "" } { ", FAILED " ++ failed.size })).postln;

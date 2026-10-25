@@ -120,6 +120,38 @@ Sounds are in `sa/sounds/` in your megalooper folder
 is `sa/kept.json`. The last five kept sounds are in `sa/backups/kept/`. You
 can copy a sound's `.json` file and its `.states` folder to another Mac.
 
+### A variation or a sound?
+
+Both keep settings under a name, but at two sizes. A variation is one
+effect's settings. A sound is everything on the FX view.
+
+| | A variation | A sound |
+| --- | --- | --- |
+| What it holds | The settings of one effect | Every chain: which effects, in which order, each switch, every setting, and each plugin's own state |
+| Where it applies | Any effect of its type: a Dual Delay variation is in both Delays' menus | All the chains at once |
+| On and off | Leaves the effect on or off as it was | Sets every switch |
+| Plugins | Built-in effects only. A plugin keeps its own presets in its window | Holds each plugin's state |
+| Saved and recalled | **Save variation** and the menu under the effect's title | The bar above the chains |
+| Kept in | `sa/fx-variations.json` | `sa/sounds/`, one file per sound |
+
+**Use a variation** for a setting of one effect you want to reach for again,
+in any sound: a delay time that suits a song, a filter that sweeps the way
+you like, a drive for loud parts. Pick one, then turn the knobs on from there.
+
+**Use a sound** for the whole setup of a song or a part of the set: which
+effects are in, in which order, which are switched on, the amp plugin and
+how it is dialled in. Recalling a sound sets all of that at once.
+
+**They work together.** A sound keeps the values of every setting, not the
+name of the variation they came from. Recalling a variation changes the
+effect as turning its knobs would. To keep that in a sound, save the sound
+(or press **Start with this**). Changing or deleting the variation later
+leaves the sounds you saved with it as they are.
+
+**On stage** a footswitch switches effects on and off, and can press an
+effect's Random or Reset (see [MIDI](#midi)). Variations and sounds are
+recalled in the window.
+
 ## Plugins
 
 megalooper hosts VST2 and VST3 effects through

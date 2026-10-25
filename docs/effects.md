@@ -30,6 +30,10 @@ what each one does, and every setting it has.
 - **Random** sets every setting at random but the output levels and the
   Envelope Filter's Makeup, so a new sound comes out about as loud.
   **Reset** puts the defaults back.
+- **Variations.** The menu under an effect's title recalls settings kept
+  under a name, and **Save variation** keeps yours. A variation is one
+  effect's settings; a sound is all the chains. [A variation or a
+  sound?](standalone.md#a-variation-or-a-sound) says which to use when.
 - **Feedback** stops at 90 % on every effect that has it, and what goes
   round is softened, so nothing can run away.
 - **Footswitches.** In MIDI MAP mode, map a switch on your controller to
@@ -41,9 +45,15 @@ in its instrument chain and the loop's three in its loop chain, in that order,
 all switched off.
 
 Every setting below is a knob or a menu on the effect's panel; hover over it
-for the same words. Double-click a knob for its default.
+for the same words. Double-click a knob for its default. Each effect's
+section opens with its panel at the starting values, four settings to a row;
+on the FX view the same panel sits under the chains, seven to a row.
 
 ## Pitch Shift
+
+![The Pitch Shift panel](images/fx-shifter.png)
+
+*Fig: Pitch Shift at its starting values.*
 
 Shifts the instrument's pitch, up or down two octaves. With **Dry/Wet** at
 100 % it replaces your note; lower, it plays beside it: a harmony at big
@@ -71,6 +81,10 @@ more the further it shifts.
 
 ## Dual Delay
 
+![The Dual Delay panel](images/fx-delay.png)
+
+*Fig: Dual Delay at its starting values.*
+
 Two delay taps whose times wobble, slowly and at random, in opposite
 directions. At its defaults the first tap is 1 ms, a near-dry copy, and the
 second 438 ms, an echo the wobble detunes: a wide, slightly seasick double
@@ -91,6 +105,10 @@ repeating delay, still wobbling.
 Variations: *long*, *short* and *delay*.
 
 ## Envelope Filter
+
+![The Envelope Filter panel](images/fx-filter.png)
+
+*Fig: Envelope Filter at its starting values.*
 
 A filter that your picking opens and an LFO sweeps in time with the loop.
 Every note opens it by how hard you play it, then it closes over the
@@ -119,6 +137,10 @@ low-pass through band-pass to high-pass as **Morph** goes from 0 to 100 %.
 Variations: *low pass*, *notch*, *fast*, and five more by number.
 
 ## Pitch Loops
+
+![The Pitch Loops panel](images/fx-pitchloop.png)
+
+*Fig: Pitch Loops at its starting values.*
 
 Replays pieces of the last few seconds of your playing in two voices, behind
 you. The first plays each piece **reversed a fifth up**, starting about
@@ -156,6 +178,10 @@ Five variations, by number.
 
 ## Tape Echo
 
+![The Tape Echo panel](images/fx-echo.png)
+
+*Fig: Tape Echo at its starting values.*
+
 An echo on the loop, timed in note values at the loop's tempo, with the
 irregularity of tape. Its repeats are band-limited (only the middle,
 520 Hz to 3.1 kHz, comes back), get a little reverb of their own, and
@@ -188,6 +214,10 @@ drops to a third while the Tape Echo is on, and the repeats sit on top.
 
 ## Drive
 
+![The Drive panel](images/fx-saturator.png)
+
+*Fig: Drive at its starting values.*
+
 A saturation for the loop that drives the lows hardest. Before the curve it
 boosts the lows a lot (**Amt Lo**) and a band around 108 Hz some more
 (**Amt Hi**); after it, it takes both boosts out again. So the low notes
@@ -208,6 +238,10 @@ Variations: *brutal*, *loop-playback*, *gut mit redux*, *obertöne*, and two
 more by number.
 
 ## Crusher
+
+![The Crusher panel](images/fx-redux.png)
+
+*Fig: Crusher at its starting values.*
 
 Fewer samples and fewer bits: the loop sampled about 7,200 times a second
 at 5 bits, the grit of an early sampler. The sample rate jitters a little
