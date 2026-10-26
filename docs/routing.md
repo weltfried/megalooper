@@ -184,3 +184,18 @@ What you apply on the Calibrate view is kept for the rig in `calibration.json`
 in your megalooper folder, and every start begins with it; **Forget** goes back
 to the profile's numbers. A value dialled by ear on Setup is not kept that way:
 write it into the profile, or the next start begins from the old one.
+
+On `saSystem` the numbers are kept per **setup** instead: the input and
+output devices and the buffer chosen in the launcher ("TSMEGA @ 64 frames"),
+so a latency measured on your interface is not used on the laptop's speakers.
+A setup with nothing kept yet starts from:
+
+1. a rig of yours in `profiles.scd` on the same device, both ways (one with
+   Megalooper SA first): the numbers kept for it, else its profile's;
+2. else what `saSystem` kept before there were setups;
+3. else `saSystem`'s own numbers.
+
+The Calibrate view says which. The first start on such a device also takes
+over that rig's **MIDI map**, unless `saSystem` uses a map of your own
+already, and the status line says so. So a duo moving from a profile of their
+own to the launcher's menus keeps their map and their latency.

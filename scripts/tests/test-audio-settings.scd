@@ -188,6 +188,73 @@ protect {
     };
 }.value;
 
+// ---- the setup's calibration, and what it starts from without one
+{
+    var profiles = (saSystem: base,
+        liveRig: (device: "Interface", numChans: 2, live: true, latencyMs: 40),
+        sa: (device: "Interface", numChans: 2, sa: true, live: false, latencyMs: 9, onsetThreshold: 0.4),
+        elsewhere: (device: "Elsewhere", numChans: 2, sa: true, latencyMs: 5));
+    var both = (inDevice: "Interface", outDevice: "Interface", hardwareBufferSize: 64), p, looper, root, said, maps, settings;
+    ~tEq.("the setup in words, its calibration's key: the devices (the system's by their names) and the buffer",
+        [~audioProfile.(base, both, devs)[\calibrationKey], ~audioProfile.(base, (), devs)[\calibrationKey],
+            ~audioProfile.(base, (outDevice: "Interface"), devs)[\calibrationKey],
+            ~audioProfile.(base, (), devs.copy.put(\defaultIn, nil).put(\defaultOut, nil))[\calibrationKey]],
+        ["Interface @ 64 frames", "MacBook Pro Microphone → MacBook Pro Speakers @ the device's buffer",
+            "MacBook Pro Microphone → Interface @ the device's buffer",
+            "system default input → system default output @ the device's buffer"]);
+    p = ~audioInherit.(~audioProfile.(base, both, devs), profiles, \saSystem);
+    ~tEq.("on the device a rig of yours names, both ways: that rig (one with SA first), its starting numbers, and where the calibration is looked for",
+        [p[\inheritRig], p[\latencyMs], p[\onsetThreshold], p[\calibrationKeys]],
+        [\sa, 9, 0.4, ["Interface @ 64 frames", \sa, \saSystem]]);
+    p = ~audioInherit.(~audioProfile.(base, (inDevice: "Interface"), devs), profiles, \saSystem);
+    ~tEq.("...the interface in and the speakers out is another setup: no rig of yours, saSystem's numbers",
+        [p[\inheritRig], p[\latencyMs], p[\calibrationKeys]],
+        [nil, 30, ["Interface → MacBook Pro Speakers @ the device's buffer", \saSystem]]);
+    p = ~audioInherit.(~audioProfile.(base, (), devs), profiles, \saSystem);
+    ~tEq.("...and so is the system's default", [p[\inheritRig], p[\calibrationKeys].size], [nil, 2]);
+
+    // The calibration kept, looked for in order.
+    root = MegaFiles.userRoot;
+    File.mkdir(root);
+    File.use(LooperCalibrator.keptPathIn(root), "w", { |f| f.write("{\"format\": \"megalooper calibration\", \"version\": 1, "
+        "\"rigs\": {\"sa\": {\"latencyMs\": 12}, \"saSystem\": {\"latencyMs\": 30}}}") });
+    p = ~audioInherit.(~audioProfile.(base, both, devs), profiles, \saSystem);
+    looper = ~tLooper.();
+    said = LooperCalibrator.applyKeptAtStart(looper, p, p[\calibrationKeys], root);
+    ~tEq.("nothing kept for the setup: the rig of yours' kept numbers, said", [looper.latencyMs, said.contains("kept for sa")], [12, true]);
+    LooperCalibrator.keep(LooperCalibrator.keptPathIn(root), p[\calibrationKey], \latencyMs, 15);
+    said = LooperCalibrator.applyKeptAtStart(looper, p, p[\calibrationKeys], root);
+    ~tEq.("...once the setup keeps its own, those", [looper.latencyMs, said.contains("Interface @ 64 frames")], [15, true]);
+    p = ~audioInherit.(~audioProfile.(base, (inDevice: "Interface"), devs), profiles, \saSystem);
+    LooperCalibrator.applyKeptAtStart(looper, p, p[\calibrationKeys], root);
+    ~tEq.("...another setup with none: saSystem's from before", looper.latencyMs, 30);
+    ~tEq.("...and a rig name alone still works as it did", [LooperCalibrator.keptKeyOf(LooperCalibrator.keptPathIn(root), \sa),
+        LooperCalibrator.keptKeyOf(LooperCalibrator.keptPathIn(root), [\none, nil])], [\sa, nil]);
+    File.delete(LooperCalibrator.keptPathIn(root));
+
+    // The MIDI map taken over, once.
+    protect {
+        ~midiSettings = nil;
+        settings = ~midiSettingsNow.();
+        settings[\maps].put(\sa, "tsmega").put(\saSystem, "keys-and-knobs");
+        p = ~audioInherit.(~audioProfile.(base, both, devs), profiles, \saSystem);
+        said = ~audioAdoptMap.(p, \saSystem);
+        ~tEq.("saSystem on the rig's device takes over its map from a shipped one, and says so",
+            [settings[\maps][\saSystem], said], ["tsmega", "MIDI map tsmega, as your rig sa on Interface uses it"]);
+        ~tEq.("...once: the next start has nothing to say", ~audioAdoptMap.(p, \saSystem), nil);
+        File.mkdir(~midiUserDir.());
+        File.use(~midiUserDir.() +/+ "mine.json", "w", { |f| f.write("{}") });
+        settings[\maps].put(\saSystem, "mine");
+        ~tEq.("...never over a map of your own", [~audioAdoptMap.(p, \saSystem), settings[\maps][\saSystem]], [nil, "mine"]);
+        ~tEq.("...nor on a setup no rig of yours names",
+            ~audioAdoptMap.(~audioInherit.(~audioProfile.(base, (), devs), profiles, \saSystem), \saSystem), nil);
+    } {
+        File.delete(~midiUserDir.() +/+ "mine.json");
+        File.delete(~midiSettingsPath.());
+        ~midiSettings = nil;
+    };
+}.value;
+
 // ---- the pair's preflight
 info = IdentityDictionary[
     'Interface' -> (name: "Interface", in: 4, out: 4, rate: 44100),

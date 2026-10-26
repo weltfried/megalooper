@@ -235,6 +235,7 @@
     // saSystem: under the audio settings (the launcher's, or settings.json's).
     if(rp[\audioSettings] == true) {
         rp = ~audioProfile.(rp, ~launcherAudio ?? { ~audioSettingsRead.() }, ~audioDevicesNow.());
+        rp = ~audioInherit.(rp, ~routingProfiles, profileName);
     };
 
     ~rp            = rp;
@@ -542,7 +543,65 @@
     // input 1, so the Rig page's menus show what plays.
     rp[\audio] = (inDevice: inName, outDevice: outName, inChannel: inCh, bassChannel: bass,
         hardwareBufferSize: a[\hardwareBufferSize] !? { |n| n.asInteger });
+    // What the Calibrate view keeps its numbers under: the setup, its devices
+    // by name (the system's defaults by theirs) and its buffer, because a
+    // latency measured on one is wrong on the next.
+    rp[\calibrationKey] = ~audioSetupName.(rp[\inDevice] ? d[\defaultIn], rp[\outDevice] ? d[\defaultOut],
+        rp[\audio][\hardwareBufferSize]);
     rp
+};
+
+// "TSMEGA @ 64 frames", "MacBook Pro Microphone → MacBook Pro Speakers @ the
+// device's buffer": a setup in words, and the key its calibration is kept by.
+~audioSetupName = { |inName, outName, buffer|
+    var i = inName ? "system default input", o = outName ? "system default output";
+    (if(i == o) { i } { i ++ " → " ++ o }) ++ " @ " ++ (buffer !? { |n| n.asString ++ " frames" } ? "the device's buffer")
+};
+
+// The rig of yours on the same device as this setup (its device names both
+// the input and the output), or nil: a duo moving from a profile of their
+// own to the audio settings keeps what that rig started with. Of several,
+// one with Megalooper SA first, then by name. Its starting numbers become
+// this setup's, and the calibration is looked for, in order, under the
+// setup, under that rig, under `rigName` (saSystem's own from before the
+// audio settings).
+~audioInherit = { |rp, profiles, rigName|
+    var mine, from, keys;
+    if(rp[\inDevice].isNil) {
+        rp[\calibrationKeys] = [rp[\calibrationKey], rigName].reject(_.isNil);
+        rp
+    } {
+        mine = (profiles ? ()).keys.asArray.sort { |a, b| a.asString < b.asString }.select { |k|
+            var r = profiles[k];
+            (r[\audioSettings] != true) and: { r[\device].isString or: { r[\device].isKindOf(Symbol) and: { r[\device] != \systemDefault } } }
+                and: { ~audioNameMatches.(r[\device], rp[\inDevice]) } and: { ~audioNameMatches.(r[\device], rp[\outDevice]) }
+        };
+        from = mine.detect { |k| profiles[k][\sa] == true } ?? { mine.first };
+        from !? { |k|
+            rp[\inheritRig] = k;
+            [\latencyMs, \onsetThreshold, \onsetNoteOffsetMs, \chainRecOffsetMs].do { |f| profiles[k][f] !? { |v| rp[f] = v } };
+        };
+        rp[\calibrationKeys] = [rp[\calibrationKey], from, rigName].reject(_.isNil);
+        rp
+    }
+};
+
+// The MIDI map a rig of yours on this setup's device uses, taken over by
+// saSystem (in settings.json) the first time it starts there, unless saSystem
+// already uses a map of your own. Answers the line saying so, or nil.
+// settings.json's MIDI part is setup-midimap.scd's.
+~audioAdoptMap = { |rp, rigName|
+    var settings = ~midiSettingsNow !? { |f| f.value }, from = rp !? { |r| r[\inheritRig] }, map, now, yours;
+    if(settings.isNil or: { from.isNil }) { nil } {
+        map = settings[\maps][from] ?? { ~routingProfiles[from] !? { |r| r[\midiMap] } };
+        now = settings[\maps][rigName] ?? { ~routingProfiles[rigName] !? { |r| r[\midiMap] } };
+        yours = ~midiMapNames.(~midiUserDir.()).collect(_.asString);
+        if(map.isNil or: { map.asString == now.asString } or: { now.notNil and: { yours.includesEqual(now.asString) } }) { nil } {
+            settings[\maps].put(rigName, map.asString);
+            ~midiSettingsSave.({ |ok, why| if(ok != true) { ("megalooper: the MIDI map was not kept: " ++ (why ? "")).warn } });
+            "MIDI map " ++ map ++ ", as your rig " ++ from ++ " on " ++ rp[\inDevice] ++ " uses it"
+        }
+    }
 };
 
 // The settings as kept, or () when there are none. settings.json is

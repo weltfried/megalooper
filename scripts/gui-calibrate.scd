@@ -75,7 +75,8 @@
         ~calibrator = LooperCalibrator.new(~looper, ~calLive.());
         if(~calLive.().not) {
             ~calibrator.keptPath = LooperCalibrator.keptPathIn(~userRoot ?? { MegaFiles.userRoot });
-            ~calibrator.rig = ~routingProfile;
+            // Under the audio settings, the setup (its devices and buffer).
+            ~calibrator.rig = ~rp !? { |r| r[\calibrationKey] } ?? { ~routingProfile };
         };
     };
     if(~calRegisterAll.isNil) { (scripts +/+ "calibrate-measure.scd").load };
@@ -83,12 +84,22 @@
     ~calibrator
 };
 
-// What this rig keeps, as a line: the values and when they were kept.
+// What this rig keeps, as a line: the values and when they were kept. Under
+// the audio settings it is the setup's (its devices and buffer), and with
+// nothing kept for it, what it starts from instead.
 ~calKeptLine = { |c|
-    var e = c !? { c.kept }, stamp;
-    if(e.isNil) { "Nothing kept yet: this rig starts with its profile's numbers." } {
+    var e = c !? { c.kept }, stamp, setup = ~rp !? { |r| r[\calibrationKey] }, from;
+    if(e.isNil) {
+        if(setup.isNil) { "Nothing kept yet: this rig starts with its profile's numbers." } {
+            from = c !? { |x| x.keptPath } !? { |p| LooperCalibrator.keptKeyOf(p, (~rp[\calibrationKeys] ? []).drop(1)) };
+            "Nothing kept yet for " ++ setup ++ ": it starts with " ++ (case
+                { from.notNil } { "the numbers kept for " ++ from }
+                { ~rp[\inheritRig].notNil } { "your rig " ++ ~rp[\inheritRig] ++ "'s numbers" }
+                { "saSystem's numbers" }) ++ "."
+        }
+    } {
         stamp = e[\savedAt] !? { |t| if(t.size >= 11) { "20" ++ t[0..1] ++ "-" ++ t[2..3] ++ "-" ++ t[4..5] ++ " " ++ t[7..8] ++ ":" ++ t[9..10] } { t } };
-        "Every start begins with: " ++ [
+        (if(setup.notNil) { "Every start on " ++ setup ++ " begins with: " } { "Every start begins with: " }) ++ [
             e[\onsetThreshold] !? { |v| "onset threshold " ++ v.round(0.01) },
             e[\latencyMs] !? { |v| "overdub latency " ++ v.round(0.1) ++ " ms" }
         ].reject(_.isNil).join(", ") ++ (stamp !? { |t| ". Kept " ++ t ++ "." } ? ".")

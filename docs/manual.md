@@ -25,7 +25,10 @@ Choose the audio in the Desktop launcher, before you start:
 megalooper keeps your choice in `settings.json` for the next start. A device
 that is not plugged in then gives way to the system's default, and the
 launcher says so. The same menus are on Setup's Rig page, where **Apply and
-restart** starts megalooper again on a change.
+restart** starts megalooper again on a change. What the Calibrate view
+measures is kept for each setup (the devices and the buffer), and a setup on
+the device of a rig of yours starts from that rig's numbers and MIDI map
+([The calibrated values](routing.md#the-calibrated-values)).
 
 Behind the menus is megalooper's one **routing profile**, **`saSystem`**:
 Megalooper SA, with its effect chains, drums and synth. With nothing chosen

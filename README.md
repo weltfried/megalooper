@@ -139,7 +139,7 @@ folder:
 | `sa/synth-presets/`, `sa/kept-synth/`, `sa/wavetables/` | The synth's presets, the synth a boot starts with, and your wavetables |
 | `sa/plugins/` | The list of plugins megalooper found |
 | `settings.json` | Your choices: the audio devices and inputs, the MIDI map each rig uses, which MIDI inputs megalooper listens to, the theme, the help lines, AI apps on or off |
-| `calibration.json` | What the Calibrate view found, per rig |
+| `calibration.json` | What the Calibrate view found, per audio setup (devices and buffer) or rig of yours |
 | `remote.json`, `remote/` | While AI apps are let in: how one reaches megalooper ([AI apps](docs/ai.md)) |
 | `megalooper.mcpb` | The Claude Desktop extension, made when you press **Install in Claude Desktop** |
 

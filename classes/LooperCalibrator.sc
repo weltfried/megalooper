@@ -407,16 +407,27 @@ LooperCalibrator {
     }
 
     // At a start: a rig without Live (its profile says live: false) gets what
-    // it keeps in `root`'s calibration.json. Answers the line saying so, or
-    // nil when nothing was applied.
+    // it keeps in `root`'s calibration.json. `rig` is its name, or a list of
+    // names to look under in order (the audio settings' setup, a rig of yours
+    // on its device, saSystem: setup-routing.scd's ~audioInherit), and the
+    // first one kept is applied. Answers the line saying so, or nil when
+    // nothing was applied.
     *applyKeptAtStart { |looper, rp, rig, root|
-        var e;
+        var e, from;
         if(rp.isNil or: { rp[\live] != false } or: { root.isNil }) { ^nil };
-        e = this.applyKept(looper, this.keptPathIn(root), rig);
+        from = this.keptKeyOf(this.keptPathIn(root), rig);
+        e = from !? { |k| this.applyKept(looper, this.keptPathIn(root), k) };
         ^e !? {
-            "megalooper: this rig's calibration, as kept" ++ (e[\savedAt] !? { |t| " on " ++ t } ? "") ++ ": "
+            "megalooper: the calibration kept for " ++ from ++ (e[\savedAt] !? { |t| " on " ++ t } ? "") ++ ": "
                 ++ this.keptFields.select { |f| e[f].notNil }.collect { |f| f ++ " " ++ e[f].round(0.01) }.join(", ") ++ "."
         }
+    }
+
+    // Of `rig` (a name, or names in order), the first one `path` keeps
+    // numbers for, or nil.
+    *keptKeyOf { |path, rig|
+        var all = this.readKept(path);
+        ^(if(rig.isKindOf(Array)) { rig } { [rig] }).detect { |k| k.notNil and: { all[k.asSymbol].notNil } }
     }
 
     // What an input's level says, from a mono recording of the loudest

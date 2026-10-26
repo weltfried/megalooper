@@ -183,6 +183,10 @@ if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };
 ~checkAudioDevice.(~routingProfile);
 ~checkLiveAudio.(~routingProfile);
 ~checkVSTPlugin.(~routingProfile);
+// saSystem on the device a rig of yours names takes over that rig's MIDI map,
+// once, unless it uses a map of your own already (setup-routing.scd).
+~audioMapAdopted = ~audioAdoptMap.(~rp, ~routingProfile);
+~audioMapAdopted !? { |said| ("megalooper: " ++ said ++ ".").postln };
 
 s.boot;
 s.waitForBoot {
@@ -236,7 +240,10 @@ s.waitForBoot {
     if(~audioRestarted == true) {
         ~audioRestarted = false;
         ~guiSay.(if((~rp[\audioNotes] ? []).notEmpty) { ~rp[\audioNotes].join(" ") }
-            { "Started again on " ++ ~audioDeviceLabel.(~rp) }, if((~rp[\audioNotes] ? []).notEmpty) { \bad });
+            { "Started again on " ++ ~audioDeviceLabel.(~rp) ++ (~audioMapAdopted !? { |m| ". " ++ m } ? "") },
+            if((~rp[\audioNotes] ? []).notEmpty) { \bad });
+    } {
+        ~audioMapAdopted !? { |m| ~guiSay.(m) };
     };
 
     // AI apps (setup-remote.scd): let in if the Setup view's switch says so.

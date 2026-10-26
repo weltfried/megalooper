@@ -108,8 +108,10 @@
     // A rig without Live keeps what its calibration found in your megalooper
     // folder (the Calibrate view), and those numbers win over the profile's:
     // nothing has to be pasted into it.
-    LooperCalibrator.applyKeptAtStart(~looper, ~rp, ~routingProfile, ~userRoot ?? { MegaFiles.userRoot }) !? { |said|
-        said.postln };
+    // On saSystem the setup's own, else a rig of yours on its device, else
+    // saSystem's (~rp[\calibrationKeys], setup-routing.scd).
+    LooperCalibrator.applyKeptAtStart(~looper, ~rp, ~rp[\calibrationKeys] ?? { ~routingProfile },
+        ~userRoot ?? { MegaFiles.userRoot }) !? { |said| said.postln };
 
     // Fallback meter for short / percussive / rubato loops whose expressive
     // timing fits no pulse grid: the loop is treated as whole bars of this
