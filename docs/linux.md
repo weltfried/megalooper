@@ -76,7 +76,7 @@ From your application launcher, or from a terminal:
 
 The picker offers **saSystem**: the looper with its effect chains, drums
 and synth, on JACK's or PipeWire's default ports. A rig of your own (in
-`profiles.scd`, [Rigs and routing](routing.md#adding-a-rig)) says
+`profiles.scd`, [Adding a rig](routing.md#adding-a-rig)) says
 `device: \systemDefault` here: JACK or PipeWire has the interface, and a
 device named as macOS knows it shows ✗.
 
@@ -129,7 +129,7 @@ SuperCollider's server speaks JACK. With `pipewire-jack`, PipeWire answers.
 - **A rig for your interface.** megalooper cannot pick an interface by name
   on Linux: JACK or PipeWire has it. Write a profile with
   `device: \systemDefault` and your channel numbers
-  ([Rigs and routing](routing.md)).
+  ([Rigs of your own](routing.md#rigs-of-your-own)).
 - **Plugins.** The installer fetches VSTPlugin's Linux build. It hosts
   Linux VST2 and VST3 plugins. If its binaries do not load on your system
   (the log says so at the start), megalooper plays its built-in effects, and

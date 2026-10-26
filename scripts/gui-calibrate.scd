@@ -84,6 +84,10 @@
     ~calibrator
 };
 
+// What the kept numbers belong to: the setup (devices and buffer) under the
+// audio settings, else the rig.
+~calKeptFor = { if((~rp !? { |r| r[\calibrationKey] }).notNil) { "setup" } { "rig" } };
+
 // What this rig keeps, as a line: the values and when they were kept. Under
 // the audio settings it is the setup's (its devices and buffer), and with
 // nothing kept for it, what it starts from instead.
@@ -279,10 +283,10 @@
     ] } {
         ~calProfileView = nil;
         [
-            ~guiHelp.(~guiText.("A value is used when you press Apply, Done or Start with this, and kept for this rig "
-                "in your megalooper folder. Blue means it was measured this session.", 13, ~gt[\mute])),
+            ~guiHelp.(~guiText.("A value is used when you press Apply, Done or Start with this, and kept for this "
+                ++ ~calKeptFor.() ++ " in your megalooper folder. Blue means it was measured this session.", 13, ~gt[\mute])),
             nil,
-            ~guiCaption.("KEPT FOR THIS RIG"),
+            ~guiCaption.("KEPT FOR THIS " ++ ~calKeptFor.().toUpper),
             ~calKeptText = ~guiText.("", 14, ~gt[\ink]),
             LooperTile().states_([["Forget", ~gt[\ink], nil]]).border_(~gt[\line]).cycles_(false)
                 .font_(~guiSans.(14)).fixedSize_(Size(110, 32))

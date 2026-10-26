@@ -110,7 +110,7 @@ and the looper plays while it records.
    Mac's Sound settings), the input your **Instrument** is plugged into, and a
    **Bass** on an input of its own if you have one. The mix plays on the
    output's 1 and 2. megalooper keeps your choice for the next start.
-   ([Audio routing](docs/routing.md))
+   ([Audio settings](docs/routing.md))
 3. Press **Start megalooper** and wait for the window. On a slower computer
    that clicks or drops out, pick 256 frames under **Buffer** first.
 4. With the megalooper window in front, press **R** to record, play a
@@ -131,7 +131,7 @@ folder:
 
 | Folder | What it holds |
 |---|---|
-| `profiles.scd` | Your own rigs, beside megalooper's saSystem ([Rigs and routing](docs/routing.md#adding-a-rig)) |
+| `profiles.scd` | Your own rigs, beside megalooper's saSystem ([Rigs of your own](docs/routing.md#rigs-of-your-own)) |
 | `bbcut/`, `granular/` | The cutter's and the grains' presets |
 | `midi/`, `midi/backups/` | Your MIDI maps, and the last five versions of each that **Keep** wrote over |
 | `sa/kept.json`, `sa/sounds/` | The sound a boot starts with, and the sounds you saved |
@@ -158,7 +158,7 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 | [megalooper on Linux](docs/linux.md) | Installing and starting it there, and what differs |
 | [Drums](docs/drums.md) | Getting a kit, and making one from your own samples |
 | [The synth](docs/synth.md) | The note sequencer, the Wave synth, your wavetables and VST instruments |
-| [Rigs and routing](docs/routing.md) | Rigs of your own: an interface, a bass |
+| [Audio settings](docs/routing.md) | The input and output, a bass, calibration per setup, and rigs of your own |
 | [The manual](docs/manual.md) | Every control, the MIDI map, the cutter, the grains, calibration, how the meter is found |
 | [MIDI map files](docs/midi-maps.md) | The JSON a map is kept in, to write or share one |
 | [AI apps](docs/ai.md) | Letting an AI app such as Claude Desktop read the set and change the drums, the synth, the effects, the Grains and the Cutter |

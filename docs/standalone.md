@@ -11,10 +11,10 @@ Megalooper SA plays on these rigs:
 
 - **saSystem**, the one the launcher offers first, plays your instrument from
   the input device and input you choose there, the system's input 1 until you
-  do, and the mix on the output's 1 and 2 ([Audio routing](routing.md)).
-- A profile of your own in `profiles.scd` suits an interface with more
-  channels, a bass or a fixed sample rate ([Rigs and
-  routing](routing.md#adding-a-rig)).
+  do, and the mix on the output's 1 and 2 ([Audio settings](routing.md)).
+- A profile of your own in `profiles.scd` suits an aggregate device, a
+  sample rate switched before the start, or several fixed setups ([Rigs of
+  your own](routing.md#rigs-of-your-own)).
 
 A bass can come in on an input of its own, **Bass** in the launcher ([A
 bass](routing.md#a-bass)): it plays through its own chain, the **BASS** row on

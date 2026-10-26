@@ -36,7 +36,7 @@
       ]
     },
     {
-      "n": 3, "slug": "routing", "title": "Rigs and routing", "group": "START", "rig": "every",
+      "n": 3, "slug": "routing", "title": "Audio settings", "group": "START", "rig": "every",
       "sources": [
         { "file": "docs/manual.md", "heading": "## Configuration", "unwrap": true },
         { "file": "docs/routing.md", "unwrap": true }

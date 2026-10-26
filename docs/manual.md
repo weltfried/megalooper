@@ -1451,7 +1451,7 @@ megalooper/
     drums.md             -- the drums' kits
     synth.md             -- the synth
     ai.md                -- AI apps
-    routing.md           -- rigs of your own: what a profile says, and how to write one
+    routing.md           -- the audio settings, calibration per setup, and rigs of your own
     midi-maps.md         -- the MIDI map file format
     linux.md             -- megalooper on Linux
     images/              -- the screenshots
