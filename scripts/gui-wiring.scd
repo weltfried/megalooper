@@ -188,6 +188,13 @@
               ~granularPaintHeader !? { |f| f.() };
               ~guiRefreshTabs !? { |f| f.() } }.defer;
         })
+        // A take the analysis tap heard far below the input: the take's hint
+        // says it until the next take, and the footer for a moment.
+        .put(\tapStarved, { |looper, what, gap|
+            { ~statusPaintTake !? { |f| f.() };
+              gap !? { ~guiSay !? { |f| f.("The analysis tap was " ++ gap.round.asInteger
+                  ++ " dB under the input: the reading may be wrong", \bad) } } }.defer;
+        })
         // An action the Looper would not take, from any surface: the footer
         // says so for 2.6 s, and the tile it was asked from stays dark.
         .put(\refused, { |looper, what, action, why|

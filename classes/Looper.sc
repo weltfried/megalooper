@@ -44,6 +44,18 @@ Looper {
     // later — and cancelled by a stop in the meantime. See startAnalysisMonitor.
     var monitorSynth, monitorResp, monitorOnsetResp, monitorWanted = false;
     var <>onMonitor;
+    // The room (roadmap item 12): the monitor's hits kept in the model, not
+    // only lit by the lamp. A ring of the last liveOnsetMax, their times
+    // (SystemClock seconds, as heard) and strengths in two Arrays made once
+    // (a Float sits in its slot, so a hit allocates nothing); the level the
+    // monitor last reported (15 Hz). Each hit is also said as \liveOnset
+    // (time, strength).
+    var liveOnsetTimes, liveOnsetStrengths, liveOnsetHead = 0, <liveOnsetCount = 0, <liveLevel;
+    // The take in force was heard this many dB quieter on the analysis tap
+    // than on the recorded input (tapStarvedDb), or nil: a starved analyser
+    // fits its meter to whatever crossed the threshold, and the reading looks
+    // like any other, so the window says it until the next take.
+    var <tapStarvedGap;
     // ---- Overdub meter detection -------------------------------------------
     // For loops that start atmospheric: take one has no onsets, so no meter is
     // found and Live's transport is never started (correct — there is no beat to
@@ -848,6 +860,7 @@ Looper {
         onsets.clear;
         pitchSamples.clear;
         takeLevels = nil;
+        this.prSetTapStarved(nil);
         // The replay pattern belongs to the take it was analysed from. Dropping
         // it here means the engine spawned below finds nothing to play until the
         // deferred analysis builds the new one, rather than replaying the
@@ -1276,24 +1289,36 @@ Looper {
                 onAnalysis.value(result);
                 this.startTempoClocks(result);
             };
-            // A clean tap that heard the guitar far below the recorded input
-            // starved the analyser, whatever the onset count says. Said out
-            // loud, because the reading it produced looks like any other.
-            if(this.analysisIn != inChannel) {
-                Looper.tapStarvedDb(levelsSnap) !? { |gap|
-                    ("Looper: the analysis tap heard this take " ++ gap.round(1)
-                        ++ " dB below the recorded input (tap peak "
-                        ++ Looper.prDb(levelsSnap[0]).round(1) ++ " dBFS, input "
-                        ++ Looper.prDb(levelsSnap[1]).round(1) ++ " dBFS). The analyser "
-                        "was starved and fitted the meter to whatever crossed the "
-                        "threshold; check the tap's gain or channel (Analysis in = SC "
-                        "channel " ++ this.analysisIn ++ ") before lowering the threshold.").warn;
-                    this.changed(\tapStarved, gap);
-                };
-            };
+            this.prCheckTap(levelsSnap);
             // The take, to the set's log: what was heard, what was decided.
             this.prLogTake(result, dur, firstOnset, onsetsSnap, applied, pressAt, levelsSnap, pitchSnap);
         }.defer;
+    }
+
+    // A clean tap that heard the guitar far below the recorded input starved
+    // the analyser, whatever the onset count says. Said out loud, in the post
+    // window and as \tapStarved (the gap in dB, or nil for a tap that heard
+    // the take), which the window shows until the next take: the reading it
+    // produced looks like any other. `levels` is [tap peak, input peak].
+    prCheckTap { |levels|
+        var gap = if(this.analysisIn != inChannel) { Looper.tapStarvedDb(levels) };
+        gap !? {
+            ("Looper: the analysis tap heard this take " ++ gap.round(1)
+                ++ " dB below the recorded input (tap peak "
+                ++ Looper.prDb(levels[0]).round(1) ++ " dBFS, input "
+                ++ Looper.prDb(levels[1]).round(1) ++ " dBFS). The analyser "
+                "was starved and fitted the meter to whatever crossed the "
+                "threshold; check the tap's gain or channel (Analysis in = SC "
+                "channel " ++ this.analysisIn ++ ") before lowering the threshold.").warn;
+        };
+        this.prSetTapStarved(gap);
+    }
+
+    prSetTapStarved { |gap|
+        if(gap != tapStarvedGap) {
+            tapStarvedGap = gap;
+            this.changed(\tapStarved, gap);
+        };
     }
 
     startOverdub {
@@ -1664,12 +1689,12 @@ Looper {
         // feed carries the level sampled at the hit — so the GUI does not have
         // to know that the rate split happened at all.
         monitorResp = OSCdef(\looperMonitor, { |msg|
-            onMonitor.value(msg[3], false, 0);
+            this.prMonitorLevel(msg[3]);
         }, '/looperMonitor');
         monitorOnsetResp = OSCdef(\looperMonitorOnset, { |msg|
             // [strength, level] — reversed relative to onMonitor's arguments
             // because the strength is what this message exists to carry.
-            onMonitor.value(msg[4], true, msg[3]);
+            this.prMonitorOnset(msg[3], msg[4], SystemClock.seconds);
         }, '/looperMonitorOnset');
         monitorSynth = Synth.tail(server, \looperAnalysisMonitor, [
             \ana, this.analysisIn,
@@ -1677,6 +1702,62 @@ Looper {
         ]);
         this.changed(\analysisMonitor, true);
     }
+
+    // ---- The room ----------------------------------------------------------
+    // What the analysis monitor hears, held for the model (roadmap item 12):
+    // the record pre-roll wants the last hit before a press (item 4), a
+    // count-in or a break's resume the other player's hit (items 10, 2), an
+    // ending paced by the room its density (1), the grains the room against
+    // the players (18), a sequencer stepped by the players their hits (20).
+    // None of them is built yet; they read it here, not from the lamp's
+    // callback, which the Analysis pane owns.
+
+    *liveOnsetMax { ^64 }
+
+    // A hit the monitor heard at `time`, strength and level as its reply
+    // carries them. A wet analysis input (the processed one) hears a note one
+    // round trip late, as prFoldOverdubOnsets says: that is taken off.
+    prMonitorOnset { |strength, level, time|
+        var t = time - if(this.analysisIn == inChannel) { (latencyMs ? 0) / 1000 } { 0 };
+        liveOnsetTimes ?? {
+            liveOnsetTimes = Array.fill(this.class.liveOnsetMax, 0.0);
+            liveOnsetStrengths = Array.fill(this.class.liveOnsetMax, 0.0);
+        };
+        liveOnsetTimes[liveOnsetHead] = t.asFloat;
+        liveOnsetStrengths[liveOnsetHead] = (strength ? 0).asFloat;
+        liveOnsetHead = (liveOnsetHead + 1) % this.class.liveOnsetMax;
+        liveOnsetCount = (liveOnsetCount + 1).min(this.class.liveOnsetMax);
+        liveLevel = level;
+        this.changed(\liveOnset, t, strength);
+        onMonitor.value(level, true, strength);
+    }
+
+    prMonitorLevel { |level|
+        liveLevel = level;
+        onMonitor.value(level, false, 0);
+    }
+
+    // The hits the monitor heard, oldest first, as [time, strength]: those
+    // of the last `seconds` before `now` (all it holds for nil). A new Array
+    // each call: for a reader, not for every block.
+    liveOnsets { |seconds, now|
+        var out = Array.new(liveOnsetCount), from, i, t;
+        now = now ?? { SystemClock.seconds };
+        from = if(seconds.isNil) { -inf } { now - seconds };
+        liveOnsetCount.do { |k|
+            i = (liveOnsetHead - liveOnsetCount + k) % this.class.liveOnsetMax;
+            t = liveOnsetTimes[i];
+            if((t >= from) and: { t <= (now + 1e-6) }) { out = out.add([t, liveOnsetStrengths[i]]) };
+        };
+        ^out
+    }
+
+    // The last hit at or before `before` (now by default), [time, strength],
+    // or nil: what a record pre-roll snaps back to.
+    lastLiveOnset { |before| ^this.liveOnsets(nil, before).last }
+
+    // Hits a second over the last `seconds` (4 by default) before `now`.
+    liveOnsetRate { |seconds = 4, now| ^this.liveOnsets(seconds, now).size / seconds.max(1e-6) }
 
     stopAnalysisMonitor {
         monitorWanted = false;
@@ -3428,6 +3509,7 @@ Looper {
         readingIndex = 0;
         undoState = nil;
         this.prClearOnsetPattern;
+        this.prSetTapStarved(nil);
         this.prSetState(\empty);
         "Cleared.".postln;
     }

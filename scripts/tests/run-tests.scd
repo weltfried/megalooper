@@ -25,6 +25,7 @@ var files = [
     "test-synthdefs.scd",
     "test-onset-notes.scd",
     "test-grains-follow.scd",
+    "test-live-signals.scd",
     "test-chain-timing.scd",
     "test-preset-storage.scd",
     "test-preset-bar.scd",

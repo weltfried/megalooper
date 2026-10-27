@@ -208,6 +208,14 @@
             t[\hint] = if(n > 1) { "A tries the analyser's next reading." } { "" };
         };
     };
+    // A starved analysis tap (Looper.tapStarvedGap): the reading rests on
+    // what crossed the threshold of a signal far too quiet, so the hint says
+    // so, in the record colour, until the next take.
+    if((st != \recording) and: { r.notNil } and: { (l !? { |x| x.tapStarvedGap }).notNil }) {
+        t[\hint] = "The analysis tap heard this take " ++ l.tapStarvedGap.round.asInteger
+            ++ " dB under the input: check its gain or channel (Analysis in), then record again.";
+        t[\starved] = true;
+    };
     t
 };
 
@@ -223,7 +231,8 @@
     set.(~guiTakeBpm, t[\bpm]);
     set.(~guiTakeBars, t[\bars]);
     set.(~guiReadingHint, t[\hint]);
-    ~guiReadingHint !? { |v| if(v.isClosed.not) { v.toolTip_(t[\hint] ? "") } };
+    ~guiReadingHint !? { |v| if(v.isClosed.not) { v.toolTip_(t[\hint] ? "")
+        .stringColor_(if(t[\starved] == true) { ~gt[\rec] } { ~gt[\mute] }) } };
     // The strip's 22 pt holds 20 characters (7/8 · 108.3 · 4 bars); a long
     // cycle of uneven bars gets smaller to keep its tempo in view.
     ~guiTakeLabel !? { |v|

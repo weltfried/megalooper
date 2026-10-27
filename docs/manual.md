@@ -770,9 +770,10 @@ The threshold belongs to the rig: Calibrate's threshold step keeps it for this
 rig ([The calibrated values](routing.md#the-calibrated-values)). How noisy the
 instrument input is depends on the interface and the tap.
 
-If the clean tap hears a take 30 dB or more under the input, the log says the
-analyser was starved: check the tap's gain or channel before lowering the
-threshold.
+If the clean tap hears a take 30 dB or more under the input, the analyser was
+starved: the footer says so, and the hint under the take says it in red, with
+how many dB, until the next take. Check the tap's gain or channel (Analysis in)
+before lowering the threshold.
 
 `mingap` (20 frames, about 107 ms: the shortest gap between two onsets) is not
 a control. `Onsets` sizes its state from it, so it cannot change on a running
