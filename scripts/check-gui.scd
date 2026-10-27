@@ -548,11 +548,11 @@ s.waitForBoot {
             d.setOn(true); 0.3.wait;
             ~ok.("on and playing dot the hidden Drums tab", ~guiTabActive.(\drums)[0] == true);
             d.setOn(false); 0.3.wait;
-            ~ok.("off clears the dot", ~guiTabActive.(\fx)[1] == false);
+            ~ok.("off clears the dot", ~guiTabActive.(\drums)[0] == false);
             ~ok.("and the hidden pane's switch followed the model", ~drumsWidgets[\on][\view].value == 0);
             d.instVarPut(\playing, wasPlaying);
             d.setOn(true); 0.3.wait;
-            ~ok.("on but not playing, no dot", wasPlaying or: { ~guiTabActive.(\fx)[1] == false });
+            ~ok.("on but not playing, no dot", wasPlaying or: { ~guiTabActive.(\drums)[0] == false });
             paints = ~drumsPaints ? 0;
             ~guiSelectTab.(\drums); 0.5.wait;
             ~ok.("the lanes paint once the tab shows", (~drumsPaints ? 0) > paints,
