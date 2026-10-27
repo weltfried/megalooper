@@ -120,3 +120,8 @@ where the slot is `steps` or `onset`.
 
 **The views:** `gui.view.` and `perform`, `sound`, `fx`, `drums`, `synth`,
 `setup` or `calibrate`.
+
+**The count's lights** (Perform): `count.beatLight`, `count.countInLight`,
+`count.oddBarLight`. These are only sent: bound to a button (a note or a CC),
+they light it with the count, and the button itself drives nothing. They need
+the controller's **Send back** on.

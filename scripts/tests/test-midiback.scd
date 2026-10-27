@@ -981,6 +981,31 @@ protect {
     ~midiTargets = v[1];
     ~midiBackFrom.(settings);
 
+    // ---- a light (the count's on Perform): sent only. The tick sends it as a
+    // toggle's; a press on its button acts on nothing and has the light put
+    // right at once (the UC4 in LED mode Std lights or darkens it itself); a
+    // light off sent, its echo is dropped.
+    v = [~midiMap, ~midiTargets];
+    ~midiTargets = targets.copy;
+    ~midiTargets.put(\lamp, (id: \lamp, kind: \light, get: { vals[\lamp] == true }));
+    vals.put(\lamp, true);
+    ~midiMap = h.new([(msg: \note, num: 70, chan: 0, device: "UC4", target: \lamp)], "lamp");
+    now = now + 1;
+    ~tEq.("a light learned on a note: the tick sends it as a toggle's", [tick.(), sends.()],
+        [1, [[2002, \noteOn, 0, 70, 127]]]);
+    now = now + 1;
+    n = route.(\noteOn, 0, 70, 127);
+    ~tEq.("...a press on its button acts on nothing, and has the light put right at once",
+        [n, vals[\lamp], sends.()], [[], true, [[2002, \noteOn, 0, 70, 127]]]);
+    now = now + 0.005;
+    ~tEq.("...whose echo, a press 5 ms on, is dropped", route.(\noteOn, 0, 70, 127), \echo);
+    vals.put(\lamp, false);
+    now = now + 1;
+    ~tEq.("...and dark, a note off", [tick.(), sends.()], [1, [[2002, \noteOff, 0, 70, 0]]]);
+    ~midiMap = v[0];
+    ~midiTargets = v[1];
+    ~midiBackFrom.(settings);
+
     // ---- the boot, and the responders: an echo is not sent on to Live
     // Building them registers MIDIdefs, which would replace a running
     // megalooper's: this part runs only where no MIDI responder is registered.

@@ -32,6 +32,7 @@ var files = [
     "test-bbcut-presets.scd",
     "test-loop-position.scd",
     "test-beat-count.scd",
+    "test-count-lights.scd",
     "test-break.scd",
     "test-arc.scd",
     "test-reading.scd",

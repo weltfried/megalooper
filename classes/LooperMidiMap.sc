@@ -578,7 +578,8 @@ LooperMidiMap {
     }
 
     // What one message does to a binding's control, by the control's kind
-    // (\trigger, \toggle, \continuous, \step or \choice): the table in 5.3 of
+    // (\trigger, \toggle, \continuous, \step, \choice or \light, which a
+    // message never drives): the table in 5.3 of
     // docs/dev/midi-map.md. `msg` is what arrived: \noteOn, \noteOff, \cc,
     // \program or \bend; `val` its velocity or value. `state` is what the last
     // message from the same input and channel left for this binding (nil at
@@ -597,6 +598,8 @@ LooperMidiMap {
     //   [\next]            a choice goes to its next item
     *decide { |kind, binding, msg, val, state, knob|
         var high, sw;
+        // A light is only sent: what its button sends does nothing.
+        if(kind == \light) { ^[nil, state] };
         case
         { msg == \noteOn } { ^[this.prPress(kind, binding[\mode]), state] }
         { msg == \noteOff } {
@@ -723,13 +726,15 @@ LooperMidiMap {
 
     // ---- sending back ------------------------------------------------------------
     // What a binding sends back to its controller (docs/dev/midi-map.md 5.7), by
-    // its control's kind (\trigger, \toggle, \continuous, \step or \choice):
+    // its control's kind (\trigger, \toggle, \continuous, \step, \choice or
+    // \light):
     //   \knob   a knob or a pedal on a level, a count or a choice, or a CC
     //           knob on a toggle: it is sent where it would put the control,
     //           once something else (the mouse, a preset) has moved the
     //           control, so its next turn goes on from there;
     //   \light  a toggle on a note or a CC switch: its light, on or off, sent
-    //           until the controller shows it;
+    //           until the controller shows it; and a light, on a note or a CC,
+    //           which is nothing else;
     //   nil     nothing to show: a trigger, a program change, pitch bend on a
     //           switch, a level or a choice on a switch.
     *backKind { |binding, kind|
@@ -742,6 +747,8 @@ LooperMidiMap {
                 { (msg == \note) or: { msg == \cc } } { \light }
                 { nil }
             }
+            // A light (the count's on Perform) is all it is.
+            { kind == \light } { if((msg == \note) or: { msg == \cc }) { \light } }
             { [\continuous, \step, \choice].includes(kind) } { if(knob) { \knob } }
             { nil }
     }
@@ -754,7 +761,7 @@ LooperMidiMap {
     *backValue { |binding, kind, value, toPos|
         var c, top, lo, hi;
         if(value.isNil or: { this.backKind(binding, kind).isNil }) { ^nil };
-        if(kind == \toggle) { ^case { value == true } { 127 } { value == false } { 0 } { nil } };
+        if((kind == \toggle) or: { kind == \light }) { ^case { value == true } { 127 } { value == false } { 0 } { nil } };
         if(value.isNumber.not) { ^nil };
         c = if(kind == \choice) { toPos.value(value) } { this.knobAt(value, toPos, binding[\min], binding[\max]) };
         if(c.isNumber.not or: { c.isNaN }) { ^nil };

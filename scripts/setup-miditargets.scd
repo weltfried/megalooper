@@ -19,7 +19,9 @@
 //                     "Rig", "Live", or "Window" for the views themselves)
 //   group             optional: a heading within the tab, for the picker
 //                     ("Delay", "Main pattern", "Main pattern, lane 3")
-//   kind              \trigger, \toggle, \continuous, \step or \choice
+//   kind              \trigger, \toggle, \continuous, \step, \choice, or
+//                     \light: an output, a button's light the count drives
+//                     (Perform's count lights below); nothing it sends acts
 //   fire              a trigger's action
 //   flip              a toggle's own toggle: the model's, which carries the
 //                     gesture's logic, where it has one; get and set its state
@@ -126,7 +128,7 @@
     var pageNames = (chance: "Chance", alt: "Alt", velo: "Velo", roll: "Roll");
     var slotNames = (steps: "Steps kit", onset: "Onset kit");
     var laneLabels = (note: "Note", altNote: "Alt", delay: "D (delay)", mute: "M (mute)", lock: "Lock");
-    var looperFamily, effectsFamily, mixerFamily, drumsFamily, trimsFamily, windowFamily, synthFamily;
+    var looperFamily, effectsFamily, mixerFamily, drumsFamily, trimsFamily, windowFamily, synthFamily, countFamily;
     var addCount, addFx, addReset, addRandom, fxFurther, fxPlugins, addLevel, addMute, addTiming, addLane, addTrims, addPadTrim, addGroupTrim;
     var stripLabel, inForce, trimLaw, trimText;
 
@@ -651,9 +653,26 @@
         };
     };
 
+    // The count's lights (gui-status.scd, ~countLightStep): a button's light
+    // on the controller, sent on the beat while the loop plays and the
+    // controller is sent back to. Nothing its button sends acts. `get` is
+    // what the light shows now. The beat light flashes on each beat group's
+    // first beat, longer on a bar's; the count-in light is lit through the
+    // last bar before an event the count counts in to; the odd bar light
+    // through the bar before the odd one of uneven bars (the 8 of 7+7+7+8).
+    countFamily = {
+        [[\beatLight, "Beat light"], [\countInLight, "Count-in light"], [\oddBarLight, "Odd bar light"]].do { |l|
+            add.(("count." ++ l[0]).asSymbol, l[1], "Perform", \light, (group: "Count lights",
+                get: { (~countLights ? ())[l[0]] == true },
+                format: { |v| case { v.isNil } { "—" } { v == true } { "lit" } { "dark" } },
+                available: { ~looper.notNil }));
+        };
+    };
+
     [
         [\looper, looperFamily], [\effects, effectsFamily], [\mixer, mixerFamily],
-        [\drums, drumsFamily], [\trims, trimsFamily], [\synth, synthFamily], [\window, windowFamily]
+        [\drums, drumsFamily], [\trims, trimsFamily], [\synth, synthFamily], [\window, windowFamily],
+        [\count, countFamily]
     ].do { |pair|
         if(only.isNil or: { only == pair[0] }) { try { pair[1].value } { |err|
             ("megalooper: MIDI controls: the " ++ pair[0] ++ " family could not be made ("

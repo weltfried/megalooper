@@ -56,7 +56,7 @@ offenders = { |test| targets.keys.asArray.select { |id| test.(targets[id]).not }
 count = { |test| targets.values.count(test) };
 there = { |x| x[\available].value != false };
 
-kinds = #[\trigger, \toggle, \continuous, \step, \choice];
+kinds = #[\trigger, \toggle, \continuous, \step, \choice, \light];
 tabs = ["Perform", "Grains", "Cutter", "Analysis", "Effects", "Drums", "Synth", "Rig", "Live", "Window"];
 // Dotted lower camel: words that start lower case, or a number (a pad's note).
 idShape = "^[a-z][a-zA-Z0-9]*(\\.([a-z][a-zA-Z0-9]*|[0-9]+))+$";
@@ -79,7 +79,8 @@ families = [
     [\groupTrim, "^sa\\.drums\\.groupTrim\\.(steps|onset)\\.[a-zA-Z0-9]+$", 0],
     [\synth, "^sa\\.synth\\.(on|random|reset|division|root|scale|swing|" ++ MegaSAWave.params.collect { |x| x[\name] }.join("|") ++ ")$",
         7 + MegaSAWave.params.size],
-    [\window, "^gui\\.view\\.(perform|sound|fx|drums|synth|setup|calibrate)$", 7]
+    [\window, "^gui\\.view\\.(perform|sound|fx|drums|synth|setup|calibrate)$", 7],
+    [\count, "^count\\.(beatLight|countInLight|oddBarLight)$", 3]
 ];
 familyOf = { |id| families.select { |f| f[1].matchRegexp(id.asString) }.collect { |f| f[0] } };
 // The Looper's, as table 4.2 lists them: the transport, the switches, the
@@ -172,7 +173,7 @@ protect {
     ~liveRecordSet = { |on| on };
     targets = ~tCheck.("the controls are made on a Live rig", { ~midiTargetsBuild.() }) ? IdentityDictionary.new;
 
-    ~tEq.("every control knows its own id, and its kind is one of the five",
+    ~tEq.("every control knows its own id, and its kind is one of the six",
         offenders.({ |x| (x[\id].notNil) and: { targets[x[\id]] === x } and: { kinds.includes(x[\kind]) } }), []);
     ~tEq.("...with words for a label, a tab the window has, and a group in words where there is one",
         offenders.({ |x| x[\label].isString and: { x[\label].notEmpty } and: { tabs.includesEqual(x[\path]) }
@@ -248,9 +249,9 @@ protect {
 
     live = [targets.size, count.(there)];
     ("  on a Live rig: " ++ live[0] ++ " controls, " ++ live[1] ++ " there").postln;
-    ~tEq.("on a Live rig the Looper's 44 and Live's record are there, and nothing of SA's",
+    ~tEq.("on a Live rig the Looper's 44, Live's record and the count's 3 lights are there, and nothing of SA's",
         [live[1], targets.keys.asArray.select { |id| there.(targets[id]) and: { id.asString.beginsWith("sa.") } }],
-        [45, []]);
+        [48, []]);
 
     // ------------------------------------------------------------------- laws --
     ~tEq.("every level's law goes back to where it came from, at 0, 1/4, 1/2, 3/4 and 1 ("

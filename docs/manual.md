@@ -617,6 +617,25 @@ notifications, so nothing here can be clicked into a state you didn't intend.
   count's routine sleeps to the next beat line. The grid is painted from the
   same prediction, so the two never show different beats.
 
+  **On a controller's buttons.** A controller that takes MIDI back, such as the
+  Faderfox UC4, can show the count on its buttons' lights. There are three,
+  each a control you map like any other:
+
+  - **Beat light** flashes on each beat group's first beat, and longer on a
+    bar's first;
+  - **Count-in light** is lit through the last bar before an event the count
+    counts in to, and goes out on the boundary;
+  - **Odd bar light** is lit through the bar before the odd one of uneven bars.
+
+  In MIDI Map mode, click the count and press a button to learn the beat
+  light; the other two are under **Add a mapping › Perform › Count lights**.
+  The controller needs **Send back** switched on (Setup's MIDI map section).
+  A light's button drives nothing: pressing it only has its light put right.
+  On the UC4, set the button's LED mode to **EXt** (in **Std** the UC4 lights
+  the button while you hold it), and over DIN its routing to **Rou0** or
+  **Rou4**, so it doesn't pass what it is sent back in. The lights are sent on
+  their own clock, on the beat as you hear it, not on the send-back's 20 Hz.
+
 ![The count-in](images/count-in.png)
 
 *Fig: The count-in: the next loop is armed and the playhead is in the last bar of 7+7+7+8, its third group. Two groups to go; the grid outlines the bar.*

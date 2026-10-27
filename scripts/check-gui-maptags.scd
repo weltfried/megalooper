@@ -36,7 +36,9 @@ var msgs = List.new, stub, sstub, m, d, plug, tmp, now = 1000.0;
 // The controls with no widget of their own, and why. Every other control
 // whose tab the window has must be tagged on it.
 var noWidget = IdentityDictionary[
-    'live.record' -> "Live's arrangement record: no widget, mapped from the list"
+    'live.record' -> "Live's arrangement record: no widget, mapped from the list",
+    'count.countInLight' -> "the count's count-in light: an output, mapped from the list (the count learns the beat light)",
+    'count.oddBarLight' -> "the count's odd bar light: an output, mapped from the list"
 ];
 
 (scripts +/+ "tests" +/+ "_harness.scd").load;
@@ -215,6 +217,8 @@ Routine {
             { view.isKindOf(NumberBox) } { [\step, \continuous].includes(kind) }
             { view.isKindOf(Slider) or: { view.isKindOf(Knob) } or: { view.isKindOf(LooperBar) } } {
                 [\continuous, \step].includes(kind) }
+            // A display: the count, which learns the beat light, an output.
+            { view.isKindOf(UserView) } { kind == \light }
             { false }
         };
         // Nil if moving the view moves its control as its law says, else why not.

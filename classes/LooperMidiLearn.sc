@@ -26,6 +26,10 @@
 // entry, CC 6 or 38) is refused; and several controls that would each be
 // learned, a controller sending a snapshot of its knobs, are refused.
 //
+// A light (an output: the count's lights on Perform) learns the button whose
+// light it drives, as a toggle does; a program change or a pitch bend, which
+// light nothing, is refused.
+//
 // A CC learned for a trigger or a toggle asks for two presses, and counting
 // its messages tells what kind of switch it is, once it has been quiet for
 // 1.5 s, or 4 s after its first press at most, so a control that never goes
@@ -157,11 +161,14 @@ LooperMidiLearn {
         case
         { nrpn } { this.prRefuse("this control sends NRPN, which megalooper can't learn yet") }
         { keys.size > 1 } { this.prRefuse("several controls at once — move just one") }
+        { (kind == \light) and: { keys.size == 1 } and: { [\program, \bend].includes(hits[0][\msg]) } } {
+            this.prRefuse("a light needs a button that sends a note or a CC")
+        }
         { keys.size == 1 } {
             chosen = hits[0];
             chosenKey = chosen[\key];
             // A CC on a switch is counted; everything else is learned now.
-            if((chosen[\msg] == \cc) and: { (kind == \trigger) or: { kind == \toggle } }) {
+            if((chosen[\msg] == \cc) and: { [\trigger, \toggle, \light].includes(kind) }) {
                 ^this
             };
             outcome = this.prLearned(nil, false);

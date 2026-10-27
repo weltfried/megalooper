@@ -824,7 +824,7 @@ protect {
     ~looper = nil;
     ~rp = nil;   // no rig said: one beside Live, as every rig without `live: false`
     targets = ~midiTargetsBuild.();
-    kinds = #[\trigger, \toggle, \continuous, \step, \choice];
+    kinds = #[\trigger, \toggle, \continuous, \step, \choice, \light];
     ~tEq.("the router still has the 36 controls today's numbers drive (none missing)",
         #['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 'looper.clear',
             'looper.recordNextLoop', 'looper.break', 'looper.nextReading', 'looper.reverse', 'looper.dissolve',
@@ -843,6 +843,7 @@ protect {
             case
             { t[\kind] == \trigger } { t[\fire].notNil }
             { t[\kind] == \toggle } { t[\flip].notNil }
+            { t[\kind] == \light } { t[\get].notNil }
             { t[\set].notNil and: { t[\fromPos].notNil } and: { t[\toPos].notNil } } });
     ~tAssert.("every level's law goes back to where it came from (" ++ targets.count { |t| t[\kind] == \continuous } ++ " of them)",
         targets.select { |t| t[\kind] == \continuous }.every { |t|

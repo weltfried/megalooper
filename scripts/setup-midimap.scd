@@ -1329,6 +1329,8 @@
 ~midiBackClock = {
     var gen = (~midiBackGen ? 0) + 1;
     ~midiBackGen = gen;
+    // The count's lights (gui-status.scd) keep a clock of their own, on the beat.
+    ~countLightClock !? { |f| f.value };
     if(~midiBackSrcs.notEmpty) { ~midiBackSched.(~midiBackFirst, { ~midiBackClockStep.(gen) }); true } { false }
 };
 

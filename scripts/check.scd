@@ -419,7 +419,7 @@ try {
 "== MIDI map ==".postln;
 try {
     var targets = ~midiTargetsBuild.();
-    var kinds = #[\trigger, \toggle, \continuous, \step, \choice];
+    var kinds = #[\trigger, \toggle, \continuous, \step, \choice, \light];
     var names = ~midiMapNames.(~midiShippedDir.());
     targets.keysValuesDo { |id, t|
         case
@@ -429,7 +429,10 @@ try {
             ("  TARGET " ++ id ++ " is a trigger with nothing to fire").postln; bad = bad + 1 }
         { (t[\kind] == \toggle) and: { t[\flip].isNil } and: { t[\set].isNil } } {
             ("  TARGET " ++ id ++ " is a switch that can't be switched").postln; bad = bad + 1 }
-        { (t[\kind] != \trigger) and: { t[\kind] != \toggle }
+        // A light is only sent: what it shows is all it has.
+        { (t[\kind] == \light) and: { t[\get].isNil } } {
+            ("  TARGET " ++ id ++ " is a light that shows nothing").postln; bad = bad + 1 }
+        { (t[\kind] != \trigger) and: { t[\kind] != \toggle } and: { t[\kind] != \light }
             and: { t[\set].isNil or: { t[\fromPos].isNil } or: { t[\toPos].isNil } } } {
             ("  TARGET " ++ id ++ " has no set or no law").postln; bad = bad + 1 };
         // A knob and the mouse must agree: the law back and forth is the identity.
