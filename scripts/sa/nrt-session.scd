@@ -87,7 +87,8 @@
 // NRT_SESSION_ONLY=44, 78, clock or double (or several, comma-separated) runs
 // those sets; NRT_SESSION_KEEP=1 keeps every file (the temporary folder is
 // posted); NRT_SESSION_BURNS=n burns time with n synths (default 12) from
-// each stop's stopAt to its closes, for the render's disk thread (see
+// each stop's stopAt to its closes, and NRT_SESSION_RECBURNS=n with n
+// (default 4) while each set records, for the render's disk thread (see
 // buildScore). The scores free every synth before their end (one /n_free per
 // long-lived node, /g_freeAll per voice group). Nothing is written outside
 // the run's own temporary folder.
@@ -111,8 +112,10 @@ var tmpDir = (Platform.defaultTempDir ? "/tmp") +/+ "megalooper-sa"
     +/+ ("nrt-session-" ++ Date.getDate.stamp ++ "-" ++ thisProcess.pid);
 var takeTap = repo +/+ "sessions" +/+ "260929_100616-tap.wav";
 var keep = "NRT_SESSION_KEEP".getenv == "1";
-// How many synths burn time between a stop's stopAt and its closes (buildScore).
+// How many synths burn time between a stop's stopAt and its closes, and while
+// a set records (buildScore).
 var burns = ("NRT_SESSION_BURNS".getenv ? "12").asInteger;
+var recBurns = ("NRT_SESSION_RECBURNS".getenv ? "4").asInteger;
 var only = "NRT_SESSION_ONLY".getenv !? { |v| v.split($,) };
 var wants = { |part| only.isNil or: { only.any { |x| x == part } } };
 // The render's outputs: SA's master (the mix as it leaves for the interface),
@@ -493,6 +496,27 @@ buildScore = { |rig, endT|
                 burnId = (990000 + (i * 100)) + j;
                 entries.add([s.(st[\stopAt]) - 0.001, seq, [[\s_new, \nrtSessionBurn, burnId, 0, 0, \out, rig[\burnBus].index]]]);
                 entries.add([s.(st[\stopAt] + closeWait) + 0.01, seq + 1, [[\n_free, burnId]]]);
+                seq = seq + 2;
+            };
+            defs.add(\nrtSessionBurn);
+        };
+    };
+    // ...and while a set records. A DiskOut hands each half of its ring
+    // (LooperSessionRecorder.bufFrames) to the disk thread as it fills; at
+    // forty times real time a stall of that thread longer than a few tens of
+    // ms lets the ring come round before a half is written, and the WAV then
+    // holds, for a stretch, the sound one ring later. Seen 2026-10-27 in the
+    // clock set, which writes eight WAVs for half a minute: four runs in five,
+    // the tap wrong at 16 and 21 rings in, each stretch exactly 65536 frames
+    // ahead of the input, and the stems and the master with it. recBurns
+    // synths from each set's audioAt to its stopAt slow the render there.
+    rig[\starts].do { |st, i|
+        var from = st[\audioAt], to = (rig[\stops][i] !? { |x| x[\stopAt] }) ? (endT - 0.03);
+        if(from.notNil and: { recBurns > 0 } and: { from < (endT - 0.03) } and: { to > from }) {
+            recBurns.do { |j|
+                burnId = (980000 + (i * 100)) + j;
+                entries.add([s.(from) + 0.001, seq, [[\s_new, \nrtSessionBurn, burnId, 0, 0, \out, rig[\burnBus].index]]]);
+                entries.add([s.(to.min(endT - 0.03)) - 0.002, seq + 1, [[\n_free, burnId]]]);
                 seq = seq + 2;
             };
             defs.add(\nrtSessionBurn);
