@@ -30,7 +30,7 @@
   "tools": [
     {
       "name": "get_context",
-      "description": "What megalooper is playing and how it is set: the loop's meter, its beat groups and tempo, where the playhead is, what the take played, the drums, the synth, the effect chains, the grains, the cutter."
+      "description": "What megalooper is playing and how it is set: the loop's meter, its beat groups, how the take's accents fit it and its tempo, where the playhead is, what the take played, the drums, the synth, the effect chains, the grains, the cutter."
     },
     {
       "name": "describe",

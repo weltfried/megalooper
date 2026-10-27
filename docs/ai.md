@@ -24,7 +24,7 @@ nothing waits for a bar line.
 
 | | Read | Change |
 |---|---|---|
-| **The loop** | Its meter (uneven bars too) and how each bar is grouped (2+2+3), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
+| **The loop** | Its meter (uneven bars too) and how each bar is grouped (2+2+3), how well the take's loud hits fit that meter's strong beats (the analyser's accent score), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
 | **Now** | Where the loop is (bar, beat, beat group), half-time, reverse, a break or a dissolve, the arc's intensity, and what lands on a coming boundary | — |
 | **Past sets** | Every set recorded with **Record set**: each take, what was played on its bar grid, the meter the analyser applied and its runners-up, and what you changed (readings, bars by hand, the threshold) | — |
 | **The drums** | Both step patterns, the kits and their pads | The patterns, the kit the steps play; save as a drum preset |

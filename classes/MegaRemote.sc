@@ -924,10 +924,24 @@ MegaRemote {
                     \barCount, r[\k],
                     \bpm, r[\bpm], \loopSeconds, r[\loopDur],
                     \byHand, r[\from] == \hand
-                ])
+                ] ++ this.accentOf(r))
             },
             \take, this.takeOf(looper)
         ])
+    }
+
+    // How the take's loudness fits a reading, as the analyser scored it: for
+    // a meter, accentFit, how well its loud hits fall on the meter's strong
+    // beats (the downbeat, then each beat group's first: MeterAnalyzer's
+    // accent template), 0 not at all to 1 exactly; for uneven bars,
+    // barLineAccent, how loud its bar lines are against its mean hit (1: as
+    // loud as an average hit). Neither for a reading given by hand or a
+    // fallback, which no loudness decided.
+    *accentOf { |r|
+        var a = r[\accent];
+        // A set's log holds the reading as JSON: its `from` is a String.
+        if(a.isNil or: { r[\error].notNil } or: { (r[\from] !? { |f| f.asString }) == "hand" }) { ^[] };
+        ^if(MeterAnalyzer.isUneven(r)) { [\barLineAccent, a.round(0.01)] } { [\accentFit, a.round(0.001)] }
     }
 
     // Where the loop is now and what is coming: the bar, the beat and its
@@ -1085,7 +1099,7 @@ MegaRemote {
         if(r.isNil or: { r[\denominator].isNil }) { ^nil };
         ^this.obj([\signature, MeterAnalyzer.sigString(r), \bpm, r[\bpm] !? { |b| b.round(0.1) },
             \bars, MeterAnalyzer.barsOf(r).asArray, \score, r[\score] !? { |x| x.round(0.001) },
-            \byHand, r[\from] == "hand"])
+            \byHand, r[\from] == "hand"] ++ this.accentOf(r))
     }
 
     // `limit` sets (setsMax), newest first, each in a line or two.

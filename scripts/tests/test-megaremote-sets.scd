@@ -15,7 +15,7 @@ File.mkdir(dir);
 
 // ---- the context ---------------------------------------------------------------
 // Two bars of 7/8 at 120 (an eighth 0.25 s), 1.1 s into a pass.
-r78 = (numerator: 7, denominator: 8, tau: 0.25, sub: 1, k: 2, loopDur: 3.5, bpm: 120, n: 14, phase: 0);
+r78 = (numerator: 7, denominator: 8, tau: 0.25, sub: 1, k: 2, loopDur: 3.5, bpm: 120, n: 14, phase: 0, accent: 0.6234);
 l = ~tLooper.();
 ~tPut.(l, \state, \playing);
 ~tPut.(l, \loopFrames, (3.5 * 48000).asInteger);
@@ -25,6 +25,12 @@ r = MegaRemote({ (looper: l, sa: nil, profile: \sa, sessionDir: dir) });
 got = ask.(r, "{\"command\": \"context\"}").at("result");
 ~tEq.("the reading says how each bar is grouped: 2+2+3 in 7/8", got.at("loop").at("reading").at("groups"),
     [[2, 2, 3], [2, 2, 3]]);
+~tEq.("...how its loud hits fit the meter's strong beats, as the analyser scored it",
+    [got.at("loop").at("reading").at("accentFit"), got.at("loop").at("reading").at("barLineAccent")], [0.623, nil]);
+~tEq.("...for uneven bars, the bar lines against the mean hit; none for bars given by hand or a fallback",
+    [MegaRemote.accentOf(r78.copy.putAll((bars: [7, 7, 7, 8], accent: 1.347))),
+        MegaRemote.accentOf(r78.copy.put(\from, \hand)), MegaRemote.accentOf(r78.copy.put(\error, \lengthAnchored))],
+    [[\barLineAccent, 1.35], [], []]);
 o = got.at("now");
 ~tEq.("now: 1.1 s in, bar 1, beat 5, the third group's first beat, at full speed",
     [o.at("playing"), o.at("bar"), o.at("beat"), o.at("group"), o.at("groupBeat"), o.at("halfTime"), o.at("speed")],
@@ -53,7 +59,7 @@ o = ask.(r, "{\"command\": \"context\"}").at("result").at("now");
 
 // ---- the sets recorded before ---------------------------------------------------------
 json78 = "{\"numerator\": 7, \"denominator\": 8, \"tau\": 0.25, \"sub\": 1, \"k\": 2, \"loopDur\": 3.5, "
-    "\"bpm\": 120.0, \"score\": 0.8}";
+    "\"bpm\": 120.0, \"score\": 0.8, \"accent\": 0.5}";
 json148 = "{\"numerator\": 14, \"denominator\": 8, \"tau\": 0.25, \"sub\": 1, \"k\": 1, \"loopDur\": 3.5, "
     "\"bpm\": 120.0, \"score\": 0.7}";
 lines = [
@@ -84,6 +90,7 @@ o = got.at("sets")[0];
     [o.at("day"), o.at("started"), o.at("minutes"), o.at("takes").collect { |t| [t.at("at"),
         t.at("reading").at("signature"), t.at("reading").at("bpm"), t.at("reading").at("bars")] }],
     ["Tue Oct 20", "10:00:00", 1.0, [["10:00:05", "7/8", 120.0, [7, 7]]]]);
+~tEq.("...the readings' accent fit too, as logged", o.at("takes")[0].at("reading").at("accentFit"), 0.5);
 ~tEq.("...what the players changed, and the drums' hits counted",
     [o.at("readingsArmed"), o.at("readingsLanded"), o.at("readingsCancelled"), o.at("thresholdChanges"), o.at("drumHits")],
     [1, 1, 0, 1, 2]);
