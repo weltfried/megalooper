@@ -1266,6 +1266,9 @@ Looper {
             if(applied) {
                 loopFrames = newFrames;
                 engineSynth.set(\loopFrames, loopFrames);
+                // Grains switched on during the analysis took the raw length
+                // and a pulse of a quarter of it.
+                this.prGranularFollow;
                 // Built against the ENGINE's period rather than result.loopDur:
                 // they differ by the frame rounding above, and over a long take
                 // that difference is what would walk the pattern off the audio.
@@ -1375,8 +1378,10 @@ Looper {
         loopStartTime = SystemClock.seconds;
         // A granular layer toggled on over the stopped loop had no engine to
         // follow and scans freely; now there is one, and the new engine sits
-        // ahead of it in the node order. See \looperGranular.
+        // ahead of it in the node order. See \looperGranular. And it reads
+        // what this engine reads (Record next loop swapped the buffers).
         granularSynth !? { |g| g.set(\locked, 1) };
+        this.prGranularFollow;
         // Every path that starts audio comes through here, so this is where the
         // onset-note pattern re-aligns — to the audio's own start, not to
         // whenever the caller got around to it.
@@ -1604,6 +1609,7 @@ Looper {
         // attacks at all still gets onset notes, from the overdub that gave it
         // its meter.
         this.prBuildOnsetPattern(folded, loopSecs);
+        this.prGranularFollow;
         onAnalysis.value(result);
         this.changed(\overdubDetected, result);
         this.prLogEvent(\overdubDetect, (outcome: \applied, force: force,
@@ -4116,7 +4122,7 @@ Looper {
         // The grains take the new pulse at once; the click restarts on it. The
         // onset notes are the hits that were played and never looked at the
         // meter; the dissolve reads the bar from lastResult when it is armed.
-        granularSynth !? { |g| result[\tau] !? { |t| g.set(\tau, t / speed) } };
+        this.prGranularFollow;
         if(clickRoutine.notNil and: { result[\tau].notNil }) {
             this.startClick(result[\tau], this.class.prClickBars(result));
         };
@@ -4233,13 +4239,7 @@ Looper {
             this.changed(\granular, false);
             ^this.prRefused(\granular, "no loop recorded")
         };
-        tau = if(lastResult.notNil and: { lastResult.tau.notNil }) {
-            lastResult.tau
-        } {
-            loopFrames / server.sampleRate / 4
-        };
-        // At half-time a pulse lasts twice as long: the pulsed grains too.
-        tau = tau / speed;
+        tau = this.prGranularTau;
         args = [
             \bufnum, buffer.bufnum,
             \out, outBus.index,
@@ -4264,6 +4264,30 @@ Looper {
             ++ (if(engineSynth.notNil) { ", locked to the loop" } { ", free (loop stopped)" })
             ).postln;
         this.changed(\granular, true);
+    }
+
+    // The pulse the grains play at morph 1: the reading's, or a quarter of
+    // the loop where there is none. At half-time a pulse lasts twice as long:
+    // the pulsed grains too.
+    prGranularTau {
+        var tau = if(lastResult.notNil and: { lastResult.tau.notNil }) { lastResult.tau } {
+            loopFrames / server.sampleRate / 4
+        };
+        ^tau / speed
+    }
+
+    // The grains read what the engine reads. Their synth is given the buffer,
+    // its start, the loop's length and the pulse when spawned; every change of
+    // those that spawns no grains synth sends them here: Record next loop's
+    // swap of the two buffers (spawnEngine), multiply, undo, a take's
+    // analysis, an overdub's and a reading's landing. Without it the grains
+    // went on reading the old loop after a swap, in the buffer the next
+    // capture then recorded into (roadmap item 20, found on the way).
+    prGranularFollow {
+        granularSynth !? { |g|
+            g.set(*([\startFrame, startFrame, \loopFrames, loopFrames, \tau, this.prGranularTau]
+                ++ (buffer !? { |b| [\bufnum, b.bufnum] } ? [])));
+        };
     }
 
     // The whole granular control set as synth args, in ONE place, so a fresh
@@ -4451,6 +4475,7 @@ Looper {
         loopFrames = newFrames;
         engineSynth !? { |s| s.set(\loopFrames, newFrames) };
         this.prScaleResultLength(factor);
+        this.prGranularFollow;
         this.prLogEvent(\multiply, (factor: factor, loopDur: this.loopDuration));
         ("Multiplied to " ++ factor ++ "x.").postln;
     }
@@ -4536,6 +4561,7 @@ Looper {
                 s.set(\recEnable, 0);
             };
             if(state == \overdubbing) { this.prSetState(\playing) };
+            this.prGranularFollow;
             // Undo does not respawn the engine, so loopStartTime is untouched and
             // nothing else here would pick up the restored pattern.
             this.startOnsetNotes;

@@ -24,6 +24,7 @@ var files = [
     "test-megafiles.scd",
     "test-synthdefs.scd",
     "test-onset-notes.scd",
+    "test-grains-follow.scd",
     "test-chain-timing.scd",
     "test-preset-storage.scd",
     "test-preset-bar.scd",

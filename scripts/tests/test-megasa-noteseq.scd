@@ -230,6 +230,40 @@ ns = ~nsSounding.(fx[\log]).select { |n| n[\grid] >= 96.0 };
 d.free;
 }.value;
 
+// The Looper's break silences the synth as it silences the loop: from the
+// moment heard (the stomp less the loop's 20 ms) to the boundary it resumes
+// on. The Main | BREAK switch by hand changes the drums' pattern only.
+{
+var fx = ~nsMake.(), d = fx[\drums], ns, before;
+d.setNotesOn(true, 91.0);
+~nsStart.(fx, 92.0);
+~nsRun.(fx, 93.2);
+d.breakOpened(93.32);
+d.breakEndsAt(94.0, 93.33);
+~nsRun.(fx, 95.0);
+ns = ~nsSounding.(fx[\log]).collect(_[\grid]);
+~tAssert.("notes were sent around the break", ns.size > 8);
+~tEq.("a break: no note in the hole (93.3 to 94.0), the notes before it and from its end on play",
+    [ns.select { |t| (t >= 93.3) and: { t < 94.0 } }, ns.includes(93.25), ns.select { |t| t >= 94.0 }.keep(2).round(1e-6)],
+    [[], true, [94.0, 94.125]]);
+~tEq.("...the hits it cancelled were the ones decided ahead in the hole",
+    ~nsNotes.(fx[\log]).select(_[\cancelled]).every { |n| (n[\grid] >= 93.3) and: { n[\grid] < 94.0 } }, true);
+before = ~nsSounding.(fx[\log]).size;
+d.setBreakPattern(true, 95.02);
+~nsRun.(fx, 96.0);
+ns = ~nsSounding.(fx[\log]).collect(_[\grid]).select { |t| (t >= 95.0) and: { t < 96.0 } };
+~tEq.("the Break pattern switched in by hand: the drums change, the synth plays on",
+    [d.breakActive, ns.size], [true, 8]);
+d.setBreakPattern(false, 96.0);
+d.breakOpened(96.52);
+d.breakClosed(96.77);
+~nsRun.(fx, 97.5);
+ns = ~nsSounding.(fx[\log]).collect(_[\grid]).select { |t| (t >= 96.0) and: { t < 97.5 } };
+~tEq.("a break cut short (a stop or a clear): the synth from the moment heard on",
+    ns.round(1e-6), [96.0, 96.125, 96.25, 96.375, 96.75, 96.875, 97.0, 97.125, 97.25, 97.375]);
+d.free;
+}.value;
+
 // Restarts, ratchets, the shift, swing, a rate edit.
 {
 var run = { |setup, to = 96.0|

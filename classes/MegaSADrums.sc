@@ -87,7 +87,9 @@
 // A third part of the pump (see The note sequencer below): MegaSANoteSeq's
 // pattern stepped on the same grid, epochs and segments, its notes hits of
 // their own slot (\synth) with cancel busses as the drums' have, judged by
-// its own switch (notesOn) instead of PC 17 and the break.
+// its own switch (notesOn) instead of PC 17, and silent in the Looper's
+// break, as the loop is (not in the Main | BREAK switch by hand, which
+// changes the drums' pattern and silences nothing).
 //
 // Like MegaSA it does not survive Cmd-period: nothing re-creates its nodes or
 // its routine. Re-run boot.scd.
@@ -147,6 +149,10 @@ MegaSADrums {
     // inf.neg, in time order).
     var epochs, epochCount = 0, cursors, stepLogs, pending, <decided, playheads;
     var breakHist, onHist, playHist, breakEnd, rawEnd;
+    // The Looper's break alone, true while its hole is heard: the pattern's
+    // history (breakHist) is switched by hand too, and the synth keeps quiet
+    // in the hole only (prWants).
+    var holeHist;
     var pendingLanding;
     var stepSerial = 0, recSerial = 0, onsetRunSerial = 0;
     var busy = false, jobs, queuedNotes;
@@ -219,6 +225,7 @@ MegaSADrums {
         decided = List.new;
         playheads = (main: List.new, break: List.new);
         breakHist = [[inf.neg, \main]];
+        holeHist = [[inf.neg, false]];
         onHist = [[inf.neg, true]];
         playHist = [[inf.neg, false]];
         jobs = List.new;
@@ -1532,10 +1539,12 @@ MegaSADrums {
             old = breakEnd;
             breakEnd = nil;
             breakHist = this.class.historyFrom(breakHist, old, \break);
+            holeHist = this.class.historyFrom(holeHist, old, true);
             this.prRequest([\cut, old]);
         } {
             breakEnd = nil;
             breakHist = this.class.historyFrom(breakHist, t - this.class.loopAudioDelay, \break);
+            holeHist = this.class.historyFrom(holeHist, t - this.class.loopAudioDelay, true);
             this.prRequest([\cut, t - this.class.loopAudioDelay]);
         };
         this.prUpdateBreakActive(wall);
@@ -1563,6 +1572,7 @@ MegaSADrums {
             this.prNearestSixteenth(x)
         };
         breakHist = this.class.historyFrom(breakHist, breakEnd, \main);
+        holeHist = this.class.historyFrom(holeHist, breakEnd, false);
         this.prRequest([\cut, breakEnd]);
         this.prUpdateBreakActive(wallClock.value);
     }
@@ -1583,6 +1593,7 @@ MegaSADrums {
             breakEnd = nil;
             edge = now - this.class.loopAudioDelay;
             breakHist = this.class.historyFrom(breakHist, edge, \main);
+            holeHist = this.class.historyFrom(holeHist, edge, false);
             this.prRequest([\cut, edge]);
         };
         this.prUpdateBreakActive(wall);
@@ -2045,6 +2056,7 @@ MegaSADrums {
         if(rec[\slot] == \synth) {
             ep = this.prEpochAt(g);
             ^(ep.notNil and: { ep[\id] == rec[\epoch] }) and: { this.prNotesOnAt(g) } and: { this.prPlayingAt(g) }
+                and: { this.prHoleAt(g).not }
         };
         if(rec[\slot] != \steps) { ^true };
         ep = this.prEpochAt(g);
@@ -2811,6 +2823,7 @@ MegaSADrums {
     // ---- Lookups --------------------------------------------------------------
 
     prPatternAt { |g| ^this.class.historyAt(breakHist, g) }
+    prHoleAt { |g| ^this.class.historyAt(holeHist, g) }
     prOnAt { |g| ^this.class.historyAt(onHist, g) }
     prPlayingAt { |g| ^this.class.historyAt(playHist, g) }
     prNotesOnAt { |g| ^this.class.historyAt(notesHist, g) }
@@ -2898,6 +2911,7 @@ MegaSADrums {
         while { noteHeads.size > 64 } { noteHeads.removeAt(0) };
         notesHist = this.class.historyPruned(notesHist, before);
         breakHist = this.class.historyPruned(breakHist, before);
+        holeHist = this.class.historyPruned(holeHist, before);
         onHist = this.class.historyPruned(onHist, before);
         playHist = this.class.historyPruned(playHist, before);
         repeatHist = this.class.historyPruned(repeatHist, before);

@@ -452,7 +452,9 @@ only something leave: the step sequencer switches to its **Break** pattern for
 exactly the break's length, and the Main pattern is back on the downbeat with
 the loop. Edit the Break pattern on the Drums view.
 
-A break silences everything the looper makes, the onset notes included.
+A break silences everything the looper makes, the onset notes and the synth's
+note sequence included. (Main | BREAK switched by hand on the Drums view
+changes the drums' pattern only.)
 
 ### GUI
 

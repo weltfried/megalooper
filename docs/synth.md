@@ -18,7 +18,8 @@ from wherever the drums' grid is.
 
 It plays whether the drums themselves are on or not. The drums' switch
 doesn't touch it: only its own switch does. Stop
-silences it with everything else.
+silences it with everything else, and so does the loop's break, for as long as
+the loop is silent.
 
 A fresh install starts with a line in C minor round the root, on all sixteen
 steps. Make it yours, then press **Start with this** (see
