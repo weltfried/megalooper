@@ -186,9 +186,9 @@ var mixes = { |l| [l.prLoopMix, l.prBBCutMix, l.prGranularMix] };
 // ---- arming and aborting ----------------------------------------------------
 {
     var l = playing.();
-    l.dissolveBars = 0;   ~tEq.("dissolveBars clips up to 1",   l.dissolveBars, 1);
-    l.dissolveBars = 999; ~tEq.("dissolveBars clips down to 64", l.dissolveBars, 64);
-    l.dissolveBars = 8;   ~tEq.("dissolveBars accepts 8",        l.dissolveBars, 8);
+    l.dissolveLoops = 0;   ~tEq.("dissolveLoops clips up to 1",   l.dissolveLoops, 1);
+    l.dissolveLoops = 999; ~tEq.("dissolveLoops clips down to 32", l.dissolveLoops, 32);
+    l.dissolveLoops = 8;   ~tEq.("dissolveLoops accepts 8",        l.dissolveLoops, 8);
 }.value;
 
 {
@@ -269,7 +269,7 @@ var mixes = { |l| [l.prLoopMix, l.prBBCutMix, l.prGranularMix] };
 
 {
     var l = playing.();
-    l.dissolveBars = 64;      // long enough not to complete during the test
+    l.dissolveLoops = 32;     // long enough not to complete during the test
     l.startDissolve;
     ~tAssert.("startDissolve arms", l.dissolving);
     l.stopPlayback;
@@ -279,7 +279,7 @@ var mixes = { |l| [l.prLoopMix, l.prBBCutMix, l.prGranularMix] };
 
 {
     var l = playing.();
-    l.dissolveBars = 64;
+    l.dissolveLoops = 32;
     l.startDissolve;
     l.clear;
     ~tAssert.("clear cancels a running dissolve", l.dissolving.not);

@@ -320,7 +320,7 @@ protect {
         ['looper.dissolveBars', 'looper.breakLoops', 'looper.onsetNote', 'looper.onsetNoteVelLo',
             'looper.onsetNoteVelHi', 'looper.onsetNoteDynRange', 'looper.onsetNoteGateMs'].collect { |id|
             [targets[id][\fromPos].value(0), targets[id][\fromPos].value(1)] },
-        [[1, 64], [1, 8], [0, 127], [1, 127], [1, 127], [1, 90], [1, 1000]]);
+        [[1, 32], [1, 8], [0, 127], [1, 127], [1, 127], [1, 90], [1, 1000]]);
 
     // ------------------------------------------------------- choices' items --
     source = { |file| File.readAllString(scripts +/+ file) ? "" };
@@ -350,9 +350,9 @@ protect {
     ~tEq.("...and reads back through the model", [l.masterAmp, targets['looper.masterAmp'][\get].value], [0.42, 0.42]);
     ~tEq.("Chance likewise", [heard.(l, { act.('looper.onsetNoteChance', [\position, 0.3]) }), l.onsetNoteChance],
         [[[\onsetNoteChance, 0.3]], 0.3]);
-    ~tEq.("a count is set in whole numbers: Dissolve bars halfway is 33",
-        [heard.(l, { act.('looper.dissolveBars', [\position, 0.5]) }), l.dissolveBars,
-            targets['looper.dissolveBars'][\get].value], [[[\dissolveBars, 33]], 33, 33]);
+    ~tEq.("a count is set in whole numbers: Dissolve loops halfway is 17 (its id from when it counted bars)",
+        [heard.(l, { act.('looper.dissolveBars', [\position, 0.5]) }), l.dissolveLoops,
+            targets['looper.dissolveBars'][\get].value], [[[\dissolveLoops, 17]], 17, 17]);
     ~tEq.("...the break's loops at the top, the gate at the bottom",
         [heard.(l, { act.('looper.breakLoops', [\position, 1]) }), heard.(l, { act.('looper.onsetNoteGateMs', [\position, 0]) })],
         [[[\breakLoops, 8]], [[\onsetNoteGateMs, 1]]]);

@@ -209,7 +209,7 @@ gestures = [
     [\pedal,            4, { |l| l.intensity = 1.0.rand }],
     [\pedalHeel,        4, { |l| l.intensity = 0 }],
     [\pedalToe,         4, { |l| l.intensity = 1 }],
-    [\setDissolveBars,  4, { |l| l.dissolveBars = (1..64).choose }],
+    [\setDissolveLoops, 4, { |l| l.dissolveLoops = (1..32).choose }],
     [\armDissolve,      4, { |l| l.startDissolve }],
     [\abortDissolve,    4, { |l| l.cancelDissolve }],
     [\rampTo,           4, { |l| rampTo.(l, 1.0.rand) }],
@@ -269,8 +269,8 @@ invariants = [
             bad.add("dissolvePos " ++ l.dissolvePos) };
         if((l.breakLoops < 1) or: { l.breakLoops > 8 }) {
             bad.add("breakLoops " ++ l.breakLoops) };
-        if((l.dissolveBars < 1) or: { l.dissolveBars > 64 }) {
-            bad.add("dissolveBars " ++ l.dissolveBars) };
+        if((l.dissolveLoops < 1) or: { l.dissolveLoops > 32 }) {
+            bad.add("dissolveLoops " ++ l.dissolveLoops) };
         bad
     }],
 

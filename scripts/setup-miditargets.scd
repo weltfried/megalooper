@@ -292,7 +292,8 @@
         [
             // id, label, tab, group, the property, its box's range (the
             // model's own), the unit its box's neighbour shows
-            ['looper.dissolveBars', "Dissolve bars", "Perform", "Actions", \dissolveBars, 1, 64, ""],
+            // Its id from when the ending counted bars (2026-10-27: loop passes).
+            ['looper.dissolveBars', "Dissolve loops", "Perform", "Actions", \dissolveLoops, 1, 32, ""],
             ['looper.breakLoops', "Loops", "Perform", "Break", \breakLoops, 1, 8, ""],
             ['looper.onsetNote', "Note", "Analysis", "Onset notes", \onsetNote, 0, 127, nil],
             ['looper.onsetNoteVelLo', "Vel low", "Analysis", "Onset notes", \onsetNoteVelLo, 1, 127, ""],

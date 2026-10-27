@@ -357,11 +357,13 @@
         { |lp, v| lp.breakLoops = v },
         "How many loop passes a break covers, counting the one you struck it in.\n"
             "So 1 — the default — comes back on the NEXT downbeat; 2 buys a full pass on top of it.");
-    ~dissolveBarsField = stepper.('looper.dissolveBars', 1, 64, l !? { |lp| lp.dissolveBars } ? 8,
-        { |lp, v| lp.dissolveBars = v }, "How many bars the ending takes.");
+    ~dissolveLoopsField = stepper.('looper.dissolveBars', 1, 32, l !? { |lp| lp.dissolveLoops } ? 4,
+        { |lp, v| lp.dissolveLoops = v },
+        "How many loop passes the ending takes, from the press: 4 by default.\n"
+            "Passes, as a break counts them, whatever bars the analyser read.");
     steppers = HLayout(
         ~guiCaption.("BREAK LOOPS"), ~breakLoopsField, nil,
-        ~guiCaption.("DISSOLVE BARS"), ~dissolveBarsField
+        ~guiCaption.("DISSOLVE LOOPS"), ~dissolveLoopsField
     ).margins_(0).spacing_(8);
 
     // ---- Macros -------------------------------------------------------------------------------
@@ -618,7 +620,8 @@
             ~performPaintAction.(\dissolve, (l.dissolvePos * 100).round.asInteger.asString ++ "% · press to abort",
                 (fill: ~gt[\ink], ink: ~gt[\bg], border: ~gt[\ink]));
         } {
-            ~performPaintAction.(\dissolve, l.dissolveBars.asString ++ " bars · cutter first");
+            ~performPaintAction.(\dissolve, l.dissolveLoops.asString ++ " loop" ++ (if(l.dissolveLoops > 1) { "s" } { "" })
+                ++ " · cutter first");
         };
     };
 };

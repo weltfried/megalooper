@@ -959,7 +959,7 @@ MegaRemote {
             \onBreak, looper.onBreak,
             \dissolving, looper.dissolving, \dissolve, looper.dissolvePos.round(0.01),
             \intensity, looper.intensity,
-            \breakLoops, looper.breakLoops, \dissolveBars, looper.dissolveBars,
+            \breakLoops, looper.breakLoops, \dissolveLoops, looper.dissolveLoops,
             \coming, if(moving) { looper.upcoming(now).collect { |e|
                 this.obj([\what, e[\what].asString, \inSeconds, (e[\at] - now).max(0).round(0.01)]) } } { [] }
         ])

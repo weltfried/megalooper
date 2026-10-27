@@ -355,8 +355,9 @@ chopping and no grains; toe is the cutter chopping as you dialled it in and the
 granular layer at its set level.
 
 **Dissolve** is the ending. Arm it with the Dissolve button, key `D`, or a
-footswitch mapped to it, and it runs over **Dissolve bars** (Perform, 1–64,
-default 8), so both hands are free for the last melody; press
+footswitch mapped to it, and it runs over **Dissolve loops** (Perform, 1–32
+passes of the loop from the press, default 4: passes, as a break counts them,
+whatever bars the analyser read), so both hands are free for the last melody; press
 again to abort and restore. Things leave in the order that sounds like a piece
 ending rather than like a fader going down — **the cutter first, then the body
 of the loop, and the granular haze last.**
@@ -519,7 +520,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve bars, and the **macros**: Master, Arc, Onset |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, and the **macros**: Master, Arc, Onset |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |

@@ -169,7 +169,7 @@ land.(l);
 l.reverse;
 ~tEq.("...reversed, backwards at it", ~tLastSet.(l, b, \rate), -0.5);
 l.reverse;
-~tNear.("a dissolve's bar at half-time lasts twice as long", l.prBarDuration, 3.5, 1e-9);
+~tNear.("a dissolve of two passes at half-time: each pass twice as long", l.dissolveDuration(2), 14.0, 1e-9);
 l.stopPlayback;
 
 // ---- what keeps time with it -----------------------------------------------------------------

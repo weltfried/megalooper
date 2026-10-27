@@ -160,8 +160,8 @@
             { ~statusPaintState !? { |f| f.() };
               ~performPaintCounting !? { |f| f.() } }.defer;
         })
-        .put(\dissolveBars, { |looper, what, val|
-            { ~dissolveBarsField !? { |f| if(f.isClosed.not) { f.value = val } };
+        .put(\dissolveLoops, { |looper, what, val|
+            { ~dissolveLoopsField !? { |f| if(f.isClosed.not) { f.value = val } };
               ~performPaintCounting !? { |f| f.() } }.defer;
         })
         .put(\breakLoops, { |looper, what, val|

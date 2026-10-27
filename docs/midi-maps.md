@@ -78,7 +78,8 @@ say `guitar` in their ids, as in `sa.level.guitar`.
 
 - `trigger`, `stop`, `multiply`, `undo`, `clear`, `reverse`, `halfTime`,
   `recordNextLoop`, `break`, `nextReading`, `revertReading`
-- `dissolve`, `dissolveBars`, `breakLoops`, `sessionRecording`
+- `dissolve`, `dissolveBars` (Dissolve loops: the id is from when it counted
+  bars), `breakLoops`, `sessionRecording`
 - `bbcut`, `bbcutMode`, `granular`
 - `intensity`, `feedback`, `onsetThreshold`, `masterAmp`
 

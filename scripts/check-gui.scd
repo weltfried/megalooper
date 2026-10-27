@@ -165,7 +165,7 @@ s.waitForBoot {
      [\breakButton, ~breakButton], [\breakLoopsField, ~breakLoopsField],
      [\intensitySlider, ~intensitySlider], [\dissolveButton, ~dissolveButton],
      [\sessionRecButton, ~sessionRecButton], [\guiSessionRecLabel, ~guiSessionRecLabel],
-     [\dissolveBarsField, ~dissolveBarsField], [\mapButton, ~mapButton], [\guiTakeLabel, ~guiTakeLabel]
+     [\dissolveLoopsField, ~dissolveLoopsField], [\mapButton, ~mapButton], [\guiTakeLabel, ~guiTakeLabel]
     // The transport's row: Live's, or the drums' on SA; standalone has none.
     ] ++ if(~rigTransportWords.(~rp).notNil) { [[\transportModeMenu, ~transportModeMenu]] } { [] }).do { |pair|
         ~ok.(pair[0].asString ++ " alive",
@@ -248,9 +248,9 @@ s.waitForBoot {
         ~dissolveButton.sub);
     ~ok.("and the looper is not stuck dissolving", ~looper.dissolving.not);
     ~ok.("and the arc is back at 0", ~looper.dissolvePos == 0);
-    ~looper.dissolveBars = 16; 0.3.wait;
-    ~ok.("dissolve-bars field followed the model",
-        ~dissolveBarsField.value == 16, ~dissolveBarsField.value.asString);
+    ~looper.dissolveLoops = 16; 0.3.wait;
+    ~ok.("dissolve-loops field followed the model",
+        ~dissolveLoopsField.value == 16, ~dissolveLoopsField.value.asString);
 
     "== intensity drives cutter density ==".postln;
     // The Cutter pane is hidden (Setup is showing), which is the point: the

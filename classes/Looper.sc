@@ -232,7 +232,7 @@ Looper {
     // per-voice cutter mix and the granular level stay exactly where they were
     // set, so the GUI keeps telling the truth about them while the arc moves.
     var <intensity = 1.0;
-    var <dissolvePos = 0.0, <dissolveBars = 8, <dissolving = false;
+    var <dissolvePos = 0.0, <dissolveLoops = 4, <dissolving = false;
     var <>dissolveStops = true;
     var dissolveRoutine;
     // ---- Readings -----------------------------------------------------------
@@ -3515,29 +3515,38 @@ Looper {
         this.changed(\intensity, intensity);
     }
 
-    dissolveBars_ { |n|
-        dissolveBars = n.asInteger.clip(1, 64);
-        this.changed(\dissolveBars, dissolveBars);
+    // How many loop passes the ending takes, 1..32. Passes, as a break
+    // counts, not bars: the analyser merges bars (two of 6/8 are one of 12/8
+    // to it), so "8 bars" could be sixteen of the player's; a pass is what
+    // everyone hears (roadmap item 1, 2026-10-27).
+    dissolveLoops_ { |n|
+        dissolveLoops = n.asInteger.clip(1, 32);
+        this.changed(\dissolveLoops, dissolveLoops);
     }
+
+    // How long an ending of `loops` passes lasts, in seconds, at the speed
+    // now: at half-time a pass lasts twice as long, so a dissolve can end a
+    // piece there.
+    dissolveDuration { |loops| ^this.wallPeriod * (loops ? dissolveLoops).asInteger.clip(1, 32) }
 
     // Run the ending. Armed once and then audible all the way down, which is
     // what lets the bass player hear it coming and play into it — the reason
     // nothing here is probabilistic.
-    startDissolve { |bars|
-        var n   = (bars ? dissolveBars).asInteger.clip(1, 64);
-        var dur = this.prBarDuration * n;
+    startDissolve { |loops|
+        var n   = (loops ? dissolveLoops).asInteger.clip(1, 32);
+        var dur = this.dissolveDuration(n);
         if((state != \playing) and: { state != \overdubbing }) {
             "Dissolve: nothing is playing.".warn;
             ^this.prRefused(\dissolve, "nothing playing")
         };
         if(dur <= 0) {
-            "Dissolve: no loop length to measure a bar against.".warn;
-            ^this.prRefused(\dissolve, "no loop length to measure a bar against")
+            "Dissolve: no loop length to measure it against.".warn;
+            ^this.prRefused(\dissolve, "no loop length to measure it against")
         };
         dissolveRoutine = this.prStopRoutine(dissolveRoutine);
         dissolving = true;
         this.changed(\dissolving, true);
-        ("Dissolving over " ++ n ++ " bar(s), " ++ dur.round(0.01) ++ " s.").postln;
+        ("Dissolving over " ++ n ++ " loop(s), " ++ dur.round(0.01) ++ " s.").postln;
         dissolveRoutine = Routine {
             var t0 = SystemClock.seconds;
             var hz = 30;
@@ -3602,20 +3611,6 @@ Looper {
     breakLoops_ { |n|
         breakLoops = n.asInteger.clip(1, 8);
         this.changed(\breakLoops, breakLoops);
-    }
-
-    // One bar, in seconds. A take that fit no pulse grid has no bar to speak
-    // of, so the whole loop stands in as the only musical unit there is —
-    // better than refusing, and it still resumes in phase. With uneven bars it
-    // is their mean: the dissolve's length, which a ramp across 7 7 7 8 need
-    // not land bar by bar.
-    prBarDuration {
-        var r = lastResult;
-        if(r.notNil and: { r[\error].isNil }
-            and: { r[\tau].notNil } and: { r[\numerator].notNil }) {
-            ^(r[\tau] * (r[\sub] ? 1) * MeterAnalyzer.unitsOf(r) / MeterAnalyzer.barsOf(r).size) / speed
-        };
-        ^this.wallPeriod
     }
 
     // How long a break lasts, given where the playhead is when it is struck.
@@ -4121,7 +4116,7 @@ Looper {
         };
         // The grains take the new pulse at once; the click restarts on it. The
         // onset notes are the hits that were played and never looked at the
-        // meter; the dissolve reads the bar from lastResult when it is armed.
+        // meter; the dissolve counts passes, which no reading changes.
         this.prGranularFollow;
         if(clickRoutine.notNil and: { result[\tau].notNil }) {
             this.startClick(result[\tau], this.class.prClickBars(result));
