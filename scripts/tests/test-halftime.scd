@@ -121,12 +121,9 @@ l.startOverdub;
 l.multiply;
 l.undo;
 l.recordNextLoop;
-l.enableBBCut;
-l.toggleGranular;
-l.startDissolve;
-~tEq.("armed: an overdub, multiply, undo, Rec next loop, the cutter, the grains, a dissolve are refused, saying why",
-    refused.collect(_.first).asArray, [\trigger, \multiply, \undo, \recordNextLoop, \bbcut, \granular, \dissolve]);
-~tEq.("...and nothing of them happened", [l.state, ~tGet.(l, \nextRecState), l.granularOn], [\playing, \idle, false]);
+~tEq.("armed: an overdub, multiply, undo, Rec next loop are refused, saying why",
+    refused.collect(_.first).asArray, [\trigger, \multiply, \undo, \recordNextLoop]);
+~tEq.("...and nothing of them happened", [l.state, ~tGet.(l, \nextRecState)], [\playing, \idle]);
 l.stopPlayback;
 ~tEq.("stop puts it back to speed 1, off", [l.halfTime, l.speed], [\off, 1]);
 l = fresh.();
@@ -135,18 +132,45 @@ l.toggleHalfTime;
 ~tPut.(l, \state, \stopped);
 l.toggleHalfTime;
 ~tPut.(l, \state, \playing);
-~tPut.(l, \bbcut, true);
+~tPut.(l, \bbcutEnabling, true);
 l.toggleHalfTime;
-~tPut.(l, \bbcut, false);
+~tPut.(l, \bbcutEnabling, false);
 ~tPut.(l, \nextRecState, \armed);
 l.toggleHalfTime;
 ~tPut.(l, \nextRecState, \idle);
 ~tPut.(l, \dissolvePos, 0.3);
 l.toggleHalfTime;
-~tEq.("refused: overdubbing, stopped, with the cutter, with the next loop armed, in a dissolve",
+~tEq.("refused: overdubbing, stopped, the cutter starting, with the next loop armed, in a dissolve",
     refused.collect(_.last).asArray, ["end the overdub first", "half-time needs a loop playing",
-        "the cutter doesn't follow half-time yet", "Rec next loop is on", "a dissolve is on"]);
+        "the cutter is starting", "Rec next loop is on", "a dissolve is on"]);
 ~tEq.("...and nothing armed", l.halfTime, \off);
+
+// ---- the cutter, the grains and a dissolve follow it (3b) --------------------------------------
+~tPut.(l, \dissolvePos, 0);
+~tPut.(l, \bbcut, true);
+now = SystemClock.seconds;
+~tPut.(l, \loopStartTime, (now + 0.3) - ld);
+l.toggleHalfTime;
+~tEq.("with the cutter on, a press 0.3 s before a boundary arms the one after (the cutter needs half a second)",
+    (l.halfTimeAt - (now + 0.3 + ld)).abs < 0.01, true);
+l.toggleHalfTime;
+~tPut.(l, \bbcut, false);
+~tPut.(l, \outBus, (index: 4));
+b = l.bbcutSpawnParams(0.5);
+~tEq.("the cutter at half-time: its clocks at half tempo (2 beats a second for a 0.25 s pulse), a pulse 0.5 s",
+    [b[\baseBps], b[\tau]], [2.0, 0.5]);
+~tEq.("...at the loop's speed by default", l.bbcutSpawnParams[\baseBps], 4.0);
+~tPut.(l, \granularSynth, (b = ~tStubSynth.(l, \looperGranular)));
+~tPut.(l, \loopStartTime, SystemClock.seconds - 1.0);
+l.toggleHalfTime;
+land.(l);
+~tEq.("landed: the grains scan at the engine's speed, their pulse twice as long",
+    [~tLastSet.(l, b, \rate), ~tLastSet.(l, b, \tau)], [0.5, 0.5]);
+l.reverse;
+~tEq.("...reversed, backwards at it", ~tLastSet.(l, b, \rate), -0.5);
+l.reverse;
+~tNear.("a dissolve's bar at half-time lasts twice as long", l.prBarDuration, 3.5, 1e-9);
+l.stopPlayback;
 
 // ---- what keeps time with it -----------------------------------------------------------------
 ~tEq.("a break at half-time: the rest of the pass at half speed (1 s of loop is 2 s), then passes of 7 s",

@@ -408,11 +408,16 @@ back at full speed on the boundary after it.
 - **What follows it:** a break lasts the rest of the pass at half speed, then
   whole half-speed passes; a reading lands on the end of a half-speed pass; the
   onset kit plays the loop's hits at half density; the chords change at half
-  pace.
-- **Not with it, yet:** overdub, Rec next loop, multiply and undo are refused
-  at half-time, and half-time is refused while you overdub or record the next
-  loop. The cutter, the grains and a dissolve don't follow it yet: each refuses
-  half-time while it runs, and is refused at half-time. The footer says why.
+  pace. The **cutter** comes in again on each edge at the loop's speed: at
+  half-time its cuts play an octave down and twice as long, on the loop's
+  grid. The **grains** scan as the loop moves, and their pulse at full morph
+  is the loop's pulse, twice as long; their pitch is their own, as granular
+  pitch always is. A **dissolve** counts its bars at the speed it starts at.
+- **Not with it:** overdub, Rec next loop, multiply and undo are refused at
+  half-time, and half-time is refused while you overdub, record the next loop,
+  while the cutter is starting or a dissolve runs. The footer says why. With
+  the cutter on, half-time needs half a second before a boundary to land on it
+  (the cutter is rebuilt for the new speed); a press later lands on the next.
 - Stop and clear end it; the next start plays at full speed.
 
 ### Breaks

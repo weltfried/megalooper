@@ -741,7 +741,7 @@ Looper {
                                      tau=0.5, morph=0, amp=0.7, out=0,
                                      pitch=0, detune=0, size=1, density=1,
                                      sizeRand=0.1, position=0, scan=0, sprayMs=0,
-                                     envbuf= -1, phaseBus=0, locked=0|
+                                     envbuf= -1, phaseBus=0, locked=0, rate=1|
             var bufFrames = BufFrames.kr(bufnum);
             var bufSr = BufSampleRate.kr(bufnum);
             // Warp1's pointer is normalised over the WHOLE buffer, so any
@@ -766,7 +766,10 @@ Looper {
             // spray) rather than one drift applied to the whole cloud at once.
             var grainRate = (overlaps / windowSize).clip(0.1, 500);
             // Passes through the loop region per loopDur. Negative scans backwards.
-            var scanRate = (m + Lag.kr(scan, 0.1)) / loopDur;
+            // `rate` is the engine's, signed: -1 reversed, 0.5 at half-time
+            // (docs/dev/rc600-picks.md, 3b). Morph's share of the scan moves as
+            // the loop does; `scan`, the player's own drift, does not.
+            var scanRate = ((m * rate) + Lag.kr(scan, 0.1)) / loopDur;
             var jitterAmt = (1 - m) * 0.005;
             var sprayAmt = Lag.kr(sprayMs.max(0), 0.1) / 1000 / bufSecs;
             // The scan pointer. `freeScan` is what this always was: a phasor at
@@ -789,8 +792,12 @@ Looper {
             // scans freely as before; spawnEngine sets it to 1 once the loop
             // plays. The wrap keeps the correction inside half a loop either
             // way, so morph's share of it is continuous.
+            // `onePass` moves as the engine does (`rate`), so `lock` stays a
+            // constant reversed or at half-time too; with it at 1 it drifted
+            // whenever the engine didn't play forwards at 1, and morph's share
+            // of it jumped once a pass.
             var enginePos = In.kr(phaseBus) / loopDur;
-            var onePass   = LFSaw.kr(1 / loopDur, 1).range(0, 1);
+            var onePass   = LFSaw.kr(rate / loopDur, 1).range(0, 1);
             var lock      = (enginePos - onePass).wrap(-0.5, 0.5) * locked;
             var freeScan  = LFSaw.kr(scanRate, 1).range(0, 1);
             var scanPhase = (freeScan + (m * lock)).wrap(0, 1);
@@ -2347,7 +2354,6 @@ Looper {
             "BBCut: no analyzed loop available.".warn;
             ^this.prRefused(\bbcut, "the cutter needs an analysed take")
         };
-        if(this.prAtHalfTime) { ^this.prRefused(\bbcut, "the cutter doesn't follow half-time yet") };
         if(bbcutEnabling) { ^this };
         bbcutEnabling = true;
 
@@ -2379,7 +2385,7 @@ Looper {
 
         Routine {
             var ready = Condition.new;
-            var phaseInLoop, untilNextBoundary, sp, newBuffer;
+            var untilNextBoundary, sp, newBuffer, cutSpeed;
 
             // The loop goes to disk and comes back BEFORE the wait, and running
             // voices — when this is a re-enable — keep playing until the
@@ -2401,14 +2407,17 @@ Looper {
             // engineSynth was spawned — the true audio start, with no latency
             // adjustment (see spawnEngine; adding one is the 2026-09-07 bug). All
             // voices spawn right after this wait, so they share beat 0.
-            phaseInLoop = (SystemClock.seconds
-                - (loopStartTime ? SystemClock.seconds)) % loopDur;
-            untilNextBoundary = loopDur - phaseInLoop;
+            // The next boundary, and the speed after it: at half-time
+            // (rc600-picks.md, 3b) the end of a half-speed pass, and a landing
+            // or an end of half-time armed for it, so the cutter comes in at
+            // the speed the loop will play.
+            cutSpeed = this.prSpeedAfterNext;
+            untilNextBoundary = (this.prNextBoundaryAt(SystemClock.seconds) - SystemClock.seconds).max(0);
             untilNextBoundary.wait;
 
             this.teardownBBCut;
             bbcutBuffer = newBuffer;
-            sp = this.bbcutSpawnParams;
+            sp = this.bbcutSpawnParams(cutSpeed);
             bbcutVoices.do { |voice|
                 if(voice[\enabled]) {
                     this.spawnBBCutVoice(voice, sp);
@@ -2427,14 +2436,18 @@ Looper {
     }
 
     // Spawn params common to every voice this play, derived from the analysis.
-    // `loopFrames`/`lastResult` are stable during playback.
-    bbcutSpawnParams {
+    // `loopFrames`/`lastResult` are stable during playback. At half-time
+    // (`cutSpeed` 0.5, the loop's speed by default) the cutter's clocks run at
+    // half tempo, so its cuts play an octave down and twice as long, as the
+    // loop does: `baseBps` scaled, `tau` a pulse in wall time.
+    bbcutSpawnParams { |cutSpeed|
         var tau = lastResult.tau;
+        cutSpeed = cutSpeed ? speed;
         ^(
-            tau:        tau,
+            tau:        tau / cutSpeed,
             totalBeats: MeterAnalyzer.unitsOf(lastResult) * lastResult.sub,
             outBusIdx:  outBus.index,
-            baseBps:    tau.reciprocal
+            baseBps:    tau.reciprocal * cutSpeed
         )
     }
 
@@ -2663,7 +2676,7 @@ Looper {
         sp = this.bbcutSpawnParams;
         Routine {
             var beatDur = sp[\tau];
-            var elapsed = SystemClock.seconds - (loopStartTime ? SystemClock.seconds);
+            var elapsed = SystemClock.seconds - (this.passStart ? SystemClock.seconds);
             (beatDur - (elapsed % beatDur)).wait;
             voice[\respawnPending] = false;
             // Re-check after the wait: the voice may have been removed (preset
@@ -2699,7 +2712,7 @@ Looper {
             var sp = this.bbcutSpawnParams;
             Routine {
                 var beatDur = sp[\tau];
-                var elapsed = SystemClock.seconds - (loopStartTime ? SystemClock.seconds);
+                var elapsed = SystemClock.seconds - (this.passStart ? SystemClock.seconds);
                 (beatDur - (elapsed % beatDur)).wait;
                 this.spawnBBCutVoice(voice, sp);
             }.play;
@@ -3507,7 +3520,6 @@ Looper {
     startDissolve { |bars|
         var n   = (bars ? dissolveBars).asInteger.clip(1, 64);
         var dur = this.prBarDuration * n;
-        if(this.prAtHalfTime) { ^this.prRefused(\dissolve, "half-time: end it first") };
         if((state != \playing) and: { state != \overdubbing }) {
             "Dissolve: nothing is playing.".warn;
             ^this.prRefused(\dissolve, "nothing playing")
@@ -3595,9 +3607,9 @@ Looper {
         var r = lastResult;
         if(r.notNil and: { r[\error].isNil }
             and: { r[\tau].notNil } and: { r[\numerator].notNil }) {
-            ^r[\tau] * (r[\sub] ? 1) * MeterAnalyzer.unitsOf(r) / MeterAnalyzer.barsOf(r).size
+            ^(r[\tau] * (r[\sub] ? 1) * MeterAnalyzer.unitsOf(r) / MeterAnalyzer.barsOf(r).size) / speed
         };
-        ^this.loopDuration
+        ^this.wallPeriod
     }
 
     // How long a break lasts, given where the playhead is when it is struck.
@@ -3750,6 +3762,7 @@ Looper {
     reverse {
         reverseFlag = reverseFlag.not;
         engineSynth !? { |s| s.set(\rate, if(reverseFlag) { -1 } { 1 }) };
+        granularSynth !? { |g| g.set(\rate, this.prGrainRate) };
         ("Reverse: " ++ reverseFlag).postln;
         this.changed(\reverse, reverseFlag);
     }
@@ -3773,7 +3786,7 @@ Looper {
                 why = this.prHalfTimeRefusal;
                 if(why.notNil) { ^this.prRefused(\halfTime, why) };
                 at = this.prNextBoundaryAt(now);
-                if((at - now) < Looper.halfTimeMargin) { at = at + ld };
+                if((at - now) < this.prHalfTimeMargin) { at = at + ld };
                 this.prSendSpeed(0.5, at - ld);
                 this.prHalfTimeArm(\armed, at);
             },
@@ -3784,7 +3797,7 @@ Looper {
             },
             \on, {
                 at = this.prNextBoundaryAt(now);
-                if((at - now) < Looper.halfTimeMargin) { at = at + (2 * ld) };
+                if((at - now) < this.prHalfTimeMargin) { at = at + (2 * ld) };
                 // In the pass's second half: its first half ends on a wrap of
                 // the engine's reference, which would take it there.
                 this.prSendSpeed(1, at - ld);
@@ -3798,19 +3811,25 @@ Looper {
         );
     }
 
-    // Why half-time can't be armed now, or nil. The cutter and the grains
-    // don't follow it yet (rc600-picks.md, 3b); a dissolve fades through
-    // them.
+    // Why half-time can't be armed now, or nil. A dissolve's bars were
+    // measured at the speed it began at.
     prHalfTimeRefusal {
         ^case
             { state == \overdubbing } { "end the overdub first" }
             { (state != \playing) or: { this.loopDuration <= 0 } } { "half-time needs a loop playing" }
             { nextRecState != \idle } { "Rec next loop is on" }
-            { bbcut or: { bbcutEnabling } } { "the cutter doesn't follow half-time yet" }
-            { granularSynth.notNil } { "the grains don't follow half-time yet" }
+            { bbcutEnabling } { "the cutter is starting" }
             { dissolving or: { dissolvePos > 0 } } { "a dissolve is on" }
             { nil }
     }
+
+    // The engine's speed, signed, as the grains scan by it.
+    prGrainRate { ^(if(reverseFlag) { -1 } { 1 }) * speed }
+
+    // How close to a boundary a press may come and still land on it. With the
+    // cutter on it is respawned for the new speed, which writes the loop out
+    // and reads it back first (enableBBCut): half a second.
+    prHalfTimeMargin { ^if(bbcut) { 0.6 } { Looper.halfTimeMargin } }
 
     // Half-time is armed, on or ending: what it refuses says so.
     prAtHalfTime { ^halfTime != \off }
@@ -3838,6 +3857,11 @@ Looper {
         halfTimeAt = at;
         if(at.notNil) {
             halfTimeRoutine = Routine {
+                // The cutter comes in again at the new speed on the boundary
+                // (enableBBCut waits for it), as for a reading that changes
+                // its pulse.
+                ((at - 0.5) - SystemClock.seconds).max(0).wait;
+                if((seq == halfTimeSeq) and: { bbcut } and: { bbcutEnabling.not }) { this.enableBBCut };
                 (at - SystemClock.seconds).max(0).wait;
                 this.prHalfTimeLands(seq);
             }.play(SystemClock);
@@ -3862,6 +3886,11 @@ Looper {
         this.changed(\speed, speed);
         this.startOnsetNotes;
         chordRoutine !? { this.startChordRoutine(lastResult) };
+        // The grains scan as the loop moves, their pulse the loop's.
+        granularSynth !? { |g|
+            g.set(\rate, this.prGrainRate);
+            lastResult !? { |r| r[\tau] !? { |t| g.set(\tau, t / speed) } };
+        };
     }
 
     // Back to 1 at once, for a new engine (it plays at 1) and a stop.
@@ -3876,6 +3905,7 @@ Looper {
             halfTimeAt = nil;
             passOrigin = nil;
             speedChangedAt = SystemClock.seconds;
+            granularSynth !? { |g| g.set(\rate, this.prGrainRate) };
             this.changed(\halfTime, halfTime);
             this.changed(\speed, speed);
         };
@@ -4086,7 +4116,7 @@ Looper {
         // The grains take the new pulse at once; the click restarts on it. The
         // onset notes are the hits that were played and never looked at the
         // meter; the dissolve reads the bar from lastResult when it is armed.
-        granularSynth !? { |g| result[\tau] !? { |t| g.set(\tau, t) } };
+        granularSynth !? { |g| result[\tau] !? { |t| g.set(\tau, t / speed) } };
         if(clickRoutine.notNil and: { result[\tau].notNil }) {
             this.startClick(result[\tau], this.class.prClickBars(result));
         };
@@ -4203,15 +4233,13 @@ Looper {
             this.changed(\granular, false);
             ^this.prRefused(\granular, "no loop recorded")
         };
-        if(this.prAtHalfTime) {
-            this.changed(\granular, false);
-            ^this.prRefused(\granular, "the grains don't follow half-time yet")
-        };
         tau = if(lastResult.notNil and: { lastResult.tau.notNil }) {
             lastResult.tau
         } {
             loopFrames / server.sampleRate / 4
         };
+        // At half-time a pulse lasts twice as long: the pulsed grains too.
+        tau = tau / speed;
         args = [
             \bufnum, buffer.bufnum,
             \out, outBus.index,
@@ -4226,7 +4254,8 @@ Looper {
             // the layer goes at the head and scans freely until spawnEngine
             // locks it.
             \phaseBus, phaseBus.index,
-            \locked, engineSynth.notNil.asInteger
+            \locked, engineSynth.notNil.asInteger,
+            \rate, this.prGrainRate
         ] ++ this.prGranularArgs;
         granularSynth = engineSynth !? { |e| Synth.after(e, \looperGranular, args) }
             ?? { Synth(\looperGranular, args) };

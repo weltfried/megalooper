@@ -52,7 +52,10 @@ var baseline = (
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the
     // engine's phase bus (two new controls, phaseBus and locked, and the
     // phase-correction UGens). A deliberate change — see the graph's comment.
-    'looperGranular':        [ 3072, 748923918 ]
+    // Moved 2026-10-27 from [ 3072, 748923918 ]: a `rate` control, the
+    // engine's signed speed, which the one-pass phasor and morph's share of
+    // the scan move at, so the lock holds reversed and at half-time.
+    'looperGranular':        [ 3088, 356440040 ]
 );
 // Defined here rather than leaning on ArrayedCollection:hash, so the
 // fingerprint is fixed by this file and cannot shift under the test.
