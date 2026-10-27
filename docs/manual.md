@@ -1672,7 +1672,7 @@ you did about it with the next-reading switch. See
 
 ## Testing
 
-`./tools/run-checks.sh` runs all twenty-two checks, one sclang at a time, in
+`./tools/run-checks.sh` runs all twenty-three checks, one sclang at a time, in
 about six minutes. `./tools/run-checks.sh quick` runs only the unit tests, the
 static check and the AI bridge's test. Nothing opens an audio device or touches
 MIDI, and megalooper may be running beside it. Checks that need material the

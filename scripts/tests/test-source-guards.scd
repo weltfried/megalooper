@@ -92,8 +92,10 @@ bare = flat.(stripComments.(src));
 // language-side flag: SoundIn's channel count is fixed when the graph is built,
 // so it could never have been an argument inside a single def.
 [\prRecGraph, \prRecPlainGraph, \prEngineGraph].do { |builder|
+    // "|mono" and not "|mono|": the engine's builder takes two more arguments
+    // after it (its interpolations, 2026-10-27).
     ~tEq.(builder ++ " is defined once",
-        countOf.(bare, "*" ++ builder ++ " { |mono|"), 1);
+        countOf.(bare, "*" ++ builder ++ " { |mono"), 1);
     ~tEq.(builder ++ " is instantiated for stereo",
         countOf.(bare, "Looper." ++ builder ++ "(false)"), 1);
     ~tEq.(builder ++ " is instantiated for mono",

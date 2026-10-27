@@ -36,8 +36,13 @@ var baseline = (
     'looperOverdubAnalysis': [  864, 693388309 ],
     'looperRecPlain':        [  605, 125864998 ],
     'looperRecPlainMono':    [  545, 466595377 ],
-    'looperEngine':          [ 2074, 209975019 ],
-    'looperEngineMono':      [ 2014, 953598608 ],
+    // Moved 2026-10-27 from [ 2074, 209975019 ] and [ 2014, 953598608 ]: the
+    // write-back reads without interpolation, the playback read is cubic and
+    // the write head's latency shift is rounded, so any rate but ±1 leaves the
+    // loop as it was. Deliberate — see the graph's comment; the render
+    // scripts/sa/nrt-engine-rate.scd checks that ±1 sounds as before.
+    'looperEngine':          [ 2115, 92375856 ],
+    'looperEngineMono':      [ 2055, 259924006 ],
     'looperClick':           [  429, 831893340 ],
     'looperMaster':          [  478, 767188786 ],
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the

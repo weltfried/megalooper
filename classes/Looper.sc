@@ -554,7 +554,12 @@ Looper {
     }
 
     // The engine: plays the loop, overdubs into it, publishes its phase.
-    *prEngineGraph { |mono|
+    //
+    // readInterp and writeInterp are BufRd's interpolation for what is played
+    // and for what is written back. The defaults are the engine; the graph as
+    // it was before 2026-10-27 is (2, 2), which scripts/sa/nrt-engine-rate.scd
+    // builds to show its check catches what changed.
+    *prEngineGraph { |mono, readInterp = 4, writeInterp = 1|
         ^{ |bufnum, in=0, startFrame=0, loopFrames=44100,
             amp=1.0, out=0, rate=1, recEnable=0,
             latencyFrames=0, feedback=1.0, declickFrames=0,
@@ -564,7 +569,10 @@ Looper {
                 rate * BufRateScale.kr(bufnum),
                 startFrame,
                 startFrame + loopFrames);
-            var existing = BufRd.ar(2, bufnum, phase, loop: 0);
+            // Cubic: at rate ±1 every position is a whole frame, where cubic
+            // gives the sample itself, so normal and reverse playback are
+            // exact; at any other rate it sounds better than linear.
+            var existing = BufRd.ar(2, bufnum, phase, loop: 0, interpolation: readInterp);
             // Short fade in/out at the loop seam to kill the wrap-point click
             // (level jump from loop end back to start, plus any record on/off
             // transient baked into the buffer). loopPhase is 0..loopFrames
@@ -574,10 +582,19 @@ Looper {
             var declick = (loopPhase / df).min((loopFrames - loopPhase) / df).clip(0, 1);
             // Shift the write head backward (in playback direction) by the
             // round-trip audio latency so an overdub played in time with what's
-            // heard lands at the matching loop position.
-            var writePhase = (phase - (rate * latencyFrames) - startFrame)
+            // heard lands at the matching loop position. Rounded to whole
+            // frames, so the write head has the play head's fraction at any
+            // rate (latencyFrames is whole; rate × it need not be).
+            var writePhase = (phase - (rate * latencyFrames).round - startFrame)
                 .mod(loopFrames) + startFrame;
-            var atWrite = BufRd.ar(2, bufnum, writePhase, loop: 0);
+            // The sample under the write head, read back WITHOUT interpolation:
+            // BufWr writes on every block, recording or not, so in playback
+            // this must be an identity. At rate ±1 every position is a whole
+            // frame and any interpolation is; at half speed each frame is
+            // visited twice, and a linear read would write the average of it
+            // and its neighbour back on the second visit — a half-sample shift
+            // and a low-pass on every pass, for good.
+            var atWrite = BufRd.ar(2, bufnum, writePhase, loop: 0, interpolation: writeInterp);
             // Feedback only applies while overdubbing — in pure playback the
             // buffer must pass through untouched (multiplier = 1).
             var writeFeedback = Select.kr(recEnable, [1.0, feedback]);
