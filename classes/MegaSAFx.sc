@@ -37,7 +37,7 @@ MegaSAFx {
     // group (docs/dev/rc600-picks.md, Phase 4). The first one inserted has
     // its type's key as its id, as a default device has (MegaSA.prNewId), so
     // its controls' ids (sa.fxOn.eq, sa.fx.eqLow) hold from sound to sound.
-    *extraKeys { ^[\eq, \compressor, \noiseGate] }
+    *extraKeys { ^[\eq, \compressor, \noiseGate, \freeze, \slicer, \octaveDown, \ringMod] }
     // Every type there is: the default chains' and the others.
     *typeKeys { ^this.keys ++ this.extraKeys }
 
@@ -48,7 +48,8 @@ MegaSAFx {
     *title { |key|
         ^(shifter: "Pitch Shift", delay: "Dual Delay", filter: "Envelope Filter", pitchLoop: "Pitch Loops",
             echo: "Tape Echo", saturator: "Drive", redux: "Crusher",
-            eq: "EQ", compressor: "Compressor", noiseGate: "Noise Gate")[key] ?? { key.asString }
+            eq: "EQ", compressor: "Compressor", noiseGate: "Noise Gate",
+            freeze: "Freeze", slicer: "Slicer", octaveDown: "Octave Down", ringMod: "Ring Mod")[key] ?? { key.asString }
     }
 
     *titleBefore { |key|
@@ -440,6 +441,76 @@ MegaSAFx {
         ^sig * K2A.ar(floor + ((1 - floor) * env))
     }
 
+    // ---- Texture (docs/dev/rc600-picks.md, Phase 4c) ------------------------
+
+    // Holds the sound as it was when switched on, and plays it on as a drone
+    // beside what is played (Dry): the spectrum's magnitudes frozen
+    // (PV_MagFreeze on 2048-frame FFTs) at the frame the switch goes on, with
+    // new random phases every frame (PV_Diffuser, triggered once a hop). The
+    // input's own phases would make it a buzz at the frame rate once the
+    // input falls silent. It does not sleep: it must hold the moment before
+    // its switch. Its switch is the freeze, so a footswitch in hold mode makes
+    // it last as long as the foot is down.
+    *freeze { |sig|
+        var on = \freezeOn.kr(0);
+        var hop = Impulse.kr(SampleRate.ir / 1024);
+        var frozen = sig.collect { |ch| IFFT(PV_Diffuser(PV_MagFreeze(FFT(LocalBuf(2048), ch), on), hop)) };
+        frozen = LPF.ar(frozen, \freezeTone.kr(8000, 0.05));
+        ^(sig * \freezeDry.kr(1, 0.05)) + (frozen * \freezeLevel.kr(-6, 0.05).dbamp * Lag.kr(on, \freezeFade.kr(0.3)))
+    }
+
+    // Slices the sound on the beat: a slice is Rate long (a share of a beat,
+    // \beatDur), Duty of it open, in a pattern of eight slices, the gaps Depth
+    // deep, each edge smoothed over Smooth. On the loop's grid: the beats are
+    // counted from the loop's start (its phase, \phaseBus, which bar 1 beat 1
+    // is the drums' too); with no loop moving, from the synth's own start.
+    *slicer { |sig|
+        var beatDur = \beatDur.kr(0.6);
+        var pb = \phaseBus.kr(-1);
+        var pos = In.kr(pb.max(0));
+        // Moving: the bus changes every block while the loop plays; held a
+        // tenth of a second, so a block that doesn't move it changes nothing.
+        var moving = (LagUD.kr(HPZ1.kr(pos).abs > 0, 0, 0.1) > 0.1) * (pb >= 0);
+        var beats = Select.kr(moving, [Sweep.kr(0, beatDur.reciprocal), pos / beatDur]);
+        var slices = beats / \slicerRate.kr(0.25);
+        var step = slices.floor.mod(8);
+        var bit = Select.kr(\slicerPattern.kr(0), this.slicerPatterns.collect { |p| Select.kr(step, p) });
+        var open = (slices.frac < \slicerDuty.kr(0.5)) * bit;
+        var amp = 1 - (\slicerDepth.kr(1, 0.05) * (1 - Lag.kr(open, \slicerSmooth.kr(0.003))));
+        ^sig * K2A.ar(amp)
+    }
+
+    // Eight slices each: Every, On-beats, Off-beats, 3+3+2, Gallop.
+    *slicerPatterns { ^[[1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0, 1],
+        [1, 0, 0, 1, 0, 0, 1, 0], [1, 0, 1, 1, 1, 0, 1, 1]] }
+
+    // An analog octave divider: the input low-passed to its fundamental
+    // (Track), its zero crossings (a Schmitt trigger, against noise) flipping
+    // a square wave at half its frequency, and that at the input's level,
+    // filtered (Tone); the second divider an octave under that. Mono, as a
+    // pedal is: one note at a time tracks best.
+    *octaveDown { |sig|
+        var track = \octaveDownTrack.kr(400, 0.05);
+        var low = LPF.ar(LPF.ar(sig, track), track);
+        var edge = Schmidt.ar(low, -0.002, 0.002);
+        var one = ToggleFF.ar(edge);
+        var two = ToggleFF.ar(one);
+        var env = Amplitude.ar(sig, 0.005, 0.08);
+        var tone = \octaveDownTone.kr(600, 0.05);
+        var sub = (((one * 2) - 1) * \octaveDownLevel.kr(0, 0.05).dbamp)
+            + (((two * 2) - 1) * \octaveDownTwo.kr(0, 0.05));
+        sub = LPF.ar(LPF.ar(sub * env, tone), tone);
+        ^(sig * \octaveDownDry.kr(1, 0.05)) + sub
+    }
+
+    // The signal times a sine at Freq, against the signal as it came (Dry/Wet),
+    // the product low-passed (Tone).
+    *ringMod { |sig|
+        var wet = LPF.ar(sig * SinOsc.ar(\ringModFreq.kr(440, 0.05)), \ringModTone.kr(20000, 0.05));
+        var mix = \ringModMix.kr(0.5, 0.05);
+        ^(sig * (1 - mix)) + (wet * mix)
+    }
+
     // ---- The types --------------------------------------------------------
     // One row per built-in device type (docs/dev/device-chains.md, section 4.1),
     // in chain order. Each type is its effect's key; the device of that type
@@ -453,6 +524,8 @@ MegaSAFx {
     //                 its effect to both; the dry path stays the two sides.
     //                 \stereo: both sides, each its own.
     //   followsTempo  it reads \beatDur, which each chain's group is sent
+    //   followsPhase  it reads \phaseBus, the loop's phase bus, which each
+    //                 chain's group is sent once a Looper is attached
     //   sleeps        true: nothing it remembers is heard past its fade-in
     //                 (filter states, an envelope follower, an LFO's phase),
     //                 so its synth pauses itself once switched off
@@ -548,6 +621,34 @@ MegaSAFx {
                 blurb: "Shuts below the threshold: hum and hiss between notes go.",
                 mainKnobs: [\noiseGateThreshold, \noiseGateRelease, \noiseGateRange],
                 dsp: { |sig| this.noiseGate(sig) },
+                memBytes: { |sr| 0 },
+                latency: none),
+            // The dry passes as it came; the drone, behind its FFT's frame,
+            // is not a delay of what is played.
+            (key: \freeze, track: \any, group: "Texture", width: \stereo, followsTempo: false,
+                blurb: "Holds the sound as it was when switched on, as a drone under what you play.",
+                mainKnobs: [\freezeLevel, \freezeFade, \freezeTone],
+                dsp: { |sig| this.freeze(sig) },
+                // Two LocalBufs of 2048 floats, and each FFT's and IFFT's own.
+                memBytes: { |sr| 2 * 2048 * 4 * 4 },
+                latency: none),
+            (key: \slicer, track: \any, group: "Texture", width: \stereo, followsTempo: true, followsPhase: true,
+                sleeps: true,
+                blurb: "Slices the sound on the loop's beat, in a pattern.",
+                mainKnobs: [\slicerRate, \slicerPattern, \slicerDepth],
+                dsp: { |sig| this.slicer(sig) },
+                memBytes: { |sr| 0 },
+                latency: none),
+            (key: \octaveDown, track: \any, group: "Texture", width: \mono, followsTempo: false, sleeps: true,
+                blurb: "An analog divider: a square wave an octave under the note, at its level.",
+                mainKnobs: [\octaveDownLevel, \octaveDownTwo, \octaveDownTone],
+                dsp: { |sig| this.octaveDown(sig) },
+                memBytes: { |sr| 0 },
+                latency: none),
+            (key: \ringMod, track: \any, group: "Texture", width: \stereo, followsTempo: false, sleeps: true,
+                blurb: "The sound times a sine: bells and clangs, metal from a chord.",
+                mainKnobs: [\ringModFreq, \ringModMix, \ringModTone],
+                dsp: { |sig| this.ringMod(sig) },
                 memBytes: { |sr| 0 },
                 latency: none)
         ].collect { |t|
@@ -646,7 +747,7 @@ MegaSAFx {
     // and not how loud it leaves the effect. The feedbacks stop at 90 % and
     // are softened, so none of them can run away.
     *randomKeeps { ^#[\filterMakeup, \filterOutput, \pitchLoopOutput, \echoOutput, \saturatorOutput,
-        \eqOutput, \compressorMakeup, \noiseGateThreshold, \noiseGateRange] }
+        \eqOutput, \compressorMakeup, \noiseGateThreshold, \noiseGateRange, \freezeDry, \octaveDownDry] }
 
     // A value held to a setting's range and step, or the nearest of its
     // choices. A name that is no setting passes through.
@@ -1044,7 +1145,73 @@ MegaSAFx {
                     "Longer lets a note ring out."),
             (fx: \noiseGate, name: \noiseGateRange, label: "Range", units: " dB",
                 spec: ControlSpec(-80, 0, \lin, 0, -80),
-                tip: "How far it shuts: -80 dB by default, silent. -20 lets some through.")
+                tip: "How far it shuts: -80 dB by default, silent. -20 lets some through."),
+
+            // ---- Freeze
+            (fx: \freeze, name: \freezeLevel, label: "Level", units: " dB", centered: true,
+                spec: ControlSpec(-24, 6, \lin, 0, -6),
+                tip: "How loud the drone is: -6 dB by default."),
+            (fx: \freeze, name: \freezeFade, label: "Fade In", units: " ms", scale: 1000,
+                spec: ControlSpec(0.01, 4, \exp, 0, 0.3),
+                tip: "How long the drone takes to swell up: 300 ms by default. It goes\n"
+                    "within 30 ms when switched off."),
+            (fx: \freeze, name: \freezeTone, label: "Tone", units: " Hz",
+                spec: ControlSpec(500, 20000, \exp, 0, 8000),
+                tip: "A low-pass on the drone: 8 kHz by default. Lower is darker."),
+            (fx: \freeze, name: \freezeDry, label: "Dry", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 1),
+                tip: "What you play, beside the drone: all of it by default."),
+
+            // ---- Slicer
+            (fx: \slicer, name: \slicerRate, label: "Rate",
+                spec: ControlSpec(1 / 6, 1, \lin, 0, 0.25),
+                choices: [[1 / 6, "1/16 T"], [0.25, "1/16"], [1 / 3, "1/8 T"], [0.5, "1/8"], [1, "1/4"]],
+                tip: "How long a slice is: a 16th by default."),
+            (fx: \slicer, name: \slicerPattern, label: "Pattern",
+                spec: ControlSpec(0, 4, \lin, 1, 0),
+                choices: [[0, "Every"], [1, "On-beats"], [2, "Off-beats"], [3, "3+3+2"], [4, "Gallop"]],
+                tip: "Which of eight slices play: every one by default. 3+3+2 is a\n"
+                    "tresillo."),
+            (fx: \slicer, name: \slicerDuty, label: "Duty", units: " %", scale: 100,
+                spec: ControlSpec(0.1, 1, \lin, 0, 0.5),
+                tip: "How much of a slice is open: half by default."),
+            (fx: \slicer, name: \slicerDepth, label: "Depth", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 1),
+                tip: "How deep the gaps go: silent by default. Lower is a tremolo."),
+            (fx: \slicer, name: \slicerSmooth, label: "Smooth", units: " ms", scale: 1000,
+                spec: ControlSpec(0.001, 0.05, \exp, 0, 0.003),
+                tip: "How soft each edge is: 3 ms by default. Longer is rounder."),
+
+            // ---- Octave down
+            (fx: \octaveDown, name: \octaveDownLevel, label: "Octave", units: " dB", centered: true,
+                spec: ControlSpec(-24, 12, \lin, 0, 0),
+                tip: "The octave below: 0 dB by default."),
+            (fx: \octaveDown, name: \octaveDownTwo, label: "Two Down", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 0),
+                tip: "Two octaves below, beside it: none by default."),
+            (fx: \octaveDown, name: \octaveDownTone, label: "Tone", units: " Hz",
+                spec: ControlSpec(100, 4000, \exp, 0, 600),
+                tip: "A low-pass on the divided octave: 600 Hz by default. Higher is\n"
+                    "buzzier."),
+            (fx: \octaveDown, name: \octaveDownTrack, label: "Track", units: " Hz",
+                spec: ControlSpec(80, 1500, \exp, 0, 400),
+                tip: "What it listens to for the note: everything under 400 Hz by\n"
+                    "default. Lower tracks the low notes cleaner, higher the high ones."),
+            (fx: \octaveDown, name: \octaveDownDry, label: "Dry", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 1),
+                tip: "The note as played, beside the octave: all of it by default."),
+
+            // ---- Ring mod
+            (fx: \ringMod, name: \ringModFreq, label: "Freq", units: " Hz",
+                spec: ControlSpec(1, 5000, \exp, 0, 440),
+                tip: "The sine's frequency: 440 Hz by default. Low is a tremolo,\n"
+                    "high is bells."),
+            (fx: \ringMod, name: \ringModMix, label: "Dry/Wet", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 0.5),
+                tip: "The sound as it came against the modulated one: half by default."),
+            (fx: \ringMod, name: \ringModTone, label: "Tone", units: " Hz",
+                spec: ControlSpec(500, 20000, \exp, 0, 20000),
+                tip: "A low-pass on the modulated sound: 20 kHz by default.")
         ]
     }
 }

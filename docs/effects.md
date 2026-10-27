@@ -1,9 +1,10 @@
 # The effects
 
-Megalooper SA has ten effects of its own: **Pitch Shift**, **Dual Delay**,
-**Envelope Filter** and **Pitch Loops**, made for the instrument, **Tape
-Echo**, **Drive** and **Crusher**, made for the loop, and three utilities for
-any chain, **EQ**, **Compressor** and **Noise Gate**.
+Megalooper SA has fourteen effects of its own: **Pitch Shift**, **Dual
+Delay**, **Envelope Filter** and **Pitch Loops**, made for the instrument,
+**Tape Echo**, **Drive** and **Crusher**, made for the loop, three utilities for
+any chain, **EQ**, **Compressor** and **Noise Gate**, and four textures,
+**Freeze**, **Slicer**, **Octave Down** and **Ring Mod**.
 
 How to add, move, switch and save them is in
 [The chains](standalone.md#the-chains), in the Megalooper SA guide. Here is
@@ -16,9 +17,10 @@ what each one does, and every setting it has.
   second one is called "Dual Delay 2".
 - **Mono or stereo.** The four instrument effects are mono: they hear both sides
   of their chain mixed and play their effect on both, while the dry signal
-  passes as it came. The three loop effects and the three utilities are
-  stereo, each side on its own (the utilities' level detectors hear the
-  louder side, so both sides move together).
+  passes as it came. The three loop effects, the utilities and the textures
+  are stereo, each side on its own (the utilities' level detectors hear the
+  louder side, so both sides move together), but Octave Down, which is mono
+  as a pedal's divider is.
 - **A switch never clicks.** On and off crossfade over 30 ms, so a
   footswitch can switch an effect on the beat.
 - **Off costs nothing, mostly**: see [On a slower
@@ -41,8 +43,8 @@ what each one does, and every setting it has.
 
 megalooper's own sound, before you keep one of yours, has the instrument's four
 in its instrument chain and the loop's three in its loop chain, in that order,
-all switched off. The utilities are in no chain to begin with: the **+** at the
-end of a chain offers them under **Utility**. The first of each you add is
+all switched off. The utilities and textures are in no chain to begin with: the
+**+** at the end of a chain offers them under **Utility** and **Texture**. The first of each you add is
 called by its type alone ("EQ"), and its controls keep their names from sound
 to sound, as a starting effect's do; a second is "EQ 2".
 
@@ -329,3 +331,77 @@ doesn't flutter. First in the instrument chain, before Drive, is its place.
 | **Attack** | 0.1 to 50 ms | 1 ms | How fast it opens |
 | **Release** | 5 to 2,000 ms | 120 ms | How fast it shuts once the level has fallen. Longer lets a note ring out |
 | **Range** | −80 to 0 dB | −80 dB | How far it shuts: −80 is silent, −20 lets some through |
+
+## Freeze
+
+![The Freeze panel](images/fx-freeze.png)
+
+*Fig: Freeze at its starting values.*
+
+Holds the sound as it was when you switched it on and plays it on as a drone,
+under whatever you play next. Switch it on over a chord and the chord stays;
+switch it off and the drone goes within 30 ms. Its switch is the freeze: map a
+footswitch to it in **hold** mode (MIDI Map) and the drone lasts as long as your
+foot is down. It keeps listening while off, so it always has the moment
+before its switch to hold.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Level** | −24 to 6 dB | −6 dB | How loud the drone is |
+| **Fade In** | 10 ms to 4 s | 300 ms | How long the drone takes to swell up |
+| **Tone** | 500 Hz to 20 kHz | 8 kHz | A low-pass on the drone. Lower is darker |
+| **Dry** | 0 to 100 % | 100 % | What you play, beside the drone |
+
+## Slicer
+
+![The Slicer panel](images/fx-slicer.png)
+
+*Fig: Slicer at its starting values.*
+
+Slices the sound on the beat: open, shut, open, shut, in a pattern of eight
+slices. It slices on the loop's grid, counted from the loop's first beat, so
+its slices land with the drums; with no loop playing it counts from when it
+came in. At half-time it slices at the loop's pace.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Rate** | 1/16 T, 1/16, 1/8 T, 1/8, 1/4 | 1/16 | How long a slice is |
+| **Pattern** | Every, On-beats, Off-beats, 3+3+2, Gallop | Every | Which of eight slices play. 3+3+2 is a tresillo |
+| **Duty** | 10 to 100 % | 50 % | How much of a slice is open |
+| **Depth** | 0 to 100 % | 100 % | How deep the gaps go. Lower is a tremolo |
+| **Smooth** | 1 to 50 ms | 3 ms | How soft each edge is. Longer is rounder |
+
+## Octave Down
+
+![The Octave Down panel](images/fx-octavedown.png)
+
+*Fig: Octave Down at its starting values.*
+
+An analog octave divider: it follows the note's zero crossings and plays a
+square wave an octave below it, at the note's level, filtered. Like a pedal's,
+it tracks one note at a time best; a chord gives it a growl. A second divider
+gives two octaves down beside it.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Octave** | −24 to 12 dB | 0 dB | The octave below |
+| **Two Down** | 0 to 100 % | 0 % | Two octaves below, beside it |
+| **Tone** | 100 Hz to 4 kHz | 600 Hz | A low-pass on the divided octave. Higher is buzzier |
+| **Track** | 80 Hz to 1.5 kHz | 400 Hz | What it listens to for the note. Lower tracks low notes cleaner, higher the high ones |
+| **Dry** | 0 to 100 % | 100 % | The note as played, beside the octave |
+
+## Ring Mod
+
+![The Ring Mod panel](images/fx-ringmod.png)
+
+*Fig: Ring Mod at its starting values.*
+
+The sound times a sine: every note turns into the sum and the difference of its
+frequency and the sine's, bells and clangs, metal from a chord. Below about
+20 Hz it is a tremolo instead.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Freq** | 1 Hz to 5 kHz | 440 Hz | The sine's frequency. Low is a tremolo, high is bells |
+| **Dry/Wet** | 0 to 100 % | 50 % | The sound as it came against the modulated one |
+| **Tone** | 500 Hz to 20 kHz | 20 kHz | A low-pass on the modulated sound |

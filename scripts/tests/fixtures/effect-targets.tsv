@@ -52,11 +52,20 @@ sa.fx.filterRelease	Release	Envelope Filter	Effects	continuous
 sa.fx.filterRes	Res	Envelope Filter	Effects	continuous
 sa.fx.filterSense	Sense	Envelope Filter	Effects	continuous
 sa.fx.filterType	Type	Envelope Filter	Effects	choice
+sa.fx.freezeDry	Dry	Freeze	Effects	continuous
+sa.fx.freezeFade	Fade In	Freeze	Effects	continuous
+sa.fx.freezeLevel	Level	Freeze	Effects	continuous
+sa.fx.freezeTone	Tone	Freeze	Effects	continuous
 sa.fx.noiseGateAttack	Attack	Noise Gate	Effects	continuous
 sa.fx.noiseGateHysteresis	Hysteresis	Noise Gate	Effects	continuous
 sa.fx.noiseGateRange	Range	Noise Gate	Effects	continuous
 sa.fx.noiseGateRelease	Release	Noise Gate	Effects	continuous
 sa.fx.noiseGateThreshold	Threshold	Noise Gate	Effects	continuous
+sa.fx.octaveDownDry	Dry	Octave Down	Effects	continuous
+sa.fx.octaveDownLevel	Octave	Octave Down	Effects	continuous
+sa.fx.octaveDownTone	Tone	Octave Down	Effects	continuous
+sa.fx.octaveDownTrack	Track	Octave Down	Effects	continuous
+sa.fx.octaveDownTwo	Two Down	Octave Down	Effects	continuous
 sa.fx.pitchLoopFeedback	Feedback	Pitch Loops	Effects	continuous
 sa.fx.pitchLoopHiCut	Hi Cut	Pitch Loops	Effects	continuous
 sa.fx.pitchLoopLfoL	LFO Depth L	Pitch Loops	Effects	continuous
@@ -81,6 +90,9 @@ sa.fx.reduxPostFilter	Post-Filter	Crusher	Effects	choice
 sa.fx.reduxPostOctaves	Post Freq	Crusher	Effects	continuous
 sa.fx.reduxPreFilter	Pre-Filter	Crusher	Effects	choice
 sa.fx.reduxRate	Sample Rate	Crusher	Effects	continuous
+sa.fx.ringModFreq	Freq	Ring Mod	Effects	continuous
+sa.fx.ringModMix	Dry/Wet	Ring Mod	Effects	continuous
+sa.fx.ringModTone	Tone	Ring Mod	Effects	continuous
 sa.fx.saturatorBase	Amt Lo	Drive	Effects	continuous
 sa.fx.saturatorDepth	Amt Hi	Drive	Effects	continuous
 sa.fx.saturatorDrive	Amount	Drive	Effects	continuous
@@ -96,23 +108,36 @@ sa.fx.shifterMode	Mode	Pitch Shift	Effects	choice
 sa.fx.shifterPitchSpread	Pitch spread	Pitch Shift	Effects	continuous
 sa.fx.shifterTimeSpread	Time spread	Pitch Shift	Effects	continuous
 sa.fx.shifterWindow	Window	Pitch Shift	Effects	choice
+sa.fx.slicerDepth	Depth	Slicer	Effects	continuous
+sa.fx.slicerDuty	Duty	Slicer	Effects	continuous
+sa.fx.slicerPattern	Pattern	Slicer	Effects	choice
+sa.fx.slicerRate	Rate	Slicer	Effects	choice
+sa.fx.slicerSmooth	Smooth	Slicer	Effects	continuous
 sa.fxOn.compressor	Compressor	Compressor	Effects	toggle
 sa.fxOn.delay	Dual Delay	Dual Delay	Effects	toggle
 sa.fxOn.echo	Tape Echo	Tape Echo	Effects	toggle
 sa.fxOn.eq	EQ	EQ	Effects	toggle
 sa.fxOn.filter	Envelope Filter	Envelope Filter	Effects	toggle
+sa.fxOn.freeze	Freeze	Freeze	Effects	toggle
 sa.fxOn.noiseGate	Noise Gate	Noise Gate	Effects	toggle
+sa.fxOn.octaveDown	Octave Down	Octave Down	Effects	toggle
 sa.fxOn.pitchLoop	Pitch Loops	Pitch Loops	Effects	toggle
 sa.fxOn.redux	Crusher	Crusher	Effects	toggle
+sa.fxOn.ringMod	Ring Mod	Ring Mod	Effects	toggle
 sa.fxOn.saturator	Drive	Drive	Effects	toggle
 sa.fxOn.shifter	Pitch Shift	Pitch Shift	Effects	toggle
+sa.fxOn.slicer	Slicer	Slicer	Effects	toggle
 sa.fxReset.compressor	Reset	Compressor	Effects	trigger
 sa.fxReset.delay	Reset	Dual Delay	Effects	trigger
 sa.fxReset.echo	Reset	Tape Echo	Effects	trigger
 sa.fxReset.eq	Reset	EQ	Effects	trigger
 sa.fxReset.filter	Reset	Envelope Filter	Effects	trigger
+sa.fxReset.freeze	Reset	Freeze	Effects	trigger
 sa.fxReset.noiseGate	Reset	Noise Gate	Effects	trigger
+sa.fxReset.octaveDown	Reset	Octave Down	Effects	trigger
 sa.fxReset.pitchLoop	Reset	Pitch Loops	Effects	trigger
 sa.fxReset.redux	Reset	Crusher	Effects	trigger
+sa.fxReset.ringMod	Reset	Ring Mod	Effects	trigger
 sa.fxReset.saturator	Reset	Drive	Effects	trigger
 sa.fxReset.shifter	Reset	Pitch Shift	Effects	trigger
+sa.fxReset.slicer	Reset	Slicer	Effects	trigger

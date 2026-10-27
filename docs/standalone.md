@@ -49,7 +49,7 @@ Each chain is a row of tiles, played left to right.
 |---|---|
 | Edit an effect | Click its tile: its settings appear below |
 | Switch it on or off | Click the square in its tile's corner (■ on, □ off), or press its footswitch. A click anywhere else on the tile never changes the sound |
-| Add an effect or a plugin | Press **+** at the end of the chain. The EQ, Compressor and Noise Gate are under **Utility** |
+| Add an effect or a plugin | Press **+** at the end of the chain. The EQ, Compressor and Noise Gate are under **Utility**; Freeze, Slicer, Octave Down and Ring Mod under **Texture** |
 | Move an effect | Drag its tile along the chain, or onto another chain. Esc lets go |
 | Move or remove it by menu | Click its tile, then press **⋯** |
 | Put a setting back to its default | Double-click it, or **Reset** for the whole effect |

@@ -21,9 +21,9 @@ var calls, pending, bankAction, late, plug, lats, dev, sent2;
 ~tEq.("the guitar's types are built for the guitar chain, the loop's for the loop's, the others for any",
     types.collect(_[\track]), MegaSAFx.guitarKeys.collect { \guitar } ++ MegaSAFx.loopKeys.collect { \loop }
         ++ MegaSAFx.extraKeys.collect { \any });
-~tEq.("the guitar's are written mono, the loop's and the others stereo",
+~tEq.("the guitar's are written mono, the loop's and the others stereo, but Octave Down, a pedal's divider",
     types.collect(_[\width]), MegaSAFx.guitarKeys.collect { \mono } ++ MegaSAFx.loopKeys.collect { \stereo }
-        ++ MegaSAFx.extraKeys.collect { \stereo });
+        ++ MegaSAFx.extraKeys.collect { |k| if(k == \octaveDown) { \mono } { \stereo } });
 ~tEq.("...those in no chain to begin with each in a group of the + menu, the others in none",
     types.collect { |t| t[\group].notNil }, MegaSAFx.keys.collect { false } ++ MegaSAFx.extraKeys.collect { true });
 ~tAssert.("each has its title, a blurb and its switch, <key>On",
@@ -34,7 +34,7 @@ var calls, pending, bankAction, late, plug, lats, dev, sent2;
         (MegaSAFx.param(k) !? { |q| q[\fx] == t[\key] }) == true } } },
     types.collect { |t| t[\key] -> t[\mainKnobs] }.asString);
 ~tEq.("the types with delay lines or buffers take memory, the others none",
-    types.select { |t| t[\memBytes].value(48000) > 0 }.collect(_[\key]), [\shifter, \delay, \pitchLoop, \echo]);
+    types.select { |t| t[\memBytes].value(48000) > 0 }.collect(_[\key]), [\shifter, \delay, \pitchLoop, \echo, \freeze]);
 ~tEq.("...the Delay's four 2.7 s lines at 48 kHz, 512 KB each, as scsynth rounds them",
     MegaSAFx.type(\delay)[\memBytes].value(48000), 4 * 524288);
 ~tAssert.("...twice that at 96 kHz",

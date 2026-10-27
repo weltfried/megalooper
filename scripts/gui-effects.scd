@@ -46,6 +46,10 @@
     eq: "Four bands and a low and a high cut, flat at its defaults",
     compressor: "Evens the level: above the threshold, turned down by the ratio",
     noiseGate: "Shuts between notes, so hum and hiss go with them",
+    freeze: "Holds the sound as it was when switched on, a drone under what you play",
+    slicer: "Slices the sound on the loop's beat, in a pattern",
+    octaveDown: "An analog divider: a square wave an octave under the note",
+    ringMod: "The sound times a sine: bells and clangs, metal from a chord",
     bias: "The amp: the plugin this rig is set up with, and its sound as kept here"
 );
 

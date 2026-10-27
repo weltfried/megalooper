@@ -13,7 +13,7 @@
 // anchorFor), as stamped bundles of their own.
 MegaSAChain {
     var <track, <bus, <sourceDef, <sourceArgs, <devices;
-    var <group, <source;
+    var <group, <source, <phaseBus;
 
     // track: \guitar, \loop, \drums or \bass. bus: a two-channel audio Bus.
     // sourceDef and sourceArgs: the source's SynthDef (\megaSAChainIn,
@@ -55,6 +55,8 @@ MegaSAChain {
     build { |target, addAction = \addToTail, beatDur = 0.6|
         this.free;
         group = Group(target, addAction);
+        // The loop's phase, for a device that follows it (setPhaseBus).
+        phaseBus !? { |b| group.set(\phaseBus, b) };
         source = Synth.head(group, sourceDef, sourceArgs ++ [\bus, bus.index]);
         // A device that cannot be built costs that device only: the rest of
         // the chain comes up, in order, and the post window says which.
@@ -75,6 +77,15 @@ MegaSAChain {
     setTempo { |beatDur, bpm|
         group !? { |g| g.set(\beatDur, beatDur) };
         devices.do { |d| d.plugin !? { |p| p.setTempo(bpm) } };
+    }
+
+    // The Looper's phase bus (its index), for the devices whose type follows
+    // the loop's phase (MegaSAFx's `followsPhase`: the Slicer, on the beat):
+    // kept, so a build sends it again, and sent to the group, which reaches
+    // every device that reads it.
+    setPhaseBus { |index|
+        phaseBus = index;
+        group !? { |g| g.set(\phaseBus, index) };
     }
 
     // The chain's delay in frames, and what its synths take from the real-

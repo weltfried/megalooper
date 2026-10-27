@@ -57,6 +57,8 @@ MegaSADevice {
     typeRow { ^if(this.isPlugin) { nil } { MegaSAFx.type(type) } }
 
     followsTempo { ^this.typeRow !? { |t| t[\followsTempo] } ? false }
+    // Whether its synth reads the loop's phase (\phaseBus): the Slicer.
+    followsPhase { ^this.typeRow !? { |t| t[\followsPhase] } ? false }
 
     // The settings it has, in its panel's order (MegaSAFx.params' rows).
     params { ^if(this.typeRow.isNil) { [] } { MegaSAFx.paramsOf(type) } }

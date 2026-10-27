@@ -602,6 +602,9 @@ MegaSA {
     // name the synths this frees. Called from a Routine.
     attachLooper { |looper|
         if(editsBusyUntil > thisThread.seconds) { ((editsBusyUntil - thisThread.seconds) + 0.01).wait };
+        // The loop's phase, to every chain, for a device on the beat (the
+        // Slicer): the loop's bar 1 beat 1 is the drums' too.
+        looper.phaseBus !? { |b| this.chains.do { |c| c.setPhaseBus(b.index) } };
         loopChain.build(server.defaultGroup, \addToTail, beatDur);
         looper.sessionRec.target = recordGroup;
         drums !? { |d| d.attach(looper) };
@@ -1297,13 +1300,15 @@ MegaSA {
         limbo.remove(device);
         anchor = chain.anchorFor(chain.indexOf(device));
         if(device.node.isNil) {
-            this.prSend(t0, [device.newOffMsg(server, anchor, chain.bus.index, beatDur)]);
+            this.prSend(t0, [device.newOffMsg(server, anchor, chain.bus.index, beatDur)]
+                ++ this.prPhaseMsgs(device, chain));
             t1 = t0 + this.class.birthGap;
             if(device.on) { this.prSend(t1, device.switchMsgs(true)) };
         } {
             node = device.node.nodeID;
             msgs = [[19, node, anchor.nodeID], [15, node, \bus, chain.bus.index]]
-                ++ if(device.followsTempo) { [[15, node, \beatDur, beatDur]] } { [] };
+                ++ if(device.followsTempo) { [[15, node, \beatDur, beatDur]] } { [] }
+                ++ this.prPhaseMsgs(device, chain);
             if(device.on) { msgs = msgs ++ device.switchMsgs(true) };
             this.prSend(t0, msgs);
             device.plugin !? { |p| tempo !? { |t| p.setTempo(t) } };
@@ -1388,6 +1393,12 @@ MegaSA {
         ("MegaSA: " ++ what ++ " refused: " ++ why ++ ".").warn;
         this.changed(\refused, what, why);
         ^nil
+    }
+
+    // The loop's phase for a device that follows it, as its chain has it.
+    prPhaseMsgs { |device, chain|
+        ^if(device.followsPhase and: { chain.phaseBus.notNil } and: { device.node.notNil }) {
+            [[15, device.node.nodeID, \phaseBus, chain.phaseBus]] } { [] }
     }
 
     // A further device's name: its type's title and its number, "Delay 2".

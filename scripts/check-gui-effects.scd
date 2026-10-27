@@ -192,7 +192,11 @@ Routine {
         ok.(key ++ ": Live values clears the tile's mark",
             ~effectsTiles[key][\select].states[0][0].contains("•").not);
     };
-    MegaSAFx.params.select { |p| p[\choices].notNil }.do { |p|
+    // The starting chains' effects, then a Slicer's, put in for its menus
+    // (the effects in no chain to begin with have no device here until then).
+    m.insertDevice(\guitar, nil, \slicer);
+    tick.();
+    MegaSAFx.params.select { |p| p[\choices].notNil and: { MegaSAFx.keys.includes(p[\fx]) or: { p[\fx] == \slicer } } }.do { |p|
         var w;
         ~effectsSelect.(p[\fx]);
         tick.();
@@ -207,6 +211,8 @@ Routine {
             w[\menu].value.asString);
         m.resetFx(p[\fx]);
     };
+    m.removeDevice(\slicer);
+    tick.();
 
     "== the footswitches ==".postln;
     MegaSAFx.keys.do { |key|

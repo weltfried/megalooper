@@ -14,11 +14,11 @@ var sa, d, d2, d3, fresh, targets, was = ~megaSA;
 if(~midiTargetsBuild.isNil) { (scripts +/+ "setup-miditargets.scd").load };
 
 fresh = ~tMegaSA.(~tStubServer.());
-~tEq.("no chain holds one to begin with", MegaSAFx.extraKeys.collect { |k| fresh.device(k) }, [nil, nil, nil]);
+~tEq.("no chain holds one to begin with", MegaSAFx.extraKeys.collect { |k| fresh.device(k) }, nil ! MegaSAFx.extraKeys.size);
 ~tAssert.("...and a sound of the chains carries no mark for them",
     MegaSAFx.extraKeys.every { |k| fresh.sound("x").fileString.contains("\"" ++ k ++ "\"").not }, "a mark written");
-~tEq.("they are in the + menu's Utility group", MegaSAFx.extraKeys.collect { |k| MegaSAFx.type(k)[\group] },
-    ["Utility", "Utility", "Utility"]);
+~tEq.("they are in the + menu's Utility and Texture groups", MegaSAFx.extraKeys.collect { |k| MegaSAFx.type(k)[\group] },
+    ["Utility", "Utility", "Utility", "Texture", "Texture", "Texture", "Texture"]);
 fresh.free;
 
 sa = ~tMegaSA.(~tStubServer.());
@@ -39,6 +39,17 @@ d = sa.insertDevice(\guitar, 0, \noiseGate);
 ~tEq.("a Noise Gate first in the guitar chain, before the rest, its key as its id",
     [d.id, sa.guitarChain.ids.first], [\noiseGate, \noiseGate]);
 ~tEq.("...a Compressor's key is still free", sa.insertDevice(\guitar, nil, \compressor).id, \compressor);
+
+// The Slicer follows the loop's phase: a chain that has it (attachLooper
+// gives every chain the Looper's) passes it to a Slicer put in, in the same
+// bundle; a moved one is told it again; an EQ, which doesn't follow it, isn't.
+sa.guitarChain.setPhaseBus(37);
+d = sa.insertDevice(\guitar, nil, \slicer);
+~tEq.("a Slicer put in a chain with the loop's phase is sent its bus", ~tLastSet.(sa, d.node, \phaseBus), 37);
+~tEq.("...and is on the beat: it follows the tempo too", [d.followsPhase, d.followsTempo], [true, true]);
+~tEq.("...an EQ isn't sent it", ~tLastSet.(sa, sa.insertDevice(\guitar, nil, \eq).node, \phaseBus), nil);
+sa.guitarChain.setPhaseBus(41);
+~tEq.("a chain given another bus sends its group the new one", ~tLastSet.(sa, sa.guitarChain.group, \phaseBus), 41);
 
 // Its MIDI controls reach the device with the type's key, once there is one.
 ~megaSA = sa;
