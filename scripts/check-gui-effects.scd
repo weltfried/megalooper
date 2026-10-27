@@ -294,10 +294,10 @@ Routine {
         ok.("picking one adds it at the end of that chain, with a tile of its own",
             (m.loopChain.devices.size == (n + 1)) and: { m.loopChain.devices.last.type == \filter } and: { ~effectsTiles[id].notNil }, id.asString);
         items = ~effectsDeviceItems.(id);
-        ok.("⋯ for the last device of a chain: left, not right, each other chain, Remove, Random, Reset",
+        ok.("⋯ for the last device of a chain: left, not right, each other chain, Remove, Random, Undo random (none drawn), Reset",
             shown.(items) == [["Move left", true], ["Move right", false], ["Move to the instrument chain", true],
-                ["Move to the drums chain", true], ["Move to the synth chain", true], ["Remove", true], ["Random", true], ["Reset", true],
-                ["Copy diagnostics", true]],
+                ["Move to the drums chain", true], ["Move to the synth chain", true], ["Remove", true], ["Random", true],
+                ["Undo random", false], ["Reset", true], ["Copy diagnostics", true]],
             shown.(items).asString);
         find.(items, "Move left")[\action].value;
         tick.();
@@ -718,6 +718,12 @@ Routine {
             ok.("...a click draws the Delay's settings (Reset puts them back), and the editor shows them",
                 m.fxEdited(\delay) and: { shownMix.isNil or: { shownMix == ~effectsFormat.(MegaSAFx.param(\delayMix), m.fxParam(\delayMix)) } },
                 [m.fxEdited(\delay), shownMix, m.fxParam(\delayMix)].asString);
+            // Undo random beside it, lit while there is a draw to take back.
+            ok.("...Undo random is lit after it", ~effectsRandomBack.notNil and: { ~effectsRandomBack.enabled });
+            ~effectsRandomBack.action.value(~effectsRandomBack);
+            tick.();
+            ok.("...and a click takes the draw back: the Delay as Reset left it, the button grey",
+                m.fxEdited(\delay).not and: { ~effectsRandomBack.enabled.not }, m.fxEdited(\delay).asString);
             m.resetFx(\delay);
             tick.();
         }.value;

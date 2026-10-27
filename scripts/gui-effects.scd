@@ -431,7 +431,7 @@
 ~effectsEditor = { |key|
     var m = ~megaSA;
     var view = View();
-    var params, rows, small, dev, reset, random, tip;
+    var params, rows, small, dev, reset, random, back, tip;
     small = { |label, width, action, tip|
         LooperTile().states_([[label, ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line]).cycles_(false)
             .font_(~guiSans.(13)).fixedHeight_(28).fixedWidth_(width).toolTip_(tip ? "").action_(action)
@@ -492,14 +492,23 @@
         random = small.("Random", 104, { ~megaSA !? { |mm| mm.randomizeFx(key) } });
         tip = "Every setting of this effect at a random value, to try out sounds.\n"
             "The levels it ends on (Output, the filter's Makeup) stay where they are.\n"
-            "Reset puts the starting values back; Save variation keeps one you like.";
+            "Undo random takes a draw back; Reset puts the starting values back;\n"
+            "Save variation keeps one you like.";
         if(~effectsHasTargets.(key)) { ~mapTag.(random, ("sa.fxRandom." ++ key).asSymbol, tip) } { random.toolTip_(tip) };
+        // And its way back: the settings before the last Random (MegaSA.undoRandomFx),
+        // as many draws back as were made, up to 16.
+        back = small.("Undo random", 120, { ~megaSA !? { |mm| mm.undoRandomFx(key) } },
+            "The settings this effect had before its last Random, back, a setting moved\n"
+            "by hand since too. Again for the draw before; up to 16.");
+        ~effectsRandomBack = back;
+        ~effectsRandomBackKey = key;
+        ~effectsPaintRandomBack.();
         view.layout_(VLayout(*([
             HLayout(*([
                 ~guiText.(~effectsTitle.(key) ++ " ·", 16, nil, true),
                 ~guiText.(dev !? { |d| ~effectsBlurbs[d.type] } ? "", 13, ~gt[\mute]),
                 nil,
-                random, reset
+                random, back, reset
             ])).spacing_(14).margins_(0)
         ] ++ (dev !? { |d| [~effectsVariationRow.(key, d, small)] } ? []) ++ rows ++ [nil])).margins_(0).spacing_(10));
       };
@@ -735,6 +744,16 @@
             action: { ~effectsScan.() })
     ]
 };
+// Undo random lit while the effect shown has a draw to take back.
+~effectsPaintRandomBack = {
+    var b = ~effectsRandomBack, n;
+    if(b.notNil and: { b.isClosed.not }) {
+        n = ~megaSA !? { |m| m.randomBackCount(~effectsRandomBackKey) } ? 0;
+        b.enabled_(n > 0);
+        b.states_([["Undo random", if(n > 0) { ~gt[\ink] } { ~gt[\mute] }, ~gt[\panel]]]);
+    };
+};
+
 // What ⋯ offers for a tile's device: moves, Remove, and Random and Reset or, for a
 // plugin, its own window; then, device or none, Copy diagnostics.
 ~effectsDeviceItems = { |key|
@@ -756,6 +775,8 @@
             [(label: "Open its window", section: \device, enabled: d.plugin.notNil, action: { d.plugin !? { |p| p.editor } })]
         } {
             [(label: "Random", section: \device, enabled: true, action: { m.randomizeFx(d.id) }),
+                (label: "Undo random", section: \device, enabled: m.randomBackCount(d.id) > 0,
+                    action: { m.undoRandomFx(d.id) }),
                 (label: "Reset", section: \device, enabled: true, action: { m.resetFx(d.id) })]
         } ++ pane
     }
@@ -1132,6 +1153,7 @@
                 .put(\fxParam, { |obj, what, name, val|
                     { ~effectsRefreshParam.(name, val); ~effectsKeepSoon.() }.defer
                 })
+                .put(\fxRandom, { |obj, what, id| { ~effectsPaintRandomBack.() }.defer })
                 // A chain edit: the rows again, once per burst, at the next
                 // AppClock tick (defer would run at once on AppClock or the
                 // interpreter's thread, where the IDE's edits come from).

@@ -65,5 +65,32 @@ d = sa.insertDevice(\guitar, nil, \saturator);
 before = d.settings.copy;
 sa.randomizeFx(d.id);
 ~tAssert.("a further device draws its own, by its id", d.edited and: { sa.device(\saturator).edited.not });
+
+// ---- taken back (undoRandomFx) -----------------------------------------------------
+sa.free;
+sa = ~tMegaSA.(~tStubServer.());
+d = sa.device(\filter);
+sa.setParam(\filter, \filterFreq, 800);
+before = d.settings.copy;
+~tEq.("nothing to take back before a Random", [sa.randomBackCount(\filter), sa.undoRandomFx(\filter)], [0, nil]);
+said = heard.(sa, { sa.randomizeFx(\filter) });
+p = d.settings.copy;
+~tEq.("a Random can be taken back, and says so", [sa.randomBackCount(\filter), said.select { |x| x[0] == \fxRandom }],
+    [1, [[\fxRandom, \filter, 1]]]);
+sa.randomizeFx(\filter);
+sa.setParam(\filter, \filterRes, 0.123);
+~tEq.("two draws and a knob moved since: the first undo puts the settings before the second draw back",
+    [sa.undoRandomFx(\filter) === d, d.settings == p, sa.randomBackCount(\filter)], [true, true, 1]);
+said = heard.(sa, { sa.undoRandomFx(\filter) });
+~tEq.("...the second those before the first: the 800 Hz set by hand", [d.settings == before, d.param(\filterFreq)], [true, 800]);
+~tAssert.("...each change said, so the knobs follow", said.any { |x| x[0] == \fxParam } and: { said.last == [\fxRandom, \filter, 0] },
+    said.asString);
+~tEq.("...and then nothing more", sa.undoRandomFx(\filter), nil);
+20.do { sa.randomizeFx(\filter) };
+~tEq.("it goes back 16 draws at most", sa.randomBackCount(\filter), MegaSA.randomBackMax);
+d = sa.insertDevice(\guitar, nil, \saturator);
+sa.randomizeFx(d.id);
+sa.removeDevice(d.id);
+~tEq.("a device removed has none to take back", [d.id, sa.randomBackCount(d.id)], [\saturator2, 0]);
 sa.free;
 }.value;

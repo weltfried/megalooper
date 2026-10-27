@@ -54,7 +54,7 @@ Each chain is a row of tiles, played left to right.
 | Move or remove it by menu | Click its tile, then press **⋯** |
 | Put a setting back to its default | Double-click it, or **Reset** for the whole effect |
 | Keep an effect's settings | Type a name beside **Save variation**, under the effect's title, and press it. The variation holds every setting, and the menu beside it lists it for every effect of that type (both Delays, say). The same name again replaces it; **Delete:** in the menu removes it |
-| Try out a random sound | **Random** beside Reset: every setting at a random value. **Reset** brings the starting values back |
+| Try out a random sound | **Random** beside Reset: every setting at a random value. **Undo random** takes the draw back (again for the one before); **Reset** brings the starting values back |
 | Undo an edit | Cmd+Z. Shift+Cmd+Z redoes |
 
 Edits are safe while a loop plays: the chain cross-fades to its new order.

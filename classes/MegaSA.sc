@@ -106,6 +106,9 @@ MegaSA {
     // bundles have all landed (edits never overlap: each starts after the
     // one before, so the places they send are the places there are).
     var <limboGroup, limbo, undoList, redoList, <nextIds, editsBusyUntil = -inf;
+    // Per device id, its settings before each Random drawn on it, oldest
+    // first (randomBackMax of them): what undoRandomFx puts back.
+    var randomBefore;
     // Each chain's delay (frames) as last said with \latency (track, seconds).
     var lastLatency;
     // Rhythmic Steps and the onset kit (MegaSADrums). Made with this object,
@@ -249,6 +252,7 @@ MegaSA {
         limbo = List.new;
         undoList = List.new;
         redoList = List.new;
+        randomBefore = IdentityDictionary.new;
         // A default device's id is its type's key, its first; further ones
         // go on from 2. A type in no chain to begin with (MegaSAFx.extraKeys)
         // has its key free: its first device takes it. Plugins are plugin1,
@@ -988,15 +992,47 @@ MegaSA {
 
     // Every setting of one device at a random value (MegaSAFx.randomValue),
     // but the levels it ends on (MegaSAFx.randomKeeps), for trying sounds
-    // out; Reset brings the starting values back. A plugin's settings are in
-    // its own window, so a plugin's device has none to draw. Its switch is
-    // left as it is. Answers the device, or nil for no such id.
+    // out; Reset brings the starting values back, undoRandomFx the ones
+    // before the draw. A plugin's settings are in its own window, so a
+    // plugin's device has none to draw. Its switch is left as it is. Answers
+    // the device, or nil for no such id.
     randomizeFx { |key|
         ^this.device(key) !? { |d|
+            if(d.params.notEmpty) {
+                randomBefore[d.id] = (randomBefore[d.id] ?? { List.new }).add(d.settings.copy);
+                while { randomBefore[d.id].size > this.class.randomBackMax } { randomBefore[d.id].removeAt(0) };
+            };
             d.params.do { |p|
                 if(MegaSAFx.randomKeeps.includes(p[\name]).not) { this.prSetParam(d, p[\name], MegaSAFx.randomValue(p)) } };
+            this.changed(\fxRandom, d.id, this.randomBackCount(d.id));
             d
         }
+    }
+
+    // How many Randoms on one device undoRandomFx can take back.
+    *randomBackMax { ^16 }
+
+    randomBackCount { |key| ^(randomBefore[key] ? []).size }
+
+    // The settings one device had before its last Random, back (a setting
+    // moved by hand since goes back too): a draw not liked, taken back; again
+    // for the one before (randomBackMax). Undo and redo are the chains'
+    // structure's (prRecord), so this is Random's own. Answers the device, or
+    // nil with no Random to take back.
+    undoRandomFx { |key|
+        var d = this.device(key), was = randomBefore[key];
+        if(d.isNil or: { was.isNil } or: { was.isEmpty }) { ^nil };
+        was.pop.keysValuesDo { |k, v| if(d.settings.includesKey(k) and: { d.param(k) != v }) { this.prSetParam(d, k, v) } };
+        this.changed(\fxRandom, d.id, this.randomBackCount(d.id));
+        ^d
+    }
+
+    // Draws of devices no longer there, or of a sound recalled over them,
+    // have nothing to go back to.
+    prForgetRandom { |key|
+        if(key.isNil) { randomBefore.keys.copy.do { |k| this.prForgetRandom(k) } } {
+            if(randomBefore.removeAt(key).notNil) { this.changed(\fxRandom, key, 0) };
+        };
     }
 
     // Has any setting of this device moved off the Live set's value? Within a
@@ -1183,6 +1219,7 @@ MegaSA {
         if(why.notNil) { this.prRefuse(\remove, id ++ ": " ++ why); ^false };
         index = chain.indexOf(d);
         this.prTakeOut(d);
+        this.prForgetRandom(id);
         this.prRecord((op: \remove, device: d, from: [chain.track, index]));
         this.changed(\chain, chain.track, \remove, id, index);
         this.prLatencyCheck;
@@ -1704,6 +1741,7 @@ MegaSA {
             ^false
         };
         fresh = if(structural) { this.prRestructure(sound, notes) } { [] };
+        this.prForgetRandom(nil);
         sound.devices.do { |x|
             this.device(x[\id]) !? { |d|
                 if(d.type == x[\type]) {

@@ -31,7 +31,8 @@ what each one does, and every setting it has.
   loop's tempo, which every new reading sets. Their changes glide.
 - **Random** sets every setting at random but the output levels and the
   Envelope Filter's Makeup, so a new sound comes out about as loud.
-  **Reset** puts the defaults back.
+  **Undo random** takes a draw back, settings you moved since included,
+  then the one before, up to 16; **Reset** puts the defaults back.
 - **Variations.** The menu under an effect's title recalls settings kept
   under a name, and **Save variation** keeps yours. A variation is one
   effect's settings; a sound is all the chains. [A variation or a
