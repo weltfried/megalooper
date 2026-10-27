@@ -1114,7 +1114,8 @@ MegaRemote {
                 "the looper records it), loop (what the loop plays back), drums, bass and synth (each "
                 "after its source). A device has an id, a type (one of these keys), a name, an on "
                 "switch and settings by name. Any type may go in any chain; track says what it was "
-                "made for. A further device of a type gets the next id (delay2). Plugins (VST, e.g. "
+                "made for (any: none in particular). A type in no chain to begin with gets its key as "
+                "its first device's id (eq); a further device of a type gets the next id (delay2). Plugins (VST, e.g. "
                 "an amp) are devices too: they may be moved and switched, their own settings are in "
                 "their window, and only the player puts them in or takes them out.",
             \effects, MegaSAFx.types.collect { |t|

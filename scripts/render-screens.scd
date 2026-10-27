@@ -278,6 +278,15 @@ Routine {
         wait.();
         ~effectsPerRow = 4;
         MegaSAFx.keys.do { |key| panel.(key) };
+        // The effects in no chain to begin with: each put in for its panel,
+        // taken out again, so the other views stay as they are.
+        MegaSAFx.extraKeys.do { |key|
+            ~megaSA.insertDevice(\guitar, nil, key);
+            wait.(0.3);
+            panel.(key);
+            ~megaSA.removeDevice(key);
+            wait.(0.3);
+        };
         ~effectsPerRow = 7;
         // Parts of views, each for the section that explains it.
         goto.(\perform);

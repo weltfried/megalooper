@@ -333,9 +333,9 @@ MegaSAFx.keys.do { |k|
     // Each setting's device: the SynthDef of its effect's type.
     var descOf = { |p| SynthDescLib.global[MegaSAFx.deviceDefName(p[\fx])] };
     var controlOf = { |desc, name| desc !? { |d| d.controls.detect { |c| c.name.asSymbol == name } } };
-    ~tAssert.("every effect has settings", MegaSAFx.keys.every { |k| MegaSAFx.paramsOf(k).notEmpty });
+    ~tAssert.("every effect has settings", MegaSAFx.typeKeys.every { |k| MegaSAFx.paramsOf(k).notEmpty });
     ~tEq.("no setting is listed twice", names.asSet.size, names.size);
-    ~tAssert.("every setting belongs to an effect", params.every { |p| MegaSAFx.keys.includes(p[\fx]) });
+    ~tAssert.("every setting belongs to an effect", params.every { |p| MegaSAFx.typeKeys.includes(p[\fx]) });
     ~tAssert.("and is named after it, as the presets' files group them",
         params.every { |p| p[\name].asString.beginsWith(p[\fx].asString) },
         params.reject { |p| p[\name].asString.beginsWith(p[\fx].asString) }.collect(_[\name]));
@@ -389,8 +389,10 @@ MegaSAFx.keys.do { |k|
     guitarP = MegaSAFx.paramsOf(MegaSAFx.guitarKeys.first).first;
     loopP = MegaSAFx.paramsOf(MegaSAFx.loopKeys.first).first;
 
+    // The default chains' devices' (a type in no chain to begin with has
+    // no device yet to hold its settings).
     ~tEq.("every setting starts at the Live set's value",
-        MegaSAFx.params.every { |p| sa.fxParam(p[\name]) == p[\spec].default }, true);
+        MegaSAFx.params.select { |p| MegaSAFx.keys.includes(p[\fx]) }.every { |p| sa.fxParam(p[\name]) == p[\spec].default }, true);
     ~tAssert.("and no effect counts as edited", MegaSAFx.keys.every { |k| sa.fxEdited(k).not });
 
     sa.setFxParam(guitarP[\name], guitarP[\spec].map(0.75));

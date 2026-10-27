@@ -1,8 +1,9 @@
 # The effects
 
-Megalooper SA has seven effects of its own: **Pitch Shift**, **Dual Delay**,
-**Envelope Filter** and **Pitch Loops**, made for the instrument, and **Tape
-Echo**, **Drive** and **Crusher**, made for the loop.
+Megalooper SA has ten effects of its own: **Pitch Shift**, **Dual Delay**,
+**Envelope Filter** and **Pitch Loops**, made for the instrument, **Tape
+Echo**, **Drive** and **Crusher**, made for the loop, and three utilities for
+any chain, **EQ**, **Compressor** and **Noise Gate**.
 
 How to add, move, switch and save them is in
 [The chains](standalone.md#the-chains), in the Megalooper SA guide. Here is
@@ -15,7 +16,9 @@ what each one does, and every setting it has.
   second one is called "Dual Delay 2".
 - **Mono or stereo.** The four instrument effects are mono: they hear both sides
   of their chain mixed and play their effect on both, while the dry signal
-  passes as it came. The three loop effects are stereo, each side on its own.
+  passes as it came. The three loop effects and the three utilities are
+  stereo, each side on its own (the utilities' level detectors hear the
+  louder side, so both sides move together).
 - **A switch never clicks.** On and off crossfade over 30 ms, so a
   footswitch can switch an effect on the beat.
 - **Off costs nothing, mostly**: see [On a slower
@@ -38,7 +41,10 @@ what each one does, and every setting it has.
 
 megalooper's own sound, before you keep one of yours, has the instrument's four
 in its instrument chain and the loop's three in its loop chain, in that order,
-all switched off.
+all switched off. The utilities are in no chain to begin with: the **+** at the
+end of a chain offers them under **Utility**. The first of each you add is
+called by its type alone ("EQ"), and its controls keep their names from sound
+to sound, as a starting effect's do; a second is "EQ 2".
 
 Every setting below is a knob or a menu on the effect's panel; hover over it
 for the same words. Double-click a knob for its default. Each effect's
@@ -255,3 +261,71 @@ at random, which keeps it from sounding too clean.
 | **Dry/Wet** | 0 to 100 % | 80 % | The plain loop against the crushed one |
 
 Variations: *heavy distorted*, *loop-playback*, and one more by number.
+
+## EQ
+
+![The EQ panel](images/fx-eq.png)
+
+*Fig: EQ at its starting values: flat.*
+
+Four bands and two cuts, flat at its starting values: every band at 0 dB and
+both cuts out, so it passes the signal as it came until you move something. The
+cuts are 24 dB an octave; each is out at the end of its knob.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Low Cut** | 10 to 1,000 Hz | 10 Hz (out) | Cuts below it: rumble, a bass's lowest boom |
+| **Low Freq** | 20 to 1,000 Hz | 120 Hz | Where the low shelf turns |
+| **Low** | −18 to 18 dB | 0 dB | Everything below Low Freq, up or down |
+| **Mid 1 Freq** | 60 to 10,000 Hz | 500 Hz | The first middle band's centre |
+| **Mid 1** | −18 to 18 dB | 0 dB | The first middle band, up or down |
+| **Mid 1 Q** | 0.3 to 10 | 1 | How narrow the first middle band is; higher is narrower |
+| **Mid 2 Freq** | 200 to 16,000 Hz | 2,500 Hz | The second middle band's centre |
+| **Mid 2** | −18 to 18 dB | 0 dB | The second middle band, up or down |
+| **Mid 2 Q** | 0.3 to 10 | 1 | How narrow the second middle band is |
+| **High Freq** | 1 to 16 kHz | 8 kHz | Where the high shelf turns |
+| **High** | −18 to 18 dB | 0 dB | Everything above High Freq, up or down |
+| **High Cut** | 1 to 20 kHz | 20 kHz (out) | Cuts above it: fizz, hiss |
+| **Output** | −18 to 18 dB | 0 dB | The level it leaves at |
+
+## Compressor
+
+![The Compressor panel](images/fx-compressor.png)
+
+*Fig: Compressor at its starting values.*
+
+Evens the level out: whatever goes over the threshold is turned down by the
+ratio. At its starting values a note 4 dB over the threshold comes out 1 dB
+over it. It has no look-ahead, so it adds no delay to what you play; above full
+scale the output bends rather than runs on, should the makeup push it there.
+Before Drive or a delay it evens what they hear; on the loop it holds a
+take that came out uneven.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Threshold** | −60 to 0 dB | −18 dB | Above it the level is turned down |
+| **Ratio** | 1:1 to 20:1 | 4:1 | How hard. 20:1 is nearly a limiter |
+| **Attack** | 0.1 to 100 ms | 10 ms | How fast it turns down. Slower lets a pick's attack through |
+| **Release** | 10 to 1,000 ms | 120 ms | How fast it lets go |
+| **Knee** | 0 to 24 dB | 6 dB | How gently it starts around the threshold; 0 is a hard corner |
+| **Makeup** | 0 to 24 dB | 0 dB | Gain back after it |
+| **Dry/Wet** | 0 to 100 % | 100 % | The signal as it came against the compressed one. Lower is parallel compression |
+
+## Noise Gate
+
+![The Noise Gate panel](images/fx-noisegate.png)
+
+*Fig: Noise Gate at its starting values.*
+
+Shuts when the level falls below the threshold, so hum and hiss between notes
+go with it. It opens above the threshold and shuts only once the level has
+fallen a few dB further (Hysteresis), so a note dying around the threshold
+doesn't flutter. First in the instrument chain, before Drive, is its place.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Threshold** | −80 to 0 dB | −50 dB | It opens above it. Set it just above the hum |
+| **Hysteresis** | 0 to 12 dB | 4 dB | How far below the threshold the level must fall before it shuts |
+| **Attack** | 0.1 to 50 ms | 1 ms | How fast it opens |
+| **Release** | 5 to 2,000 ms | 120 ms | How fast it shuts once the level has fallen. Longer lets a note ring out |
+| **Range** | −80 to 0 dB | −80 dB | How far it shuts: −80 is silent, −20 lets some through |

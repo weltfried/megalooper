@@ -33,6 +33,13 @@ MegaSAFx {
     // "looper guitar" track.
     *loopKeys { ^[\echo, \saturator, \redux] }
     *keys { ^this.guitarKeys ++ this.loopKeys }
+    // Types in no chain to begin with, offered in a chain's + menu by their
+    // group (docs/dev/rc600-picks.md, Phase 4). The first one inserted has
+    // its type's key as its id, as a default device has (MegaSA.prNewId), so
+    // its controls' ids (sa.fxOn.eq, sa.fx.eqLow) hold from sound to sound.
+    *extraKeys { ^[\eq, \compressor, \noiseGate] }
+    // Every type there is: the default chains' and the others.
+    *typeKeys { ^this.keys ++ this.extraKeys }
 
     // What an effect is called. Megalooper's own names since release 1.0: the
     // effects were built after devices of Ableton Live and went by those
@@ -40,7 +47,8 @@ MegaSAFx {
     // every MIDI map and every sound still finds its effect.
     *title { |key|
         ^(shifter: "Pitch Shift", delay: "Dual Delay", filter: "Envelope Filter", pitchLoop: "Pitch Loops",
-            echo: "Tape Echo", saturator: "Drive", redux: "Crusher")[key] ?? { key.asString }
+            echo: "Tape Echo", saturator: "Drive", redux: "Crusher",
+            eq: "EQ", compressor: "Compressor", noiseGate: "Noise Gate")[key] ?? { key.asString }
     }
 
     *titleBefore { |key|
@@ -384,12 +392,62 @@ MegaSAFx {
         ^(sig * (1 - mix)) + (LeakDC.ar(q) * mix)
     }
 
+    // ---- Utility (docs/dev/rc600-picks.md, Phase 4b) ------------------------
+    // Effects of megalooper's own, not rebuilt from Live devices: stereo, for
+    // any chain, each transparent at its defaults.
+
+    // Four bands and two cuts. A band at 0 dB passes the signal as it came;
+    // a cut at the end of its knob is out, fading itself in over the last
+    // stretch (the low cut from 10 Hz to 20, the high from 20 kHz to 19), so
+    // the defaults are the signal itself.
+    *eq { |sig|
+        var lowCut = \eqLowCut.kr(10, 0.05), highCut = \eqHighCut.kr(20000, 0.05);
+        var x = sig;
+        x = LinXFade2.ar(x, HPF.ar(HPF.ar(x, lowCut), lowCut), (((lowCut - 10) / 10).clip(0, 1) * 2) - 1);
+        x = BLowShelf.ar(x, \eqLowFreq.kr(120, 0.05), 1, \eqLowGain.kr(0, 0.05));
+        x = BPeakEQ.ar(x, \eqMid1Freq.kr(500, 0.05), \eqMid1Q.kr(1, 0.05).reciprocal, \eqMid1Gain.kr(0, 0.05));
+        x = BPeakEQ.ar(x, \eqMid2Freq.kr(2500, 0.05), \eqMid2Q.kr(1, 0.05).reciprocal, \eqMid2Gain.kr(0, 0.05));
+        x = BHiShelf.ar(x, \eqHighFreq.kr(8000, 0.05), 1, \eqHighGain.kr(0, 0.05));
+        x = LinXFade2.ar(x, LPF.ar(LPF.ar(x, highCut), highCut), (((20000 - highCut) / 1000).clip(0, 1) * 2) - 1);
+        ^x * \eqOutput.kr(0, 0.05).dbamp
+    }
+
+    // The drums' compressor's gain computer (MegaSADrumsFx.compGainDb: a soft
+    // knee, then 1/ratio), on the louder side's peak, so both sides move
+    // together. No look-ahead: a Limiter's would put its delay on the
+    // instrument as it is played. Above full scale the output bends rather
+    // than runs on (softclip, linear below 1), against a makeup turned up.
+    *compressor { |sig|
+        var peak = sig.collect(_.abs).reduce(\max);
+        var level = this.follow(peak, \compressorAttack.kr(0.01), \compressorRelease.kr(0.12));
+        var gainDb = MegaSADrumsFx.compGainDb(level.max(1e-6).ampdb, \compressorThreshold.kr(-18, 0.05),
+            \compressorRatio.kr(4, 0.05), \compressorKnee.kr(6, 0.05), \compressorMakeup.kr(0, 0.05));
+        var mix = \compressorMix.kr(1, 0.05);
+        var wet = ((sig * K2A.ar(gainDb.dbamp)) * 0.5).softclip * 2;
+        ^(sig * (1 - mix)) + (wet * mix)
+    }
+
+    // Open above the threshold, closed once the level has fallen Hysteresis
+    // below it (a Schmitt trigger, so a note dying around the threshold
+    // doesn't chatter), opening in Attack and closing in Release, to Range
+    // below (-80 dB: shut). The louder side decides for both.
+    *noiseGate { |sig|
+        var thr = \noiseGateThreshold.kr(-50, 0.05);
+        var level = this.follow(sig.collect(_.abs).reduce(\max), 0.001, 0.03).max(1e-6).ampdb;
+        var open = Schmidt.kr(level, thr - \noiseGateHysteresis.kr(4, 0.05), thr);
+        var env = LagUD.kr(open, \noiseGateAttack.kr(0.001), \noiseGateRelease.kr(0.12));
+        var floor = \noiseGateRange.kr(-80, 0.05).dbamp;
+        ^sig * K2A.ar(floor + ((1 - floor) * env))
+    }
+
     // ---- The types --------------------------------------------------------
     // One row per built-in device type (docs/dev/device-chains.md, section 4.1),
     // in chain order. Each type is its effect's key; the device of that type
     // a chain starts with has the key as its id too.
     //   title, blurb  the device's name and one line on what it does
-    //   track         the chain it is built for: \guitar or \loop
+    //   track         the chain it is built for: \guitar or \loop; \any for
+    //                 the types in no chain to begin with (extraKeys)
+    //   group         those types' heading in the + menu
     //   width         \mono: written for one channel. Its device hears the
     //                 sum of the chain's two sides, (L + R) / 2, and writes
     //                 its effect to both; the dry path stays the two sides.
@@ -472,6 +530,24 @@ MegaSAFx {
                 blurb: "Fewer samples, fewer bits.",
                 mainKnobs: [\reduxRate, \reduxBits, \reduxMix],
                 dsp: { |sig| this.redux(sig) },
+                memBytes: { |sr| 0 },
+                latency: none),
+            (key: \eq, track: \any, group: "Utility", width: \stereo, followsTempo: false, sleeps: true,
+                blurb: "Four bands and two cuts.",
+                mainKnobs: [\eqLowGain, \eqMid1Gain, \eqMid2Gain, \eqHighGain],
+                dsp: { |sig| this.eq(sig) },
+                memBytes: { |sr| 0 },
+                latency: none),
+            (key: \compressor, track: \any, group: "Utility", width: \stereo, followsTempo: false, sleeps: true,
+                blurb: "Evens the level out: louder than the threshold, turned down by the ratio.",
+                mainKnobs: [\compressorThreshold, \compressorRatio, \compressorMakeup],
+                dsp: { |sig| this.compressor(sig) },
+                memBytes: { |sr| 0 },
+                latency: none),
+            (key: \noiseGate, track: \any, group: "Utility", width: \stereo, followsTempo: false, sleeps: true,
+                blurb: "Shuts below the threshold: hum and hiss between notes go.",
+                mainKnobs: [\noiseGateThreshold, \noiseGateRelease, \noiseGateRange],
+                dsp: { |sig| this.noiseGate(sig) },
                 memBytes: { |sr| 0 },
                 latency: none)
         ].collect { |t|
@@ -569,7 +645,8 @@ MegaSAFx {
     // Auto Filter's makeup gain (up to 26 dB), so a draw changes the sound
     // and not how loud it leaves the effect. The feedbacks stop at 90 % and
     // are softened, so none of them can run away.
-    *randomKeeps { ^#[\filterMakeup, \filterOutput, \pitchLoopOutput, \echoOutput, \saturatorOutput] }
+    *randomKeeps { ^#[\filterMakeup, \filterOutput, \pitchLoopOutput, \echoOutput, \saturatorOutput,
+        \eqOutput, \compressorMakeup, \noiseGateThreshold, \noiseGateRange] }
 
     // A value held to a setting's range and step, or the nearest of its
     // choices. A name that is no setting passes through.
@@ -879,7 +956,95 @@ MegaSAFx {
                     "default. Heard only with Post-Filter on."),
             (fx: \redux, name: \reduxMix, label: "Dry/Wet", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 0.795276),
-                tip: "The plain loop against the reduced one: 80 % by default.")
+                tip: "The plain loop against the reduced one: 80 % by default."),
+
+            // ---- EQ
+            (fx: \eq, name: \eqLowCut, label: "Low Cut", units: " Hz",
+                spec: ControlSpec(10, 1000, \exp, 0, 10),
+                tip: "Cuts below this, 24 dB an octave. Out at 10 Hz, the default."),
+            (fx: \eq, name: \eqLowFreq, label: "Low Freq", units: " Hz",
+                spec: ControlSpec(20, 1000, \exp, 0, 120),
+                tip: "Where the low shelf turns: 120 Hz by default."),
+            (fx: \eq, name: \eqLowGain, label: "Low", units: " dB", centered: true,
+                spec: ControlSpec(-18, 18, \lin, 0, 0),
+                tip: "Everything below Low Freq, up or down: 0 dB by default."),
+            (fx: \eq, name: \eqMid1Freq, label: "Mid 1 Freq", units: " Hz",
+                spec: ControlSpec(60, 10000, \exp, 0, 500),
+                tip: "The first middle band's centre: 500 Hz by default."),
+            (fx: \eq, name: \eqMid1Gain, label: "Mid 1", units: " dB", centered: true,
+                spec: ControlSpec(-18, 18, \lin, 0, 0),
+                tip: "The first middle band, up or down: 0 dB by default."),
+            (fx: \eq, name: \eqMid1Q, label: "Mid 1 Q",
+                spec: ControlSpec(0.3, 10, \exp, 0, 1),
+                tip: "How narrow the first middle band is: 1 by default, higher is narrower."),
+            (fx: \eq, name: \eqMid2Freq, label: "Mid 2 Freq", units: " Hz",
+                spec: ControlSpec(200, 16000, \exp, 0, 2500),
+                tip: "The second middle band's centre: 2.5 kHz by default."),
+            (fx: \eq, name: \eqMid2Gain, label: "Mid 2", units: " dB", centered: true,
+                spec: ControlSpec(-18, 18, \lin, 0, 0),
+                tip: "The second middle band, up or down: 0 dB by default."),
+            (fx: \eq, name: \eqMid2Q, label: "Mid 2 Q",
+                spec: ControlSpec(0.3, 10, \exp, 0, 1),
+                tip: "How narrow the second middle band is: 1 by default."),
+            (fx: \eq, name: \eqHighFreq, label: "High Freq", units: " Hz",
+                spec: ControlSpec(1000, 16000, \exp, 0, 8000),
+                tip: "Where the high shelf turns: 8 kHz by default."),
+            (fx: \eq, name: \eqHighGain, label: "High", units: " dB", centered: true,
+                spec: ControlSpec(-18, 18, \lin, 0, 0),
+                tip: "Everything above High Freq, up or down: 0 dB by default."),
+            (fx: \eq, name: \eqHighCut, label: "High Cut", units: " Hz",
+                spec: ControlSpec(1000, 20000, \exp, 0, 20000),
+                tip: "Cuts above this, 24 dB an octave. Out at 20 kHz, the default."),
+            (fx: \eq, name: \eqOutput, label: "Output", units: " dB", centered: true,
+                spec: ControlSpec(-18, 18, \lin, 0, 0),
+                tip: "The level it leaves at: 0 dB by default."),
+
+            // ---- Compressor
+            (fx: \compressor, name: \compressorThreshold, label: "Threshold", units: " dB",
+                spec: ControlSpec(-60, 0, \lin, 0, -18),
+                tip: "Above this the level is turned down: -18 dB by default."),
+            (fx: \compressor, name: \compressorRatio, label: "Ratio", units: ":1",
+                spec: ControlSpec(1, 20, \exp, 0, 4),
+                tip: "How hard: 4 dB over the threshold comes out 1 dB over at 4:1, the\n"
+                    "default. 20:1 is nearly a limiter."),
+            (fx: \compressor, name: \compressorAttack, label: "Attack", units: " ms", scale: 1000,
+                spec: ControlSpec(0.0001, 0.1, \exp, 0, 0.01),
+                tip: "How fast it turns down: 10 ms by default. Slower lets a pick's\n"
+                    "attack through."),
+            (fx: \compressor, name: \compressorRelease, label: "Release", units: " ms", scale: 1000,
+                spec: ControlSpec(0.01, 1, \exp, 0, 0.12),
+                tip: "How fast it lets go: 120 ms by default."),
+            (fx: \compressor, name: \compressorKnee, label: "Knee", units: " dB",
+                spec: ControlSpec(0, 24, \lin, 0, 6),
+                tip: "How gently it starts around the threshold: 6 dB by default, 0 is a\n"
+                    "hard corner."),
+            (fx: \compressor, name: \compressorMakeup, label: "Makeup", units: " dB",
+                spec: ControlSpec(0, 24, \lin, 0, 0),
+                tip: "Gain back after it: 0 dB by default. Above full scale the output\n"
+                    "bends rather than runs on."),
+            (fx: \compressor, name: \compressorMix, label: "Dry/Wet", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 1),
+                tip: "The signal as it came against the compressed one: all compressed by\n"
+                    "default. Lower is parallel compression."),
+
+            // ---- Noise gate
+            (fx: \noiseGate, name: \noiseGateThreshold, label: "Threshold", units: " dB",
+                spec: ControlSpec(-80, 0, \lin, 0, -50),
+                tip: "It opens above this: -50 dB by default. Set it just above the hum."),
+            (fx: \noiseGate, name: \noiseGateHysteresis, label: "Hysteresis", units: " dB",
+                spec: ControlSpec(0, 12, \lin, 0, 4),
+                tip: "How far below the threshold the level must fall before it shuts: 4 dB\n"
+                    "by default, so a dying note doesn't flutter."),
+            (fx: \noiseGate, name: \noiseGateAttack, label: "Attack", units: " ms", scale: 1000,
+                spec: ControlSpec(0.0001, 0.05, \exp, 0, 0.001),
+                tip: "How fast it opens: 1 ms by default."),
+            (fx: \noiseGate, name: \noiseGateRelease, label: "Release", units: " ms", scale: 1000,
+                spec: ControlSpec(0.005, 2, \exp, 0, 0.12),
+                tip: "How fast it shuts once the level has fallen: 120 ms by default.\n"
+                    "Longer lets a note ring out."),
+            (fx: \noiseGate, name: \noiseGateRange, label: "Range", units: " dB",
+                spec: ControlSpec(-80, 0, \lin, 0, -80),
+                tip: "How far it shuts: -80 dB by default, silent. -20 lets some through.")
         ]
     }
 }

@@ -269,7 +269,7 @@ Routine {
 
     "== chain edits by menu ==".postln;
     {
-        var items, n, id, keep = ~guiView, was = ~saPlugins;
+        var items, n, id, k, keep = ~guiView, was = ~saPlugins;
         var find = { |list, label| list.detect { |it| it[\label] == label } };
         var shown = { |list| list.collect { |it| [it[\label], it[\enabled]] } };
         ok.("there are four rows: the guitar's, the loop's, the drums' and the synth's", ~effectsTracks.() == [\guitar, \loop, \drums, \synth]
@@ -277,8 +277,9 @@ Routine {
         ok.("each row ends in a + tile", ~effectsTracks.().every { |t|
             (~effectsPlusTiles ? ())[t].notNil and: { ~effectsPlusTiles[t].isClosed.not } });
         items = ~effectsAddItems.(\loop);
-        ok.("+ offers every built-in effect, and the scan last",
-            (items.select { |it| it[\section] == \builtin }.collect { |it| it[\label] } == MegaSAFx.keys.collect { |k| MegaSAFx.title(k) })
+        ok.("+ offers every built-in effect, those in no chain to begin with in their groups, and the scan last",
+            (items.select { |it| it[\section] == \builtin }.collect { |it| [it[\label], it[\group]] }
+                == MegaSAFx.typeKeys.collect { |k| [MegaSAFx.title(k), MegaSAFx.type(k)[\group]] })
                 and: { items.last[\section] == \scan }, shown.(items).asString);
         n = m.loopChain.devices.size;
         find.(items, MegaSAFx.title(\filter))[\action].value;
@@ -334,12 +335,18 @@ Routine {
             items.collect { |it| [it[\label], it[\group], it[\enabled]] }.asString);
         // The menu itself, made and read but never put up.
         items = ~effectsMenuOf.(~effectsAddItems.(\guitar));
-        ok.("the + menu: the built-ins, a line, a submenu per vendor, a line, the scan; the one megalooper cannot host greyed, with why",
-            (items.actions.size == (MegaSAFx.keys.size + 5))
-                and: { items.actions[MegaSAFx.keys.size + 1].menu.isKindOf(Menu) } and: { items.actions[MegaSAFx.keys.size + 1].string == "Wide" }
-                and: { items.actions[MegaSAFx.keys.size + 1].menu.actions.collect(_.string) == ["Verb"] }
-                and: { items.actions[MegaSAFx.keys.size + 2].menu.actions.first.enabled.not }
-                and: { items.actions[MegaSAFx.keys.size + 2].menu.actions.first.string.contains("(built for") }
+        // The default chains' built-ins, then a submenu per group of the
+        // others (Utility), a line, a submenu per vendor, a line, the scan.
+        k = MegaSAFx.keys.size + MegaSAFx.extraKeys.collect { |x| MegaSAFx.type(x)[\group] }.asSet.size;
+        ok.("the + menu: the built-ins, a submenu per group, a line, a submenu per vendor, a line, the scan; "
+            "the one megalooper cannot host greyed, with why",
+            (items.actions.size == (k + 5))
+                and: { items.actions[MegaSAFx.keys.size].string == "Utility" }
+                and: { items.actions[MegaSAFx.keys.size].menu.actions.collect(_.string) == ["EQ", "Compressor", "Noise Gate"] }
+                and: { items.actions[k + 1].menu.isKindOf(Menu) } and: { items.actions[k + 1].string == "Wide" }
+                and: { items.actions[k + 1].menu.actions.collect(_.string) == ["Verb"] }
+                and: { items.actions[k + 2].menu.actions.first.enabled.not }
+                and: { items.actions[k + 2].menu.actions.first.string.contains("(built for") }
                 and: { items.actions.last.string.contains("Scan") },
             items.actions.collect { |x| x.string }.asString);
         items.destroy;

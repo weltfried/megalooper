@@ -223,7 +223,9 @@
     };
 
     // Megalooper SA's effects and its drums' steps (MegaSA, MegaSADrums).
-    MegaSAFx.keys.do { |key| addSwitch.(key, fxName.(key)) };
+    // Every type's first device by its key: the default chains' and, where
+    // one is inserted, the others' (MegaSAFx.extraKeys).
+    MegaSAFx.typeKeys.do { |key| addSwitch.(key, fxName.(key)) };
     add.('sa.drums.on', "Drums", "Drums", \toggle, (
         flip: { ~megaSA.drums.toggleOn }, get: { drums.value !? { |d| d.on } },
         set: { |on| ~megaSA.drums.setOn(on) },
@@ -333,7 +335,7 @@
     // Each is named by its device ("Delay 2"), so no two rows read alike.
     effectsFamily = {
         MegaSAFx.params.do { |p| addFx.(p, nil, fxName.(p[\fx])) };
-        MegaSAFx.keys.do { |key| addReset.(key, fxName.(key)); addRandom.(key, fxName.(key)) };
+        MegaSAFx.typeKeys.do { |key| addReset.(key, fxName.(key)); addRandom.(key, fxName.(key)) };
         fxFurther.value.do { |d|
             addSwitch.(d[\id], d[\name]);
             MegaSAFx.paramsOf(d[\type]).do { |p| addFx.(p, d[\id], d[\name]) };
@@ -358,7 +360,7 @@
     // type, name). None with no MegaSA, or with something standing in for one.
     fxFurther = {
         (try {
-            ~megaSA.devices.select { |d| d.isPlugin.not and: { MegaSAFx.keys.includes(d.id).not } }
+            ~megaSA.devices.select { |d| d.isPlugin.not and: { MegaSAFx.typeKeys.includes(d.id).not } }
                 .collect { |d| (id: d.id, type: d.type, name: d.name.asString) }
         }) ? []
     };

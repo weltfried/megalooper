@@ -190,6 +190,9 @@ Routine {
             // Layer knobs are the steps kit's only.
             if(s.beginsWith("sa.drums.groupTrim.")) {
                 shown = (parts[3] == "steps") and: { ~drumsWidgets[~drumsGroupKey.(parts[4].asSymbol)].notNil } };
+            // An effect's control whose device no chain holds (one of the
+            // effects in no chain to begin with) has no tile to be on.
+            if(s.beginsWith("sa.fx") and: { (try { t[\available].value } { false }) == false }) { shown = false };
             tabs.includesEqual(t[\path]) and: { shown } and: { covered.includes(id).not } and: { noWidget[id].isNil }
         };
         byTab = IdentityDictionary.new;

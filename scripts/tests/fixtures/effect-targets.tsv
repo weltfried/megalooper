@@ -1,3 +1,10 @@
+sa.fx.compressorAttack	Attack	Compressor	Effects	continuous
+sa.fx.compressorKnee	Knee	Compressor	Effects	continuous
+sa.fx.compressorMakeup	Makeup	Compressor	Effects	continuous
+sa.fx.compressorMix	Dry/Wet	Compressor	Effects	continuous
+sa.fx.compressorRatio	Ratio	Compressor	Effects	continuous
+sa.fx.compressorRelease	Release	Compressor	Effects	continuous
+sa.fx.compressorThreshold	Threshold	Compressor	Effects	continuous
 sa.fx.delayFeedback	Feedback	Dual Delay	Effects	continuous
 sa.fx.delayLfoHz	LFO Rate	Dual Delay	Effects	continuous
 sa.fx.delayLfoMax	Wobble Max	Dual Delay	Effects	continuous
@@ -19,6 +26,19 @@ sa.fx.echoOutput	Output	Tape Echo	Effects	continuous
 sa.fx.echoReverb	Reverb	Tape Echo	Effects	continuous
 sa.fx.echoReverbDecay	Rev Decay	Tape Echo	Effects	continuous
 sa.fx.echoWobble	Wobble	Tape Echo	Effects	continuous
+sa.fx.eqHighCut	High Cut	EQ	Effects	continuous
+sa.fx.eqHighFreq	High Freq	EQ	Effects	continuous
+sa.fx.eqHighGain	High	EQ	Effects	continuous
+sa.fx.eqLowCut	Low Cut	EQ	Effects	continuous
+sa.fx.eqLowFreq	Low Freq	EQ	Effects	continuous
+sa.fx.eqLowGain	Low	EQ	Effects	continuous
+sa.fx.eqMid1Freq	Mid 1 Freq	EQ	Effects	continuous
+sa.fx.eqMid1Gain	Mid 1	EQ	Effects	continuous
+sa.fx.eqMid1Q	Mid 1 Q	EQ	Effects	continuous
+sa.fx.eqMid2Freq	Mid 2 Freq	EQ	Effects	continuous
+sa.fx.eqMid2Gain	Mid 2	EQ	Effects	continuous
+sa.fx.eqMid2Q	Mid 2 Q	EQ	Effects	continuous
+sa.fx.eqOutput	Output	EQ	Effects	continuous
 sa.fx.filterEnvAmount	Envelope	Envelope Filter	Effects	continuous
 sa.fx.filterFreq	Frequency	Envelope Filter	Effects	continuous
 sa.fx.filterLfoAmount	LFO Amt	Envelope Filter	Effects	continuous
@@ -32,6 +52,11 @@ sa.fx.filterRelease	Release	Envelope Filter	Effects	continuous
 sa.fx.filterRes	Res	Envelope Filter	Effects	continuous
 sa.fx.filterSense	Sense	Envelope Filter	Effects	continuous
 sa.fx.filterType	Type	Envelope Filter	Effects	choice
+sa.fx.noiseGateAttack	Attack	Noise Gate	Effects	continuous
+sa.fx.noiseGateHysteresis	Hysteresis	Noise Gate	Effects	continuous
+sa.fx.noiseGateRange	Range	Noise Gate	Effects	continuous
+sa.fx.noiseGateRelease	Release	Noise Gate	Effects	continuous
+sa.fx.noiseGateThreshold	Threshold	Noise Gate	Effects	continuous
 sa.fx.pitchLoopFeedback	Feedback	Pitch Loops	Effects	continuous
 sa.fx.pitchLoopHiCut	Hi Cut	Pitch Loops	Effects	continuous
 sa.fx.pitchLoopLfoL	LFO Depth L	Pitch Loops	Effects	continuous
@@ -71,16 +96,22 @@ sa.fx.shifterMode	Mode	Pitch Shift	Effects	choice
 sa.fx.shifterPitchSpread	Pitch spread	Pitch Shift	Effects	continuous
 sa.fx.shifterTimeSpread	Time spread	Pitch Shift	Effects	continuous
 sa.fx.shifterWindow	Window	Pitch Shift	Effects	choice
+sa.fxOn.compressor	Compressor	Compressor	Effects	toggle
 sa.fxOn.delay	Dual Delay	Dual Delay	Effects	toggle
 sa.fxOn.echo	Tape Echo	Tape Echo	Effects	toggle
+sa.fxOn.eq	EQ	EQ	Effects	toggle
 sa.fxOn.filter	Envelope Filter	Envelope Filter	Effects	toggle
+sa.fxOn.noiseGate	Noise Gate	Noise Gate	Effects	toggle
 sa.fxOn.pitchLoop	Pitch Loops	Pitch Loops	Effects	toggle
 sa.fxOn.redux	Crusher	Crusher	Effects	toggle
 sa.fxOn.saturator	Drive	Drive	Effects	toggle
 sa.fxOn.shifter	Pitch Shift	Pitch Shift	Effects	toggle
+sa.fxReset.compressor	Reset	Compressor	Effects	trigger
 sa.fxReset.delay	Reset	Dual Delay	Effects	trigger
 sa.fxReset.echo	Reset	Tape Echo	Effects	trigger
+sa.fxReset.eq	Reset	EQ	Effects	trigger
 sa.fxReset.filter	Reset	Envelope Filter	Effects	trigger
+sa.fxReset.noiseGate	Reset	Noise Gate	Effects	trigger
 sa.fxReset.pitchLoop	Reset	Pitch Loops	Effects	trigger
 sa.fxReset.redux	Reset	Crusher	Effects	trigger
 sa.fxReset.saturator	Reset	Drive	Effects	trigger

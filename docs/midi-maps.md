@@ -97,7 +97,7 @@ say `guitar` in their ids, as in `sa.level.guitar`.
 | Id | What it drives |
 |---|---|
 | `sa.fxOn.<device>` | An effect's switch |
-| `sa.fx.<setting>` | A setting of one of the seven built-in effects, as `sa.fx.echoMix` |
+| `sa.fx.<setting>` | A setting of a built-in effect's first device, as `sa.fx.echoMix` or `sa.fx.eqLowGain` |
 | `sa.fx.<device>.<setting>` | A setting of a further device of the same effect, as `sa.fx.delay2.delayMix` |
 | `sa.fxReset.<device>`, `sa.fxRandom.<device>` | An effect's **Reset** and **Random** |
 | `sa.fxSend.<plugin>.<1-8>` | One of a plugin's eight sends, for the plugin's own MIDI learn |

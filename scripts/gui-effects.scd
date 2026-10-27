@@ -43,6 +43,9 @@
     echo: "A tape echo on the loop, synced to its tempo, ducking under it",
     saturator: "A drive with the lows driven hardest",
     redux: "Fewer samples, fewer bits, gritty on purpose",
+    eq: "Four bands and a low and a high cut, flat at its defaults",
+    compressor: "Evens the level: above the threshold, turned down by the ratio",
+    noiseGate: "Shuts between notes, so hum and hiss go with them",
     bias: "The amp: the plugin this rig is set up with, and its sound as kept here"
 );
 
@@ -123,7 +126,7 @@
 // has none.
 ~effectsHasTargets = { |key| key != \bias };
 ~effectsParamTarget = { |dev, name|
-    (if(MegaSAFx.keys.includes(dev)) { "sa.fx." ++ name } { "sa.fx." ++ dev ++ "." ++ name }).asSymbol
+    (if(MegaSAFx.typeKeys.includes(dev)) { "sa.fx." ++ name } { "sa.fx." ++ dev ++ "." ++ name }).asSymbol
 };
 // What the first plugin is called in the pane's words: "Bias FX" for Bias FX
 // 2, as it always was here; another plugin by its device's name, so a
@@ -707,14 +710,16 @@
 // the + menu section:, group:, why:), so it can be read and run without a
 // menu on screen; ~effectsShowMenu puts it up.
 //
-// What the + of a chain offers: every built-in effect, then this Mac's
-// plugins by vendor (one megalooper cannot host greyed, with the reason),
-// then the scan.
+// What the + of a chain offers: every built-in effect (the ones in no chain
+// to begin with in their groups' submenus), then this Mac's plugins by vendor
+// (one megalooper cannot host greyed, with the reason), then the scan.
 ~effectsAddItems = { |track|
     var plugins = MegaSAPlugins.offered(~saPlugins ? []);
     var twice = { |e| plugins.count { |x| MegaSAPlugins.sameProduct(x, e) } > 1 };
-    MegaSAFx.keys.collect { |type|
-        (label: MegaSAFx.title(type), section: \builtin, enabled: true,
+    // The default chains' types as they always were; the others by group
+    // ("Utility", "Texture"), each a submenu.
+    MegaSAFx.typeKeys.collect { |type|
+        (label: MegaSAFx.title(type), section: \builtin, enabled: true, group: MegaSAFx.type(type)[\group],
             action: { ~megaSA !? { |m| m.insertDevice(track, nil, type) } })
     } ++ plugins.collect { |e|
         (label: e[\name] ++ if(twice.(e)) { " (" ++ e[\format].toUpper ++ ")" } { "" }, section: \plugin,

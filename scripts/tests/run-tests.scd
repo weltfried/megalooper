@@ -46,6 +46,7 @@ var files = [
     "test-megasa-sound.scd",
     "test-megasa.scd",
     "test-megasa-chains.scd",
+    "test-megasa-utility.scd",
     "test-megasa-edits.scd",
     "test-megasa-drumchain.scd",
     "test-megasa-bass.scd",

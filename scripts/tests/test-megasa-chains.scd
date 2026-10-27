@@ -17,11 +17,15 @@ var fake, gIds, lIds, before, sent, oldGroup, oldNodes, args, heard, said, n, ma
 var calls, pending, bankAction, late, plug, lats, dev, sent2;
 
 // ---------------------------------------------------------- the types --
-~tEq.("a type per effect, in chain order", types.collect(_[\key]), MegaSAFx.keys);
-~tEq.("the guitar's types are built for the guitar chain, the loop's for the loop's",
-    types.collect(_[\track]), MegaSAFx.guitarKeys.collect { \guitar } ++ MegaSAFx.loopKeys.collect { \loop });
-~tEq.("the guitar's are written mono, the loop's stereo",
-    types.collect(_[\width]), MegaSAFx.guitarKeys.collect { \mono } ++ MegaSAFx.loopKeys.collect { \stereo });
+~tEq.("a type per effect, in chain order, then those in no chain to begin with", types.collect(_[\key]), MegaSAFx.typeKeys);
+~tEq.("the guitar's types are built for the guitar chain, the loop's for the loop's, the others for any",
+    types.collect(_[\track]), MegaSAFx.guitarKeys.collect { \guitar } ++ MegaSAFx.loopKeys.collect { \loop }
+        ++ MegaSAFx.extraKeys.collect { \any });
+~tEq.("the guitar's are written mono, the loop's and the others stereo",
+    types.collect(_[\width]), MegaSAFx.guitarKeys.collect { \mono } ++ MegaSAFx.loopKeys.collect { \stereo }
+        ++ MegaSAFx.extraKeys.collect { \stereo });
+~tEq.("...those in no chain to begin with each in a group of the + menu, the others in none",
+    types.collect { |t| t[\group].notNil }, MegaSAFx.keys.collect { false } ++ MegaSAFx.extraKeys.collect { true });
 ~tAssert.("each has its title, a blurb and its switch, <key>On",
     types.every { |t| (t[\title] == MegaSAFx.title(t[\key])) and: { t[\blurb].size > 20 }
         and: { t[\switch] == (t[\key] ++ "On").asSymbol } and: { MegaSAFx.type(t[\key]) === t } });
@@ -382,7 +386,8 @@ if(vst.notNil) {
     m.free;
 };
 ~tEq.("the footswitches are the built-ins', the plugin not among them", sa.fxOn.keys.asArray.sort, MegaSAFx.keys.sort);
-~tEq.("every setting is there by its name", sa.fxParams.keys.asArray.sort, MegaSAFx.params.collect(_[\name]).sort);
+~tEq.("every setting of the default devices is there by its name", sa.fxParams.keys.asArray.sort,
+    MegaSAFx.params.select { |p| MegaSAFx.keys.includes(p[\fx]) }.collect(_[\name]).sort);
 sa.fxParams.put(\filterFreq, 1);
 ~tEq.("...in a dictionary of its own: changing it changes nothing", sa.fxParam(\filterFreq),
     MegaSAFx.param(\filterFreq)[\spec].default);

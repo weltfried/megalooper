@@ -250,9 +250,12 @@ MegaSA {
         undoList = List.new;
         redoList = List.new;
         // A default device's id is its type's key, its first; further ones
-        // go on from 2. Plugins are plugin1, plugin2, ...
+        // go on from 2. A type in no chain to begin with (MegaSAFx.extraKeys)
+        // has its key free: its first device takes it. Plugins are plugin1,
+        // plugin2, ...
         nextIds = IdentityDictionary.new;
         MegaSAFx.keys.do { |k| nextIds.put(k, 2) };
+        MegaSAFx.extraKeys.do { |k| nextIds.put(k, 1) };
         nextIds.put(\plugin, if(pluginPath.notNil) { 2 } { 1 });
         sound !? { |x| x.nextIds.keysValuesDo { |k, v| nextIds.put(k, max(nextIds[k] ? 1, v)) } };
         // The drums' model needs no server: the patterns, the kit folder and
@@ -1390,9 +1393,17 @@ MegaSA {
     // A further device's name: its type's title and its number, "Delay 2".
     prNameFor { |id, type| ^MegaSAFx.nameFor(id, type) }
 
-    // The next id of a type, from its high-water mark.
+    // The marks a sound keeps: all but those of a type in no chain to begin
+    // with whose key is still free (1), which every sound would otherwise
+    // carry for nothing.
+    prMarksToKeep { ^nextIds.reject { |v, k| (v <= 1) and: { MegaSAFx.extraKeys.includes(k) } } }
+
+    // The next id of a type, from its high-water mark: 1 is the type's key
+    // itself, the first device of a type in no chain to begin with.
     prNewId { |type|
         var n = nextIds[type] ? 2, id, known = (this.devices ++ limbo).collect(_.id);
+        if((n <= 1) and: { known.includes(type).not }) { nextIds.put(type, 2); ^type };
+        n = n.max(2);
         while { id = (type ++ n).asSymbol; known.includes(id) } { n = n + 1 };
         nextIds.put(type, n + 1);
         ^id
@@ -1410,7 +1421,7 @@ MegaSA {
     // The chains as they stand, as a sound called `name`.
     sound { |name = "sound"|
         var x = soundExtras ? ();
-        ^MegaSASound(name, Date.getDate.stamp, nextIds.copy,
+        ^MegaSASound(name, Date.getDate.stamp, this.prMarksToKeep,
             this.chains.collect { |c|
                 (track: c.track, devices: c.devices.collect { |d| this.prSpecOf(d) }.asArray,
                     extras: (x[\tracks] ? ())[c.track] ? [])
