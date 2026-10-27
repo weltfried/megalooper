@@ -172,6 +172,17 @@ Looper {
     var startFrame = 0, <loopFrames = 0;
     var <lastResult, undoState;
     var <reverseFlag = false;
+    // ---- Half-time (docs/dev/rc600-picks.md, 3a) ------------------------------
+    // The loop at half speed, an octave down, each pass twice as long, under
+    // drums that keep their tempo. `speed` is what the engine plays at, 1 or
+    // 0.5; `halfTime` what a press does next: \off, \armed (lands on
+    // halfTimeAt), \on, \releasing (back to 1 on halfTimeAt). Both edges are
+    // the loop's own boundaries, so the passes stay on loopStartTime's grid:
+    // a half-speed pass is two of its loops, counted from passOrigin. The
+    // engine takes a new speed on the sample its reference wraps
+    // (prEngineGraph), so the language only sends it in the right pass.
+    var <speed = 1, <halfTime = \off, <halfTimeAt, <passOrigin, <speedChangedAt;
+    var halfTimeRoutine, halfTimeSeq = 0, halfTimeSentAt, halfOnsets;
     // ---- Breaks -------------------------------------------------------------
     // Drop the looper out so the room can play into the hole, then come back ON
     // A LOOP DOWNBEAT. This MUTES and never stops: stopPlayback would tear down
@@ -568,8 +579,25 @@ Looper {
             latencyFrames=0, feedback=1.0, declickFrames=0,
             gateMode=0, gateBus=0, phaseBus=0|
             var input = Looper.prInput(mono, in);
-            var phase = Phasor.ar(0,
-                rate * BufRateScale.kr(bufnum),
+            // Half-time (docs/dev/rc600-picks.md, 3a): the playhead's speed is
+            // `speed` (1 or 0.5) as it was when a reference that always runs
+            // at ±1 last wrapped. Until half-time the engine and the reference
+            // are the same Phasor, so a speed set at any time in a pass takes
+            // over on the sample the loop starts again; at half speed the
+            // engine wraps on every other reference wrap, so one set in the
+            // second half of its pass takes over on the sample the pass ends.
+            // The language picks the pass; the server picks the sample. An
+            // audio-rate control, as K2A would ramp a new speed over the block
+            // it came in and the latch could take a value between.
+            var speed = \speed.ar(1);
+            var ref = Phasor.ar(0, rate * BufRateScale.kr(bufnum), startFrame, startFrame + loopFrames);
+            var wrapped = (ref - Delay1.ar(ref)).abs > (loopFrames * 0.5);
+            var speedNow = Latch.ar(speed, wrapped + Impulse.ar(0));
+            // An audio-rate trigger (DC, never fires): with a constant one
+            // Phasor reads its rate once a block, and the speed would change
+            // on the block after the wrap, not on it.
+            var phase = Phasor.ar(DC.ar(0),
+                rate * speedNow * BufRateScale.kr(bufnum),
                 startFrame,
                 startFrame + loopFrames);
             // Cubic: at rate ±1 every position is a whole frame, where cubic
@@ -966,8 +994,9 @@ Looper {
     // What the count on Perform counts to: each event whose time is known
     // ahead, as (what:, at:), `at` in SystemClock seconds, the time the engine
     // plays it. A break's end; a reading landing; the next loop's record
-    // starting, or ending once asked to; the cutter coming in. The last three
-    // wait for the next boundary from loopStartTime, as they do themselves.
+    // starting, or ending once asked to; the cutter coming in; half-time
+    // landing or ending. The cutter and the next loop wait for the next
+    // boundary from loopStartTime, as they do themselves.
     upcoming { |now|
         var list = List.new;
         now = now ? SystemClock.seconds;
@@ -977,16 +1006,31 @@ Looper {
             if(nextRecState == \armed) { list.add((what: \recordNextLoop, at: this.prNextBoundaryAt(now))) };
             if(nextRecState == \stopping) { list.add((what: \recordNextLoopEnds, at: this.prNextBoundaryAt(now))) };
             if(bbcutEnabling and: { bbcut.not }) { list.add((what: \cutter, at: this.prNextBoundaryAt(now))) };
+            if(halfTime == \armed) { list.add((what: \halfTime, at: halfTimeAt)) };
+            if(halfTime == \releasing) { list.add((what: \halfTimeEnds, at: halfTimeAt)) };
         };
         ^list.asArray
     }
 
     // The next loop boundary after `now`, counted from loopStartTime as the
-    // reading, the next loop and the cutter count it.
+    // reading, the next loop and the cutter count it; at half-time, the next
+    // end of a half-speed pass, counted from where they began.
     prNextBoundaryAt { |now|
-        var ld = this.loopDuration, origin = loopStartTime ? now;
+        var ld = this.wallPeriod, origin;
+        origin = if((speed != 1) and: { passOrigin.notNil }) { passOrigin } { loopStartTime ? now };
         ^origin + ((((now - origin) / ld).floor + 1) * ld)
     }
+
+    // A pass in wall time: the loop's length at the speed it plays.
+    wallPeriod { ^this.loopDuration / speed }
+
+    // Where a pass at the speed now began (one of them): loopStartTime, or at
+    // half-time the boundary it landed on. The onset kit counts from it.
+    passStart { ^if((speed != 1) and: { passOrigin.notNil }) { passOrigin } { loopStartTime } }
+
+    // The speed after the next boundary, with what is armed: a landing or a
+    // release.
+    prSpeedAfterNext { ^switch(halfTime, \armed, { 0.5 }, \releasing, { 1 }, { speed }) }
 
     // Fold a position in seconds onto the analysed grid.
     //
@@ -1243,6 +1287,7 @@ Looper {
     }
 
     startOverdub {
+        if(this.prAtHalfTime) { ^this.prRefused(\trigger, "half-time: end it before an overdub") };
         if(engineSynth.notNil) {
             this.snapshotForUndo;
             engineSynth.set(\recEnable, 1);
@@ -1282,6 +1327,8 @@ Looper {
 
     spawnEngine { |recEnable=0|
         var defName = if(inChannelCount == 1) { \looperEngineMono } { \looperEngine };
+        // A new engine plays at speed 1.
+        this.prResetHalfTime;
         engineSynth = Synth(defName, [
             \bufnum, buffer.bufnum,
             \in, inChannel,
@@ -1658,7 +1705,10 @@ Looper {
             },
             \armed, { this.cancelNextLoopRecord },
             \stopping, { /* already closing out — ignore */ },
-            { this.armNextLoopRecord }   // \idle / default
+            {
+                if(this.prAtHalfTime) { ^this.prRefused(\recordNextLoop, "half-time: end it first") };
+                this.armNextLoopRecord
+            }   // \idle / default
         );
     }
 
@@ -2297,6 +2347,7 @@ Looper {
             "BBCut: no analyzed loop available.".warn;
             ^this.prRefused(\bbcut, "the cutter needs an analysed take")
         };
+        if(this.prAtHalfTime) { ^this.prRefused(\bbcut, "the cutter doesn't follow half-time yet") };
         if(bbcutEnabling) { ^this };
         bbcutEnabling = true;
 
@@ -3320,6 +3371,7 @@ Looper {
         this.prCancelDissolve;
         this.prCancelReading;
         this.cancelNextLoopRecord;
+        this.prResetHalfTime;
         // A detection may have a transport start queued for the next downbeat;
         // stopping the loop cancels it rather than firing into a stopped looper.
         overdubSyncRoutine !? { |r| r.stop };
@@ -3455,6 +3507,7 @@ Looper {
     startDissolve { |bars|
         var n   = (bars ? dissolveBars).asInteger.clip(1, 64);
         var dur = this.prBarDuration * n;
+        if(this.prAtHalfTime) { ^this.prRefused(\dissolve, "half-time: end it first") };
         if((state != \playing) and: { state != \overdubbing }) {
             "Dissolve: nothing is playing.".warn;
             ^this.prRefused(\dissolve, "nothing playing")
@@ -3563,7 +3616,10 @@ Looper {
     //
     // Backwards, the playhead runs loopDur -> 0 and wraps, so the distance to
     // the boundary IS the phase rather than what is left after it.
-    *prBreakDuration { |phase, loopDur, loops = 1, reversed = false|
+    // At half-time `speed` is the engine's (0.5) and `after` the speed once
+    // the boundary is passed (a landing or a release armed): the rest of the
+    // pass takes twice as long, and so does each pass at half speed.
+    *prBreakDuration { |phase, loopDur, loops = 1, reversed = false, speed = 1, after|
         var remaining;
         if(loopDur.isNil or: { loopDur <= 0 }) { ^0 };
         // A nil phase means nothing could be read back; assume a whole pass
@@ -3572,7 +3628,7 @@ Looper {
         remaining = if(phase.isNil) { loopDur } {
             if(reversed) { phase } { loopDur - phase }
         };
-        ^remaining.clip(0, loopDur) + ((loops.asInteger.max(1) - 1) * loopDur)
+        ^(remaining.clip(0, loopDur) / speed) + ((loops.asInteger.max(1) - 1) * (loopDur / (after ? speed)))
     }
 
     // Open the hole NOW — the mute is not quantised, so it lands exactly where
@@ -3605,7 +3661,7 @@ Looper {
         // this point; the few ms of latency only move the resume, and only by
         // less than a millisecond of loop position.
         this.queryLoopPhase { |phase|
-            var dur = Looper.prBreakDuration(phase, loopDur, n, reverseFlag);
+            var dur = Looper.prBreakDuration(phase, loopDur, n, reverseFlag, speed, this.prSpeedAfterNext);
             // A cancel or a re-fire in the meantime owns the gate now; this
             // callback belongs to a break that no longer exists.
             if((seq == breakSeq) and: { onBreak }) {
@@ -3696,6 +3752,133 @@ Looper {
         engineSynth !? { |s| s.set(\rate, if(reverseFlag) { -1 } { 1 }) };
         ("Reverse: " ++ reverseFlag).postln;
         this.changed(\reverse, reverseFlag);
+    }
+
+    // ===================================================================
+    // Half-time
+    // ===================================================================
+    // A press: off, it is armed and lands on the next boundary; armed, the
+    // arm is taken back; at half-time, it ends with the pass; ending, it
+    // stays. The engine is sent the speed now, or timed into the pass that
+    // ends on the boundary, and takes it there to the sample (prEngineGraph).
+    // A message may come after a boundary closer than halfTimeMargin, so a
+    // press then goes to the boundary after (and an arm or an end that close
+    // can't be taken back).
+    *halfTimeMargin { ^0.05 }
+
+    toggleHalfTime {
+        var now = SystemClock.seconds, ld = this.loopDuration, at, why;
+        switch(halfTime,
+            \off, {
+                why = this.prHalfTimeRefusal;
+                if(why.notNil) { ^this.prRefused(\halfTime, why) };
+                at = this.prNextBoundaryAt(now);
+                if((at - now) < Looper.halfTimeMargin) { at = at + ld };
+                this.prSendSpeed(0.5, at - ld);
+                this.prHalfTimeArm(\armed, at);
+            },
+            \armed, {
+                if((halfTimeAt - now) < Looper.halfTimeMargin) { ^this.prRefused(\halfTime, "half-time lands now") };
+                this.prSendSpeed(1);
+                this.prHalfTimeArm(\off);
+            },
+            \on, {
+                at = this.prNextBoundaryAt(now);
+                if((at - now) < Looper.halfTimeMargin) { at = at + (2 * ld) };
+                // In the pass's second half: its first half ends on a wrap of
+                // the engine's reference, which would take it there.
+                this.prSendSpeed(1, at - ld);
+                this.prHalfTimeArm(\releasing, at);
+            },
+            \releasing, {
+                if((halfTimeAt - now) < Looper.halfTimeMargin) { ^this.prRefused(\halfTime, "half-time ends now") };
+                this.prSendSpeed(0.5);
+                this.prHalfTimeArm(\on);
+            }
+        );
+    }
+
+    // Why half-time can't be armed now, or nil. The cutter and the grains
+    // don't follow it yet (rc600-picks.md, 3b); a dissolve fades through
+    // them.
+    prHalfTimeRefusal {
+        ^case
+            { state == \overdubbing } { "end the overdub first" }
+            { (state != \playing) or: { this.loopDuration <= 0 } } { "half-time needs a loop playing" }
+            { nextRecState != \idle } { "Rec next loop is on" }
+            { bbcut or: { bbcutEnabling } } { "the cutter doesn't follow half-time yet" }
+            { granularSynth.notNil } { "the grains don't follow half-time yet" }
+            { dissolving or: { dissolvePos > 0 } } { "a dissolve is on" }
+            { nil }
+    }
+
+    // Half-time is armed, on or ending: what it refuses says so.
+    prAtHalfTime { ^halfTime != \off }
+
+    // The engine's speed, sent no earlier than `after` (a wall time; 10 ms on,
+    // so a wrap at `after` has passed) and after a speed still on its way.
+    prSendSpeed { |value, after|
+        var now = thisThread.seconds, at = now;
+        after !? { |a| at = at.max(a + 0.01) };
+        halfTimeSentAt !? { |p| if(p > now) { at = at.max(p + 0.001) } };
+        engineSynth !? { |e|
+            if(at > now) { server.sendBundle(at - now, e.setMsg(\speed, value)) } { e.set(\speed, value) };
+        };
+        halfTimeSentAt = at;
+    }
+
+    // What a press leaves: the state, and the boundary it lands on (nil for
+    // none), with a routine waiting for it.
+    prHalfTimeArm { |next, at|
+        var seq;
+        halfTimeRoutine = this.prStopRoutine(halfTimeRoutine);
+        halfTimeSeq = halfTimeSeq + 1;
+        seq = halfTimeSeq;
+        halfTime = next;
+        halfTimeAt = at;
+        if(at.notNil) {
+            halfTimeRoutine = Routine {
+                (at - SystemClock.seconds).max(0).wait;
+                this.prHalfTimeLands(seq);
+            }.play(SystemClock);
+        };
+        this.changed(\halfTime, halfTime);
+    }
+
+    // On the boundary, as the engine takes the speed: half-time on, or over.
+    // What keeps time with the loop follows: the onset kit and the chords.
+    prHalfTimeLands { |seq|
+        var at = halfTimeAt, landing = halfTime == \armed;
+        if((seq != halfTimeSeq) or: { at.isNil }) { ^this };
+        halfTimeRoutine = nil;
+        speed = if(landing) { 0.5 } { 1 };
+        passOrigin = if(landing) { at };
+        speedChangedAt = at;
+        halfTime = if(landing) { \on } { \off };
+        halfTimeAt = nil;
+        this.prLogEvent(\halfTime, (speed: speed, at: this.prLogTime(at)));
+        ("Half-time " ++ (if(landing) { "on" } { "off" }) ++ ".").postln;
+        this.changed(\halfTime, halfTime);
+        this.changed(\speed, speed);
+        this.startOnsetNotes;
+        chordRoutine !? { this.startChordRoutine(lastResult) };
+    }
+
+    // Back to 1 at once, for a new engine (it plays at 1) and a stop.
+    prResetHalfTime {
+        var was = (halfTime != \off) or: { speed != 1 };
+        halfTimeRoutine = this.prStopRoutine(halfTimeRoutine);
+        halfTimeSeq = halfTimeSeq + 1;
+        halfTimeSentAt = nil;
+        if(was) {
+            speed = 1;
+            halfTime = \off;
+            halfTimeAt = nil;
+            passOrigin = nil;
+            speedChangedAt = SystemClock.seconds;
+            this.changed(\halfTime, halfTime);
+            this.changed(\speed, speed);
+        };
     }
 
     // ===================================================================
@@ -3808,8 +3991,7 @@ Looper {
         var loopSecs = this.loopDuration;
         var result   = Looper.readingFor(analysedResult, index, loopSecs);
         var now      = SystemClock.seconds;
-        var origin   = loopStartTime ? now;
-        var currentLoop, nextAt, ticksAtNext, ticksPerLoop, wait, restart, landAt, seq;
+        var nextAt, period, ticksAtNext, ticksPerLoop, wait, restart, landAt, seq;
         if(result.isNil or: { loopSecs <= 0 }) { ^this };
         // Re-arming replaces: the reading after the pending one is what was
         // asked for, and two landings would fight over the clock.
@@ -3817,18 +3999,20 @@ Looper {
         readingSeq = readingSeq + 1;
         seq = readingSeq;
         landingFrom = nil;
-        currentLoop = ((now - origin) / loopSecs).floor;
-        nextAt = origin + ((currentLoop + 1) * loopSecs);
+        // The next boundary, and the passes after it in wall time: at
+        // half-time (armed, on or releasing) twice the loop's length.
+        nextAt = this.prNextBoundaryAt(now);
+        period = loopSecs / this.prSpeedAfterNext;
         // Where Live's tick count will stand at that boundary, if a Start has
         // gone out on a known boundary; otherwise every boundary is as good.
         if(clockRefTime.notNil and: { midiClockRoutine.notNil }) {
             ticksAtNext  = clockTicksAtRef + ((nextAt - clockRefTime) * clockTickRate);
-            ticksPerLoop = loopSecs * clockTickRate;
+            ticksPerLoop = period * clockTickRate;
         };
         wait    = Looper.prReadingWait(ticksAtNext, ticksPerLoop, Looper.barTicksOf(result), 2);
         restart = wait.isNil;
         wait    = wait ? 1;
-        landAt  = nextAt + ((wait - 1) * loopSecs);
+        landAt  = nextAt + ((wait - 1) * period);
         pendingReading = (index: index, result: result, at: landAt, loops: wait,
             restart: restart);
         this.changed(\reading, pendingReading);
@@ -4018,6 +4202,10 @@ Looper {
             "Granular: no loop recorded.".postln;
             this.changed(\granular, false);
             ^this.prRefused(\granular, "no loop recorded")
+        };
+        if(this.prAtHalfTime) {
+            this.changed(\granular, false);
+            ^this.prRefused(\granular, "the grains don't follow half-time yet")
         };
         tau = if(lastResult.notNil and: { lastResult.tau.notNil }) {
             lastResult.tau
@@ -4217,6 +4405,7 @@ Looper {
 
     multiply { |factor=2|
         var newFrames = loopFrames * factor;
+        if(this.prAtHalfTime) { ^this.prRefused(\multiply, "half-time: end it first") };
         if(state == \empty or: { state == \recording }) { ^this.prRefused(\multiply, "no loop to multiply") };
         if(loopFrames == 0) { ^this.prRefused(\multiply, "no loop to multiply") };
         if((startFrame + newFrames) > buffer.numFrames) {
@@ -4292,6 +4481,7 @@ Looper {
     }
 
     undo {
+        if(this.prAtHalfTime) { ^this.prRefused(\undo, "half-time: end it first") };
         if(undoState.isNil) { ^this.prRefused(\undo, "nothing to undo") };
         // The state the snapshot was taken in says what is being undone: with
         // no loop playing it was a take, otherwise an overdub, multiply or
@@ -4417,7 +4607,8 @@ Looper {
                         segments[i + 1][\start]
                     } { loopSecs };
                     onChordChange.value(seg);
-                    (nextStart - seg[\start]).wait;
+                    // At half-time each segment lasts twice as long.
+                    ((nextStart - seg[\start]) / speed).wait;
                 };
             };
         }.play(SystemClock);
@@ -4532,6 +4723,17 @@ Looper {
         var pattern = onsetNotePattern;
         var period  = onsetNotePatternDur;
         var ok;
+        // At half-time the part is the loop's at its speed: every hit and the
+        // pass twice as long, counted from where the pass began (passStart).
+        // Kept, so a restart onto the same grid (a break's end) is one.
+        if((speed != 1) and: { pattern.notNil } and: { period.notNil }) {
+            if(halfOnsets.isNil or: { halfOnsets[0] !== onsetNotePattern } or: { halfOnsets[3] != speed }) {
+                halfOnsets = [onsetNotePattern, onsetNotePattern.collect { |h| h.copy.put(0, h[0] / speed) },
+                    period / speed, speed];
+            };
+            pattern = halfOnsets[1];
+            period = halfOnsets[2];
+        };
         // `engineSynth.isNil` is the honest test for "the loop's audio is
         // playing": stopPlayback and clear both nil it, and it is already set by
         // the time spawnEngine calls this. Gating on it is what stops the toggle
@@ -4563,7 +4765,7 @@ Looper {
             // Subtracting the trim moves the pattern's read point FORWARD, so a
             // negative offset makes every hit fire that much earlier.
             var cursor = (SystemClock.seconds
-                - (loopStartTime ? SystemClock.seconds)
+                - (this.passStart ? SystemClock.seconds)
                 - (onsetNoteOffsetMs / 1000)).mod(period);
             var from = pattern.detectIndex { |p| p[0] >= cursor } ? pattern.size;
             inf.do {

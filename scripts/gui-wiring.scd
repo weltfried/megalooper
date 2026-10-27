@@ -179,6 +179,10 @@
         .put(\reverse, { |looper, what, val|
             { ~performPaintLoop !? { |f| f.() } }.defer;
         })
+        // Half-time armed, on, ending or over: its tile, and the take's ½.
+        .put(\halfTime, { |looper, what, val|
+            { ~performPaintLoop !? { |f| f.() }; ~statusRepaintGrids !? { |f| f.() } }.defer;
+        })
         .put(\granular, { |looper, what, val|
             { ~performPaintGrains !? { |f| f.() };
               ~granularPaintHeader !? { |f| f.() };

@@ -156,6 +156,7 @@ opens on the Perform view (see [GUI](#gui)).
 | `M` | Multiply loop length (×2)                                         |
 | `U` | Undo (one level deep)                                             |
 | `V` | Reverse                                                           |
+| `L` | Half-time: the loop at half speed from the next loop; again ends it with the pass |
 | `G` | Grains on and off                                                 |
 | `B` | Cutter on and off                                                 |
 | `K` | Break: silence until a loop downbeat                              |
@@ -384,6 +385,35 @@ and presets save what you dialled in, not what the pedal happened to be doing.
 Intensity **defaults to 1**, so a rig with no expression pedal connected behaves
 exactly as it did before this existed — the pedal takes over the moment it is
 touched and never before.
+
+### Half-time
+
+Press **Half-time** (Perform's Loop column, key `L`, or a switch mapped to
+`looper.halfTime`) and on the next loop boundary the loop drops into half
+time: half speed, an octave down, each pass twice as long, under drums, synth
+and effects that keep their tempo. Every loop event still lands on the drums'
+grid, at half the density. Press again and it ends with the half-speed pass,
+back at full speed on the boundary after it.
+
+- **Armed, on, ending.** The tile says `½ armed` until the boundary, `½ HALF`
+  while it plays, `½ ending` until the pass is out. A press before the
+  boundary takes the arm or the ending back. Within 50 ms of a boundary a
+  press goes to the boundary after, as the loop couldn't be told in time.
+- **On the sample.** The loop takes the new speed on the sample it starts
+  again, however late the press reached it, so both edges are the loop's own
+  boundaries and the drums stay on its grid through it.
+- **The count** counts in to both edges (`HALF-TIME IN`, `FULL TIME IN`), and
+  at half-time counts the loop's own bars, each now two drum bars long, with
+  `½` beside the bar in the header and in the count's caption.
+- **What follows it:** a break lasts the rest of the pass at half speed, then
+  whole half-speed passes; a reading lands on the end of a half-speed pass; the
+  onset kit plays the loop's hits at half density; the chords change at half
+  pace.
+- **Not with it, yet:** overdub, Rec next loop, multiply and undo are refused
+  at half-time, and half-time is refused while you overdub or record the next
+  loop. The cutter, the grains and a dissolve don't follow it yet: each refuses
+  half-time while it runs, and is refused at half-time. The footer says why.
+- Stop and clear end it; the next start plays at full speed.
 
 ### Breaks
 

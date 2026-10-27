@@ -386,6 +386,7 @@
     { char == $m } { ~looper !? { |l| l.multiply } }
     { char == $u } { ~looper !? { |l| l.undo } }
     { char == $v } { ~looper !? { |l| l.reverse } }
+    { char == $l } { ~looper !? { |l| l.toggleHalfTime } }
     { char == $g } { ~looper !? { |l| l.toggleGranular } }
     { char == $b } { ~looper !? { |l| l.bbcut = l.bbcut.not } }
     { char == $k } { ~looper !? { |l| l.fireBreak } }

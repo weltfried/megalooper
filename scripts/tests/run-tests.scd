@@ -33,6 +33,7 @@ var files = [
     "test-loop-position.scd",
     "test-beat-count.scd",
     "test-count-lights.scd",
+    "test-halftime.scd",
     "test-break.scd",
     "test-arc.scd",
     "test-reading.scd",

@@ -41,8 +41,12 @@ var baseline = (
     // the write head's latency shift is rounded, so any rate but ±1 leaves the
     // loop as it was. Deliberate — see the graph's comment; the render
     // scripts/sa/nrt-engine-rate.scd checks that ±1 sounds as before.
-    'looperEngine':          [ 2115, 92375856 ],
-    'looperEngineMono':      [ 2055, 259924006 ],
+    // Moved again the same day from [ 2115, 92375856 ] and [ 2055, 259924006 ]:
+    // half-time's `speed`, taken on the sample a reference Phasor wraps, and
+    // the playhead's Phasor reading its rate every sample. The render checks
+    // that too.
+    'looperEngine':          [ 2697, 25642149 ],
+    'looperEngineMono':      [ 2637, 48664331 ],
     'looperClick':           [  429, 831893340 ],
     'looperMaster':          [  478, 767188786 ],
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the

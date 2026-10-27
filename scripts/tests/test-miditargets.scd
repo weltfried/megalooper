@@ -63,7 +63,7 @@ idShape = "^[a-z][a-zA-Z0-9]*(\\.([a-z][a-zA-Z0-9]*|[0-9]+))+$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
 // (the trims follow the kits, so they come with SA only).
 families = [
-    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 44],
+    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 45],
     [\live, "^live\\.record$", 1],
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.keys.join("|") ++ ")$", 7],
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 73],
@@ -86,7 +86,7 @@ familyOf = { |id| families.select { |f| f[1].matchRegexp(id.asString) }.collect 
 // The Looper's, as table 4.2 lists them: the transport, the switches, the
 // three added after review, the levels, the granular block and its window,
 // the counts and the cutter's mode.
-looperIds = ['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 'looper.clear',
+looperIds = ['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 'looper.clear', 'looper.halfTime',
     'looper.recordNextLoop', 'looper.break', 'looper.nextReading', 'looper.revertReading',
     'looper.reverse', 'looper.dissolve', 'looper.sessionRecording', 'looper.granular', 'looper.bbcut',
     'looper.onsetNotes', 'looper.analysisMonitor', 'looper.analyzeOverdubs',
@@ -249,9 +249,9 @@ protect {
 
     live = [targets.size, count.(there)];
     ("  on a Live rig: " ++ live[0] ++ " controls, " ++ live[1] ++ " there").postln;
-    ~tEq.("on a Live rig the Looper's 44, Live's record and the count's 3 lights are there, and nothing of SA's",
+    ~tEq.("on a Live rig the Looper's 45, Live's record and the count's 3 lights are there, and nothing of SA's",
         [live[1], targets.keys.asArray.select { |id| there.(targets[id]) and: { id.asString.beginsWith("sa.") } }],
-        [48, []]);
+        [49, []]);
 
     // ------------------------------------------------------------------- laws --
     ~tEq.("every level's law goes back to where it came from, at 0, 1/4, 1/2, 3/4 and 1 ("

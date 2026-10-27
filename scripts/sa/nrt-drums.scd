@@ -50,7 +50,16 @@
 //   4. The CPU each render took (scsynth -N under /usr/bin/time), with three
 //      baselines: the SA tree idling, the drums' effects alone, an empty score.
 //
-// NRT_DRUMS_ONLY=align,levels,attacks,listen,loop,kits runs only those parts.
+//   5. Half-time (docs/dev/rc600-picks.md, 3a), at 201.09 BPM 4/4: the
+//      clicking loop of 1., half-time pressed through Looper.toggleHalfTime in
+//      the third pass (it lands on the fourth's start), pressed again early in
+//      the half-speed pass (it ends with it). Every loop click before, at half
+//      speed (every other 16th, its peak a sample later, stretched) and after,
+//      where the timing says, 0 +- 0 samples, and each on a step of the drums,
+//      which keep every 16th through both edges; the onset kit at half
+//      density, on the loop's clicks.
+//
+// NRT_DRUMS_ONLY=align,half,levels,attacks,listen,loop,kits runs only those parts.
 //
 // The scores free every synth before their end: one /n_free per long-lived
 // node and /g_freeAll per voice group (a memory-owning synth still running at
@@ -88,7 +97,7 @@ var chMaster = 0, chLoop = 2, chSteps = 4, chOnset = 6, chStepsDry = 8, chOnsetD
 var check, say, db, clickFrame, makeStub, readerFor, writeWav, clickWav, clickKit, makeRig, spawnAndAnalyse;
 var runTimeline, sounding, buildScore, render, readAll, chanOf, peaksOf, detectNear,
     stats, writeStereo, histo, histoStr, startOf, breakAt, freeRig, bufferLives;
-var alignment, levels, kitAttacks, listening, withLoop, kitsTour, main;
+var alignment, halfTimeScene, levels, kitAttacks, listening, withLoop, kitsTour, main;
 
 // ---------------------------------------------------------------- helpers --
 check = { |label, cond, detail|
@@ -784,6 +793,124 @@ alignment = { |label, bpm, num, den, withBreak|
     (steps: off, onset: offOnset, roll: offRoll, stamp: offStamp, loop: engineLag, gate: rig[\gate])
 };
 
+// ------------------------------------------------------------- half-time --
+halfTimeScene = { |label, bpm, num, den|
+    var k = 2, beats = (k * num * 4) / den, frames = ((beats * (60 / bpm)) * sr).asInteger;
+    var n16 = MegaSADrums.sixteenthsFor((numerator: num, denominator: den, k: k));
+    var clickDir = tmpDir +/+ "clicks", loopPath = tmpDir +/+ ("half-" ++ label ++ "-loop.wav");
+    var t0 = 0.5, tau, result, rig, d, l, ld, landAt, endAt, events, endT, rendered, res, loopCh, stepsCh, onsetCh;
+    var loopPeaks, stepPeaks, onsetPeaks, expect = List.new, missing = List.new, offLoop = List.new, onGrid = List.new;
+    var g0, s16f, offGrid, gridOf, inHalf, hits, offOnset = List.new, onsetIdx, nan, speeds = List.new, valid = List.new;
+    var f0, press, lastFrame;
+    ("== half-time " ++ label ++ ": " ++ bpm ++ " BPM " ++ num ++ "/" ++ den ++ ", a loop of " ++ frames
+        ++ " frames, pressed in the third pass, again in the half-speed one ==").postln;
+    if(File.exists(clickDir).not) { File.mkdir(clickDir) };
+    clickKit.(clickDir, "nrtclick", 0);
+    clickKit.(clickDir, "nrtclickquiet", -20);
+    clickWav.(loopPath, frames, n16, 0);
+    tau = if(den == 8) { 30 / bpm } { 60 / bpm };
+    result = (bpm: bpm, numerator: num, denominator: den, k: k, sub: 1, tau: tau, n: k * num,
+        loopDur: frames / sr, phase: 0, downbeatOffset: 0, score: 1, accent: 1);
+    onsetIdx = [0, 3, 6, 10, 13, 17, 20, 24];
+    rig = makeRig.((loopFile: loopPath, loopFrames: frames, result: result, stepsKit: \nrtclick,
+        onsetKit: \nrtclickquiet, kitDir: clickDir, seed: 11, declickMs: 0,
+        onsets: onsetIdx.collect { |i, j| [(i * (frames / n16)) / sr, 0.4 + (0.6 * ((j % 3) / 2))] }));
+    d = rig[\d];
+    l = rig[\l];
+    ld = rig[\loopDur];
+    spawnAndAnalyse.(rig, t0, t0 + 0.05);
+    SimpleController(l).put(\speed, { |o, w, v| speeds.add([thisThread.seconds, v]) });
+    landAt = t0 + (3 * ld);
+    endAt = t0 + (5 * ld);
+    // A press, through the Looper's own gesture; the routine it starts for
+    // the landing (or the end), stepped at its logical times.
+    press = { |r, t|
+        r[\l].toggleHalfTime;
+        r[\l].instVarAt(\halfTimeRoutine) !? { |hr| r[\routines].add([t, hr, \halfTime]) };
+    };
+    events = [[t0 + (2.3 * ld), press], [t0 + (3.6 * ld), press]]
+        ++ [2.5, 4.0, 6.5].collect { |p| [t0 + (p * ld), { |r, t| valid.add([p, r[\d].prLoopValid]) }] };
+    endT = t0 + (7 * ld) + 1.0;
+    runTimeline.(rig, t0 + 0.05, endT - 0.6, events);
+    check.("half-time " ++ label ++ ": it landed on the fourth pass's start and ended with the half-speed pass",
+        (speeds.size == 2) and: { (speeds[0][0] - landAt).abs < 1e-6 } and: { speeds[0][1] == 0.5 }
+            and: { (speeds[1][0] - endAt).abs < 1e-6 } and: { speeds[1][1] == 1 },
+        speeds.asArray.asString);
+    check.("half-time " ++ label ++ ": the drums' loop model (their drift probe) off at half-time only",
+        valid.asArray == [[2.5, true], [4.0, false], [6.5, true]], valid.asArray.asString);
+    check.("half-time " ++ label ++ ": nothing dropped as late", d.dropped == 0, d.dropped.asString ++ " dropped");
+    rendered = render.("half-" ++ label, buildScore.(rig, endT), endT);
+    check.("half-time " ++ label ++ ": scsynth said nothing went wrong", rendered[\bad].isEmpty, rendered[\bad].join("; "));
+    res = readAll.(rendered[\wav]);
+    loopCh = chanOf.(res, chLoop);
+    stepsCh = chanOf.(res, chSteps);
+    onsetCh = chanOf.(res, chOnset);
+    nan = res[\data].detectIndex { |x| x.isNaN or: { x.abs == inf } };
+    check.("half-time " ++ label ++ ": no sample NaN or inf", nan.isNil, "first at " ++ nan);
+
+    // Where the engine plays each click's peak (frame 2 of its five): three
+    // passes at speed 1, one half-speed pass (frame c at 2c from its start),
+    // two passes at speed 1; heard 960 samples later.
+    f0 = (t0 * sr).round.asInteger;
+    3.do { |p| n16.do { |kk| expect.add(f0 + (p * frames) + clickFrame.(kk, frames, n16) + 2) } };
+    n16.do { |kk| expect.add(f0 + (3 * frames) + (2 * (clickFrame.(kk, frames, n16) + 2))) };
+    2.do { |p| n16.do { |kk| expect.add(f0 + ((5 + p) * frames) + clickFrame.(kk, frames, n16) + 2) } };
+    // The seven passes heard; the render's last second plays an eighth.
+    lastFrame = f0 + (7 * frames) + 960;
+    loopPeaks = peaksOf.(loopCh, 0.1).select { |x| x < lastFrame };
+    stepPeaks = peaksOf.(stepsCh, 0.35).select { |x| x < lastFrame };
+    onsetPeaks = peaksOf.(onsetCh, 0.1);
+    expect.do { |e|
+        var m = detectNear.(loopPeaks, e + 960, 40);
+        if(m.isNil) { missing.add(e) } { offLoop.add((m - (e + 960)).asInteger) };
+    };
+    say.("loop clicks found " ++ offLoop.size ++ " of " ++ expect.size ++ " (" ++ loopPeaks.size
+        ++ " peaks in the loop's channel); off where the timing says: " ++ histoStr.(histo.(offLoop)));
+    check.("half-time " ++ label ++ ": every loop click where the timing says, at speed 1, at half speed and after, 0 samples",
+        missing.isEmpty and: { offLoop.every { |x| x == 0 } } and: { loopPeaks.size == expect.size },
+        missing.size.asString ++ " missing, " ++ (loopPeaks.size - expect.size) ++ " more peaks than clicks, off "
+            ++ histoStr.(histo.(offLoop)));
+    // The drums keep their tempo through both edges: every step they play
+    // (not a roll's hits, which are off the 16ths) sits on one 16th grid, its
+    // first step's, from the first pass to the last. A click's peak is its
+    // frame 2.
+    s16f = frames / n16;
+    hits = sounding.(rig).select { |h| (h[\kind] == \step) and: { h[\stamp] < (t0 + (7 * ld)) } }
+        .collect { |h| detectNear.(stepPeaks, ((h[\stamp] * sr).round.asInteger) + 2, 6) };
+    g0 = hits.first;
+    gridOf = { |x| (((x - g0) / s16f).round * s16f) + g0 };
+    offGrid = hits.collect { |x| x !? { (x - gridOf.(x)).round.asInteger } };
+    say.("the drums' steps against one 16th grid, " ++ hits.size ++ " of them: " ++ histoStr.(histo.(offGrid.reject(_.isNil))));
+    check.("half-time " ++ label ++ ": the drums keep one 16th grid through both edges, +- 1 sample",
+        (hits.size > 40) and: { offGrid.every { |x| x.notNil and: { x.abs <= 1 } } },
+        offGrid.count(_.isNil).asString ++ " not found, " ++ histoStr.(histo.(offGrid.reject(_.isNil))));
+    // The loop on that grid: at speed 1 its click's peak on it; at half
+    // speed the click is stretched, its peak (frame 2) two samples later
+    // than the grid point its start is on, at every other 16th.
+    inHalf = { |x| (x >= ((landAt * sr) + 960)) and: { x < ((endAt * sr) + 960) } };
+    loopPeaks.do { |x| onGrid.add((x - gridOf.(x)).round.asInteger - (if(inHalf.(x)) { 2 } { 0 })) };
+    say.("the loop's clicks against the drums' grid (at half speed less the stretched peak's 2): "
+        ++ histoStr.(histo.(onGrid)));
+    check.("half-time " ++ label ++ ": the loop stays on the drums' grid, at half speed every other 16th, +- 1 sample",
+        onGrid.notEmpty and: { onGrid.every { |x| x.abs <= 1 } }
+            and: { loopPeaks.select(inHalf).collect { |x| ((x - g0) / s16f).round.asInteger.even }.asSet.size == 1 },
+        histoStr.(histo.(onGrid)));
+    // The onset kit at half density: each hit on one of the loop's clicks
+    // (at half speed, the stretched peak's 2 samples after it).
+    hits = sounding.(rig).select { |h| (h[\slot] == \onset) and: { h[\stamp] < (t0 + (7 * ld)) } };
+    hits.do { |h|
+        var e = ((h[\stamp] * sr).round.asInteger) + 2, m = detectNear.(onsetPeaks, e, 6), lp;
+        m !? { lp = detectNear.(loopPeaks, m, 40);
+            lp !? { offOnset.add(((m - lp) + (if(inHalf.(lp)) { 2 } { 0 })).asInteger) } };
+    };
+    say.("the onset kit's hits against the loop's clicks: " ++ histoStr.(histo.(offOnset)));
+    check.("half-time " ++ label ++ ": the onset kit plays on the loop's clicks, at half speed too, 0 +- 1 sample",
+        (offOnset.size == hits.size) and: { hits.any { |h| (h[\stamp] > landAt) and: { h[\stamp] < endAt } } }
+            and: { offOnset.every { |x| x.abs <= 1 } },
+        offOnset.size.asString ++ " of " ++ hits.size ++ " found, " ++ histoStr.(histo.(offOnset)));
+    freeRig.(rig);
+};
+
 // --------------------------------------------------------------- levels --
 // One kit in both slots, every pad at velocity 127: on the steps through the
 // lane-0 note (Live main pattern replaced by one hit a bar), on the onset kit
@@ -1090,6 +1217,7 @@ main = Routine {
             al[\fourFour] = alignment.("4-4", 201.09, 4, 4, true);
             al[\sevenEight] = alignment.("7-8", 165, 7, 8, false);
         };
+        if(wants.(\half)) { halfTimeScene.("4-4", 201.09, 4, 4) };
 
         if(wants.(\levels)) {
         "== levels: every kit at velocity 127, every pad, both slots, the default strips ==".postln;

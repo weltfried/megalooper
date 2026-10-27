@@ -76,7 +76,7 @@ say `guitar` in their ids, as in `sa.level.guitar`.
 
 **The looper** (Perform), `looper.` and:
 
-- `trigger`, `stop`, `multiply`, `undo`, `clear`, `reverse`,
+- `trigger`, `stop`, `multiply`, `undo`, `clear`, `reverse`, `halfTime`,
   `recordNextLoop`, `break`, `nextReading`, `revertReading`
 - `dissolve`, `dissolveBars`, `breakLoops`, `sessionRecording`
 - `bbcut`, `bbcutMode`, `granular`

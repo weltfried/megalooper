@@ -406,7 +406,9 @@
         ["STOPPED", dur.round(0.01).asString ++ " s" ++ (bars !? { |b| " · " ++ b ++ " bars" } ? ""), "■"]
     }
     { pos.notNil and: { pos[\bar].notNil } } {
-        ["BAR " ++ pos[\bar] ++ "/" ++ pos[\barCount] ++ " · BEAT " ++ pos[\beat] ++ "/" ++ pos[\beatsPerBar],
+        // At half-time the loop's own bars, each now two drum bars long: ½.
+        ["BAR " ++ pos[\bar] ++ "/" ++ pos[\barCount] ++ " · BEAT " ++ pos[\beat] ++ "/" ++ pos[\beatsPerBar]
+            ++ (if((l.speed ? 1) != 1) { " · ½" } { "" }),
             phase.round(0.01).asString ++ " / " ++ dur.round(0.01) ++ " s",
             pos[\bar].asString ++ "·" ++ pos[\beat]]
     }
@@ -464,17 +466,30 @@
     reading: (cap: "NEW READING IN", word: "NEW", fill: \armed),
     recordNextLoop: (cap: "REC NEXT LOOP IN", word: "REC", fill: \rec),
     recordNextLoopEnds: (cap: "NEXT LOOP CLOSES IN", word: "LOOP", fill: \play),
-    cutter: (cap: "CUTTER IN", word: "CUT", fill: \cut)
+    cutter: (cap: "CUTTER IN", word: "CUT", fill: \cut),
+    halfTime: (cap: "HALF-TIME IN", word: "HALF", fill: \loop),
+    halfTimeEnds: (cap: "FULL TIME IN", word: "FULL", fill: \loop)
 );
 
 // Where the playhead is at `now`, in seconds into the loop, from the poll's
 // last answer; nil without one, or with one of a loop that has since changed
 // length (a multiply, an undo, a new take: the next answer is 50 ms away).
+// At half-time (Looper.speed 0.5) the playhead moves at half the wall's
+// pace. A speed changes on a boundary, the engine's phase 0: an answer from
+// before the change is not used across it, the playhead is counted from the
+// boundary instead.
 ~countPosAt = { |now, delay|
-    var l = ~looper, a = ~countAnchor, dur;
+    var l = ~looper, a = ~countAnchor, dur, shown, v, changed;
     dur = (l !? { |x| x.loopDuration }) ? 0;
     if(l.isNil or: { a.isNil } or: { dur <= 0 } or: { (a[\dur] - dur).abs > 1e-6 }) { nil } {
-        (a[\phase] + ((if(l.reverseFlag) { -1 } { 1 }) * ((now - (delay ?? { ~countDelay ? 0 })) - a[\at]))).mod(dur)
+        shown = now - (delay ?? { ~countDelay ? 0 });
+        v = (if(l.reverseFlag) { -1 } { 1 }) * l.speed;
+        changed = l.speedChangedAt;
+        if(changed.notNil and: { a[\at] < changed } and: { shown >= changed }) {
+            (v * (shown - changed)).mod(dur)
+        } {
+            (a[\phase] + (v * (shown - a[\at]))).mod(dur)
+        }
     }
 };
 
@@ -498,9 +513,13 @@
     { pos.isNil } { }
     { Looper.beatCountAt(0, r, dur)[\group].isNil } { out[\why] = "no grid\non this take" }
     {
+        // Looper.beatCountAt counts in the loop's own time; at half-time a
+        // wall second is half of one, and a beat lasts twice as long.
         out[\near] = l.upcoming(out[\shown]).select { |e| e[\at] > out[\shown] }.minItem { |e| e[\at] };
-        out[\c] = Looper.beatCountAt(pos, r, dur, out[\near] !? { |e| e[\at] - out[\shown] }, l.reverseFlag);
-        out[\beatDur] = r[\tau] * (r[\sub] ? 1);
+        out[\c] = Looper.beatCountAt(pos, r, dur, out[\near] !? { |e| (e[\at] - out[\shown]) * l.speed }, l.reverseFlag);
+        out[\c][\toEdge] = out[\c][\toEdge] / l.speed;
+        out[\beatDur] = (r[\tau] * (r[\sub] ? 1)) / l.speed;
+        out[\speed] = l.speed;
     };
     out
 };
@@ -535,7 +554,7 @@
 // sleep.
 ~countTick = {
     var now = Main.elapsedTime, s = ~countCompute.(now), c = s[\c], key, pos;
-    key = [s[\st], s[\brk], s[\why], c !? { [c[\bar], c[\beat], c[\countdown], c[\nextOdd], c[\loopsLeft], c[\groups]] },
+    key = [s[\st], s[\brk], s[\why], s[\speed], c !? { [c[\bar], c[\beat], c[\countdown], c[\nextOdd], c[\loopsLeft], c[\groups]] },
         s[\near] !? { |e| e[\what] }, s[\flash] !? { |f| f[\what] }];
     ~countShown = s;
     if(key != ~countKey) {
@@ -727,7 +746,8 @@
                 { near.notNil } { ~countWords[near[\what]][\cap] ++ " " ++ c[\loopsLeft]
                     ++ (if(c[\loopsLeft] == 1) { " LOOP" } { " LOOPS" }) }
                 { "COUNT · " ++ c[\groups].collect(_.asString).join("+")
-                    ++ (if(c[\barOdd]) { " · THE " ++ c[\beatsPerBar] } { "" }) };
+                    ++ (if(c[\barOdd]) { " · THE " ++ c[\beatsPerBar] } { "" })
+                    ++ (if((s[\speed] ? 1) != 1) { " · ½" } { "" }) };
             Pen.stringInRect(cap, Rect(22, 12, w - 44 - (if(c[\nextOdd] and: { counting.not }) { tw ? 0 } { 0 }), 18),
                 ~guiMono.(12, true), fade.(if(near.notNil and: { counting.not }) { ~gt[\armed] } { ink }, 0.9),
                 QAlignment(\left));

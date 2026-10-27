@@ -152,6 +152,13 @@
     // Switches: a press flips one through the model's own toggle.
     add.('looper.reverse', "Reverse", "Perform", \toggle, (group: "Transport",
         flip: { ~looper.reverse }, get: { ~looper !? { |l| l.reverseFlag } }, available: looper));
+    // Half-time (docs/dev/rc600-picks.md, 3a): lit while armed or on; set, it
+    // presses only where the state is not already the one asked for.
+    add.('looper.halfTime', "Half-time", "Perform", \toggle, (group: "Transport",
+        flip: { ~looper.toggleHalfTime },
+        get: { ~looper !? { |l| [\armed, \on].includes(l.halfTime) } },
+        set: { |v| ~looper !? { |l| if((v == true) != [\armed, \on].includes(l.halfTime)) { l.toggleHalfTime } } },
+        available: looper));
     add.('looper.dissolve', "Dissolve", "Perform", \toggle,
         (group: "Actions", flip: { ~looper.toggleDissolve },
             get: { ~looper !? { |l| l.dissolving or: { l.dissolvePos > 0 } } }, available: looper));

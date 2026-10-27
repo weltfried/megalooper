@@ -23,9 +23,20 @@
 //   6 new  rate  1, latency 7 frames    7 old, the same
 //   8 new  rate  0.5, latency 7         9 new  rate -0.5, latency 7
 //
+// Then half-time as the Looper plays it (docs/dev/rc600-picks.md, 3a): the
+// engine's `speed`, set at any time in a pass, takes over on the sample the
+// pass ends (a reference Phasor at ±1 wraps there):
+//
+//  10 new  rate  1, speed 0.5 set 30 ms into the first pass
+//  11 new  rate  1, the same, and speed 1 again set in the second half of the
+//          half-speed pass: back to rate 1 on the sample that pass ends
+//  12 new  rate -1, speed 0.5 set 30 ms into the first pass
+//
 // Exits 0 if every check passed, 1 otherwise.
 (
-var sr = 48000, len = 4800, dur = 1.2, engines = 10, chans = engines * 2;
+// The loop is 4803 frames, no whole number of blocks: a wrap falls inside a
+// block, where a change of speed taken a block late would show.
+var sr = 48000, len = 4803, dur = 1.2, engines = 13, chans = engines * 2;
 var tmp = PathName.tmp +/+ "megalooper-nrt-engine-rate-" ++ thisProcess.pid;
 var osc = tmp +/+ "engine.osc", wav = tmp +/+ "engine.wav", src = tmp +/+ "loop.wav";
 var after = { |i| tmp +/+ "after-" ++ i ++ ".wav" };
@@ -39,13 +50,18 @@ var ok = { |label, cond, detail|
 };
 var newDef = SynthDef(\megaNrtEngineNew, Looper.prEngineGraph(false));
 var oldDef = SynthDef(\megaNrtEngineOld, Looper.prEngineGraph(false, 2, 2));
-// [def, rate, latencyFrames] per engine, in the table's order.
+// [def, rate, latencyFrames, [[time, speed], ...]] per engine, in the
+// table's order. The loop is 0.1 s, the engines start at 0.1 s: 0.13 s is in
+// the first pass, 0.35 s in the second half of the half-speed pass after it.
 var setups = [
     [\megaNrtEngineNew, 1, 0], [\megaNrtEngineOld, 1, 0],
     [\megaNrtEngineNew, -1, 0], [\megaNrtEngineOld, -1, 0],
     [\megaNrtEngineNew, 0.5, 0], [\megaNrtEngineOld, 0.5, 0],
     [\megaNrtEngineNew, 1, 7], [\megaNrtEngineOld, 1, 7],
-    [\megaNrtEngineNew, 0.5, 7], [\megaNrtEngineNew, -0.5, 7]
+    [\megaNrtEngineNew, 0.5, 7], [\megaNrtEngineNew, -0.5, 7],
+    [\megaNrtEngineNew, 1, 0, [[0.13, 0.5]]],
+    [\megaNrtEngineNew, 1, 0, [[0.13, 0.5], [0.35, 1]]],
+    [\megaNrtEngineNew, -1, 0, [[0.13, 0.5]]]
 ];
 // The loop: noise and a sine, made by arithmetic so every run is the same, and
 // broadband, so a low-pass would show. Interleaved stereo.
@@ -69,6 +85,7 @@ score = [[0.0, [\d_recv, newDef.asBytes]], [0.0, [\d_recv, oldDef.asBytes]]]
             \bufnum, i, \in, 0, \startFrame, 0, \loopFrames, len, \out, i * 2,
             \rate, s[1], \latencyFrames, s[2], \declickFrames, 0,
             \phaseBus, i, \gateBus, 100]] }
+    ++ setups.collect { |s, i| (s[3] ? []).collect { |e| [e[0], [\n_set, 1000 + i, \speed, e[1]]] } }.flatten(1)
     // Every synth freed before the end (scsynth 3.14.1 can hang in its offline
     // cleanup otherwise), then each buffer written as the engines left it.
     ++ [[dur - 0.1, [\n_free] ++ setups.collect { |s, i| 1000 + i }]]
@@ -129,12 +146,38 @@ if(sf.isNil or: { sf.numFrames < ((dur - 0.2) * sr) }) {
         ok.("rate 0.5: every other sample is the loop's frame itself (cubic at a whole frame)",
             (0 .. (played div: 2) - 1).every { |k| (k.mod(len) == 0) or: {
                 (out.(4, 0, start + (k * 2)) == buf.(0, k)) and: { out.(4, 1, start + (k * 2)) == buf.(1, k) } } });
+        // Half-time: e plays frame `at.(t)` of the loop `t` frames after its start.
+        {
+            // The first frame `t` where e doesn't play `at.(t)`, or nil.
+            var miss = { |e, from, to, at| (from .. to - 1).detect { |t| var k = at.(t);
+                k.notNil and: { (out.(e, 0, start + t) != buf.(0, k)) or: { out.(e, 1, start + t) != buf.(1, k) } } } };
+            var plays = { |e, from, to, at| miss.(e, from, to, at).isNil };
+            // Whole frames only, and not the seam's declick.
+            var whole = { |x| if((x.frac == 0) and: { x.mod(len) != 0 }) { x } };
+            ok.("half-time set 30 ms into a pass: rate 1 to the pass's end, every frame",
+                plays.(10, 0, len, { |t| whole.(t) }));
+            ok.("...then half speed from the sample the loop starts again: every other sample its frame, for two passes",
+                plays.(10, len, len * 5, { |t| whole.((t - len) / 2) }));
+            ok.("a release set in the second half of the half-speed pass: back to rate 1 on the sample that pass ends",
+                plays.(11, len, len * 3, { |t| whole.((t - len) / 2) }) and: { plays.(11, len * 3, len * 6, { |t| whole.(t) }) });
+            // Backwards a pass begins a sample after frame 0, on frame L - 1:
+            // the half-speed pass starts there, on the sample the reference
+            // wraps.
+            ok.("reversed, half-time lands where a pass begins backwards, on frame L - 1, all the same",
+                plays.(12, 0, len + 1, { |t| whole.(t.neg) })
+                    and: { plays.(12, len + 1, len * 5, { |t| whole.((((t - len) - 1) / 2 + 1).neg) }) },
+                [miss.(12, 0, len + 1, { |t| whole.(t.neg) }),
+                    miss.(12, len + 1, len * 5, { |t| whole.((((t - len) - 1) / 2 + 1).neg) })] !? { |m|
+                    m.collect { |t| t !? { "frame " ++ t ++ " plays " ++ out.(12, 0, start + t) ++ ", loop frames around: "
+                        ++ (-3..3).collect { |d| [((t - len) - 1) / 2 + 1 + d, buf.(0, (((t - len) - 1) / 2 + 1 + d).neg.floor)] } } }.asString });
+        }.value;
     };
     // What the engines left in their buffers.
     setups.do { |s, i|
         var f = SoundFile.openRead(after.(i)), got, diff, name;
         name = (if(s[0] == \megaNrtEngineNew) { "new" } { "old" }) ++ " engine at rate " ++ s[1]
-            ++ (if(s[2] != 0) { ", latency " ++ s[2] } { "" });
+            ++ (if(s[2] != 0) { ", latency " ++ s[2] } { "" })
+            ++ (s[3] !? { |ev| ", speed " ++ ev.collect { |e| e[1] }.join(" then ") } ? "");
         if(f.isNil) { ok.(name ++ ": its buffer was written", false) } {
             got = FloatArray.newClear(f.numFrames * f.numChannels);
             f.readData(got);
@@ -146,8 +189,9 @@ if(sf.isNil or: { sf.numFrames < ((dur - 0.2) * sr) }) {
                     (diff > 1e-3) and: { hiDb.(got) < (hiDb.(loop) - 0.5) },
                     "largest change " ++ diff);
             } {
-                ok.(name ++ ": the loop came out of " ++ ((dur - 0.2) * s[1].abs / (len / sr)).round(0.1)
-                    ++ " passes exactly as it went in", diff == 0, "largest change " ++ diff);
+                ok.(name ++ ": the loop came out " ++ (if(s[3].isNil) {
+                        "of " ++ ((dur - 0.2) * s[1].abs / (len / sr)).round(0.1) ++ " passes " } { "" })
+                    ++ "exactly as it went in", diff == 0, "largest change " ++ diff);
             };
         };
     };

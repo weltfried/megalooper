@@ -169,6 +169,16 @@
         .action_({ ~looper !? { |lp| lp.multiply } }),
         'looper.multiply', "Extend the loop by a whole number of repetitions. Key M.");
     ~midiWatch.(~performMultiplyTile, { |t| t.sw_(~performSw.("M", 'looper.multiply')) });
+    // Half-time (docs/dev/rc600-picks.md, 3a), painted from the model: off,
+    // armed (lands on the next loop), HALF, ending (with the pass).
+    ~performHalfTile = ~midiTip.(LooperTile().cycles_(false)
+        .states_([["½  Half-time", ~gt[\ink], nil], ["½  armed", ~gt[\onacc], ~gt[\armed]],
+            ["½  HALF", Color.white, ~gt[\loop]], ["½  ending", ~gt[\onacc], ~gt[\armed]]])
+        .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
+        .action_({ ~looper !? { |lp| lp.toggleHalfTime } }),
+        'looper.halfTime', "The loop at half speed, an octave down, under drums that keep their tempo. "
+            "Lands on the next loop; again, it ends with the pass. Key L.");
+    ~midiWatch.(~performHalfTile, { |t| t.sw_(~performSw.("L", 'looper.halfTime')) });
     loopCol = ~performColumn.((key: \loop, name: "Loop",
         sw: { ~performSw.("V", 'looper.reverse') },
         toggle: ~performLoopToggle,
@@ -176,7 +186,7 @@
             ~performParam.("Feedback", ~feedbackLabel, ~feedbackSlider),
             ~performParam.("Length", ~performLengthLabel, ~performLengthBar)
         ],
-        extra: [~performMultiplyTile]));
+        extra: [~performMultiplyTile, ~performHalfTile]));
 
     // ---- Cutter ------------------------------------------------------------------------
     ~bbcutButton = ~midiTip.(~guiLayerTile.(\cut)
@@ -452,7 +462,10 @@
         ~feedbackSlider !? { |b| b.dim_(if(has) { 1 } { 0.3 }) };
         ~performLengthBar.value_((dur / 20).clip(0, 1)).dim_(if(has) { 1 } { 0.3 });
         ~performLengthLabel.string_(if(has) { dur.round(0.01).asString ++ " s" } { "—" });
-        ~performNote.(\loop, "Click to reverse (V). Multiply M, Undo U."
+        ~performHalfTile !? { |t| if(t.isClosed.not) {
+            t.value_(switch(l.halfTime, \armed, { 1 }, \on, { 2 }, \releasing, { 3 }, { 0 }));
+        } };
+        ~performNote.(\loop, "Click to reverse (V). Multiply M, Undo U, half-time L."
             ++ (case { l.reverseFlag.not } { "" } { has } { " Playing backwards." } { " The next take plays backwards." }));
     };
 };

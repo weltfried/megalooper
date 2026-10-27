@@ -157,7 +157,7 @@ MegaSADrums {
     var <drumGroup, <stepsGroup, <repeatGroup, <onsetGroup, <synthGroup, <fxSynth, <onsetFxSynth;
     var ringBusses, chokeBusses, pumpRoutine, probeResp, <built = false;
     // The drift probe.
-    var probes, probeSerial = 0, nextProbeAt, spawnCount = 0, reverseCount = 0;
+    var probes, probeSerial = 0, nextProbeAt, spawnCount = 0, reverseCount = 0, speedCount = 0;
     var lastLam, lastSpawnAt, reversedSinceSpawn = false, bigErrors = 0;
     // The drums' reverb: the four spectra once in (else nil), the zero spectrum
     // it starts on, a load's serial, the effects' busses [in, out], and
@@ -1439,6 +1439,7 @@ MegaSADrums {
             .put(\breakEndsAt, { |obj, what, x| x !? { |v| this.breakEndsAt(v) } })
             .put(\reading, { |obj, what, p| if(p.notNil) { this.readingArmed(p) } { this.readingCleared } })
             .put(\reverse, { |obj, what, flag| this.prReversed(flag) })
+            .put(\speed, { |obj, what, x| this.prSpeedChanged(x) })
             .put(\state, { |obj, what, st|
                 if((st == \recording) and: { newLoopOff } and: { on }) { this.setOn(false) };
                 this.prCheckSpawn(wallClock.value) })
@@ -1755,7 +1756,8 @@ MegaSADrums {
     // ---- The onset sink (Looper.onsetNoteSink) ------------------------------
 
     // The Looper's onset part: hit i of pass m at grid base + (m * period) +
-    // pattern[i][0], base = loopStartTime + onsetNoteOffsetMs. Played iff
+    // pattern[i][0], base = Looper.passStart + onsetNoteOffsetMs (at
+    // half-time the pattern and period come twice as long). Played iff
     // looper.onsetPlays(i), at looper.onsetVelocity(ratio), on looper.onsetNote,
     // each read when the hit is decided. A restart onto the same grid (the same
     // pattern, period and a congruent base: every respawn, the end of a break)
@@ -1767,7 +1769,9 @@ MegaSADrums {
         if(aLooper.isNil or: { pattern.isNil } or: { pattern.isEmpty } or: { period.isNil }
             or: { period <= 0 }) { ^this.stopOnsets(aLooper, now) };
         wall = wallClock.value;
-        base = (aLooper.loopStartTime ? wall) + ((aLooper.onsetNoteOffsetMs ? 0) / 1000);
+        // Where the loop's passes begin: loopStartTime, or at half-time where
+        // the half-speed passes began (Looper.passStart).
+        base = (aLooper.passStart ? wall) + ((aLooper.onsetNoteOffsetMs ? 0) / 1000);
         run = onsetRun;
         if(run.notNil and: { run[\pattern] === pattern } and: { run[\period] == period }
             and: { this.class.congruent(base, run[\base], period) }) { ^this };
@@ -3113,11 +3117,14 @@ MegaSADrums {
     // 2 s the drums read the engine's phase at a known time and pull dHat a
     // quarter of the way to it.
 
-    // The loop's model holds: it plays forwards and has not been reversed since
-    // its engine started (a reverse shifts its phase for good; that is not
-    // drift).
+    // The loop's model holds: it plays forwards, at its own speed (not at
+    // half-time, rc600-picks.md 3a: its phase then runs at half the wall's),
+    // and has not been reversed since its engine started (a reverse shifts its
+    // phase for good; that is not drift). Half-time starts and ends on the
+    // loop's own boundaries, so the model holds again after it.
     prLoopValid {
         ^looper.notNil and: { #[\playing, \overdubbing].includes(looper.state) }
+            and: { looper.speed == 1 }
             and: { looper.reverseFlag != true } and: { reversedSinceSpawn.not }
             and: { looper.loopStartTime.notNil } and: { looper.loopDuration > 0 }
     }
@@ -3134,7 +3141,8 @@ MegaSADrums {
         when = (wall + 0.05) + (64 / sr).rand;
         probeSerial = (probeSerial % 16777215) + 1;
         id = probeSerial;
-        probes.put(id, (time: when, lam: looper.loopStartTime, spawn: spawnCount, reverse: reverseCount));
+        probes.put(id, (time: when, lam: looper.loopStartTime, spawn: spawnCount, reverse: reverseCount,
+            speed: speedCount));
         this.prSend(when, [[\s_new, \megaSADrumsProbe, -1, 0, groupIds[\drum],
             \phaseBus, looper.phaseBus.index, \id, id]]);
         ^id
@@ -3153,7 +3161,7 @@ MegaSADrums {
         lam = looper !? { |l| l.loopStartTime };
         loopDur = this.prLoopDur;
         if(this.prProbeValid.not or: { arrival > (p[\time] + 0.03) } or: { p[\lam] != lam }
-            or: { p[\spawn] != spawnCount } or: { p[\reverse] != reverseCount }
+            or: { p[\spawn] != spawnCount } or: { p[\reverse] != reverseCount } or: { p[\speed] != speedCount }
             or: { (p[\time] - (lastSpawnAt ? inf.neg)) < 0.05 } or: { loopDur <= 0 }) { ^this };
         err = this.class.probeError(value, (server !? { |s| s.sampleRate }) ? 48000, p[\time], lam, dHat,
             loopDur, this.prSixteenthAt(p[\time], loopDur));
@@ -3181,6 +3189,11 @@ MegaSADrums {
     prReversed { |flag|
         reverseCount = reverseCount + 1;
         if(flag == true) { reversedSinceSpawn = true };
+    }
+
+    // Half-time landed or ended: a probe sent across it is thrown away.
+    prSpeedChanged { |x|
+        speedCount = speedCount + 1;
     }
 
     // ---- The server side ----------------------------------------------------
