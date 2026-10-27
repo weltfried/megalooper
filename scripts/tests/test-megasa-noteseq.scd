@@ -363,3 +363,51 @@ var a = notesOf.(7, false), b = notesOf.(7, false), e = notesOf.(8, false), r = 
 ~tEq.("...a rewind cancels the step it takes back and sends it again", ~nsRewound, [true, false]);
 ~tEq.("...and steps decided again after a rewind decide the same way", r, a);
 }.value;
+
+// Keep the dice (docs/dev/roadmap.md item 20, the light cone): every Start
+// draws new dice; kept, the seed heard is every Start's, and a preset or Keep
+// carries it.
+{
+var fx = ~nsMake.(seed: nil), d = fx[\drums], played, first, second, third, notes, data;
+// Each Start's first bar, from its own start, as [step, note, amp].
+played = { |from, to|
+    ~nsSounding.(fx[\log]).select { |n| (n[\grid] >= (from - 1e-9)) and: { n[\grid] < (to - 1e-9) } }
+        .collect { |n| [((n[\grid] - from) / 0.125).round.asInteger, n[\note], n[\amp].round(1e-6)] }
+};
+d.setNoteSetting(\scaleOn, false);
+d.setNoteValues(\pitch, (0..15));
+d.setNoteSetting(\direction, \random);
+d.setNoteLaneSetting(\velocity, \own, true);
+d.setNoteLaneSetting(\velocity, \direction, \random);
+d.setNotesOn(true, 91.0);
+~tEq.("the dice are new every Start to begin with", d.keptDice, nil);
+~nsStart.(fx, 92.0);
+~nsRun.(fx, 94.0);
+first = played.(92.0, 94.0);
+d.transportStop(94.0);
+d.keepDice(true);
+~tEq.("Keep: the seed of the Start heard is kept", d.keptDice, d.lastSeed);
+~nsStart.(fx, 96.0);
+~nsRun.(fx, 98.0);
+second = played.(96.0, 98.0);
+~tAssert.("notes were sent at both Starts", (first.size > 8) and: { second.size > 8 });
+~tEq.("...and the next Start plays the same notes, from bar 1", second, first);
+d.transportStop(98.0);
+d.keepDice(false);
+~nsStart.(fx, 100.0);
+~nsRun.(fx, 102.0);
+third = played.(100.0, 102.0);
+~tAssert.("let go, the next Start draws new ones", third != first);
+d.setDice(4242);
+data = d.presetData("x");
+~tEq.("a preset holds the seed kept, false for new dice", [data[\dice], { d.setDice(nil); d.presetData("y")[\dice] }.value],
+    [4242, false]);
+notes = List.new;
+~tEq.("...and puts it back", [d.applyPresetData(data, notes), d.keptDice], [true, 4242]);
+~tEq.("...false lets it go", [d.applyPresetData(data.copy.put(\dice, false), notes), d.keptDice], [true, nil]);
+d.setDice(7);
+~tEq.("...one that is no seed is said and the dice in force stay",
+    [d.applyPresetData(data.copy.put(\dice, "x"), notes), d.keptDice, notes.any { |n| n.contains("dice") }], [true, 7, true]);
+~tAssert.("...and the file says it in words", d.presetString(d.presetData("z")).contains("dice: 7"));
+d.free;
+}.value;

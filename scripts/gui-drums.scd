@@ -541,6 +541,11 @@
                         view.states_([["no repeats", ~gt[\mute], ~gt[\panel]]]);
                         view.enabled_(false);
                     };
+                },
+                // The dice: new at every Start, or kept (its seed shown).
+                \dice, {
+                    view.states_([if(v.isNil) { ["New every Start", ~gt[\ink], ~gt[\panel]] }
+                        { ["KEPT · " ++ v, ~gt[\onacc], ~gt[\drum]] }]);
                 }
             );
             w[\readout] !? { |r| r.string_(w[\format].value(v)) };
@@ -1311,6 +1316,20 @@
 // The line between two of the pane's sections, with room above and below.
 ~drumsSectionRule = { [View().layout_(VLayout(~guiRule.()).margins_([0, 8, 0, 8]))] };
 
+// The dice (MegaSADrums.keepDice): every Start draws new ones for the random
+// parts; kept, every Start plays the variation heard when it was clicked.
+~drumsDiceButton = {
+    var b = ~drumsButton.().fixedSize_(Size(170, 32)).cycles_(false).font_(~guiSans.(14))
+        .toolTip_("The random parts (Chance, Alt, Roll, the repeats, the synth's note sequencer) draw\n"
+            "new dice at every Start. Click to keep the dice you hear now: every Start then plays\n"
+            "this variation again, from bar 1, and a preset or Start with this keeps it.\n"
+            "Click again for new dice from the next Start.")
+        .action_({ ~drumsModel.() !? { |d| d.keepDice(d.keptDice.isNil) } });
+    ~drumsWidgets.put(\dice, (kind: \dice, view: b, get: { ~drumsModel.() !? { |d| d.keptDice } }));
+    ~drumsPaint.(\dice);
+    b
+};
+
 ~drumsPatternRows = {
     var pageHint = ~guiHint.("");
     ~drumsWidgets.put(\pageHint, (kind: \text, view: pageHint, get: { ~drumsPageHints[~drumsPage] ? "" }));
@@ -1328,7 +1347,7 @@
                 ~drumsTile.(pg, { ~drumsShowPage.(pg) },
                     (~drumsPageHints[pg] ? "") ++ "\nA dot: this page is edited off the default.")
             }
-            ++ [nil])).spacing_(2),
+            ++ [nil, ~drumsSmallLabel.("Dice", 40), View().fixedWidth_(10), ~drumsDiceButton.()])).spacing_(2),
         pageHint
     ] ++ (0..3).collect { |lane| ~drumsLaneRows.(lane) }.flatten(1)
 };
@@ -1489,6 +1508,7 @@
                 { [\steps, \onset].do { |s| ~drumsPaint.(~drumsTrimKey.(s, note)) } }.defer })
             .put(\groupTrim, { |obj, what, slot, group| { ~drumsPaint.(~drumsGroupKey.(group)) }.defer })
             .put(\repeats, { { ~drumsPaint.(\repeats) }.defer })
+            .put(\dice, { { ~drumsPaint.(\dice) }.defer })
             .put(\mix, { |obj, what, name| { ~drumsPaint.(name) }.defer })
             // Wet or dry: the Reverb row greys and its line says why.
             .put(\reverb, { { ~drumsPaint.(\reverbMix); ~drumsPaint.(\reverbState) }.defer })

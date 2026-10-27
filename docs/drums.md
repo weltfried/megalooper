@@ -132,6 +132,13 @@ Under each lane:
 **Reset pattern**, at the top, puts the pattern shown back as megalooper
 ships it: every step, length, lane setting and its timing.
 
+**Dice**, at the right of the Edit row: the chances, the Alt pads, the rolls,
+the repeats and the synth's random parts are dice, and every Start throws new
+ones, so each Start plays a variation of its own. When one sounds right, click
+**New every Start**: it turns to **KEPT** with a number, and every Start from
+then plays that same variation from bar 1. A preset and Start with this keep
+it. Click again for new dice from the next Start.
+
 ## Timing
 
 Each pattern has its own timing, under the lanes:
@@ -162,7 +169,8 @@ Each pattern has its own timing, under the lanes:
 ## Presets and Start with this
 
 The preset bar keeps both patterns (every step, length, lane and timing
-setting), the kits, their trims, the repeats, the reverb and the offset.
+setting), the kits, their trims, the repeats, the reverb, the offset and the
+dice, if they are kept.
 Choosing a preset recalls it at once. The switch, the break and the levels
 are not in it.
 

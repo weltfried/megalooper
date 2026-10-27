@@ -138,6 +138,9 @@ MegaSADrums {
     var <>kitReader;
     var <lead = 0.1, <margin = 0.006, <pumpPeriod = 0.01;
     var <>wallClock, <>sender, <>randSeed, <>autoProbe = false;
+    // The dice (keepDice): a seed every Start plays, or nil for new dice at
+    // every Start; and the seed of the epoch last begun.
+    var <keptDice, <lastSeed;
     var <dHat = 0, <lastProbeError, <dropped = 0, lastDropWall, lastPumpError;
     // The last analysis the Looper reported (setAnalysis): a start with no
     // Looper takes its grid from it.
@@ -1084,15 +1087,41 @@ MegaSADrums {
         this.prNotify(\mix, \offsetMs, offsetMs);
     }
 
+    // ---- The dice ----------------------------------------------------------
+    // Every random part of the steps (chance, alt, roll, slide), the note
+    // sequencer's and Beat Repeat's draws are a pure function of the epoch's
+    // seed and the step, and every Start (a new epoch) draws a new seed. Kept,
+    // the seed heard now is every Start's from then on, so a variation the
+    // duo liked comes back: the same notes from bar 1, Start after Start, and
+    // after a boot when the drums are kept or saved with it.
+
+    // true: keep the dice of the epoch last begun (new ones if none has);
+    // false: new dice from the next Start. The epoch playing goes on as it
+    // is either way.
+    keepDice { |flag|
+        this.setDice(if(flag == true) { keptDice ?? { lastSeed ?? { 2147483647.rand } } } { nil });
+    }
+
+    // A seed (an Integer, 0..2147483647) every Start plays from now on, or
+    // nil (or false) for new dice every Start. From the next Start.
+    setDice { |seed|
+        seed = if(seed.isInteger and: { seed >= 0 }) { seed } { nil };
+        if(seed != keptDice) {
+            keptDice = seed;
+            this.prNotify(\dice, keptDice);
+        };
+    }
+
     // ---- Presets and Keep -------------------------------------------------
     // One preset is the drums as a player sets them up: both patterns whole
     // (every page, the per-page lengths, the global lengths and locks, the
     // lanes' settings and the timing), the two kits by key, every pad and
     // group trim (per kit key, as they are kept), Beat Repeat's switch, the
-    // reverb and the offset; one SC literal in `dir`/<slug>.scd, written and
-    // read like MegaSA's effects presets. Not in it: PC 17's on/off and the
-    // break, which are the performance's, and the mixer's levels, which are
-    // MegaSA's. A preset naming other kits switches to them (setKit).
+    // reverb, the offset and the dice (kept: the seed; false: new ones); one
+    // SC literal in `dir`/<slug>.scd, written and read like MegaSA's effects
+    // presets. Not in it: PC 17's on/off and the break, which are the
+    // performance's, and the mixer's levels, which are MegaSA's. A preset
+    // naming other kits switches to them (setKit).
     //
     // Loading fails soft by field, as the Looper's validators do (a
     // hand-edited file is far more often stale than corrupt): a value out of
@@ -1178,6 +1207,7 @@ MegaSADrums {
         ^(version: this.class.presetVersion, name: (name ? "").asString, savedAt: Date.getDate.stamp,
             stepsKit: kitOf.(\steps), onsetKit: kitOf.(\onset),
             repeats: repeats, reverbMix: reverbMix.asFloat, offsetMs: offsetMs.asFloat,
+            dice: keptDice ? false,
             padTrims: rows.(padTrims), groupTrims: rows.(groupTrims),
             main: patterns[\main].deepCopy, break: patterns[\break].deepCopy)
     }
@@ -1202,6 +1232,8 @@ MegaSADrums {
                 field.(\repeats, data[\repeats].asCompileString),
                 field.(\reverbMix, data[\reverbMix].asCompileString),
                 field.(\offsetMs, data[\offsetMs].asCompileString),
+                "    // The dice: a seed every Start plays, or false for new dice every Start\n"
+                    ++ field.(\dice, (data[\dice] ? false).asCompileString),
                 "    // Trims: [kit, note, dB] and [kit, layer group, dB], -24..+12 dB\n"
                     ++ field.(\padTrims, data[\padTrims].asCompileString),
                 field.(\groupTrims, data[\groupTrims].asCompileString),
@@ -1336,8 +1368,13 @@ MegaSADrums {
         { notes.add("repeats " ++ data[\repeats].asCompileString ++ " is not true or false (kept)") };
         clean.put(\reverbMix, number.(\reverbMix, 0, 1));
         clean.put(\offsetMs, number.(\offsetMs, -15, 50));
+        case
+        { data[\dice].isNil } { }
+        { data[\dice] == false } { clean.put(\dice, false) }
+        { data[\dice].isInteger and: { data[\dice] >= 0 } } { clean.put(\dice, data[\dice]) }
+        { notes.add("dice " ++ data[\dice].asCompileString ++ " is not a seed (0 or more) or false (kept)") };
         known = #[\version, \name, \savedAt, \main, \break, \stepsKit, \onsetKit, \padTrims, \groupTrims,
-            \repeats, \reverbMix, \offsetMs];
+            \repeats, \reverbMix, \offsetMs, \dice];
         data.keys.do { |k| if(known.includes(k).not) { notes.add(k.asString ++ " is no drums field (ignored)") } };
         ^clean
     }
@@ -1389,7 +1426,8 @@ MegaSADrums {
     // Apply a checked preset through the setters, so every change reaches
     // the server and its notification: the kits first (setKit, if it names
     // others), the trims (each one that moved for the kits in the slots
-    // notified), the patterns, Beat Repeat, the reverb and the offset.
+    // notified), the patterns, Beat Repeat, the reverb, the offset and the
+    // dice.
     prApplyPreset { |clean|
         var oldPads = padTrims, oldGroups = groupTrims;
         [[\stepsKit, \steps], [\onsetKit, \onset]].do { |pair|
@@ -1415,6 +1453,7 @@ MegaSADrums {
         clean[\repeats] !? { |flag| if(flag != repeats) { this.setRepeats(flag) } };
         clean[\reverbMix] !? { |v| this.setReverbMix(v) };
         clean[\offsetMs] !? { |v| this.setOffsetMs(v) };
+        clean[\dice] !? { |v| this.setDice(v) };
     }
 
     // The keys whose trims differ between two tables (key -> dB, either nil).
@@ -1708,7 +1747,8 @@ MegaSADrums {
     // restart's epoch went with those replaced). Answers the epoch.
     prInstallEpoch { |t0, result, loopDur, p|
         var seed, ep, gone, pl;
-        seed = if(randSeed.notNil) { randSeed + epochCount } { 2147483647.rand };
+        seed = keptDice ?? { if(randSeed.notNil) { randSeed + epochCount } { 2147483647.rand } };
+        lastSeed = seed;
         epochCount = epochCount + 1;
         ep = (id: epochCount, t0: t0, seed: seed, p: p,
             segs: List[this.prSegment(t0, 0, result, loopDur)]);

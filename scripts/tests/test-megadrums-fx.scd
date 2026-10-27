@@ -753,8 +753,8 @@ text = File.readAllString(dir +/+ "my-groove.scd") ? "";
 ~tAssert.("...one SC literal, its comments first, none trailing", text.beginsWith("//") and: {
     text.stripWhiteSpace.endsWith(")") });
 data = text.interpret;
-~tEq.("...holding both patterns, the kits, trims, Beat Repeat, the reverb and the offset (and not on/off or the break)",
-    data !? { |x| x.keys.asArray.sort }, [\break, \groupTrims, \main, \name, \offsetMs, \onsetKit, \padTrims,
+~tEq.("...holding both patterns, the kits, trims, Beat Repeat, the reverb, the offset and the dice (and not on/off or the break)",
+    data !? { |x| x.keys.asArray.sort }, [\break, \dice, \groupTrims, \main, \name, \offsetMs, \onsetKit, \padTrims,
         \repeats, \reverbMix, \savedAt, \stepsKit, \version]);
 ~tEq.("...the kits by key, the trims as [kit, key, dB]", data !? { |x| [x[\stepsKit], x[\padTrims], x[\groupTrims]] },
     ["brkit", [["brkit", 42, -3.5]], [["brkit", "layer", -6.0]]]);

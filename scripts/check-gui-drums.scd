@@ -570,6 +570,17 @@ Routine {
         tick.();
         ok.("its tip says why it starts off: the dice stutter often",
             rb.toolTip.contains("stutter often") and: { rb.toolTip.contains("starts off") }, rb.toolTip);
+        // The dice: a click keeps them, the seed shown; another lets them go.
+        rb = ~drumsWidgets[\dice][\view];
+        ok.("the dice start new every Start", (d.keptDice.isNil) and: { rb.states[0][0] == "New every Start" },
+            rb.states.asString);
+        rb.valueAction_(0);
+        tick.();
+        ok.("a click keeps them, its seed on the button", d.keptDice.notNil
+            and: { rb.states[0][0] == ("KEPT · " ++ d.keptDice) }, [d.keptDice, rb.states].asString);
+        rb.valueAction_(0);
+        tick.();
+        ok.("another lets them go", d.keptDice.isNil and: { rb.states[0][0] == "New every Start" });
         om.valueAction_(om.items.indexOfEqual("808 Core Kit"));
         tick.();
         ok.("the onset menu sets the onset kit", d.kit(\onset) == 'core-808');
