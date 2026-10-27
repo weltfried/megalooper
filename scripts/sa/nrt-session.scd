@@ -89,7 +89,9 @@
 // posted); NRT_SESSION_BURNS=n burns time with n synths (default 12) from
 // each stop's stopAt to its closes, and NRT_SESSION_RECBURNS=n with n
 // (default 4) while each set records, for the render's disk thread (see
-// buildScore). The scores free every synth before their end (one /n_free per
+// buildScore); NRT_SESSION_RING=n gives DiskOut a ring of n frames
+// (LooperSessionRecorder.bufFrames, default 2^20 here, see `ring`). The
+// scores free every synth before their end (one /n_free per
 // long-lived node, /g_freeAll per voice group). Nothing is written outside
 // the run's own temporary folder.
 //
@@ -116,6 +118,14 @@ var keep = "NRT_SESSION_KEEP".getenv == "1";
 // a set records (buildScore).
 var burns = ("NRT_SESSION_BURNS".getenv ? "12").asInteger;
 var recBurns = ("NRT_SESSION_RECBURNS".getenv ? "4").asInteger;
+// DiskOut's ring for the render: 2^20 frames (22 s at 48 k), where the rig's
+// is 65536 (1.4 s). The rig's server writes in real time, so 1.4 s is slack
+// no disk-thread stall uses up; the render writes up to forty times faster,
+// so the same ring gives the disk thread tens of ms, and the burns while
+// recording (buildScore) only made a lapped ring rarer: the clock set still
+// failed one run of the full checks in about six, 2026-10-27. Sized to the
+// render's speed, the ring is the same machinery with the same slack.
+var ring = ("NRT_SESSION_RING".getenv ? "1048576").asInteger;
 var only = "NRT_SESSION_ONLY".getenv !? { |v| v.split($,) };
 var wants = { |part| only.isNil or: { only.any { |x| x == part } } };
 // The render's outputs: SA's master (the mix as it leaves for the interface),
@@ -144,6 +154,8 @@ var blockOf, startSample, fileCache = Dictionary.new, fileOf, cubic, biquad, tem
 var pyLines, runPython, noteOffs, readLog, numAfter, recStart, recStop, renderSet, captureSet, freesOf, startOfSet;
 var playSet, checkRun, checkFiles, prepare, checkWavs, checkClock, measure, checkLog, checkMidi, checkHint, checkDouble, checkFirstSet;
 var runSet, summarize, main;
+
+LooperSessionRecorder.bufFrames = ring;
 
 // ---------------------------------------------------------------- helpers --
 check = { |label, cond, detail|
@@ -2015,5 +2027,6 @@ main.next;
 
 if(keep.not and: { File.exists(tmpDir) }) { rmTree.(tmpDir) };
 (passes.asString ++ " passed, " ++ fails ++ " failed").postln;
+LooperSessionRecorder.bufFrames = 65536;
 if(fails == 0) { "NRT SESSION PASSED".postln; 0.exit } { "NRT SESSION FAILED".postln; 1.exit };
 )
