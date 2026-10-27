@@ -193,6 +193,30 @@
     };
 };
 
+// Following the chords (Looper.granularFollowChords): its two tiles, and the
+// line under them, which says what the take gives the grains to follow.
+~granularChordNames = { |l|
+    var segs = (l !? { |x| x.lastResult } !? { |r| r[\chordSegments] }) ? [];
+    segs.collect { |s| (s[\rootName] ? "?") ++ (if(s[\scale] == \minor) { "m" } { "" }) }
+};
+~granularPaintChords = {
+    var l = ~looper, names = ~granularChordNames.(l), on = l.notNil and: { l.granularFollowChords };
+    ~granularChordsSeg !? { |s| ~guiSegSet.(s, on.binaryValue) };
+    ~granularChordsHint !? { |t|
+        if(t.isClosed.not) {
+            t.string_(case
+                { names.size < 2 } {
+                    (if(on) { "Follow chords" } { "As played" }) ++ ": this take has "
+                        ++ (if(names.isEmpty) { "no chords heard" } { "one chord, " ++ names[0] }) ++ ", so there is nothing to follow."
+                }
+                { on } { "Follow chords: the grains move with " ++ names.keep(8).join(" → ")
+                    ++ (if(names.size > 8) { " …" } { "" }) ++ ", from the chord where they read." }
+                { "As played: the grains sound the loop where they read. This take's chords: "
+                    ++ names.keep(8).join(" → ") ++ (if(names.size > 8) { " …" } { "" }) ++ "." });
+        };
+    };
+};
+
 // The switch at the top, from the model.
 ~granularPaintHeader = {
     ~looper !? { |l|
@@ -209,6 +233,7 @@
     ~looper !? { |l|
         ~granularParams.do { |p| ~granularRefreshOne.(p[\key], l.perform(p[\key])) };
         ~granularPaintEnv.(l.granularEnv);
+        ~granularPaintChords.();
         ~granularPaintHeader.();
     };
 };
@@ -220,6 +245,7 @@
             if(p[\noReset] != true) { l.perform(p[\key].asSetter, p[\default]) };
         };
         l.granularEnv = 0;
+        l.granularFollowChords = false;
     };
 };
 
@@ -294,7 +320,7 @@
     // build is replacing.
     ~granularWidgets = IdentityDictionary.new;
     preset = ~guiPresetParts.(\granular, (
-        menu: "Saved granular setups: morph plus every control below, including the window shape.\n"
+        menu: "Saved granular setups: morph plus every control below, including the window shape and Chords.\n"
             "Choosing one recalls it straight away — a running granular layer follows without stopping.",
         rescan: "Rescan your presets (granular/ in your megalooper folder) for files added or removed outside megalooper.",
         name: "File name for Save. Anything but letters and digits becomes '-', so \"Frozen Cathedral\"\n"
@@ -325,6 +351,18 @@
             "Swell: the same shape backwards. Attacks are erased, so even a plucked loop\n"
             "  smears into pad.");
     ~granularEnvHint = ~guiHelp.(~guiText.("", 13, ~gt[\mute]));
+    // The take's chords: the grains as the loop sounds where they read, or
+    // transposed with the changes.
+    ~granularChordsSeg = ~guiSeg.(["As played", "Follow chords"],
+        (gap: 6, height: 38, fill: \grain, ink: \onacc, base: \bg, font: ~guiSans.(15, true),
+            action: { |i| ~looper.granularFollowChords = i == 1 }));
+    ~mapTag.(~granularChordsSeg[\view], 'looper.granularFollowChords',
+        "As played (the default): the grains sound the loop where they read, as they always did.\n"
+            "Follow chords: they are transposed by the interval from the chord where they read to the\n"
+            "chord the loop plays now, the nearer way round, so a drone frozen in one chord follows\n"
+            "the changes. At morph 1 they read where the loop is, and nothing moves. The chords are\n"
+            "the take's, as the analysis heard them.");
+    ~granularChordsHint = ~guiHelp.(~guiText.("", 13, ~gt[\mute]));
 
     pane.layout_(VLayout(
         ~guiBand.(\grain),
@@ -367,6 +405,12 @@
             ~guiCaption.("GRAIN WINDOW", 11),
             ~granularEnvSeg[\view],
             ~granularEnvHint
+        ).margins_([22, 16, 22, 16]).spacing_(8)),
+        ~guiRule.(),
+        View().layout_(VLayout(
+            ~guiCaption.("CHORDS", 11),
+            ~granularChordsSeg[\view],
+            ~granularChordsHint
         ).margins_([22, 16, 22, 16]).spacing_(8)),
         nil
     ).margins_(0).spacing_(0));

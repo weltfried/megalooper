@@ -283,6 +283,13 @@
             get: { ~looper !? { |l| l.granularEnv } },
             set: { |i| ~looper !? { |l| l.granularEnv = i } },
             available: looper)));
+        // The Grains tab's Chords tiles: As played | Follow chords, a choice as
+        // the Window's tiles are (a footswitch steps to the other).
+        add.('looper.granularFollowChords', "Chords", "Grains", \choice, choice.((group: "Chords",
+            items: ["As played", "Follow chords"],
+            get: { ~looper !? { |l| l.granularFollowChords.binaryValue } },
+            set: { |i| ~looper !? { |l| l.granularFollowChords = i == 1 } },
+            available: looper)));
         // Perform's mode menu beside the cutter's switch, in its order.
         add.('looper.bbcutMode', "BBCut mode", "Perform", \choice, choice.((group: "Layers",
             items: ["Mix", "Insert", "Gate"],

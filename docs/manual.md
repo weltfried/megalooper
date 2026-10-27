@@ -1001,7 +1001,7 @@ UGen, sourced from the recorded loop region.
 
 ![The Grains](images/grains.png)
 
-*Fig: The Grains, on the right of the Sound view (2): their four sections, and the grain window under them.*
+*Fig: The Grains, on the right of the Sound view (2): their four sections, and the grain window and the chords switch under them.*
 
 ### Morph: the meta-control
 
@@ -1033,7 +1033,7 @@ texture, and every control here **bends that base**.
 
 **ON · G** toggles the layer like `G`; it is refused while no loop is
 recorded. The controls are in four sections, **Blend**, **Pitch**, **Grain**
-and **Read position**, with **GRAIN WINDOW** under them.
+and **Read position**, with **GRAIN WINDOW** and **CHORDS** under them.
 
 Every default is **neutral**: with all of them untouched the layer sounds exactly
 as it did when morph was the only control. **Reset tweaks** puts them all back
@@ -1051,6 +1051,10 @@ without disturbing morph itself.
 | **Position** | 0–1 | Where in the loop grains read from. At the drone end this **is** the freeze point — sweep it to walk the drone through the recording by hand. Wraps, so it can never read past the loop's end. |
 | **Scan** | ±2 /loop | **Extra** passes through the loop per loop duration, added to morph's own. Small values drift a frozen drone; negative runs the read head backwards; −1 exactly freezes a fully pulsed scan. |
 | **Spray** | 0–500 ms | Per-grain read-position randomness. Unlike morph's own jitter this survives at the pulsed end — it is how you loosen a locked grid without giving up the beat. |
+| **Chords** | As played, Follow chords | **As played** (the default) is the grains as they always were: the loop as it sounds where they read. **Follow chords** transposes them by the interval from the chord where they read to the chord the loop plays now, the nearer way round (up to a tritone), so a drone frozen in one chord follows the loop's changes. At morph 1 they read where the loop is, so nothing moves. The chords are the take's, as the analysis heard them; the line under the tiles lists them. A take of one chord has nothing to follow. |
+
+Following the chords transposes by the chords' roots only: a drone frozen in A
+minor moved to a D major chord plays D minor. Pitch adds to it.
 
 ### Grains presets
 
@@ -1066,6 +1070,8 @@ What differs:
 - The **window shape is stored by name**, not by index, so adding a shape in a
   later version cannot re-point presets saved before it. An unknown shape falls
   back to Hann.
+- **Chords** is in a preset; a preset saved before it existed recalls **As
+  played**.
 
 Every control here can be on a knob (keys-and-knobs uses CC 118, 119 and
 40–47). A recall moves the values, not the knobs: with **Send back** on, a
@@ -1763,7 +1769,7 @@ you did about it with the next-reading switch. See
 
 ## Testing
 
-`./tools/run-checks.sh` runs all twenty-six checks, one sclang at a time, in
+`./tools/run-checks.sh` runs all twenty-seven checks, one sclang at a time, in
 about six minutes. `./tools/run-checks.sh quick` runs only the unit tests, the
 static check and the AI bridge's test. Nothing opens an audio device or touches
 MIDI, and megalooper may be running beside it. Checks that need material the

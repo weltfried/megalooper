@@ -56,3 +56,58 @@ l.prGranularFollow;
 ~tEq.("with the grains off nothing is sent", ~tGet.(l, \server)[\msgs].size, got);
 }.value;
 
+// ---- following the chords (granularFollowChords, roadmap item 8) ------------------
+{
+var buf = { |n| (bufnum: n, numFrames: 48000 * 60, copyData: { |self ... args| self }) };
+var segs = [(start: 0, root: 9, rootName: "A", scale: \minor), (start: 1.75, root: 2, rootName: "D", scale: \major)];
+var r = (numerator: 7, denominator: 8, tau: 0.25, sub: 1, k: 2, n: 14, loopDur: 3.5, bpm: 120,
+    chordSegments: segs, chordPeriod: 3.5);
+var l, g, srv, setn, data, warnings, clean;
+l = ~tLooper.();
+~tPut.(l, \state, \playing);
+~tPut.(l, \buffer, buf.(11));
+~tPut.(l, \loopFrames, 168000);
+~tPut.(l, \lastResult, r);
+g = ~tStubSynth.(l, \looperGranular);
+~tPut.(l, \granularSynth, g);
+srv = ~tGet.(l, \server);
+// The last /n_setn to the grains, as name -> values.
+setn = {
+    var m = srv[\msgs].select { |x| (x[0] == 16) and: { x[1] == g.nodeID } }.last, out = ();
+    var i = 2;
+    m !? { while { i < m.size } { out[m[i]] = m.copyRange(i + 2, i + 1 + m[i + 1]); i = i + 2 + m[i + 1] } };
+    out
+};
+~tEq.("off by default: the grains as the loop sounds where they read", l.granularFollowChords, false);
+l.prGranularFollow;
+~tEq.("the grains are sent the take's chords: their period, the switch off",
+    [~tLastSet.(l, g, \chordPeriod), ~tLastSet.(l, g, \follow)], [3.5, 0]);
+~tEq.("...the starts and roots, the unused slots past any time",
+    [setn.()[\chordStarts].keep(3), setn.()[\chordRoots].keep(3), setn.()[\chordStarts].size],
+    [[0, 1.75, 1e9], [9, 2, 0], Looper.chordSlots]);
+l.granularFollowChords = true;
+~tEq.("switched on: the grains follow, and it is said", [~tLastSet.(l, g, \follow), l.granularFollowChords], [1, true]);
+~tPut.(l, \lastResult, r.copy.put(\chordSegments, segs.keep(1)));
+l.prGranularFollow;
+~tEq.("a take of one chord has nothing to follow (period 0)", ~tLastSet.(l, g, \chordPeriod), 0);
+~tPut.(l, \lastResult, r.copy.put(\chordPeriod, nil));
+l.prGranularFollow;
+~tEq.("...a reading without its period uses the loop's length", ~tLastSet.(l, g, \chordPeriod), 3.5);
+~tEq.("a reading the analyser ranked carries the take's chords and their period",
+    Looper.readingFor((candidates: [r], chordSegments: segs, chordPeriod: 3.5), 0, 3.5) !? { |x| [x[\chordSegments].size, x[\chordPeriod]] },
+    [2, 3.5]);
+
+// In a granular preset, by name; one from before it plays as it did.
+data = l.granularPresetData("x");
+~tEq.("a granular preset holds it", data[\followChords], true);
+~tAssert.("...and its file says it", l.granularPresetString(data).contains("followChords: true"));
+l.granularFollowChords = false;
+~tEq.("...and puts it back", [l.applyGranularPreset(data), l.granularFollowChords], [true, true]);
+warnings = List.new;
+clean = l.prValidateGranularPreset(data.copy.put(\followChords, nil), warnings);
+~tEq.("a preset from before it: off, said nothing", [clean !? { |c| c[\followChords] }, warnings.size], [false, 0]);
+warnings = List.new;
+clean = l.prValidateGranularPreset(data.copy.put(\followChords, 1), warnings);
+~tEq.("...a value that is no switch: off, and said", [clean !? { |c| c[\followChords] }, warnings.any { |w| w.contains("followChords") }],
+    [false, true]);
+}.value;

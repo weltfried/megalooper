@@ -538,14 +538,20 @@ refusals = [
     "{\"command\": \"set_grains\", \"args\": {\"settings\": {\"pitch\": \"low\"}}}",
     "{\"command\": \"set_grains\", \"args\": {\"settings\": [1]}}",
     "{\"command\": \"set_grains\", \"args\": {\"window\": \"Gauss\"}}",
-    "{\"command\": \"set_grains\", \"args\": {\"on\": 1}}"
+    "{\"command\": \"set_grains\", \"args\": {\"on\": 1}}",
+    "{\"command\": \"set_grains\", \"args\": {\"followChords\": \"yes\"}}"
 ].collect { |t| ask.(r, t) };
 ~tEq.("refused, changing nothing: nothing given, a setting that is none, a value no number, a window that is none, a switch no flag",
     refusals.collect { |x| x.at("ok") } ++ [r.changeCount, l.granularPitch], (false ! refusals.size) ++ [2, -12]);
-got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 2}}");
-~tEq.("revert puts the grains back as they were, window too",
-    [got.at("ok"), MegaFiles.json(MegaRemote.grainsOf(l)) == before, l.granularEnv],
-    [true, true, 0]);
+got = ask.(r, "{\"command\": \"set_grains\", \"args\": {\"followChords\": true}}");
+~tEq.("set_grains follows the chords when asked, and the context says so",
+    [got.at("ok"), l.granularFollowChords, got.at("result").at("followChords"), r.changeCount], [true, true, true, 3]);
+~tAssert.("...describe says what following the chords does",
+    MegaRemote.describe("grains", ()).at("about").contains("followChords"));
+got = ask.(r, "{\"command\": \"revert\", \"args\": {\"count\": 3}}");
+~tEq.("revert puts the grains back as they were, window and chords too",
+    [got.at("ok"), MegaFiles.json(MegaRemote.grainsOf(l)) == before, l.granularEnv, l.granularFollowChords],
+    [true, true, 0, false]);
 
 // ---- the cutter
 cutBefore = MegaFiles.json(MegaRemote.cutterOf(l));
@@ -607,7 +613,7 @@ protect {
         [false, true, false]);
 } { ~tRemoveTree.(dirs) };
 ~tEq.("every grains and cutter change, revert and save was said in the status line",
-    [said.count { |m| m.contains("grains") }, said.count { |m| m.contains("cutter") }], [2 + 1 + 1, 3 + 1 + 2]);
+    [said.count { |m| m.contains("grains") }, said.count { |m| m.contains("cutter") }], [3 + 1 + 1, 3 + 1 + 2]);
 ~tEq.("with no looper the grains and the cutter are refused",
     ["set_grains", "set_cutter", "save_grains_preset", "save_cutter_preset"].collect { |c|
         MegaRemote({ () }).handle("{\"command\": \"" ++ c ++ "\", \"args\": {\"name\": \"x\", \"on\": true}}").at(\error)

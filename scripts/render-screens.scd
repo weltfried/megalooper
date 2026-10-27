@@ -53,7 +53,11 @@ File.mkdir(~saDrumsPresetDir);
 // website's status band. A hit on most eighths, the downbeats hardest.
 tau = 60 / 103.2 / 2;
 take = (numerator: 7, denominator: 8, bpm: 103.2, k: 4, sub: 1, n: 29, tau: tau,
-    loopDur: 29 * tau, bars: [7, 7, 7, 8], phase: 0, onsetCount: 22);
+    loopDur: 29 * tau, bars: [7, 7, 7, 8], phase: 0, onsetCount: 22,
+    // Its chords, a bar each, for the Grains' Chords line.
+    chordSegments: [[0, 2, "D", \minor], [7, 7, "G", \minor], [14, 10, "A#", \major], [21, 9, "A", \major]]
+        .collect { |c| (start: c[0] * tau, root: c[1], rootName: c[2], scale: c[3]) },
+    chordPeriod: 29 * tau);
 ~looper = ~tLooper.();
 ~looper.instVarPut(\lastResult, take);
 ~looper.instVarPut(\loopFrames, (29 * tau * 48000).round.asInteger);

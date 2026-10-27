@@ -659,16 +659,18 @@ MegaRemote {
 
     // The granular layer's settings by name (settings: (name: number), the
     // names the context's grains.settings has), its grain window by name
-    // (window), and/or the layer on or off (on). Settings are merged over
-    // what plays; a value held to its range is said in the corrections.
+    // (window), whether it follows the take's chords (followChords), and/or
+    // the layer on or off (on). Settings are merged over what plays; a value
+    // held to its range is said in the corrections.
     setGrains { |args|
-        var src = source.value, looper = this.prLooper(src), settings, window, on, names, data, label, notes, w;
+        var src = source.value, looper = this.prLooper(src), settings, window, on, chords, names, data, label, notes, w;
         if(looper.isNil) { ^this.prNoLooper };
         settings = args !? { |a| a.at("settings") };
         window = args !? { |a| a.at("window") };
         on = args !? { |a| a.at("on") };
-        if(settings.isNil and: { window.isNil } and: { on.isNil }) {
-            ^this.class.failure("nothing to change: give settings, window, on, or several")
+        chords = args !? { |a| a.at("followChords") };
+        if(settings.isNil and: { window.isNil } and: { on.isNil } and: { chords.isNil }) {
+            ^this.class.failure("nothing to change: give settings, window, followChords, on, or several")
         };
         names = Looper.granularPresetFields.collect { |f| f[0].asString };
         if(settings.notNil) {
@@ -686,15 +688,17 @@ MegaRemote {
                 ++ Looper.granularEnvNames.join(", "))
         };
         if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
-        label = "grains' " ++ [settings !? { "settings" }, window !? { "window" }, on !? { "switch" }]
+        if(chords.notNil and: { chords.isKindOf(Boolean).not }) { ^this.class.failure("followChords is true or false") };
+        label = "grains' " ++ [settings !? { "settings" }, window !? { "window" }, chords !? { "chords" }, on !? { "switch" }]
             .reject(_.isNil).join(" and ");
         this.prSnapshot(\grains, label, (preset: looper.granularPresetData("before the AI's change"),
             on: looper.granularOn));
         notes = this.prHeard(looper, {
-            if(settings.notNil or: { window.notNil }) {
+            if(settings.notNil or: { window.notNil } or: { chords.notNil }) {
                 data = looper.granularPresetData("ai");
                 settings !? { |set| set.keysValuesDo { |k, v| data[k.asSymbol] = v } };
                 window !? { data[\env] = Looper.granularEnvNames[this.class.grainWindowIndex(window)] };
+                chords !? { data[\followChords] = chords };
                 looper.applyGranularPreset(data);
             };
             on !? { |flag| if(flag != looper.granularOn) { looper.toggleGranular } };
@@ -876,6 +880,7 @@ MegaRemote {
             \on, looper.granularOn,
             \settings, this.obj(Looper.granularPresetFields.collect { |f| [f[0], data[f[0]]] }.flatten(1)),
             \window, data[\env],
+            \followChords, data[\followChords] == true,
             \intensity, looper.intensity
         ])
     }
@@ -1380,7 +1385,11 @@ MegaRemote {
                 "point), pitch transposes without changing the read speed, detune and spray randomise "
                 "each grain. amp is the level at full intensity: the arc pedal (the context's intensity, "
                 "0..1) scales it, and the Dissolve takes it out last. window is the grain's shape. "
-                "Density is the CPU's bill: the result is held to 16 overlaps.",
+                "Density is the CPU's bill: the result is held to 16 overlaps. followChords (false by "
+                "default, the grains as they always were): true transposes the grains by the interval from "
+                "the chord where they read to the chord the loop plays now (the take's chords, the nearer way "
+                "round, -6..+5 semitones), so a drone frozen in one chord follows the changes; at morph 1 "
+                "they read where the loop is and nothing moves; a take of one chord moves nothing.",
             \settings, Looper.granularPresetFields.collect { |f|
                 var row = (rows ? []).detect { |r| r[\key] == f[1] }, spec = row !? { |r| r[\spec] };
                 this.obj([\name, f[0], \label, row !? { |r| r[\label] }, \min, f[2], \max, f[3], \default, f[4],

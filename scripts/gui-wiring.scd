@@ -136,6 +136,7 @@
         .put(\state, { |looper, what, val|
             { ~statusPaintState !? { |f| f.() };
               ~statusPaintTake !? { |f| f.() };
+              ~granularPaintChords !? { |f| f.() };
               ~performPaintLoop !? { |f| f.() };
               ~performPaintActions !? { |f| f.() } }.defer;
         })
@@ -174,7 +175,7 @@
             { ~statusPaintTake !? { |f| f.() } }.defer;
         })
         .put(\readingIndex, { |looper, what, val|
-            { ~statusPaintTake !? { |f| f.() } }.defer;
+            { ~statusPaintTake !? { |f| f.() }; ~granularPaintChords !? { |f| f.() } }.defer;
         })
         .put(\reverse, { |looper, what, val|
             { ~performPaintLoop !? { |f| f.() } }.defer;
@@ -265,6 +266,10 @@
         ~looperController.put(\granularEnv, { |looper, what, val|
             { ~granularEnvSeg !? { |s| ~granularPaintEnv !? { |f| f.(val) } };
               ~performPaintGrains !? { |f| f.() } }.defer;
+        });
+        // The chords switch.
+        ~looperController.put(\granularFollowChords, { |looper, what, val|
+            { ~granularPaintChords !? { |f| f.() } }.defer;
         });
     };
 };

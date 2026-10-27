@@ -30,7 +30,7 @@ nothing waits for a bar line.
 | **The drums** | Both step patterns, the kits and their pads | The patterns, the kit the steps play; save as a drum preset |
 | **The synth** | The note sequence and the Wave synth's settings | Both, and the sequencer on or off; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
-| **The Grains** | On or off, every setting, the grain window | All of them; save as a granular preset |
+| **The Grains** | On or off, every setting, the grain window, whether they follow the chords | All of them; save as a granular preset |
 | **The Cutter** | On or off, the mode, every voice (procedure, parameters, cut synth, effects, ratio, level, pan) | All of them, voices added and removed; save as a cutter preset |
 
 It cannot change the loop, the mixer, the drums' onset kit, Repeats, reverb

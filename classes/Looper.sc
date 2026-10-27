@@ -294,6 +294,10 @@ Looper {
     var <granularScan = 0;         // EXTRA passes through the loop per loopDur
     var <granularSpray = 0;        // absolute position spray, ms
     var <granularEnv = 0;          // index into Looper.granularEnvNames
+    // Off: the grains play the loop as it sounds where they read (as they
+    // always did). On: transposed with the take's chord changes (roadmap
+    // item 8; the \looperGranular graph).
+    var <granularFollowChords = false;
     var granularEnvBufs;
     var <transportMode = \full;
     var <masterAmp = 0.7;
@@ -579,6 +583,118 @@ Looper {
         }
     }
 
+    // How many chords of a take the grains can follow: the rest play as the
+    // last of these.
+    *chordSlots { ^32 }
+
+    // The granular voice's graph (loadSynthDefs adds it as \looperGranular), a
+    // class method as prEngineGraph is, so a render can build it with no
+    // Looper (scripts/sa/nrt-grains.scd).
+    *granularGraph {
+        ^{ |bufnum, startFrame=0, loopFrames=44100,
+             tau=0.5, morph=0, amp=0.7, out=0,
+             pitch=0, detune=0, size=1, density=1,
+             sizeRand=0.1, position=0, scan=0, sprayMs=0,
+             envbuf= -1, phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0|
+            var bufFrames = BufFrames.kr(bufnum);
+            var bufSr = BufSampleRate.kr(bufnum);
+            // Warp1's pointer is normalised over the WHOLE buffer, so any
+            // absolute-time control has to convert through the buffer duration,
+            // not the loop's.
+            var bufSecs = bufFrames / bufSr;
+            var loopDur = loopFrames / bufSr;
+            var startNorm = startFrame / bufFrames;
+            var loopNorm = loopFrames / bufFrames;
+            var m = Lag.kr(morph.clip(0, 1), 0.1);
+            var windowSize = ((((1 - m) * 0.4) + (m * tau))
+                * Lag.kr(size, 0.1)).clip(0.001, 4);
+            // Overlaps is clipped hard: Warp1 runs one grain stream per overlap,
+            // and this is the parameter that runs the CPU up. 16 is already past
+            // musically useful and keeps a full-tilt density slider from stalling
+            // the server mid-take.
+            var overlaps = ((((1 - m) * 6) + (m * 1))
+                * Lag.kr(density, 0.1)).clip(0.5, 16);
+            // Warp1 latches its per-grain values when a grain starts, and it
+            // starts them at overlaps/windowSize. Stepping noise at that rate is
+            // therefore per-GRAIN randomness (the classic granular shimmer and
+            // spray) rather than one drift applied to the whole cloud at once.
+            var grainRate = (overlaps / windowSize).clip(0.1, 500);
+            // Passes through the loop region per loopDur. Negative scans backwards.
+            // `rate` is the engine's, signed: -1 reversed, 0.5 at half-time
+            // (docs/dev/rc600-picks.md, 3b). Morph's share of the scan moves as
+            // the loop does; `scan`, the player's own drift, does not.
+            var scanRate = ((m * rate) + Lag.kr(scan, 0.1)) / loopDur;
+            var jitterAmt = (1 - m) * 0.005;
+            var sprayAmt = Lag.kr(sprayMs.max(0), 0.1) / 1000 / bufSecs;
+            // The scan pointer. `freeScan` is what this always was: a phasor at
+            // scanRate from wherever the synth was spawned. At morph 1 that is
+            // one pass per loop — but in whatever phase the toggle happened to
+            // land on, so "grain N reads beat N" held only by luck, and every
+            // toggle put the pulse somewhere else. Heard on the rig, 2026-09-25,
+            // after docs/dev/signals.md read it off this graph.
+            //
+            // `lock` is the constant phase difference between where the dry
+            // engine actually is — phaseBus, which it publishes in seconds —
+            // and a one-pass-per-loop phasor started with this synth. Adding
+            // morph's SHARE of it leaves the drone end and every intermediate
+            // drift exactly as they were, up to a fixed phase shift, and makes
+            // the pulsed end read exactly where the dry loop is reading: with
+            // scan at 0 the two phasors are the same UGen from the same start,
+            // and the sum reduces to the engine's own position. Reverse is
+            // inherited the same way. Over a STOPPED loop there is no engine and
+            // the bus is stale, so the layer is spawned with `locked` = 0 and
+            // scans freely as before; spawnEngine sets it to 1 once the loop
+            // plays. The wrap keeps the correction inside half a loop either
+            // way, so morph's share of it is continuous.
+            // `onePass` moves as the engine does (`rate`), so `lock` stays a
+            // constant reversed or at half-time too; with it at 1 it drifted
+            // whenever the engine didn't play forwards at 1, and morph's share
+            // of it jumped once a pass.
+            var enginePos = In.kr(phaseBus) / loopDur;
+            var onePass   = LFSaw.kr(rate / loopDur, 1).range(0, 1);
+            var lock      = (enginePos - onePass).wrap(-0.5, 0.5) * locked;
+            var freeScan  = LFSaw.kr(scanRate, 1).range(0, 1);
+            var scanPhase = (freeScan + (m * lock)).wrap(0, 1);
+            var jitter = LFNoise2.kr(20).range(jitterAmt.neg, jitterAmt)
+                + (LFNoise0.kr(grainRate) * sprayAmt);
+            // Wrapped, so Position offsets WITHIN the loop region and can never
+            // walk the pointer off its end into the rest of the buffer. Spray is
+            // added outside the wrap on purpose: blurring across the loop seam is
+            // the point of it.
+            var frac = (scanPhase + Lag.kr(position, 0.1)).wrap(0, 1);
+            var pointer = startNorm + (frac * loopNorm) + jitter;
+            // Following the chords (granularFollowChords, roadmap item 8): the
+            // grains transposed by the interval from the chord where they read
+            // (frac) to the chord the loop plays now (the engine's phase), the
+            // nearer way round (-6..+5 semitones). At morph 1 they read where
+            // the loop is, so nothing moves; a drone frozen in one chord
+            // follows the loop's changes. The chords are the take's segments
+            // (Looper.prGranularChordArgs): their starts in seconds within the
+            // length they were found in (chordPeriod: a multiplied loop repeats
+            // it), unused slots past any time, and their roots as pitch
+            // classes. Only while locked to a moving engine, and not within
+            // 20 ms of the playhead, so the grains reading where it is never
+            // flicker across a boundary. A loop of one chord moves nothing.
+            var rootAt = { |secs|
+                var p = secs.mod(chordPeriod.max(1e-3));
+                Select.kr(((\chordStarts.kr(1e9 ! Looper.chordSlots) <= p).sum - 1).max(0),
+                    \chordRoots.kr(0 ! Looper.chordSlots))
+            };
+            var readSecs = frac * loopDur, nowSecs = In.kr(phaseBus);
+            var gap = (readSecs - nowSecs).mod(loopDur.max(1e-3));
+            var away = gap.min(loopDur - gap) > 0.02;
+            var shift = (((rootAt.(nowSecs) - rootAt.(readSecs)) + 6).mod(12) - 6)
+                * (follow > 0) * locked * away * (chordPeriod > 0);
+            var freqScale = (Lag.kr(pitch, 0.05) + shift
+                + (LFNoise0.kr(grainRate) * Lag.kr(detune.max(0), 0.1))).midiratio;
+            // interp 4 (cubic), up from the old 1 (none): with transposition now
+            // exposed, no interpolation aliases audibly at anything but unity.
+            var sig = Warp1.ar(2, bufnum, pointer, freqScale, windowSize,
+                envbuf, overlaps, sizeRand.clip(0, 1), 4);
+            Out.ar(out, sig * Lag.kr(amp.max(0), 0.05));
+    }
+    }
+
     // The engine: plays the loop, overdubs into it, publishes its phase.
     //
     // readInterp and writeInterp are BufRd's interpolation for what is played
@@ -749,86 +865,7 @@ Looper {
         // ADDITIVE where the base is zero at one pole (scan, spray). A
         // multiplier there would be dead exactly where you want the control:
         // no amount of scaling gets a frozen drone to drift.
-        SynthDef(\looperGranular, { |bufnum, startFrame=0, loopFrames=44100,
-                                     tau=0.5, morph=0, amp=0.7, out=0,
-                                     pitch=0, detune=0, size=1, density=1,
-                                     sizeRand=0.1, position=0, scan=0, sprayMs=0,
-                                     envbuf= -1, phaseBus=0, locked=0, rate=1|
-            var bufFrames = BufFrames.kr(bufnum);
-            var bufSr = BufSampleRate.kr(bufnum);
-            // Warp1's pointer is normalised over the WHOLE buffer, so any
-            // absolute-time control has to convert through the buffer duration,
-            // not the loop's.
-            var bufSecs = bufFrames / bufSr;
-            var loopDur = loopFrames / bufSr;
-            var startNorm = startFrame / bufFrames;
-            var loopNorm = loopFrames / bufFrames;
-            var m = Lag.kr(morph.clip(0, 1), 0.1);
-            var windowSize = ((((1 - m) * 0.4) + (m * tau))
-                * Lag.kr(size, 0.1)).clip(0.001, 4);
-            // Overlaps is clipped hard: Warp1 runs one grain stream per overlap,
-            // and this is the parameter that runs the CPU up. 16 is already past
-            // musically useful and keeps a full-tilt density slider from stalling
-            // the server mid-take.
-            var overlaps = ((((1 - m) * 6) + (m * 1))
-                * Lag.kr(density, 0.1)).clip(0.5, 16);
-            // Warp1 latches its per-grain values when a grain starts, and it
-            // starts them at overlaps/windowSize. Stepping noise at that rate is
-            // therefore per-GRAIN randomness (the classic granular shimmer and
-            // spray) rather than one drift applied to the whole cloud at once.
-            var grainRate = (overlaps / windowSize).clip(0.1, 500);
-            // Passes through the loop region per loopDur. Negative scans backwards.
-            // `rate` is the engine's, signed: -1 reversed, 0.5 at half-time
-            // (docs/dev/rc600-picks.md, 3b). Morph's share of the scan moves as
-            // the loop does; `scan`, the player's own drift, does not.
-            var scanRate = ((m * rate) + Lag.kr(scan, 0.1)) / loopDur;
-            var jitterAmt = (1 - m) * 0.005;
-            var sprayAmt = Lag.kr(sprayMs.max(0), 0.1) / 1000 / bufSecs;
-            // The scan pointer. `freeScan` is what this always was: a phasor at
-            // scanRate from wherever the synth was spawned. At morph 1 that is
-            // one pass per loop — but in whatever phase the toggle happened to
-            // land on, so "grain N reads beat N" held only by luck, and every
-            // toggle put the pulse somewhere else. Heard on the rig, 2026-09-25,
-            // after docs/dev/signals.md read it off this graph.
-            //
-            // `lock` is the constant phase difference between where the dry
-            // engine actually is — phaseBus, which it publishes in seconds —
-            // and a one-pass-per-loop phasor started with this synth. Adding
-            // morph's SHARE of it leaves the drone end and every intermediate
-            // drift exactly as they were, up to a fixed phase shift, and makes
-            // the pulsed end read exactly where the dry loop is reading: with
-            // scan at 0 the two phasors are the same UGen from the same start,
-            // and the sum reduces to the engine's own position. Reverse is
-            // inherited the same way. Over a STOPPED loop there is no engine and
-            // the bus is stale, so the layer is spawned with `locked` = 0 and
-            // scans freely as before; spawnEngine sets it to 1 once the loop
-            // plays. The wrap keeps the correction inside half a loop either
-            // way, so morph's share of it is continuous.
-            // `onePass` moves as the engine does (`rate`), so `lock` stays a
-            // constant reversed or at half-time too; with it at 1 it drifted
-            // whenever the engine didn't play forwards at 1, and morph's share
-            // of it jumped once a pass.
-            var enginePos = In.kr(phaseBus) / loopDur;
-            var onePass   = LFSaw.kr(rate / loopDur, 1).range(0, 1);
-            var lock      = (enginePos - onePass).wrap(-0.5, 0.5) * locked;
-            var freeScan  = LFSaw.kr(scanRate, 1).range(0, 1);
-            var scanPhase = (freeScan + (m * lock)).wrap(0, 1);
-            var jitter = LFNoise2.kr(20).range(jitterAmt.neg, jitterAmt)
-                + (LFNoise0.kr(grainRate) * sprayAmt);
-            // Wrapped, so Position offsets WITHIN the loop region and can never
-            // walk the pointer off its end into the rest of the buffer. Spray is
-            // added outside the wrap on purpose: blurring across the loop seam is
-            // the point of it.
-            var frac = (scanPhase + Lag.kr(position, 0.1)).wrap(0, 1);
-            var pointer = startNorm + (frac * loopNorm) + jitter;
-            var freqScale = (Lag.kr(pitch, 0.05)
-                + (LFNoise0.kr(grainRate) * Lag.kr(detune.max(0), 0.1))).midiratio;
-            // interp 4 (cubic), up from the old 1 (none): with transposition now
-            // exposed, no interpolation aliases audibly at anything but unity.
-            var sig = Warp1.ar(2, bufnum, pointer, freqScale, windowSize,
-                envbuf, overlaps, sizeRand.clip(0, 1), 4);
-            Out.ar(out, sig * Lag.kr(amp.max(0), 0.05));
-        }).add;
+        SynthDef(\looperGranular, Looper.granularGraph).add;
     }
 
     // EVERY state transition goes through here. Assigning `state` directly moves
@@ -1269,6 +1306,8 @@ Looper {
             } {
                 result[\chordSegments] = [];
             };
+            // The length the segments cover: a multiplied loop repeats them.
+            result[\chordPeriod] = result.loopDur;
             lastResult = result;
             // What the analyser heard, and the reading in force is its own.
             analysedResult = result;
@@ -3356,7 +3395,8 @@ Looper {
             // Stored by NAME, not by index. The index is a position in
             // granularEnvNames, so inserting a window shape would silently
             // re-point every preset saved before it at a different envelope.
-            env:     Looper.granularEnvNames[granularEnv].asString
+            env:     Looper.granularEnvNames[granularEnv].asString,
+            followChords: granularFollowChords
         );
         Looper.granularPresetFields.do { |f|
             data[f[0]] = this.perform(f[1]).asFloat;
@@ -3376,6 +3416,7 @@ Looper {
         ++ "    name: "    ++ data[\name].asCompileString ++ ",\n"
         ++ "    savedAt: " ++ data[\savedAt].asCompileString ++ ",\n"
         ++ "    env: "     ++ data[\env].asCompileString ++ ",\n"
+        ++ "    followChords: " ++ (data[\followChords] == true).asCompileString ++ ",\n"
         ++ lines.join(",\n") ++ "\n"
         ++ ")\n"
     }
@@ -3432,6 +3473,12 @@ Looper {
             envIdx = 0;
         };
         clean[\env] = envIdx;
+        // Following the chords: true or false; a preset from before it had
+        // none, and plays as it did then.
+        clean[\followChords] = case
+            { data[\followChords].isNil } { false }
+            { (data[\followChords] == true) or: { data[\followChords] == false } } { data[\followChords] }
+            { warnings.add("followChords " ++ data[\followChords].asCompileString ++ " is not true or false -> false"); false };
         ^clean
     }
 
@@ -3449,6 +3496,7 @@ Looper {
             this.perform(f[1].asSetter, clean[f[0]]);
         };
         this.granularEnv = clean[\env];
+        this.granularFollowChords = clean[\followChords];
         if(warnings.notEmpty) {
             ("Granular preset '" ++ clean[\name] ++ "': " ++ warnings.size
                 ++ " correction(s) — " ++ warnings.join("; ")).warn;
@@ -4241,7 +4289,7 @@ Looper {
         if(cands.isNil or: { index < 0 } or: { index >= cands.size }
             or: { loopSecs.isNil } or: { loopSecs <= 0 }) { ^nil };
         r = this.snapAnalysisToLoop(cands[index].copy, loopSecs, false);
-        [\chordSegments, \downbeatPhase, \fromOverdub, \candidates].do { |key|
+        [\chordSegments, \chordPeriod, \downbeatPhase, \fromOverdub, \candidates].do { |key|
             analysed[key] !? { |v| r[key] = v };
         };
         r[\reading] = index;
@@ -4333,7 +4381,7 @@ Looper {
             \phaseBus, phaseBus.index,
             \locked, engineSynth.notNil.asInteger,
             \rate, this.prGrainRate
-        ] ++ this.prGranularArgs;
+        ] ++ this.prGranularArgs ++ this.prGranularChordArgs.flatten(1);
         granularSynth = engineSynth !? { |e| Synth.after(e, \looperGranular, args) }
             ?? { Synth(\looperGranular, args) };
         ("Granular on. tau=" ++ tau.round(0.001)
@@ -4361,10 +4409,33 @@ Looper {
     // went on reading the old loop after a swap, in the buffer the next
     // capture then recorded into (roadmap item 20, found on the way).
     prGranularFollow {
+        var chords;
         granularSynth !? { |g|
+            chords = this.prGranularChordArgs;
             g.set(*([\startFrame, startFrame, \loopFrames, loopFrames, \tau, this.prGranularTau]
-                ++ (buffer !? { |b| [\bufnum, b.bufnum] } ? [])));
+                ++ (buffer !? { |b| [\bufnum, b.bufnum] } ? []) ++ chords[0]));
+            g.setn(*chords[1]);
         };
+    }
+
+    // The take's chords for the grains (granularFollowChords): [the switch
+    // and the length the segments cover, as set pairs; their starts and
+    // roots, as setn pairs of chordSlots values]. Unused starts lie past any
+    // time. A take of fewer than two chords has none to follow (period 0).
+    prGranularChordArgs {
+        var segs = (lastResult !? { |r| r[\chordSegments] }) ? [];
+        var period = if(segs.size < 2) { 0 } { (lastResult[\chordPeriod] ?? { lastResult[\loopDur] }) ? 0 };
+        var starts = Array.fill(Looper.chordSlots, 1e9), roots = Array.fill(Looper.chordSlots, 0);
+        segs.keep(Looper.chordSlots).do { |seg, i| starts[i] = seg[\start] ? 0; roots[i] = seg[\root] ? 0 };
+        ^[[\follow, granularFollowChords.binaryValue, \chordPeriod, period], [\chordStarts, starts, \chordRoots, roots]]
+    }
+
+    // The grains with the chords (true) or as the loop sounds where they read
+    // (false, as they always were).
+    granularFollowChords_ { |flag|
+        granularFollowChords = flag == true;
+        granularSynth !? { |g| g.set(\follow, granularFollowChords.binaryValue) };
+        this.changed(\granularFollowChords, granularFollowChords);
     }
 
     // The whole granular control set as synth args, in ONE place, so a fresh

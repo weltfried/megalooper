@@ -55,7 +55,11 @@ var baseline = (
     // Moved 2026-10-27 from [ 3072, 748923918 ]: a `rate` control, the
     // engine's signed speed, which the one-pass phasor and morph's share of
     // the scan move at, so the lock holds reversed and at half-time.
-    'looperGranular':        [ 3088, 356440040 ]
+    // Moved again the same day from [ 3088, 356440040 ]: following the
+    // chords (follow, chordPeriod, chordStarts and chordRoots, 32 slots each,
+    // and the shift added to the pitch; roadmap item 8). Deliberate — see the
+    // graph's comment; scripts/sa/nrt-grains.scd renders it.
+    'looperGranular':        [ 8824, 783711317 ]
 );
 // Defined here rather than leaning on ArrayedCollection:hash, so the
 // fingerprint is fixed by this file and cannot shift under the test.

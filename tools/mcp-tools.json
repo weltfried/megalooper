@@ -27,7 +27,7 @@
   {
    "name": "get_context",
    "title": "What megalooper is playing",
-   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
+   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window, whether they follow the chords) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -228,7 +228,7 @@
   {
    "name": "set_grains",
    "title": "Change the grains",
-   "description": "Change the granular layer: its settings by name (settings, as get_context shows them under grains.settings), its grain window by name (window), and/or switch it on or off (on; it needs a recorded loop). Settings left out stay. For example {\"settings\": {\"morph\": 0.1, \"pitch\": -12}, \"window\": \"Swell\", \"on\": true} makes an octave-down drone (call describe with topic grains first). Values out of range are held to it and listed in the answer's corrections; a name that is no setting refuses the call. Every change can be taken back with revert.",
+   "description": "Change the granular layer: its settings by name (settings, as get_context shows them under grains.settings), its grain window by name (window), whether it follows the take's chord changes (followChords), and/or switch it on or off (on; it needs a recorded loop). Settings left out stay. For example {\"settings\": {\"morph\": 0.1, \"pitch\": -12}, \"window\": \"Swell\", \"on\": true} makes an octave-down drone (call describe with topic grains first). Values out of range are held to it and listed in the answer's corrections; a name that is no setting refuses the call. Every change can be taken back with revert.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -239,6 +239,10 @@
      "window": {
       "type": "string",
       "description": "A grain window's name, from describe's windows."
+     },
+     "followChords": {
+      "type": "boolean",
+      "description": "true: the grains transposed with the take's chords (describe's grains says how); false: as the loop sounds where they read."
      },
      "on": {
       "type": "boolean",

@@ -63,7 +63,7 @@ idShape = "^[a-z][a-zA-Z0-9]*(\\.([a-z][a-zA-Z0-9]*|[0-9]+))+$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
 // (the trims follow the kits, so they come with SA only).
 families = [
-    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 45],
+    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 46],
     [\live, "^live\\.record$", 1],
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 16],
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 126],
@@ -94,7 +94,7 @@ looperIds = ['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 
     'looper.masterAmp', 'looper.feedback', 'looper.intensity', 'looper.onsetThreshold', 'looper.onsetNoteChance',
     'looper.granularMorph', 'looper.granularAmp', 'looper.granularPitch', 'looper.granularDetune',
     'looper.granularSize', 'looper.granularDensity', 'looper.granularSizeRand', 'looper.granularPosition',
-    'looper.granularScan', 'looper.granularSpray', 'looper.granularEnv',
+    'looper.granularScan', 'looper.granularSpray', 'looper.granularEnv', 'looper.granularFollowChords',
     'looper.dissolveBars', 'looper.breakLoops', 'looper.onsetNote', 'looper.onsetNoteVelLo',
     'looper.onsetNoteVelHi', 'looper.onsetNoteDynRange', 'looper.onsetNoteGateMs', 'looper.bbcutMode'];
 // The 36 the old responders drove (phase 1).
@@ -249,9 +249,9 @@ protect {
 
     live = [targets.size, count.(there)];
     ("  on a Live rig: " ++ live[0] ++ " controls, " ++ live[1] ++ " there").postln;
-    ~tEq.("on a Live rig the Looper's 45, Live's record and the count's 3 lights are there, and nothing of SA's",
+    ~tEq.("on a Live rig the Looper's 46, Live's record and the count's 3 lights are there, and nothing of SA's",
         [live[1], targets.keys.asArray.select { |id| there.(targets[id]) and: { id.asString.beginsWith("sa.") } }],
-        [49, []]);
+        [50, []]);
 
     // ------------------------------------------------------------------- laws --
     ~tEq.("every level's law goes back to where it came from, at 0, 1/4, 1/2, 3/4 and 1 ("
@@ -376,9 +376,11 @@ protect {
         heard.(l, { act.('looper.rerollOnsetNotes', [\fire]) }), [[\onsetNoteChance, 0.3]]);
     l.granularPitch = 7;
     l.granularEnv = 2;
+    l.granularFollowChords = true;
     got = heard.(l, { act.('looper.granularResetTweaks', [\fire]) });
-    ~tAssert.("Reset tweaks puts the bends back through the model, the window last, morph left alone",
-        (l.granularPitch == 0) and: { l.granularEnv == 0 } and: { got.last == [\granularEnv, 0] }
+    ~tAssert.("Reset tweaks puts the bends back through the model, the window and the chords last, morph left alone",
+        (l.granularPitch == 0) and: { l.granularEnv == 0 } and: { got.last == [\granularFollowChords, false] }
+            and: { got.includesEqual([\granularEnv, 0]) }
             and: { got.any { |x| x == [\granularPitch, 0] } } and: { got.every { |x| x[0] != \granularMorph } },
         got.asString);
     ~tCheck.("Revert with no reading to leave is the model's no-op", { act.('looper.revertReading', [\fire]) });

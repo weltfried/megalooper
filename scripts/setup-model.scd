@@ -195,6 +195,8 @@
             "=> no chords detected".postln;
             { ~rootLabel !? { |t| t.string_("—") } }.defer;
         };
+        // The Grains view's Chords line: what this take gives them to follow.
+        { ~granularPaintChords !? { |f| f.() } }.defer;
     };
 
     // Drives Live's scale system from the chord routine. Looper's
