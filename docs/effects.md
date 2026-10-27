@@ -1,10 +1,11 @@
 # The effects
 
-Megalooper SA has fourteen effects of its own: **Pitch Shift**, **Dual
+Megalooper SA has sixteen effects of its own: **Pitch Shift**, **Dual
 Delay**, **Envelope Filter** and **Pitch Loops**, made for the instrument,
 **Tape Echo**, **Drive** and **Crusher**, made for the loop, three utilities for
-any chain, **EQ**, **Compressor** and **Noise Gate**, and four textures,
-**Freeze**, **Slicer**, **Octave Down** and **Ring Mod**.
+any chain, **EQ**, **Compressor** and **Noise Gate**, five textures,
+**Freeze**, **Slicer**, **Tremolo**, **Octave Down** and **Ring Mod**, and a
+**Reverb**.
 
 How to add, move, switch and save them is in
 [The chains](standalone.md#the-chains), in the Megalooper SA guide. Here is
@@ -17,18 +18,19 @@ what each one does, and every setting it has.
   second one is called "Dual Delay 2".
 - **Mono or stereo.** The four instrument effects are mono: they hear both sides
   of their chain mixed and play their effect on both, while the dry signal
-  passes as it came. The three loop effects, the utilities and the textures
-  are stereo, each side on its own (the utilities' level detectors hear the
+  passes as it came. The three loop effects, the utilities, the textures and
+  the Reverb are stereo, each side on its own (the utilities' level detectors hear the
   louder side, so both sides move together), but Octave Down, which is mono
   as a pedal's divider is.
 - **A switch never clicks.** On and off crossfade over 30 ms, so a
   footswitch can switch an effect on the beat.
 - **Off costs nothing, mostly**: see [On a slower
   computer](standalone.md#on-a-slower-computer). Pitch Shift, Dual Delay,
-  Pitch Loops and Tape Echo keep running while off, so switched on they
-  already hold the last moments of your playing.
+  Pitch Loops, Tape Echo, Freeze and the Reverb keep running while off, so
+  switched on they already hold the last moments of your playing.
 - **Tempo.** The Envelope Filter's LFO and the Tape Echo's times follow the
-  loop's tempo, which every new reading sets. Their changes glide.
+  loop's tempo, which every new reading sets. Their changes glide. The Slicer
+  and a synced Tremolo count the loop's beats from its first.
 - **Random** sets every setting at random but the output levels and the
   Envelope Filter's Makeup, so a new sound comes out about as loud.
   **Undo random** takes a draw back, settings you moved since included,
@@ -44,8 +46,9 @@ what each one does, and every setting it has.
 
 megalooper's own sound, before you keep one of yours, has the instrument's four
 in its instrument chain and the loop's three in its loop chain, in that order,
-all switched off. The utilities and textures are in no chain to begin with: the
-**+** at the end of a chain offers them under **Utility** and **Texture**. The first of each you add is
+all switched off. The utilities, textures and the Reverb are in no chain to
+begin with: the **+** at the end of a chain offers them under **Utility**,
+**Texture** and **Space**. The first of each you add is
 called by its type alone ("EQ"), and its controls keep their names from sound
 to sound, as a starting effect's do; a second is "EQ 2".
 
@@ -372,6 +375,25 @@ came in. At half-time it slices at the loop's pace.
 | **Depth** | 0 to 100 % | 100 % | How deep the gaps go. Lower is a tremolo |
 | **Smooth** | 1 to 50 ms | 3 ms | How soft each edge is. Longer is rounder |
 
+## Tremolo
+
+![The Tremolo panel](images/fx-tremolo.png)
+
+*Fig: Tremolo at its starting values.*
+
+The level swung up and down: from full level down by Depth, Rate times a
+second, or with **Sync** on a beat value, on the loop's grid as the Slicer counts
+it, so its swings land with the drums. **Spread** sets the right side behind the
+left: at 100 % they swing opposite, and the sound moves from side to side.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Rate** | 0.1 to 20 Hz | 5 Hz | Swings a second. Not used with Sync on a beat |
+| **Sync** | Free, 1/16 T, 1/16, 1/8 T, 1/8, 1/4 T, 1/4, 1/2 | Free | A swing every so much of a beat, on the loop's grid |
+| **Depth** | 0 to 100 % | 50 % | How far down it swings. 100 % is to silence |
+| **Shape** | Sine, Triangle, Square | Sine | The swing's shape. Square chops |
+| **Spread** | 0 to 100 % | 0 % | The right side behind the left. 100 % swings them opposite |
+
 ## Octave Down
 
 ![The Octave Down panel](images/fx-octavedown.png)
@@ -406,3 +428,24 @@ frequency and the sine's, bells and clangs, metal from a chord. Below about
 | **Freq** | 1 Hz to 5 kHz | 440 Hz | The sine's frequency. Low is a tremolo, high is bells |
 | **Dry/Wet** | 0 to 100 % | 50 % | The sound as it came against the modulated one |
 | **Tone** | 500 Hz to 20 kHz | 20 kHz | A low-pass on the modulated sound |
+
+## Reverb
+
+![The Reverb panel](images/fx-reverb.png)
+
+*Fig: Reverb at its starting values.*
+
+A room to a hall, megalooper's own: the sound and its tail, which falls 60 dB in
+Decay seconds whatever the Size. The highs die sooner than the lows, above Damp;
+the lows below Low Cut stay out of the tail, so they stay clear. It keeps
+running while off, so a tail it holds is heard when it comes back on, and it
+does not cut a tail short when the loop stops.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Decay** | 0.2 to 20 s | 2 s | How long the tail takes to fall 60 dB |
+| **Size** | 30 to 200 % | 100 % | How big the space sounds. Small is a room, big a hall |
+| **Damp** | 500 Hz to 20 kHz | 6 kHz | Above this the tail dies sooner. Lower is darker |
+| **Pre-delay** | 0 to 200 ms | 20 ms | How long before the tail starts |
+| **Low Cut** | 20 Hz to 1 kHz | 150 Hz | What goes into the tail, cut below this |
+| **Dry/Wet** | 0 to 100 % | 25 % | The sound as it came against the reverb |

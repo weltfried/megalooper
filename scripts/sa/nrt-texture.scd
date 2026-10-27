@@ -1,5 +1,5 @@
-// megalooper — the Texture effects (Freeze, Slicer, Octave Down, Ring Mod),
-// heard offline.
+// megalooper — the Texture effects (Freeze, Slicer, Tremolo, Octave Down,
+// Ring Mod), heard offline.
 //
 //     sclang scripts/sa/nrt-texture.scd
 //
@@ -26,6 +26,8 @@ var srcDef = SynthDef(\nrtTexSrc, { |bus, freq = 1000, amp = 0.1|
     Out.ar(bus, [sig, sig]);
 });
 var tapDef = SynthDef(\nrtTexTap, { |bus, out| Out.ar(out, In.ar(bus, 1)) });
+// The right side, for the Tremolo's Spread: that case's second tap.
+var tapRDef = SynthDef(\nrtTexTapR, { |bus, out| Out.ar(out, In.ar(bus + 1, 1)) });
 // The loop's phase as the engine writes it: seconds into a 4 s loop, from
 // `offset` when the synth starts.
 var phaseDef = SynthDef(\nrtTexPhase, { |out, offset = 0| Out.kr(out, (Sweep.kr(0, 1) + offset).mod(4)) });
@@ -41,13 +43,20 @@ var cases = [
     [\slicePhase, \slicer, [\beatDur, 0.5, \slicerSmooth, 0.001], [\freq, 1000, \amp, 0.25], [], true],
     [\slice332, \slicer, [\beatDur, 0.5, \slicerSmooth, 0.001, \slicerPattern, 3, \slicerDuty, 1],
         [\freq, 1000, \amp, 0.25], [], true],
+    // Tremolo, depth 100 %: free at 4 Hz; on the loop's 8ths at 120 BPM (a
+    // cycle every 0.25 s); and spread, its right side's tap in place of the
+    // input's.
+    [\tremFree, \tremolo, [\tremoloRate, 4, \tremoloDepth, 1], [\freq, 1000, \amp, 0.25], [], false],
+    [\tremSync, \tremolo, [\beatDur, 0.5, \tremoloSync, 0.5, \tremoloDepth, 1], [\freq, 1000, \amp, 0.25], [], true],
+    [\tremSpread, \tremolo, [\tremoloRate, 4, \tremoloDepth, 1, \tremoloSpread, 1], [\freq, 1000, \amp, 0.25], [], false],
     [\octave, \octaveDown, [\octaveDownDry, 0], [\freq, 220, \amp, 0.5], [], false],
     [\ring, \ringMod, [\ringModFreq, 300, \ringModMix, 1], [\freq, 1000, \amp, 0.25], [], false]
 ];
 var chans = cases.size * 2, score, cmd, said, sf, data, frames, chanOf, rmsDb, goertzel, idx, at, open, closed, x, y;
 
 File.mkdir(tmp);
-score = [[0.0, [\d_recv, srcDef.asBytes]], [0.0, [\d_recv, tapDef.asBytes]], [0.0, [\d_recv, phaseDef.asBytes]]]
+score = [[0.0, [\d_recv, srcDef.asBytes]], [0.0, [\d_recv, tapDef.asBytes]], [0.0, [\d_recv, tapRDef.asBytes]],
+    [0.0, [\d_recv, phaseDef.asBytes]]]
     ++ MegaSAFx.extraKeys.collect { |k| [0.0, [\d_recv, MegaSAFx.deviceDef(k).asBytes]] }
     ++ [[0.05, [\s_new, \nrtTexPhase, 9000, 0, 0, \out, phaseKr, \offset, offset]]];
 cases.do { |c, i|
@@ -57,13 +66,18 @@ cases.do { |c, i|
     var on = if(c[4].any { |e| e[1] == MegaSAFx.switchName(c[1]) }) { 0 } { 1 };
     score = score ++ [
         [0.05, [\s_new, \nrtTexSrc, base, 1, 0, \bus, bus] ++ c[3]],
-        [0.05, [\s_new, \nrtTexTap, base + 1, 3, base, \bus, bus, \out, (i * 2) + 1]],
+        // Spread's second channel is the output's right side (base + 4, after
+        // the device); its input tap writes a bus nobody reads.
+        [0.05, [\s_new, \nrtTexTap, base + 1, 3, base, \bus, bus, \out,
+            if(c[0] == \tremSpread) { 900 } { (i * 2) + 1 }]],
         [0.05, [\s_new, MegaSAFx.deviceDefName(c[1]), base + 2, 3, base + 1, \bus, bus,
             MegaSAFx.switchName(c[1]), if(c[0] == \freezeOff) { 0 } { on }]
             ++ c[2] ++ (if(c[5]) { [\phaseBus, phaseKr] } { [] })],
         [0.05, [\s_new, \nrtTexTap, base + 3, 3, base + 2, \bus, bus, \out, i * 2]],
+        [0.05, if(c[0] == \tremSpread) { [\s_new, \nrtTexTapR, base + 4, 3, base + 3, \bus, bus, \out, (i * 2) + 1] }
+            { [\s_new, \nrtTexTap, base + 4, 3, base + 3, \bus, bus, \out, 900] }],
         [srcEnd, [\n_free, base]],
-        [dur - 0.05, [\n_free, base + 1, base + 2, base + 3]]
+        [dur - 0.05, [\n_free, base + 1, base + 2, base + 3, base + 4]]
     ] ++ c[4].collect { |e| [e[0], [\n_set, base + 2, e[1], e[2]]] };
 };
 score = score ++ [[dur - 0.05, [\n_free, 9000]]];
@@ -137,6 +151,27 @@ if(sf.isNil) {
     ok.("...3+3+2: the 1st, 4th and 7th of eight 16ths open, the rest shut",
         open.notEmpty and: { closed.notEmpty } and: { open.every { |v| v > -20 } } and: { closed.every { |v| v < -80 } },
         [open.minItem.round(0.1), closed.maxItem.round(0.1)].asString);
+
+    // Tremolo, depth 100 % on a 1 kHz tone (-15 dBFS RMS): full level at the
+    // top of each cycle, silence at its bottom. Free at 4 Hz from the synth's
+    // start (0.05 s): tops at 0.05 + k/4, bottoms an eighth of a second on.
+    // On the loop's 8ths: the loop is at t + 0.25, so tops at multiples of
+    // 0.25 s, bottoms between.
+    x = { |label, which, t| rmsDb.(chanOf.(label, which, t - 0.002, t + 0.002)) };
+    y = rmsDb.(chanOf.(\tremFree, 1, 0.3, 0.5));
+    ok.("Tremolo free at 4 Hz: full level at each cycle's top, within 1 dB",
+        [0.3, 0.55, 0.8, 1.05].every { |t| (x.(\tremFree, 0, t) - y).abs < 1 },
+        [0.3, 0.55, 0.8, 1.05].collect { |t| (x.(\tremFree, 0, t) - y).round(0.1) }.asString);
+    ok.("...and silent at its bottom (40 dB under)", [0.425, 0.675, 0.925, 1.175].every { |t| (x.(\tremFree, 0, t) - y) < -40 },
+        [0.425, 0.675, 0.925, 1.175].collect { |t| (x.(\tremFree, 0, t) - y).round(0.1) }.asString);
+    ok.("Tremolo on the loop's 8ths: tops on the loop's grid, bottoms between",
+        [0.5, 0.75, 1.0, 1.25].every { |t| (x.(\tremSync, 0, t) - y).abs < 1 }
+            and: { [0.375, 0.625, 0.875, 1.125].every { |t| (x.(\tremSync, 0, t) - y) < -40 } },
+        [0.5, 0.375, 0.75, 0.625].collect { |t| (x.(\tremSync, 0, t) - y).round(0.1) }.asString);
+    ok.("Tremolo spread 100 %: the right side is down where the left is up, and up where it is down",
+        [0.3, 0.55, 0.8].every { |t| ((x.(\tremSpread, 0, t) - y).abs < 1) and: { (x.(\tremSpread, 1, t) - y) < -40 } }
+            and: { [0.425, 0.675].every { |t| ((x.(\tremSpread, 1, t) - y).abs < 1) and: { (x.(\tremSpread, 0, t) - y) < -40 } } },
+        [0.3, 0.425].collect { |t| [x.(\tremSpread, 0, t), x.(\tremSpread, 1, t)].collect { |v| (v - y).round(0.1) } }.asString);
 
     // Octave Down on a 220 Hz sine, its dry off: 110 Hz, and little 220.
     x = chanOf.(\octave, 0, 0.5, 1.4);

@@ -34,7 +34,7 @@ var calls, pending, bankAction, late, plug, lats, dev, sent2;
         (MegaSAFx.param(k) !? { |q| q[\fx] == t[\key] }) == true } } },
     types.collect { |t| t[\key] -> t[\mainKnobs] }.asString);
 ~tEq.("the types with delay lines or buffers take memory, the others none",
-    types.select { |t| t[\memBytes].value(48000) > 0 }.collect(_[\key]), [\shifter, \delay, \pitchLoop, \echo, \freeze]);
+    types.select { |t| t[\memBytes].value(48000) > 0 }.collect(_[\key]), [\shifter, \delay, \pitchLoop, \echo, \freeze, \reverb]);
 ~tEq.("...the Delay's four 2.7 s lines at 48 kHz, 512 KB each, as scsynth rounds them",
     MegaSAFx.type(\delay)[\memBytes].value(48000), 4 * 524288);
 ~tAssert.("...twice that at 96 kHz",

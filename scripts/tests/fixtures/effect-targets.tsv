@@ -90,6 +90,12 @@ sa.fx.reduxPostFilter	Post-Filter	Crusher	Effects	choice
 sa.fx.reduxPostOctaves	Post Freq	Crusher	Effects	continuous
 sa.fx.reduxPreFilter	Pre-Filter	Crusher	Effects	choice
 sa.fx.reduxRate	Sample Rate	Crusher	Effects	continuous
+sa.fx.reverbDamp	Damp	Reverb	Effects	continuous
+sa.fx.reverbDecay	Decay	Reverb	Effects	continuous
+sa.fx.reverbLowCut	Low Cut	Reverb	Effects	continuous
+sa.fx.reverbMix	Dry/Wet	Reverb	Effects	continuous
+sa.fx.reverbPredelay	Pre-delay	Reverb	Effects	continuous
+sa.fx.reverbSize	Size	Reverb	Effects	continuous
 sa.fx.ringModFreq	Freq	Ring Mod	Effects	continuous
 sa.fx.ringModMix	Dry/Wet	Ring Mod	Effects	continuous
 sa.fx.ringModTone	Tone	Ring Mod	Effects	continuous
@@ -113,6 +119,11 @@ sa.fx.slicerDuty	Duty	Slicer	Effects	continuous
 sa.fx.slicerPattern	Pattern	Slicer	Effects	choice
 sa.fx.slicerRate	Rate	Slicer	Effects	choice
 sa.fx.slicerSmooth	Smooth	Slicer	Effects	continuous
+sa.fx.tremoloDepth	Depth	Tremolo	Effects	continuous
+sa.fx.tremoloRate	Rate	Tremolo	Effects	continuous
+sa.fx.tremoloShape	Shape	Tremolo	Effects	choice
+sa.fx.tremoloSpread	Spread	Tremolo	Effects	continuous
+sa.fx.tremoloSync	Sync	Tremolo	Effects	choice
 sa.fxOn.compressor	Compressor	Compressor	Effects	toggle
 sa.fxOn.delay	Dual Delay	Dual Delay	Effects	toggle
 sa.fxOn.echo	Tape Echo	Tape Echo	Effects	toggle
@@ -123,10 +134,12 @@ sa.fxOn.noiseGate	Noise Gate	Noise Gate	Effects	toggle
 sa.fxOn.octaveDown	Octave Down	Octave Down	Effects	toggle
 sa.fxOn.pitchLoop	Pitch Loops	Pitch Loops	Effects	toggle
 sa.fxOn.redux	Crusher	Crusher	Effects	toggle
+sa.fxOn.reverb	Reverb	Reverb	Effects	toggle
 sa.fxOn.ringMod	Ring Mod	Ring Mod	Effects	toggle
 sa.fxOn.saturator	Drive	Drive	Effects	toggle
 sa.fxOn.shifter	Pitch Shift	Pitch Shift	Effects	toggle
 sa.fxOn.slicer	Slicer	Slicer	Effects	toggle
+sa.fxOn.tremolo	Tremolo	Tremolo	Effects	toggle
 sa.fxReset.compressor	Reset	Compressor	Effects	trigger
 sa.fxReset.delay	Reset	Dual Delay	Effects	trigger
 sa.fxReset.echo	Reset	Tape Echo	Effects	trigger
@@ -137,7 +150,9 @@ sa.fxReset.noiseGate	Reset	Noise Gate	Effects	trigger
 sa.fxReset.octaveDown	Reset	Octave Down	Effects	trigger
 sa.fxReset.pitchLoop	Reset	Pitch Loops	Effects	trigger
 sa.fxReset.redux	Reset	Crusher	Effects	trigger
+sa.fxReset.reverb	Reset	Reverb	Effects	trigger
 sa.fxReset.ringMod	Reset	Ring Mod	Effects	trigger
 sa.fxReset.saturator	Reset	Drive	Effects	trigger
 sa.fxReset.shifter	Reset	Pitch Shift	Effects	trigger
 sa.fxReset.slicer	Reset	Slicer	Effects	trigger
+sa.fxReset.tremolo	Reset	Tremolo	Effects	trigger

@@ -37,7 +37,7 @@ MegaSAFx {
     // group (docs/dev/rc600-picks.md, Phase 4). The first one inserted has
     // its type's key as its id, as a default device has (MegaSA.prNewId), so
     // its controls' ids (sa.fxOn.eq, sa.fx.eqLow) hold from sound to sound.
-    *extraKeys { ^[\eq, \compressor, \noiseGate, \freeze, \slicer, \octaveDown, \ringMod] }
+    *extraKeys { ^[\eq, \compressor, \noiseGate, \freeze, \slicer, \tremolo, \octaveDown, \ringMod, \reverb] }
     // Every type there is: the default chains' and the others.
     *typeKeys { ^this.keys ++ this.extraKeys }
 
@@ -49,7 +49,8 @@ MegaSAFx {
         ^(shifter: "Pitch Shift", delay: "Dual Delay", filter: "Envelope Filter", pitchLoop: "Pitch Loops",
             echo: "Tape Echo", saturator: "Drive", redux: "Crusher",
             eq: "EQ", compressor: "Compressor", noiseGate: "Noise Gate",
-            freeze: "Freeze", slicer: "Slicer", octaveDown: "Octave Down", ringMod: "Ring Mod")[key] ?? { key.asString }
+            freeze: "Freeze", slicer: "Slicer", tremolo: "Tremolo", octaveDown: "Octave Down", ringMod: "Ring Mod",
+            reverb: "Reverb")[key] ?? { key.asString }
     }
 
     *titleBefore { |key|
@@ -465,19 +466,43 @@ MegaSAFx {
     // counted from the loop's start (its phase, \phaseBus, which bar 1 beat 1
     // is the drums' too); with no loop moving, from the synth's own start.
     *slicer { |sig|
+        var slices = this.loopBeats / \slicerRate.kr(0.25);
+        var step = slices.floor.mod(8);
+        var bit = Select.kr(\slicerPattern.kr(0), this.slicerPatterns.collect { |p| Select.kr(step, p) });
+        var open = (slices.frac < \slicerDuty.kr(0.5)) * bit;
+        var amp = 1 - (\slicerDepth.kr(1, 0.05) * (1 - Lag.kr(open, \slicerSmooth.kr(0.003))));
+        ^sig * K2A.ar(amp)
+    }
+
+    // Beats (\beatDur long) counted from the loop's start while the loop moves
+    // (its phase bus, \phaseBus), else from the synth's own start: the
+    // Slicer's and the Tremolo's grid.
+    *loopBeats {
         var beatDur = \beatDur.kr(0.6);
         var pb = \phaseBus.kr(-1);
         var pos = In.kr(pb.max(0));
         // Moving: the bus changes every block while the loop plays; held a
         // tenth of a second, so a block that doesn't move it changes nothing.
         var moving = (LagUD.kr(HPZ1.kr(pos).abs > 0, 0, 0.1) > 0.1) * (pb >= 0);
-        var beats = Select.kr(moving, [Sweep.kr(0, beatDur.reciprocal), pos / beatDur]);
-        var slices = beats / \slicerRate.kr(0.25);
-        var step = slices.floor.mod(8);
-        var bit = Select.kr(\slicerPattern.kr(0), this.slicerPatterns.collect { |p| Select.kr(step, p) });
-        var open = (slices.frac < \slicerDuty.kr(0.5)) * bit;
-        var amp = 1 - (\slicerDepth.kr(1, 0.05) * (1 - Lag.kr(open, \slicerSmooth.kr(0.003))));
-        ^sig * K2A.ar(amp)
+        ^Select.kr(moving, [Sweep.kr(0, beatDur.reciprocal), pos / beatDur])
+    }
+
+    // The level swung by an LFO, Depth deep: Rate times a second, or with
+    // Sync a cycle every so much of a beat on the Slicer's grid (loopBeats),
+    // in a Shape (sine, triangle, a square with its edges softened over
+    // 4 ms), from full level down. The right side runs Spread of half a
+    // cycle behind the left: at 100 % opposite, so the sound moves from side
+    // to side.
+    *tremolo { |sig|
+        var sync = \tremoloSync.kr(0);
+        var free = Phasor.kr(0, \tremoloRate.kr(5, 0.05) * ControlDur.ir, 0, 1);
+        var phase = Select.kr(sync > 0, [free, (this.loopBeats / sync.max(1e-3)).frac]);
+        var phases = [phase, (phase - (\tremoloSpread.kr(0, 0.05) * 0.5)).wrap(0, 1)];
+        var shape = \tremoloShape.kr(0);
+        var lfo = phases.collect { |p|
+            Select.kr(shape, [0.5 + (0.5 * cos(2pi * p)), (2 * (p - 0.5).abs), Lag.kr(p < 0.5, 0.004)])
+        };
+        ^sig * K2A.ar(1 - (\tremoloDepth.kr(0.5, 0.05) * (1 - lfo)))
     }
 
     // Eight slices each: Every, On-beats, Off-beats, 3+3+2, Gallop.
@@ -510,6 +535,40 @@ MegaSAFx {
         var mix = \ringModMix.kr(0.5, 0.05);
         ^(sig * (1 - mix)) + (wet * mix)
     }
+
+    // ---- Space (2026-10-27) ---------------------------------------------------
+
+    // A reverb of megalooper's own: the input pre-delayed and low-cut, four
+    // allpasses (a little longer on the right) to diffuse it, then a feedback
+    // delay network: eight lines (Size scales them) fed by the input and by
+    // each other through a Householder matrix (each line less a quarter of
+    // the eight's sum: it loses nothing, so the lines' own gains alone decide
+    // the decay). Each line is low-passed (Damp: highs die sooner) and turned
+    // down so the tail falls 60 dB in Decay seconds whatever its length. The
+    // tail's left and right are the even and the odd lines; Dry/Wet against
+    // the input. LocalIn costs a block, so each line is a block shorter.
+    *reverbTimes { ^#[0.0297, 0.0371, 0.0411, 0.0437, 0.0533, 0.0599, 0.0677, 0.0743] }
+
+    *reverb { |sig|
+        var times = this.reverbTimes * \reverbSize.kr(1, 0.3);
+        var decay = \reverbDecay.kr(2, 0.1).max(0.1);
+        var damp = \reverbDamp.kr(6000, 0.05);
+        var mix = \reverbMix.kr(0.25, 0.05);
+        var x = HPF.ar(DelayC.ar(sig, 0.25, \reverbPredelay.kr(0.02, 0.05)), \reverbLowCut.kr(150, 0.05));
+        var fb = LocalIn.ar(8), lines, wet;
+        [0.0047, 0.0067, 0.0089, 0.0113].do { |t| x = AllpassN.ar(x, 0.02, [t, t * 1.07], 0.08) };
+        lines = times.collect { |t, i|
+            LPF.ar(DelayC.ar((x[i % 2] * 0.5) + fb[i], 0.2, (t - ControlDur.ir).max(0)), damp)
+                * (10 ** (-3 * t / decay))
+        };
+        LocalOut.ar(lines - (lines.sum * 0.25));
+        wet = [lines[0, 2 ..].sum, lines[1, 3 ..].sum] * this.reverbGain;
+        ^(sig * (1 - mix)) + (wet * mix)
+    }
+
+    // The tail's level: steady noise comes out of it about 3 dB under what
+    // went in, at the default Decay (scripts/sa/nrt-space.scd measures it).
+    *reverbGain { ^0.9 }
 
     // ---- The types --------------------------------------------------------
     // One row per built-in device type (docs/dev/device-chains.md, section 4.1),
@@ -639,6 +698,13 @@ MegaSAFx {
                 dsp: { |sig| this.slicer(sig) },
                 memBytes: { |sr| 0 },
                 latency: none),
+            (key: \tremolo, track: \any, group: "Texture", width: \stereo, followsTempo: true, followsPhase: true,
+                sleeps: true,
+                blurb: "The level swung by an LFO, free or on the loop's beat; Spread moves it side to side.",
+                mainKnobs: [\tremoloRate, \tremoloSync, \tremoloDepth],
+                dsp: { |sig| this.tremolo(sig) },
+                memBytes: { |sr| 0 },
+                latency: none),
             (key: \octaveDown, track: \any, group: "Texture", width: \mono, followsTempo: false, sleeps: true,
                 blurb: "An analog divider: a square wave an octave under the note, at its level.",
                 mainKnobs: [\octaveDownLevel, \octaveDownTwo, \octaveDownTone],
@@ -650,6 +716,17 @@ MegaSAFx {
                 mainKnobs: [\ringModFreq, \ringModMix, \ringModTone],
                 dsp: { |sig| this.ringMod(sig) },
                 memBytes: { |sr| 0 },
+                latency: none),
+            // It remembers its tail, so it keeps running: one woken from a
+            // pause would play the tail it was paused in.
+            (key: \reverb, track: \any, group: "Space", width: \stereo, followsTempo: false,
+                blurb: "A room to a hall: the sound and its tail, falling 60 dB in Decay seconds.",
+                mainKnobs: [\reverbDecay, \reverbSize, \reverbMix],
+                dsp: { |sig| this.reverb(sig) },
+                // The pre-delay's two lines, the eight lines at their longest
+                // (Size 2) and the allpasses' eight.
+                memBytes: { |sr| (this.lineBytes((0.25 * sr) + 1) * 2) + (this.lineBytes((0.2 * sr) + 1) * 8)
+                    + (this.lineBytes((0.02 * sr) + 1) * 8) },
                 latency: none)
         ].collect { |t|
             t.put(\title, this.title(t[\key]));
@@ -1211,7 +1288,50 @@ MegaSAFx {
                 tip: "The sound as it came against the modulated one: half by default."),
             (fx: \ringMod, name: \ringModTone, label: "Tone", units: " Hz",
                 spec: ControlSpec(500, 20000, \exp, 0, 20000),
-                tip: "A low-pass on the modulated sound: 20 kHz by default.")
+                tip: "A low-pass on the modulated sound: 20 kHz by default."),
+
+            // ---- Tremolo
+            (fx: \tremolo, name: \tremoloRate, label: "Rate", units: " Hz",
+                spec: ControlSpec(0.1, 20, \exp, 0, 5),
+                tip: "Swings a second: 5 by default. With Sync on a beat, it is not used."),
+            (fx: \tremolo, name: \tremoloSync, label: "Sync",
+                spec: ControlSpec(0, 2, \lin, 0, 0),
+                choices: [[0, "Free"], [1 / 6, "1/16 T"], [0.25, "1/16"], [1 / 3, "1/8 T"], [0.5, "1/8"],
+                    [2 / 3, "1/4 T"], [1, "1/4"], [2, "1/2"]],
+                tip: "Free, the default: Rate sets the speed. Or a swing every so much of a beat,\n"
+                    "on the loop's grid, as the Slicer counts it."),
+            (fx: \tremolo, name: \tremoloDepth, label: "Depth", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 0.5),
+                tip: "How far down it swings: half by default. 100 % is to silence."),
+            (fx: \tremolo, name: \tremoloShape, label: "Shape",
+                spec: ControlSpec(0, 2, \lin, 1, 0),
+                choices: [[0, "Sine"], [1, "Triangle"], [2, "Square"]],
+                tip: "The swing's shape: a sine by default. Square chops."),
+            (fx: \tremolo, name: \tremoloSpread, label: "Spread", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 0),
+                tip: "The right side behind the left: none by default. At 100 % they swing\n"
+                    "opposite, and the sound moves from side to side."),
+
+            // ---- Reverb
+            (fx: \reverb, name: \reverbDecay, label: "Decay", units: " s",
+                spec: ControlSpec(0.2, 20, \exp, 0, 2),
+                tip: "How long the tail takes to fall 60 dB: 2 s by default."),
+            (fx: \reverb, name: \reverbSize, label: "Size", units: " %", scale: 100,
+                spec: ControlSpec(0.3, 2, \exp, 0, 1),
+                tip: "How big the space sounds: 100 % by default. Small is a room, big a hall."),
+            (fx: \reverb, name: \reverbDamp, label: "Damp", units: " Hz",
+                spec: ControlSpec(500, 20000, \exp, 0, 6000),
+                tip: "Above this the tail dies sooner: 6 kHz by default. Lower is darker."),
+            (fx: \reverb, name: \reverbPredelay, label: "Pre-delay", units: " ms", scale: 1000,
+                spec: ControlSpec(0, 0.2, \lin, 0, 0.02),
+                tip: "How long before the tail starts: 20 ms by default."),
+            (fx: \reverb, name: \reverbLowCut, label: "Low Cut", units: " Hz",
+                spec: ControlSpec(20, 1000, \exp, 0, 150),
+                tip: "What goes into the tail, cut below this: 150 Hz by default, so the\n"
+                    "lows stay clear."),
+            (fx: \reverb, name: \reverbMix, label: "Dry/Wet", units: " %", scale: 100,
+                spec: ControlSpec(0, 1, \lin, 0, 0.25),
+                tip: "The sound as it came against the reverb: a quarter wet by default.")
         ]
     }
 }
