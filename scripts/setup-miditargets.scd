@@ -110,8 +110,17 @@
     // nil for one it has not (removed, parked, or no SA at all).
     var fxThere = { |id| (~megaSA !? { |m| m.fx(id) }).notNil };
     // What a device goes by: its name in MegaSA's chains (a sound may have
-    // renamed it), else its effect's title.
-    var fxName = { |id| (~megaSA !? { |m| try { m.device(id).name } }) ? MegaSAFx.title(id) };
+    // renamed it), else its effect's title. Once per id and build: asked for
+    // every control, and a type in no chain has no device, which `.name` on
+    // nil used to find out by throwing (2026-10-27: half the effects' build).
+    var fxNames = IdentityDictionary.new;
+    var fxName = { |id|
+        fxNames[id] ?? {
+            var name = ((~megaSA !? { |m| try { m.device(id) } }) !? { |d| d.name }) ? MegaSAFx.title(id);
+            fxNames.put(id, name);
+            name
+        }
+    };
     // Why a device's controls do nothing now, asked when the list is drawn.
     var fxWhy = { |id, name|
         { if(~megaSA.isNil) { "Megalooper SA is not running" } { name ++ " is not in the chains now" } }

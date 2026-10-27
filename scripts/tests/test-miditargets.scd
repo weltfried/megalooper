@@ -612,11 +612,18 @@ protect {
     ~tEq.("the effects' family alone is every control of the effects and no other",
         [got.keys.asArray.sort, got.keys.count { |id| id.asString.beginsWith("sa.fx").not }],
         [t.keys.asArray.select { |id| id.asString.beginsWith("sa.fx") }.sort, 0]);
-    v = Main.elapsedTime;
-    20.do { ~midiTargetsBuild.(\effects) };
-    v = (Main.elapsedTime - v) / 20;
-    ("  the effects' controls are made in " ++ (v * 1000).round(0.01) ++ " ms").postln;
-    ~tAssert.("...made in under 10 ms", v < 0.01);
+    // Timed one by one, judged by the median: a chain edit makes them once, and
+    // a collection pause in the language lands on one build of twenty, which
+    // a mean takes for the cost of all. (With sixteen effects they took 8 to
+    // 16 ms, until each name stopped being found by a caught throw: under 1.)
+    v = 20.collect {
+        var t0 = Main.elapsedTime;
+        ~midiTargetsBuild.(\effects);
+        Main.elapsedTime - t0
+    }.sort;
+    ("  the effects' controls are made in " ++ (v[10] * 1000).round(0.01) ++ " ms (median; mean "
+        ++ (v.mean * 1000).round(0.01) ++ ", slowest " ++ (v.last * 1000).round(0.01) ++ ")").postln;
+    ~tAssert.("...made in under 10 ms", v[10] < 0.01);
     // After a chain edit: only they are made again, and a removed device's stay.
     keptTargets = ~midiTargets;
     ~midiTargets = t;
