@@ -7,8 +7,10 @@
   "2025-03-26",
   "2024-11-05"
  ],
- "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, effect chains, a granular layer (the grains) and a cutter over the loop. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, its tempo, the drum patterns, the note sequence, the chains, the grains, the cutter), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth), the effect chains (set_chain), the grains (set_grains) and the cutter (set_cutter) can be changed and every change taken back (revert); the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them.",
+ "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, effect chains, a granular layer (the grains) and a cutter over the loop. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, how its bars are grouped (2+2+3), where the playhead is and what is about to land, its tempo, the drum patterns, the note sequence, the chains, the grains, the cutter), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth), the effect chains (set_chain), the grains (set_grains) and the cutter (set_cutter) can be changed and every change taken back (revert); the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them. The sets recorded before are there to learn from: list_sets lists them, get_set tells one in full (each take, what was played on its bar grid, the reading the analyser applied and what the players changed). Use them between rehearsals to answer what was played, what the analyser got wrong, or to write parts for a take from a past set.",
  "passedOn": [
+  "get_set",
+  "list_sets",
   "revert",
   "save_cutter_preset",
   "save_drum_preset",
@@ -25,7 +27,7 @@
   {
    "name": "get_context",
    "title": "What megalooper is playing",
-   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, bpm in quarter notes, length in seconds; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short.",
+   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -35,6 +37,7 @@
        "type": "string",
        "enum": [
         "loop",
+        "now",
         "drums",
         "synth",
         "chains",
@@ -42,7 +45,7 @@
         "cutter"
        ]
       },
-      "description": "Only these parts (the profile, the tempo and aiChanges always come)."
+      "description": "Only these parts (the profile, the tempo, aiChanges and aiChangeLabels always come)."
      }
     },
     "additionalProperties": false
@@ -480,6 +483,52 @@
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "list_sets",
+   "title": "The sets megalooper recorded",
+   "description": "The sets recorded with Record set, newest first: when, how long, each take with the meter reading the analyser applied, and how often the players asked for another reading (Next reading, or bars by hand), moved the onset threshold, overdubbed, broke, cleared or went to half-time. A take whose reading the players changed is one the analyser got wrong. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many sets, newest first (20 if not said)."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_set",
+   "title": "One recorded set in full",
+   "description": "One recorded set, in time: the reading it began with and every record but the drums' hits (counted): each take with the reading the analyser applied, its runners-up and what was played on its bar grid in sixteenths (X strong, x a hit, . none); every reading the players armed, landed or cancelled; threshold moves, overdubs, breaks, half-time, effect switches. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "The set's id from list_sets, or its stamp (261026_191112)."
+     },
+     "grids": {
+      "type": "boolean",
+      "description": "false leaves out what each take played (true if not said)."
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
     "openWorldHint": false
    }
   }

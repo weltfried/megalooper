@@ -30,7 +30,7 @@
   "tools": [
     {
       "name": "get_context",
-      "description": "What megalooper is playing and how it is set: the loop's meter and tempo, what the take played, the drums, the synth, the effect chains, the grains, the cutter."
+      "description": "What megalooper is playing and how it is set: the loop's meter, its beat groups and tempo, where the playhead is, what the take played, the drums, the synth, the effect chains, the grains, the cutter."
     },
     {
       "name": "describe",
@@ -79,6 +79,14 @@
     {
       "name": "save_cutter_preset",
       "description": "Save the cutter as a preset in megalooper's Cutter view."
+    },
+    {
+      "name": "list_sets",
+      "description": "The sets recorded before: when, each take's meter, what the players changed."
+    },
+    {
+      "name": "get_set",
+      "description": "One recorded set in full: every take, what was played, every reading the players changed."
     }
   ],
   "keywords": [

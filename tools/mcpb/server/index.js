@@ -26,7 +26,7 @@ const SPEC = JSON.parse(fs.readFileSync(
     .find((p) => fs.existsSync(p)), 'utf8'));
 const TOOL_NAMES = SPEC.tools.map((t) => t.name);
 const PASSED_ON = new Set(SPEC.passedOn);
-const ALWAYS_KEPT = new Set(['format', 'version', 'profile', 'standalone', 'tempo', 'aiChanges']);
+const ALWAYS_KEPT = new Set(['format', 'version', 'profile', 'standalone', 'tempo', 'aiChanges', 'aiChangeLabels']);
 const REPLY_TIMEOUT = Number(process.env.MEGALOOPER_REPLY_TIMEOUT) || 10;
 const POLL_MS = 20;
 

@@ -8,8 +8,11 @@
 // port sclang got. sclang's port listens on every interface, so a message
 // from anywhere else is dropped unanswered, as is one with a wrong token.
 //
-// Reading: \ping, \context (what is playing and how it is set) and
-// \describe (what every setting means). Writing: \set_drum_pattern (a
+// Reading: \ping, \context (what is playing and how it is set, where the
+// playhead is, and the AI's own changes), \describe (what every setting
+// means), \list_sets and \get_set (the sets recorded before: what was
+// played, what the analyser heard and what the players changed;
+// docs/dev/roadmap.md item 20, "the AI as the experimenter"). Writing: \set_drum_pattern (a
 // pattern, the steps' kit), \set_synth (the note sequencer's pattern, the
 // Wave synth's settings, the sequencer's switch), \set_chain (built-in
 // effects in, out and moved, settings, switches), \set_grains (the granular
@@ -23,7 +26,7 @@
 // Everything a request reads or changes comes from `source`, a function
 // answering an Event (looper:, sa:, profile:, drumsPresetDir:,
 // synthPresetDir:, soundDir:, grainsPresetDir:, cutterPresetDir:,
-// grainParams:, say:), so a test hands it stubs; setup-remote.scd hands it
+// grainParams:, say:, sessionDir:, playhead:), so a test hands it stubs; setup-remote.scd hands it
 // the running ~looper and ~megaSA, the presets' folders, the Grains view's
 // rows (grainParams: their labels, window ranges and tips) and the window's
 // status line (say: a function of a String).
@@ -154,8 +157,11 @@ MegaRemote {
                     \version, this.class.version, \pid, thisProcess.pid]))
             }
             { command == "context" } {
-                this.class.success(this.class.context(source.value).add("aiChanges", this.changeCount))
+                this.class.success(this.class.context(source.value).add("aiChanges", this.changeCount)
+                    .add("aiChangeLabels", this.changeLabels))
             }
+            { command == "list_sets" } { this.class.listSets(source.value, args) }
+            { command == "get_set" } { this.class.getSet(source.value, args) }
             { command == "describe" } {
                 this.class.describe(args !? { |a| a.at("topic") }, source.value) !? { |d| this.class.success(d) }
                     ?? { this.class.failure("no such topic; there are " ++ this.class.topics.join(", ")) }
@@ -178,7 +184,7 @@ MegaRemote {
 
     *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
         "set_cutter", "revert", "save_drum_preset", "save_synth_preset", "save_sound", "save_grains_preset",
-        "save_cutter_preset"] }
+        "save_cutter_preset", "list_sets", "get_set"] }
 
     *success { |result| ^this.obj([\ok, true, \result, result]) }
     *failure { |why| ^this.obj([\ok, false, \error, why]) }
@@ -852,6 +858,7 @@ MegaRemote {
             \profile, src !? { |s| s[\profile] !? { |p| p.asString } },
             \standalone, sa.notNil,
             \loop, this.loopOf(looper),
+            \now, looper !? { |l| this.nowOf(l, src !? { |x| x[\playhead] }) },
             \tempo, sa !? { |m| m.tempo },
             \drums, drums !? { |d| this.drumsOf(d) },
             \synth, sa !? { |m| this.synthOf(m) },
@@ -909,12 +916,52 @@ MegaRemote {
                     \signature, MeterAnalyzer.sigString(r),
                     \numerator, r[\numerator], \denominator, r[\denominator],
                     \bars, (r[\bars] ?? { Array.fill(r[\k] ? 1, r[\numerator]) }).asArray,
+                    // How each bar is felt: its beat groups in units of 1 /
+                    // denominator (2+2+3 for a bar of 7/8), as the count
+                    // on Perform shows them.
+                    \groups, (r[\bars] ?? { Array.fill(r[\k] ? 1, r[\numerator]) }).asArray.collect { |b|
+                        MeterAnalyzer.beatGrouping(b, r[\denominator]) },
                     \barCount, r[\k],
                     \bpm, r[\bpm], \loopSeconds, r[\loopDur],
                     \byHand, r[\from] == \hand
                 ])
             },
             \take, this.takeOf(looper)
+        ])
+    }
+
+    // Where the loop is now and what is coming: the bar, the beat and its
+    // group as the count on Perform shows them (Looper.beatCountAt), from the
+    // window's prediction of the playhead (`playhead`, a function answering
+    // seconds into the loop) or, without one, from where the passes began;
+    // half-time, reverse, a break, a dissolve, the arc's intensity, and the
+    // events on their way (Looper.upcoming) in seconds from now.
+    *nowOf { |looper, playhead|
+        var r = looper.countResult, dur = looper.loopDuration, now = SystemClock.seconds, pos, c, moving;
+        moving = #[\playing, \overdubbing].includes(looper.state) and: { dur > 0 };
+        pos = if(moving) {
+            (playhead !? { |f| f.value }) ?? {
+                looper.passStart !? { |t0| (((now - t0) * looper.speed) * if(looper.reverseFlag) { -1 } { 1 }).mod(dur) } }
+        };
+        c = pos !? { |p| Looper.beatCountAt(p, r, dur, nil, looper.reverseFlag) };
+        ^this.obj([
+            \about, "Where the loop is as you read this (to about a beat) and what is on its way. bar and beat "
+                "count from 1; group is the beat group of the bar it is in (the bar's groups are in "
+                "loop.reading.groups), groupBeat the beat within it. halfTime: off, armed, on or releasing "
+                "(the loop at half speed, an octave down, under drums that keep their tempo). coming: "
+                "what lands on a coming loop boundary, in seconds.",
+            \playing, moving,
+            \bar, c !? { |x| x[\bar] }, \barCount, c !? { |x| x[\barCount] },
+            \beat, c !? { |x| x[\beat] }, \beatsPerBar, c !? { |x| x[\beatsPerBar] },
+            \group, c !? { |x| x[\group] }, \groupBeat, c !? { |x| x[\groupBeat] },
+            \halfTime, looper.halfTime.asString, \speed, looper.speed,
+            \reversed, looper.reverseFlag,
+            \onBreak, looper.onBreak,
+            \dissolving, looper.dissolving, \dissolve, looper.dissolvePos.round(0.01),
+            \intensity, looper.intensity,
+            \breakLoops, looper.breakLoops, \dissolveBars, looper.dissolveBars,
+            \coming, if(moving) { looper.upcoming(now).collect { |e|
+                this.obj([\what, e[\what].asString, \inSeconds, (e[\at] - now).max(0).round(0.01)]) } } { [] }
         ])
     }
 
@@ -927,14 +974,23 @@ MegaRemote {
     // start. nil without a reading, or before a take with onsets, or when a
     // sixteenth is no whole share of the denominator's unit (x/32).
     *takeOf { |looper|
-        var r = looper !? { |l| l.lastResult }, onsets, pitches, den, beatDur, six, units, cycles, barSix, starts;
+        ^looper !? { |l| this.gridOf(l.lastResult, l.takeOnsets, l.takePitches,
+            "What the first take played, on the bar grid in sixteenths from the downbeat: "
+                "X a strong hit, x a hit, . nothing. at counts sixteenths from the bar's start (0). "
+                "note is the pitch heard at a hit, where one was. Overdubs are not in it.") }
+    }
+
+    // A take's hits on reading `r`'s bar grid (takeOf, and a past set's takes
+    // in get_set): `onsets` [seconds from the record press, strength] pairs,
+    // `pitches` the pitch tracker's readings (none for a past set's).
+    *gridOf { |r, onsets, pitches, about|
+        var den, beatDur, six, units, cycles, barSix, starts;
         var rows, loudest, total, bar, at, q, strength, chords;
-        onsets = (looper !? { |l| l.takeOnsets }) ? [];
+        onsets = onsets ? [];
         if(r.isNil or: { r[\error].notNil } or: { r[\denominator].isNil } or: { r[\tau].isNil }
             or: { r[\loopDur].isNil } or: { onsets.isEmpty }) { ^nil };
         den = r[\denominator].asInteger;
         if((den < 1) or: { (16 % den) != 0 }) { ^nil };
-        pitches = looper.takePitches;
         beatDur = r[\tau] * (r[\sub] ? 1);
         six = beatDur * den / 16;
         units = MeterAnalyzer.barsOf(r);
@@ -960,14 +1016,174 @@ MegaRemote {
             this.obj([\bar, bar + 1, \at, q - starts[bar],
                 \chord, [c[\rootName], c[\scaleName]].reject(_.isNil).join(" ")])
         };
-        ^this.obj([
-            \about, "What the first take played, on the bar grid in sixteenths from the downbeat: "
-                "X a strong hit, x a hit, . nothing. at counts sixteenths from the bar's start (0). "
-                "note is the pitch heard at a hit, where one was. Overdubs are not in it.",
+        ^this.obj((if(about.notNil) { [\about, about] } { [] }) ++ [
             \sixteenthsPerBar, barSix,
             \bars, rows.collect { |row, i| this.obj([\bar, i + 1, \grid, row[\grid], \hits, row[\hits].asArray]) },
             \chords, chords
         ])
+    }
+
+    // ---- the sets recorded before ---------------------------------------------------
+    // The set recorder's logs (LooperSessionRecorder: <sessionDir>/<stamp>…
+    // -events.jsonl, a JSON object a line), read for the AI: which sets there
+    // are, and one set's story, so between rehearsals it can do what the
+    // roadmap's rounds did by hand ("what did the analyser get wrong on
+    // Thursday, and what did we play there?"). Read only. The drums' hits,
+    // thousands a set, are counted, not listed.
+
+    *setsMax { ^20 }
+
+    // Every set's log in `dir`, newest first.
+    *setFiles { |dir|
+        if(dir.isNil or: { File.exists(dir).not }) { ^[] };
+        ^(LooperSessionRecorder.globQuote(dir) +/+ "*-events.jsonl").pathMatch.sort.reverse
+    }
+
+    // A set's id: its log's name without "-events.jsonl" (its stamp, and the
+    // tempo and meter the recorder named it by).
+    *setIdOf { |path| ^path.basename.drop("-events.jsonl".size.neg) }
+
+    // A log read: (header:, events: the records but the hits, as Events,
+    // hits: (total:, main:, break:, onset:)).
+    *readSet { |path|
+        var header, events = List.new, hits = (total: 0, main: 0, break: 0, onset: 0), o;
+        (File.readAllString(path) ? "").split($\n).do { |line|
+            case
+            { line.contains("\"ev\": \"hit\"") } {
+                hits[\total] = hits[\total] + 1;
+                case
+                { line.contains("\"slot\": \"onset\"") } { hits[\onset] = hits[\onset] + 1 }
+                { line.contains("\"which\": \"break\"") } { hits[\break] = hits[\break] + 1 }
+                { hits[\main] = hits[\main] + 1 };
+            }
+            { line.size > 2 } {
+                o = MegaFiles.parseObject(line);
+                if(o.isKindOf(MegaJsonObject)) {
+                    o = this.plain(o);
+                    if(o[\ev] == "session") { header = o } { events.add(o) };
+                };
+            };
+        };
+        ^(header: header, events: events, hits: hits)
+    }
+
+    // The wall clock `t` seconds into a set that began at `date` (the log's
+    // "Mon Oct 26 19:11:12 2026"), "19:13:05"; its day, "Mon Oct 26".
+    *clockAt { |date, t|
+        var parts = date !? { |d| d.split($ ).reject(_.isEmpty) }, hms, secs;
+        if(parts.isNil or: { parts.size < 4 } or: { t.isNumber.not }) { ^nil };
+        hms = parts[3].split($:).collect(_.asInteger);
+        if(hms.size != 3) { ^nil };
+        secs = ((hms[0] * 3600) + (hms[1] * 60) + hms[2] + t.floor).asInteger.mod(86400);
+        ^[secs div: 3600, (secs div: 60) % 60, secs % 60].collect { |n| n.asString.padLeft(2, "0") }.join(":")
+    }
+    *dayOf { |date| ^date !? { |d| d.split($ ).reject(_.isEmpty).keep(3).join(" ") } }
+
+    // A reading as the window says it: signature, tempo, bars, the
+    // analyser's score where it had one.
+    *readingWords { |r|
+        if(r.isNil or: { r[\denominator].isNil }) { ^nil };
+        ^this.obj([\signature, MeterAnalyzer.sigString(r), \bpm, r[\bpm] !? { |b| b.round(0.1) },
+            \bars, MeterAnalyzer.barsOf(r).asArray, \score, r[\score] !? { |x| x.round(0.001) },
+            \byHand, r[\from] == "hand"])
+    }
+
+    // `limit` sets (setsMax), newest first, each in a line or two.
+    *listSets { |src, args|
+        var files = this.setFiles(src !? { |s| s[\sessionDir] }), limit;
+        limit = (args !? { |a| a.at("limit") }) ? this.setsMax;
+        if(limit.isInteger.not or: { limit < 1 }) { ^this.failure("limit is a whole number, 1 or more") };
+        ^this.success(this.obj([
+            \about, "The sets megalooper recorded (Record set), newest first. takes: each take's time and "
+                "the meter reading the analyser applied; readingsArmed: presses of Next reading (or bars "
+                "given by hand, byHand) and readingsLanded/readingsCancelled what became of them: a take "
+                "whose reading was changed is one the analyser got wrong. get_set with an id tells a set "
+                "in full: every take with what was played on its bar grid, every change the players made.",
+            \sets, files.keep(limit).collect { |p| this.setSummary(p) },
+            \more, (files.size - limit).max(0)
+        ]))
+    }
+
+    *setSummary { |path|
+        var set = this.readSet(path), h = set[\header], ev = set[\events], date = h !? { |x| x[\date] };
+        var stop = ev.detect { |e| e[\ev] == "sessionStop" };
+        var count = { |name| ev.count { |e| e[\ev] == name } };
+        ^this.obj([
+            \id, this.setIdOf(path),
+            \day, this.dayOf(date), \started, this.clockAt(date, 0),
+            \minutes, stop !? { |e| ((e[\elapsed] ? e[\t] ? 0) / 60).round(0.1) },
+            \readingAtStart, h !? { |x| this.readingWords(x[\loop]) },
+            \takeAtStart, (h !? { |x| x[\take] }).notNil,
+            \takes, ev.select { |e| e[\ev] == "take" }.collect { |e|
+                this.obj([\at, this.clockAt(date, e[\t]), \reading, this.readingWords(e[\result])]) },
+            \readingsArmed, count.("readingArmed"),
+            \byHand, ev.count { |e| (e[\ev] == "readingArmed") and: { e[\via] == "hand" } },
+            \readingsLanded, count.("readingLanded"), \readingsCancelled, count.("readingCancelled"),
+            \thresholdChanges, count.("threshold"), \overdubs, count.("overdubStart"),
+            \breaks, count.("breakStart"), \clears, count.("clear"), \halfTime, count.("halfTime"),
+            \drumHits, set[\hits][\total]
+        ])
+    }
+
+    // One set in full (`id` from list_sets, or its stamp): the reading it
+    // began with, and every record but the hits, in time, as the AI can use
+    // them; a take with what it played on the bar grid of the reading the
+    // analyser applied (`grids` false leaves the grids out).
+    *getSet { |src, args|
+        var id = args !? { |a| a.at("id") }, path, set, h, date, grids;
+        if(id.isNil) { ^this.failure("id is needed: list_sets gives the sets' ids") };
+        id = id.asString;
+        if(id.isEmpty or: { id.any { |c| (c.isAlphaNum or: { "-_.".includes(c) }).not } }) {
+            ^this.failure("no set " ++ id.quote) };
+        path = this.setFiles(src !? { |s| s[\sessionDir] }).detect { |p|
+            var i = this.setIdOf(p); (i == id) or: { i.beginsWith(id ++ "-") } };
+        if(path.isNil) { ^this.failure("no set " ++ id.quote ++ "; list_sets gives the ids") };
+        grids = (args.at("grids") ? true) != false;
+        set = this.readSet(path);
+        h = set[\header];
+        date = h !? { |x| x[\date] };
+        ^this.success(this.obj([
+            \about, "A recorded set, in time: at is the clock, seconds the time into the set. takeAtStart: "
+                "the take a set begun with a loop playing was made of, played on the reading at its start. A take: the "
+                "reading the analyser applied, its runners-up (alternatives), and played, the take's hits "
+                "on that reading's bar grid in sixteenths (X strong, x a hit, . none). readingArmed: the "
+                "players asked for another reading (via next, or hand: bars they gave), landing at lands; "
+                "readingLanded: it came in; readingCancelled: it did not. threshold: the onset "
+                "threshold moved (higher hears fewer hits).",
+            \id, this.setIdOf(path), \day, this.dayOf(date), \started, this.clockAt(date, 0),
+            \build, h !? { |x| x[\build] }, \fallback, h !? { |x| x[\fallback] },
+            \readingAtStart, h !? { |x| this.readingWords(x[\loop]) },
+            // A set begun with a loop playing: the take it was made of, what
+            // it played on the reading in force, with the pitches heard.
+            \takeAtStart, (h !? { |x| x[\take] }) !? { |t|
+                this.obj([\reading, this.readingWords(t[\result]),
+                    \alternatives, (t[\candidates] ? []).drop(1).keep(3).collect { |c| this.readingWords(c) },
+                    \played, if(grids) { this.gridOf(h[\loop] ? t[\result], t[\onsets], t[\pitches], nil) }]) },
+            \events, set[\events].collect { |e| this.eventOf(e, date, grids) }.reject(_.isNil),
+            \drumHits, this.obj([\total, set[\hits][\total], \main, set[\hits][\main],
+                \break, set[\hits][\break], \onsetKit, set[\hits][\onset]])
+        ]))
+    }
+
+    // One record of a set as get_set gives it, or nil for one that says
+    // nothing to the AI (the recorder's own: audio, files).
+    *eventOf { |e, date, grids|
+        var base = [\at, this.clockAt(date, e[\t]), \seconds, (e[\t] ? 0).round(0.1), \event, e[\ev]];
+        var scalars = { e.keys.asArray.sort.reject { |k| #[\t, \ev].includes(k) }.select { |k|
+            e[k].isNumber or: { e[k].isString } or: { e[k].isKindOf(Boolean) } }.collect { |k|
+            [k, if(e[k].isFloat) { e[k].round(0.001) } { e[k] }] }.flatten(1) };
+        ^switch(e[\ev],
+            "audio", { nil },
+            "files", { nil },
+            "take", { this.obj(base ++ [\reading, this.readingWords(e[\result]),
+                \alternatives, (e[\candidates] ? []).drop(1).keep(3).collect { |c| this.readingWords(c) },
+                \onsets, (e[\onsets] ? []).size, \threshold, e[\threshold] !? { |x| x.round(0.001) },
+                \played, if(grids) { e[\result] !? { |r| this.gridOf(r, e[\onsets], nil, nil) } }]) },
+            "readingArmed", { this.obj(base ++ [\index, e[\index], \of, e[\of], \via, e[\via],
+                \lands, this.clockAt(date, e[\landsAt]), \reading, this.readingWords(e[\reading])]) },
+            "readingLanded", { this.obj(base ++ [\index, e[\index], \reading, this.readingWords(e[\reading])]) },
+            { this.obj(base ++ scalars.value) }
+        )
     }
 
     // The pitch heard at a hit at `t` (seconds from the press): the median of
@@ -1022,7 +1238,7 @@ MegaRemote {
     *describe { |topic, src|
         ^case
         { topic.isNil } { this.obj([\topics, this.topics]) }
-        { topic == "drums" } { this.describeDrums }
+        { topic == "drums" } { this.describeDrums(src !? { |s| s[\sa] } !? { |m| m.drums }) }
         { topic == "synth" } { this.describeSynth }
         { topic == "effects" } { this.describeEffects }
         { topic == "grains" } { this.describeGrains(src !? { |s| s[\grainParams] }) }
@@ -1049,7 +1265,11 @@ MegaRemote {
         ])
     }
 
-    *describeDrums {
+    // `drums` the running ones, for how their lanes meet a bar line
+    // (MegaSADrums.retrigAt: \barLine restarts them on every one, the
+    // default; \live lets them run on).
+    *describeDrums { |drums|
+        var retrig = (drums !? { |d| d.retrigAt }) ? \barLine;
         ^this.obj([
             \about, "The drums are a step sequencer of four lanes, each playing one drum pad (note) "
                 "or its alternative pad (altNote). There are two patterns: main, and break (in force "
@@ -1060,9 +1280,16 @@ MegaRemote {
                 "the step at rollRate), slide (stored, not heard). Each page of each lane has its own "
                 "length (lengths[page][lane], 2..16): it wraps on its own, so lanes of different "
                 "lengths drift against each other; lock[lane] plays globalLength[lane] on every page "
-                "instead. The lanes restart at every bar line of the loop's reading (uneven bars "
-                "too), so a lane of 7 steps fits a bar of 7/16 and a lane of 14 a bar of 7/8. "
-                "mute[lane] silences a lane, delay[lane] moves it later in ms. Shuffle: shuffle[0..7] "
+                "instead. "
+                ++ (if(retrig == \barLine) {
+                    "The lanes restart at every bar line of the loop's reading (uneven bars too: Retrig "
+                    "is on, as it is by default), so a lane of 7 steps fits a bar of 7/16 and a lane of 14 "
+                    "a bar of 7/8. "
+                } {
+                    "Retrig is off: the lanes run on across bar lines, each at its own length, and meet "
+                    "the bar only where their lengths divide it. "
+                })
+                ++ "mute[lane] silences a lane, delay[lane] moves it later in ms. Shuffle: shuffle[0..7] "
                 "per step of a shuffleLength cycle, scaled by globalShuffle. Lane 0 is the hats in "
                 "the shipped pattern. The pads a kit has are in the context's drums.pads.steps.",
             \velocities, MegaSASteps.velocities,

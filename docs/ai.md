@@ -24,7 +24,9 @@ nothing waits for a bar line.
 
 | | Read | Change |
 |---|---|---|
-| **The loop** | Its meter (uneven bars too), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
+| **The loop** | Its meter (uneven bars too) and how each bar is grouped (2+2+3), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
+| **Now** | Where the loop is (bar, beat, beat group), half-time, reverse, a break or a dissolve, the arc's intensity, and what lands on a coming boundary | — |
+| **Past sets** | Every set recorded with **Record set**: each take, what was played on its bar grid, the meter the analyser applied and its runners-up, and what you changed (readings, bars by hand, the threshold) | — |
 | **The drums** | Both step patterns, the kits and their pads | The patterns, the kit the steps play; save as a drum preset |
 | **The synth** | The note sequence and the Wave synth's settings | Both, and the sequencer on or off; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
@@ -32,7 +34,13 @@ nothing waits for a bar line.
 | **The Cutter** | On or off, the mode, every voice (procedure, parameters, cut synth, effects, ratio, level, pan) | All of them, voices added and removed; save as a cutter preset |
 
 It cannot change the loop, the mixer, the drums' onset kit, Repeats, reverb
-or trims, the arc (the pedal's intensity) or the MIDI map.
+or trims, the arc (the pedal's intensity) or the MIDI map, and it only reads
+the past sets.
+
+The past sets are there to prepare between rehearsals: "what did the
+analyser get wrong on Monday, and what did we play there?", "write drums for
+the 7+7+7+8 we played at 10:02". They are the logs of **Record set** in the
+`sessions` folder; a set not recorded is not there.
 
 The drums, the synth and the effects need Megalooper SA (`sa: true`, as
 `saSystem` has), where megalooper hosts them
@@ -105,7 +113,8 @@ the drum pattern lane by lane." Then ask for a change.
 
 megalooper only answers apps on this Mac. When an app asks, megalooper hands
 it the set as text: the meter, the patterns, the settings, the take's hits
-on the grid. **No audio, ever.** The app sends that text to its AI service
+on the grid, and when asked, the past sets' logs (their takes' hits and
+readings, what you changed). **No audio, ever.** The app sends that text to its AI service
 as part of your conversation, as it would anything you type. If that is
 not wanted for a set, switch AI APPS off.
 
@@ -169,7 +178,7 @@ What the app is offered, for reference. You never call these yourself.
 
 | Tool | What it does |
 |---|---|
-| `get_context` | What is playing and how it is set, the take included |
+| `get_context` | What is playing and how it is set, the take included; where the loop is now and what is coming; the AI's own changes by name |
 | `describe` | What every setting of the drums, the synth, the effects, the Grains or the Cutter means |
 | `set_drum_pattern` | Change a drum pattern (main or break) and the steps' kit |
 | `set_synth` | Change the note sequence, the Wave synth, the sequencer's switch |
@@ -178,6 +187,8 @@ What the app is offered, for reference. You never call these yourself.
 | `set_cutter` | Change the Cutter's voices, its mode, its switch |
 | `revert` | Take back the newest change, or several |
 | `save_drum_preset`, `save_synth_preset`, `save_sound`, `save_grains_preset`, `save_cutter_preset` | Save under a name, in the menus you already use |
+| `list_sets` | The sets recorded before, newest first: each take's meter, what you changed |
+| `get_set` | One recorded set in full: every take and what it played, every reading armed, landed or cancelled |
 
 Every change is checked before anything happens: a request with one wrong
 part changes nothing. Values outside a setting's range are moved into it,

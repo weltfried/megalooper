@@ -25,7 +25,11 @@
     (looper: ~looper, sa: ~megaSA, profile: ~routingProfile, drumsPresetDir: ~saDrumsPresetDir,
         synthPresetDir: ~saSynthPresetDir, soundDir: ~saFxPresetDir, grainsPresetDir: ~granularPresetDir,
         cutterPresetDir: ~bbcutPresetDir, grainParams: ~granularParams,
-        say: { |msg| ~guiSay !? { |f| f.value(msg) } }.inEnvir)
+        say: { |msg| ~guiSay !? { |f| f.value(msg) } }.inEnvir,
+        // The sets recorded before (list_sets, get_set), and where the
+        // playhead is as Perform's count predicts it (gui-status.scd).
+        sessionDir: ~sessionDir,
+        playhead: { ~countPosAt !? { |f| f.value(Main.elapsedTime) } }.inEnvir)
 };
 
 // Stops whatever runs, then starts a MegaRemote afresh if the switch is on:

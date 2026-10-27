@@ -43,7 +43,7 @@ TOOLS = SPEC["tools"]
 # The tools that hand their arguments to megalooper as they are.
 PASSED_ON = set(SPEC["passedOn"])
 # Parts get_context always keeps, whatever `parts` asks.
-ALWAYS_KEPT = {"format", "version", "profile", "standalone", "tempo", "aiChanges"}
+ALWAYS_KEPT = {"format", "version", "profile", "standalone", "tempo", "aiChanges", "aiChangeLabels"}
 REPLY_TIMEOUT = float(os.environ.get("MEGALOOPER_REPLY_TIMEOUT") or 10.0)
 POLL = 0.02
 

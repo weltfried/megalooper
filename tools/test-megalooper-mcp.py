@@ -172,10 +172,11 @@ class Protocol:
         self.assertEqual([t["name"] for t in tools],
                          ["get_context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
                           "set_cutter", "revert", "save_synth_preset", "save_sound", "save_drum_preset",
-                          "save_grains_preset", "save_cutter_preset"])
+                          "save_grains_preset", "save_cutter_preset", "list_sets", "get_set"])
         for t in tools:
             self.assertEqual(t["inputSchema"]["type"], "object")
-        self.assertEqual({t["name"] for t in tools if t["annotations"]["readOnlyHint"]}, {"get_context", "describe"})
+        self.assertEqual({t["name"] for t in tools if t["annotations"]["readOnlyHint"]},
+                         {"get_context", "describe", "list_sets", "get_set"})
         self.assertEqual({t["name"] for t in tools if t["annotations"].get("destructiveHint")},
                          {"save_drum_preset", "save_synth_preset", "save_sound", "save_grains_preset",
                           "save_cutter_preset"})
@@ -462,6 +463,19 @@ class RoundTrip:
             text, err = self.tool("describe", {"topic": topic})
             self.assertFalse(err, text)
             self.assertIn("about", json.loads(text))
+
+    def test_the_sets_and_now_over_osc(self):
+        # The peer has no sessions folder: no sets, and a set asked for is refused.
+        text, err = self.tool("list_sets", {})
+        self.assertFalse(err, text)
+        self.assertEqual(json.loads(text)["sets"], [])
+        text, err = self.tool("get_set", {"id": "261020_100000"})
+        self.assertTrue(err)
+        self.assertIn("no set", text)
+        ctx = json.loads(self.tool("get_context", {"parts": ["now"]})[0])
+        self.assertIn("now", ctx)
+        self.assertIn("aiChangeLabels", ctx)
+        self.assertNotIn("drums", ctx)
 
     def test_a_drum_change_over_osc_and_back(self):
         before = json.loads(self.tool("get_context", {"parts": ["drums"]})[0])["drums"]["patterns"]["main"]
