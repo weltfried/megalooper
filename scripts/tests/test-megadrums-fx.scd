@@ -410,22 +410,28 @@ ctl.remove;
 }.value;
 
 // ------------------------------------------------- Beat Repeat: the grid --
-// The capture points from the transport's origin: in 4/4 every 4 s here, each
-// on lane step 6; in 7/8 Live's resyncs walk them over lane steps 6, 6, 14,
-// 14, 6, 6, 14, 6, 6, 14 (the research's table), and SA's, on every bar line
-// (MegaSADrums.retrigAt \barLine, 14 16ths), over 6, 10, 0, 4, 8, 12, 2, ...
+// The capture points from the transport's origin. On Live's grid (repeatGrid
+// \live): in 4/4 every 4 s here, each on lane step 6; in 7/8 Live's resyncs
+// walk them over lane steps 6, 6, 14, 14, 6, 6, 14, 6, 6, 14 (the research's
+// table), and SA's, on every bar line (MegaSADrums.retrigAt \barLine, 14
+// 16ths), over 6, 10, 0, 4, 8, 12, 2, ... On the bars (\bars, SA's own): 6/16
+// into every second bar of the reading, so on lane step 6 every time.
 {
-var go = { |b, loopDur, result, seconds, mode = \barLine|
+var go = { |b, loopDur, result, seconds, mode = \barLine, grid = \live, switchAt|
     var fx = ~bfMake.(90.0, loopDur, \brkit, result);
     var d = fx[\drums], seen = IdentitySet.new, out = List.new, w;
     d.repeatChance = 0;
     d.retrigAt = mode;
+    d.setRepeatGrid(grid);
     ~bfPattern.(d, \main, (0: (note: 42, steps: [0])));
     ~bfStart.(fx, b);
     w = fx[\wall];
     while { w < (b + seconds) } {
         w = w + 0.02;
         fx[\wall] = w;
+        if(switchAt.notNil and: { (w - b) >= switchAt } and: { d.repeatGrid == grid }) {
+            d.setRepeatGrid(if(grid == \bars) { \live } { \bars });
+        };
         d.pump(w);
         d.captures.do { |cap|
             if(seen.includes(cap).not) { seen.add(cap); out.add([cap, d.playheadAt(cap[\tc] + 1e-6)]) };
@@ -434,6 +440,8 @@ var go = { |b, loopDur, result, seconds, mode = \barLine|
     out
 };
 var r78 = (numerator: 7, denominator: 8, k: 1, bpm: 120, loopDur: 1.75);
+var r7778 = (numerator: 7, denominator: 8, k: 4, bpm: 120, loopDur: 7.25, bars: [7, 7, 7, 8]);
+var bars78, bars7778, sw;
 var c44 = go.(92.0, 2.0, nil, 41), c78 = go.(91.75, 1.75, r78, 41, \live), b78 = go.(91.75, 1.75, r78, 41);
 ~tAssert.("captures were decided", (c44.size >= 10) and: { c78.size >= 10 });
 ~tEqArray.("4/4: a capture 6/16 into every 2 bars (8 quarter notes, 4 s at 120 BPM)",
@@ -450,6 +458,37 @@ var c44 = go.(92.0, 2.0, nil, 41), c78 = go.(91.75, 1.75, r78, 41, \live), b78 =
 ~tEq.("...on lane steps 6, 10, 0, 4, 8, 12, 2, 6, 10, 0 (every bar of 14 16ths starts again)",
     b78.keep(10).collect { |x| x[1] !? { |p| p[\ls] % 16 } }.asArray, [6, 10, 0, 4, 8, 12, 2, 6, 10, 0]);
 ~tEq.("...the capture index counted from the origin", c78.keep(3).collect { |x| x[0][\c] }.asArray, [0, 1, 2]);
+~tEq.("SA's drums capture on the bars by default", MegaSADrums((server: ~tStubServer.())).repeatGrid, \bars);
+bars78 = go.(91.75, 1.75, r78, 20, \barLine, \bars);
+~tEqArray.("on the bars, 7/8: 6/16 into every second bar (a bar 1.75 s)", bars78.keep(5).collect { |x| x[0][\tc] - 91.75 },
+    (0..4).collect { |c| 0.75 + (3.5 * c) }, 1e-9);
+~tEq.("...each on lane step 6, the bar's sixth 16th", bars78.keep(5).collect { |x| x[1] !? { |p| p[\ls] % 16 } }.asArray,
+    Array.fill(5, 6));
+bars7778 = go.(90.0, 7.25, r7778, 16, \barLine, \bars);
+~tEqArray.("...7+7+7+8: into bars 1 and 3 of every cycle (bar lines at 0, 1.75, 3.5, 5.25 s; 7.25 a cycle)",
+    bars7778.keep(4).collect { |x| x[0][\tc] - 90.0 }, [0.75, 4.25, 8.0, 11.5], 1e-9);
+sw = go.(91.75, 1.75, r78, 16, \barLine, \bars, 4.0);
+~tEqArray.("switched to Live's grid at 4 s, before the bars' 4.25 is decided: from there on its 8 quarters",
+    sw.keep(4).collect { |x| x[0][\tc] - 91.75 }, [0.75, 4.75, 8.75, 12.75], 1e-9);
+}.value;
+
+// Beat Repeat's grid in a preset, by name.
+{
+var d = MegaSADrums((server: ~tStubServer.())), data, notes = List.new;
+d.setRepeatGrid(\live);
+data = d.presetData("x");
+~tEq.("a drums preset holds the repeats' grid", [data[\repeatGrid], d.presetString(data).contains("repeatGrid: \"live\"")],
+    ["live", true]);
+d.setRepeatGrid(\bars);
+~tEq.("...and puts it back", [d.applyPresetData(data, notes), d.repeatGrid], [true, \live]);
+~tEq.("...one from before it leaves the grid as it is",
+    [d.applyPresetData(data.copy.put(\repeatGrid, nil), notes), d.repeatGrid], [true, \live]);
+notes = List.new;
+~tEq.("...one that is no grid is said, and kept", [d.applyPresetData(data.copy.put(\repeatGrid, "odd"), notes), d.repeatGrid,
+    notes.any { |n| n.contains("repeatGrid") }], [true, \live, true]);
+d.setRepeatGrid(\weekly);
+~tEq.("a grid that is none is refused", d.repeatGrid, \live);
+d.free;
 }.value;
 
 // ----------------------------------------- Beat Repeat: one capture, its repeats --
@@ -753,9 +792,9 @@ text = File.readAllString(dir +/+ "my-groove.scd") ? "";
 ~tAssert.("...one SC literal, its comments first, none trailing", text.beginsWith("//") and: {
     text.stripWhiteSpace.endsWith(")") });
 data = text.interpret;
-~tEq.("...holding both patterns, the kits, trims, Beat Repeat, the reverb, the offset and the dice (and not on/off or the break)",
+~tEq.("...holding both patterns, the kits, trims, Beat Repeat and its grid, the reverb, the offset and the dice (and not on/off or the break)",
     data !? { |x| x.keys.asArray.sort }, [\break, \dice, \groupTrims, \main, \name, \offsetMs, \onsetKit, \padTrims,
-        \repeats, \reverbMix, \savedAt, \stepsKit, \version]);
+        \repeatGrid, \repeats, \reverbMix, \savedAt, \stepsKit, \version]);
 ~tEq.("...the kits by key, the trims as [kit, key, dB]", data !? { |x| [x[\stepsKit], x[\padTrims], x[\groupTrims]] },
     ["brkit", [["brkit", 42, -3.5]], [["brkit", "layer", -6.0]]]);
 d.resetPattern(\main);

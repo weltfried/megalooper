@@ -542,6 +542,12 @@
                         view.enabled_(false);
                     };
                 },
+                // Where the repeats capture: on the bars or Live's grid,
+                // greyed with the repeats where the kit has none.
+                \repeatGrid, {
+                    view.states_([[if(v == \live) { "On Live's grid" } { "On the bars" }, ~gt[\ink], ~gt[\panel]]]);
+                    view.enabled_(w[\available].value == true);
+                },
                 // The dice: new at every Start, or kept (its seed shown).
                 \dice, {
                     view.states_([if(v.isNil) { ["New every Start", ~gt[\ink], ~gt[\panel]] }
@@ -639,7 +645,7 @@
 
 ~drumsRefreshAll = {
     var m = ~megaSA;
-    [\on, \breakActive, \repeats, \reverbMix, \reverbState, \offsetMs].do { |k| ~drumsPaint.(k) };
+    [\on, \breakActive, \repeats, \repeatGrid, \dice, \reverbMix, \reverbState, \offsetMs].do { |k| ~drumsPaint.(k) };
     [\steps, \onset].do { |slot|
         ~drumsPaint.(~drumsKitKey.(slot));
         ~drumsPaint.(~drumsKitLineKey.(slot));
@@ -664,6 +670,7 @@
         ~drumsRefreshNoteItems.();
         4.do { |lane| ~drumsRefreshLaneRow.(lane) };
         ~drumsPaint.(\repeats);
+        ~drumsPaint.(\repeatGrid);
     };
     ~drumsRebuildTrims.();
     if(#[\partial, \missing, \failed].includes(state)) {
@@ -1219,6 +1226,23 @@
     b
 };
 
+// Where the repeats capture (MegaSADrums.repeatGrid): 6/16 into every second
+// bar of the reading, or every 8 quarter notes as Live's device did.
+~drumsRepeatGridButton = {
+    var b = ~drumsButton.().fixedWidth_(150).cycles_(false)
+        .toolTip_("Where the repeats capture, 6/16 into every second bar.\n"
+            "On the bars, the default: the reading's bars, uneven ones too, so every capture\n"
+            "falls on the same step of its bar. On Live's grid: every 8 quarter notes from the\n"
+            "start, as Live's device did, so in 7/8 they walk across the bar lines.\n"
+            "Click for the other. Kept in a preset and by Start with this.")
+        .action_({ ~drumsModel.() !? { |d| d.setRepeatGrid(if(d.repeatGrid == \live) { \bars } { \live }) } });
+    ~drumsWidgets.put(\repeatGrid, (kind: \repeatGrid, view: b,
+        get: { ~drumsModel.() !? { |d| d.repeatGrid } },
+        available: { (~drumsModel.() !? { |d|
+            d.kit(\steps) !? { |k| d.kitInfo(k) !? { |i| i[\hasRepeats] } } }) == true }));
+    b
+};
+
 ~drumsGroupTrimCell = { |kit, group|
     var name = kit.groupName(group) ? group.asString;
     ~drumsKnobCell.((key: ~drumsGroupKey.(group), id: ("sa.drums.groupTrim.steps." ++ group).asSymbol,
@@ -1296,7 +1320,7 @@
     [
         ~drumsTitle.("Kits"),
         HLayout(~drumsRowLabel.("Steps kit:"), ~drumsKitMenu.(d, \steps), ~drumsKitLineText.(\steps),
-            ~drumsRepeatsButton.()).spacing_(4),
+            ~drumsRepeatsButton.(), ~drumsRepeatGridButton.()).spacing_(4),
         HLayout(~drumsRowLabel.("Onset kit:"), ~drumsKitMenu.(d, \onset),
             ~drumsKitLineText.(\onset)).spacing_(4),
         ~drumsTrimHolder = View().layout_(VLayout().margins_(0).spacing_(0)),
@@ -1508,6 +1532,7 @@
                 { [\steps, \onset].do { |s| ~drumsPaint.(~drumsTrimKey.(s, note)) } }.defer })
             .put(\groupTrim, { |obj, what, slot, group| { ~drumsPaint.(~drumsGroupKey.(group)) }.defer })
             .put(\repeats, { { ~drumsPaint.(\repeats) }.defer })
+            .put(\repeatGrid, { { ~drumsPaint.(\repeatGrid) }.defer })
             .put(\dice, { { ~drumsPaint.(\dice) }.defer })
             .put(\mix, { |obj, what, name| { ~drumsPaint.(name) }.defer })
             // Wet or dry: the Reverb row greys and its line says why.

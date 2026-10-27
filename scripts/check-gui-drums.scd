@@ -581,6 +581,16 @@ Routine {
         rb.valueAction_(0);
         tick.();
         ok.("another lets them go", d.keptDice.isNil and: { rb.states[0][0] == "New every Start" });
+        // Where the repeats capture: on the bars, or Live's grid.
+        rb = ~drumsWidgets[\repeatGrid][\view];
+        ok.("the repeats capture on the bars to begin with", (d.repeatGrid == \bars) and: { rb.states[0][0] == "On the bars" }
+            and: { rb.enabled }, [d.repeatGrid, rb.states].asString);
+        rb.valueAction_(0);
+        tick.();
+        ok.("a click puts them on Live's grid", (d.repeatGrid == \live) and: { rb.states[0][0] == "On Live's grid" });
+        rb.valueAction_(0);
+        tick.();
+        ok.("another back on the bars", d.repeatGrid == \bars);
         om.valueAction_(om.items.indexOfEqual("808 Core Kit"));
         tick.();
         ok.("the onset menu sets the onset kit", d.kit(\onset) == 'core-808');

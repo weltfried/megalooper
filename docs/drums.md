@@ -164,7 +164,11 @@ Each pattern has its own timing, under the lanes:
   lanes play and the onset pad, −24 to 12 dB. They are kept with each kit.
 - **Repeats**, beside the steps kit, makes a pad's 16th repeat now and then,
   falling in pitch and level. Only a kit made with repeats has it; it starts
-  off.
+  off. The tile beside it says where they capture, 6/16 into every second bar:
+  **On the bars** (the default), the reading's bars, uneven ones too, so a
+  capture always falls on the same step of its bar; or **On Live's grid**,
+  every 8 quarter notes from the start, as Live's device did, so in 7/8 they
+  walk across the bar lines. Click it for the other.
 
 ## Presets and Start with this
 

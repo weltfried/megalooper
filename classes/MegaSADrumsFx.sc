@@ -381,6 +381,9 @@ MegaSADrumsFx {
     // into its grid (a quarter is 480 ticks, a 16th one s16).
 
     *beatRepeatChance { ^0.236220479 }
+    // The Interval in bars, where the drums capture on the reading's bars
+    // (MegaSADrums.repeatGrid \bars).
+    *beatRepeatBars { ^2 }
     *beatRepeatInterval { ^8 }
     *beatRepeatOffset { ^1.5 }
     *beatRepeatGrid { ^0.25 }

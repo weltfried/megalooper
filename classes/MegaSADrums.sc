@@ -184,6 +184,11 @@ MegaSADrums {
     // (in grid order), its switch as a condition history, the chance per pad
     // per capture, and the repeats a rewind could no longer cancel.
     var <captures, captureCursor, repeatMemory, repeatHist, <>repeatChance, lockedRepeats;
+    // Where Beat Repeat's capture points fall (setRepeatGrid): \bars, 6/16
+    // into every second bar of the reading, uneven bars too; \live, as Live's
+    // device did, 6/16 into every 8 quarter notes from the origin, which in
+    // 7/8 walks across the bar lines.
+    var <repeatGrid = \bars;
     // The session log: every hit sent, until it has been heard (logQueue);
     // what the log was last told of the transport (logState: nil until a
     // recording's first look); when a failing log was last posted.
@@ -1015,6 +1020,26 @@ MegaSADrums {
         this.prNotify(\repeats, repeats);
     }
 
+    // Beat Repeat's capture points on the reading's bars (\bars) or on Live's
+    // grid of 8 quarter notes (\live): see repeatGrid. From the next capture
+    // whose slice has not ended; those decided keep their repeats. Notifies
+    // \repeatGrid, mode.
+    setRepeatGrid { |mode|
+        var wall, ep;
+        if(#[\bars, \live].includes(mode).not) {
+            ("MegaSADrums: repeatGrid is \\bars or \\live, not " ++ mode.asCompileString).warn;
+            ^this
+        };
+        if(mode == repeatGrid) { ^this };
+        repeatGrid = mode;
+        if(alive) {
+            wall = wallClock.value;
+            ep = this.prEpochAt(wall);
+            ep !? { captureCursor = (epoch: ep[\id], c: this.prCaptureIndexAt(ep, (this.prTicksAt(ep, wall) - 120).max(0))) };
+        };
+        this.prNotify(\repeatGrid, mode);
+    }
+
     prSlotOk { |slot, loud|
         if((slot == \steps) or: { slot == \onset }) { ^true };
         if(loud) { ("MegaSADrums: no kit slot " ++ slot ++ "; there are \\steps and \\onset.").warn };
@@ -1116,10 +1141,10 @@ MegaSADrums {
     // One preset is the drums as a player sets them up: both patterns whole
     // (every page, the per-page lengths, the global lengths and locks, the
     // lanes' settings and the timing), the two kits by key, every pad and
-    // group trim (per kit key, as they are kept), Beat Repeat's switch, the
-    // reverb, the offset and the dice (kept: the seed; false: new ones); one
-    // SC literal in `dir`/<slug>.scd, written and read like MegaSA's effects
-    // presets. Not in it: PC 17's on/off and the break, which are the
+    // group trim (per kit key, as they are kept), Beat Repeat's switch and
+    // grid, the reverb, the offset and the dice (kept: the seed; false: new
+    // ones); one SC literal in `dir`/<slug>.scd, written and read like
+    // MegaSA's effects presets. Not in it: PC 17's on/off and the break, which are the
     // performance's, and the mixer's levels, which are MegaSA's. A preset
     // naming other kits switches to them (setKit).
     //
@@ -1207,7 +1232,7 @@ MegaSADrums {
         ^(version: this.class.presetVersion, name: (name ? "").asString, savedAt: Date.getDate.stamp,
             stepsKit: kitOf.(\steps), onsetKit: kitOf.(\onset),
             repeats: repeats, reverbMix: reverbMix.asFloat, offsetMs: offsetMs.asFloat,
-            dice: keptDice ? false,
+            dice: keptDice ? false, repeatGrid: repeatGrid.asString,
             padTrims: rows.(padTrims), groupTrims: rows.(groupTrims),
             main: patterns[\main].deepCopy, break: patterns[\break].deepCopy)
     }
@@ -1230,6 +1255,8 @@ MegaSADrums {
                     ++ field.(\stepsKit, data[\stepsKit].asCompileString),
                 field.(\onsetKit, data[\onsetKit].asCompileString),
                 field.(\repeats, data[\repeats].asCompileString),
+                "    // Where the repeats capture: \"bars\" (every 2 of the reading's) or \"live\" (8 quarters)\n"
+                    ++ field.(\repeatGrid, (data[\repeatGrid] ? "bars").asString.asCompileString),
                 field.(\reverbMix, data[\reverbMix].asCompileString),
                 field.(\offsetMs, data[\offsetMs].asCompileString),
                 "    // The dice: a seed every Start plays, or false for new dice every Start\n"
@@ -1373,8 +1400,12 @@ MegaSADrums {
         { data[\dice] == false } { clean.put(\dice, false) }
         { data[\dice].isInteger and: { data[\dice] >= 0 } } { clean.put(\dice, data[\dice]) }
         { notes.add("dice " ++ data[\dice].asCompileString ++ " is not a seed (0 or more) or false (kept)") };
+        case
+        { data[\repeatGrid].isNil } { }
+        { #["bars", "live"].includesEqual(data[\repeatGrid].asString) } { clean.put(\repeatGrid, data[\repeatGrid].asSymbol) }
+        { notes.add("repeatGrid " ++ data[\repeatGrid].asCompileString ++ " is not \"bars\" or \"live\" (kept)") };
         known = #[\version, \name, \savedAt, \main, \break, \stepsKit, \onsetKit, \padTrims, \groupTrims,
-            \repeats, \reverbMix, \offsetMs, \dice];
+            \repeats, \repeatGrid, \reverbMix, \offsetMs, \dice];
         data.keys.do { |k| if(known.includes(k).not) { notes.add(k.asString ++ " is no drums field (ignored)") } };
         ^clean
     }
@@ -1426,8 +1457,8 @@ MegaSADrums {
     // Apply a checked preset through the setters, so every change reaches
     // the server and its notification: the kits first (setKit, if it names
     // others), the trims (each one that moved for the kits in the slots
-    // notified), the patterns, Beat Repeat, the reverb, the offset and the
-    // dice.
+    // notified), the patterns, Beat Repeat and its grid, the reverb, the
+    // offset and the dice.
     prApplyPreset { |clean|
         var oldPads = padTrims, oldGroups = groupTrims;
         [[\stepsKit, \steps], [\onsetKit, \onset]].do { |pair|
@@ -1451,6 +1482,7 @@ MegaSADrums {
         };
         [\main, \break].do { |which| this.prReplacePattern(which, clean[which]) };
         clean[\repeats] !? { |flag| if(flag != repeats) { this.setRepeats(flag) } };
+        clean[\repeatGrid] !? { |mode| this.setRepeatGrid(mode) };
         clean[\reverbMix] !? { |v| this.setReverbMix(v) };
         clean[\offsetMs] !? { |v| this.setOffsetMs(v) };
         clean[\dice] !? { |v| this.setDice(v) };
@@ -2380,7 +2412,8 @@ MegaSADrums {
     // ---- Beat Repeat --------------------------------------------------------
     // Every Kit-Carbon pad has its own Beat Repeat in the set, all alike
     // (MegaSADrumsFx.beatRepeat*): every 2 bars of 4 quarter notes from the
-    // transport's origin, 6/16 in, it draws its chance, and if it fires it
+    // transport's origin, 6/16 in (repeatGrid \live; on SA by default every 2
+    // of the reading's bars, \bars), it draws its chance, and if it fires it
     // captures a 16th of the pad's output and plays it 5 times more, each a
     // little lower and quieter, until 6/16 after the capture point; the dry
     // passes (Mix mode). The capture points are counted in ticks from the
@@ -2416,6 +2449,37 @@ MegaSADrums {
     // The layers Beat Repeat replays: the pads' own chains in the set.
     *repeatGroup { ^\carbon }
 
+    // The tick of capture point c in epoch ep: on Live's grid, 6/16 into
+    // every 8 quarter notes from the origin (MegaSADrumsFx.captureTick); on
+    // the bars, 6/16 into bar 2c, counted from the epoch's start across its
+    // landings (a bar of 7/8, of 8/8, as the reading has them).
+    prCaptureTick { |ep, c|
+        ^if(repeatGrid == \live) { MegaSADrumsFx.captureTick(c) } {
+            this.prTickOfBar(ep, c * MegaSADrumsFx.beatRepeatBars) + MegaSADrumsFx.captureTick(0)
+        }
+    }
+
+    // The first capture point at or after `tick`.
+    prCaptureIndexAt { |ep, tick|
+        var c;
+        if(repeatGrid == \live) { ^MegaSADrumsFx.captureIndexAt(tick) };
+        c = (this.prBarAt(this.prSegAtTick(ep, tick), tick) div: MegaSADrumsFx.beatRepeatBars).max(0);
+        while { this.prCaptureTick(ep, c) < (tick - 1e-9) } { c = c + 1 };
+        ^c
+    }
+
+    // The tick bar b (counted from the epoch's start) begins on, in the
+    // segment whose bars it is among: the last that began at or before it.
+    prTickOfBar { |ep, b|
+        var segs = ep[\segs], i = segs.size - 1, seg, starts, per, rel;
+        while { (i > 0) and: { (segs[i][\bar0] ? 0) > b } } { i = i - 1 };
+        seg = segs[i];
+        starts = seg[\barStarts] ? [0];
+        per = starts.size.max(1);
+        rel = (b - (seg[\bar0] ? 0)).max(0);
+        ^seg[\tick0] + ((rel div: per) * (seg[\loopTicks] ? 1920)) + starts[rel % per]
+    }
+
     // The next capture point to decide, or nil: the cursor moves on to the
     // next epoch where one begins, and idles while the transport does not
     // play. Its time is the end of its slice.
@@ -2433,10 +2497,10 @@ MegaSADrums {
                 // derive it again from a later wall and pass a capture by.
                 wall = wallClock.value;
                 ep = this.prEpochAt(wall) ?? { epochs.first };
-                cur = (epoch: ep[\id], c: MegaSADrumsFx.captureIndexAt((this.prTicksAt(ep, wall) - 120).max(0)));
+                cur = (epoch: ep[\id], c: this.prCaptureIndexAt(ep, (this.prTicksAt(ep, wall) - 120).max(0)));
                 captureCursor = cur;
             };
-            tick = MegaSADrumsFx.captureTick(cur[\c]);
+            tick = this.prCaptureTick(ep, cur[\c]);
             tc = this.prTimeOfTick(ep, tick);
             nextEp = this.prEpochAfter(ep);
             case
