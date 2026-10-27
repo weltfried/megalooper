@@ -309,6 +309,13 @@ s.waitForBoot {
     ~ok.("the strip says no take", ~guiTakeLabel.string == "no take", ~guiTakeLabel.string);
     ~ok.("the band's take says none yet", ~guiTakeHead.string == "TAKE · NONE YET", ~guiTakeHead.string);
     ~ok.("the position says no loop", ~statusPositionWords.()[0] == "NO LOOP");
+    // The count's routine has run (it leaves what it showed) and has nothing
+    // to count; its block sits under the state block, as wide.
+    ~ok.("the count has nothing to count with no loop",
+        ~countShown.notNil and: { ~countShown[\c].isNil } and: { ~countShown[\why] == "no loop" }, ~countShown.asString);
+    ~ok.("the count is as wide as the state block above it",
+        ~statusCountView.bounds.width == ~statusStateLabel.bounds.width,
+        ~statusCountView.bounds.width.asString + "vs" + ~statusStateLabel.bounds.width.asString);
 
     "== a timed break really ends (live server, real routine) ==".postln;
     // The headless suite drives endBreak through a routine synchronously; this

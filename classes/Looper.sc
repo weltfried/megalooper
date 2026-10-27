@@ -241,6 +241,9 @@ Looper {
     // restart:) — or nil. Published as \reading so the header can count down.
     var <pendingReading;
     var readingRoutine, readingSeq = 0;
+    // The reading in force until a landing's `at`: lastResult swaps a little
+    // before it (prLandReading), and countResult answers this meanwhile.
+    var landingFrom;
     // Where Live's tick count stands: clockTicksAtRef ticks had gone out at
     // SystemClock time clockRefTime, and clockTickRate per second have gone out
     // since. Set by every aligned Start, moved by every reading that changes
@@ -296,7 +299,7 @@ Looper {
     // CutMixer) stashed on its config Event, so structural changes touch only
     // the affected voice. `bbcutBuffer` is the single shared snapshot buffer.
     var bbcutBuffer;
-    var bbcutEnabling = false;
+    var <bbcutEnabling = false;
     // When the current engine started, in SystemClock (logical) seconds: the
     // anchor every language-side layer counts the loop from. Readable for
     // Megalooper SA's drums, which put their grid on it.
@@ -954,6 +957,37 @@ Looper {
     // to start the cutter (see enableBBCut) is only honest if the UI can say WHY.
     hasValidMeter { ^this.prHasValidMeter }
 
+    // The reading the loop plays by now. lastResult, but for the moment
+    // before a reading lands: it swaps 20 ms before the boundary, or half a
+    // second when the cutter must be respawned for it (prLandReading), and
+    // until the boundary the loop still plays by the one before.
+    countResult { ^if(pendingReading.notNil) { landingFrom ? lastResult } { lastResult } }
+
+    // What the count on Perform counts to: each event whose time is known
+    // ahead, as (what:, at:), `at` in SystemClock seconds, the time the engine
+    // plays it. A break's end; a reading landing; the next loop's record
+    // starting, or ending once asked to; the cutter coming in. The last three
+    // wait for the next boundary from loopStartTime, as they do themselves.
+    upcoming { |now|
+        var list = List.new;
+        now = now ? SystemClock.seconds;
+        breakEndsAt !? { |t| list.add((what: \break, at: t)) };
+        pendingReading !? { |p| list.add((what: \reading, at: p[\at])) };
+        if(this.loopDuration > 0) {
+            if(nextRecState == \armed) { list.add((what: \recordNextLoop, at: this.prNextBoundaryAt(now))) };
+            if(nextRecState == \stopping) { list.add((what: \recordNextLoopEnds, at: this.prNextBoundaryAt(now))) };
+            if(bbcutEnabling and: { bbcut.not }) { list.add((what: \cutter, at: this.prNextBoundaryAt(now))) };
+        };
+        ^list.asArray
+    }
+
+    // The next loop boundary after `now`, counted from loopStartTime as the
+    // reading, the next loop and the cutter count it.
+    prNextBoundaryAt { |now|
+        var ld = this.loopDuration, origin = loopStartTime ? now;
+        ^origin + ((((now - origin) / ld).floor + 1) * ld)
+    }
+
     // Fold a position in seconds onto the analysed grid.
     //
     // A CLASS method taking everything as arguments, for the same reason
@@ -1023,6 +1057,80 @@ Looper {
         out[\barCount]    = cycles * bars.size;
         out[\bar]         = ((beat div: units) * bars.size) + idx + 1;
         out[\beat]        = (within - start) + 1;
+        ^out
+    }
+
+    // The count on Perform: where the playhead is in its bar's beat groups,
+    // and how far an event on its way is. A class method on its arguments, as
+    // loopPositionAt is, and built on it, so the count says what the header
+    // says: `bar` and `beat` are loopPositionAt's, and every key of it is here.
+    //
+    // The groups are the analyser's (MeterAnalyzer.beatGrouping): 7/8 is
+    // 2+2+3, an 8/8 bar 2+2+2+2, 12/8 3+3+3+3, 4/4 four groups of one beat.
+    // Added to loopPositionAt's answer, nil where it has no grid:
+    //   groups      the groups of the bar the playhead is in, in beats
+    //   group       the group it is in, from 1; groupBeat, its beat in it
+    //   nextBeatsPerBar  the bar the playhead comes to next
+    //   barOdd, nextOdd  that bar, or the next, is the odd one of uneven bars
+    //               (7 7 7 8: nextOdd all through the third bar)
+    //   toEdge      seconds to the next beat line the playhead crosses
+    //   countdown   given `until`, the seconds to an event on its way: in the
+    //               last bar before it, the groups left, this one counted
+    //               (3, 2, 1 in 7/8); nil until that bar
+    //   loopsLeft   given `until`: the passes to it, from 1
+    // Every event that can be counted to lands on a loop boundary, so its last
+    // bar is the loop's last (its first when `reversed`). Backwards the
+    // playhead plays the groups from the top, and counts down to the bar line
+    // it reaches last.
+    *beatCountAt { |posSecs, result, loopDur, until, reversed = false|
+        var out = this.loopPositionAt(posSecs, result, loopDur);
+        var beatDur, totalBeats, bars, units, y, x, idx, beat0, acc = 0, heads, e, c, within, start, i;
+        out.putAll((groups: nil, group: nil, groupBeat: nil, nextBeatsPerBar: nil,
+            barOdd: false, nextOdd: false, toEdge: nil, countdown: nil, loopsLeft: nil));
+        if(out[\bar].isNil) { ^out };
+        beatDur    = result[\tau] * (result[\sub] ? 1);
+        totalBeats = (loopDur / beatDur).round.asInteger.max(1);
+        bars       = MeterAnalyzer.barsOf(result);
+        units      = bars.sum;
+        // In beats from beat one, folded into the loop; x carries
+        // loopPositionAt's microbeat, so a group changes where its beat does.
+        y = ((posSecs.clip(0, loopDur) - (result[\downbeatPhase] ? 0)) / beatDur).mod(totalBeats);
+        x = y + 1e-6;
+        // The bar, and its groups
+        idx   = (out[\bar] - 1) % bars.size;
+        beat0 = out[\beat] - 1;
+        out[\groups] = MeterAnalyzer.beatGrouping(out[\beatsPerBar], result[\denominator] ? 4);
+        out[\group] = out[\groups].detectIndex { |g| acc = acc + g; beat0 < acc } + 1;
+        out[\groupBeat] = beat0 - (out[\groups].keep(out[\group] - 1).sum) + 1;
+        out[\nextBeatsPerBar] = bars.wrapAt(idx + (if(reversed) { -1 } { 1 }));
+        out[\barOdd]  = MeterAnalyzer.isUneven(result) and: { out[\beatsPerBar] != result[\numerator] };
+        out[\nextOdd] = MeterAnalyzer.isUneven(result) and: { out[\nextBeatsPerBar] != result[\numerator] };
+        out[\toEdge] = beatDur * if(reversed) { y - y.ceil + 1 } { y.floor + 1 - y };
+        if(until.isNil or: { until <= 0 }) { ^out };
+        out[\loopsLeft] = ((until / loopDur) - 1e-9).ceil.asInteger.max(1);
+        // The event, in beats on the same line, unfolded: past the loop's end,
+        // or below its start backwards. Its last bar is the one the playhead
+        // crosses into it from.
+        e = y + ((if(reversed) { -1 } { 1 }) * until / beatDur);
+        e = e + (if(reversed) { 1e-6 } { -1e-6 });
+        c = (e / units).floor;
+        within = e - (c * units);
+        start = 0;
+        i = 0;
+        while { (i < (bars.size - 1)) and: { (start + bars[i]) <= within } } {
+            start = start + bars[i];
+            i = i + 1;
+        };
+        start = start + (c * units);
+        if((x < start) or: { x >= (start + bars[i]) }) { ^out };
+        acc = 0;
+        heads = MeterAnalyzer.beatGrouping(bars[i], result[\denominator] ? 4)
+            .collect { |g| var h = start + acc; acc = acc + g; h };
+        out[\countdown] = if(reversed) {
+            heads.count { |h| (h >= (e - 2e-6)) and: { h <= x } }
+        } {
+            heads.count { |h| (h > x) and: { h < e } } + 1
+        };
         ^out
     }
 
@@ -3708,6 +3816,7 @@ Looper {
         readingRoutine = this.prStopRoutine(readingRoutine);
         readingSeq = readingSeq + 1;
         seq = readingSeq;
+        landingFrom = nil;
         currentLoop = ((now - origin) / loopSecs).floor;
         nextAt = origin + ((currentLoop + 1) * loopSecs);
         // Where Live's tick count will stand at that boundary, if a Start has
@@ -3754,6 +3863,7 @@ Looper {
         result  = p[\result];
         landAt  = p[\at];
         respawn = bbcut and: { Looper.prReadingChangesCutter(lastResult, result) };
+        landingFrom = lastResult;
         lastResult = result;
         if(respawn) { this.enableBBCut };
         // Conditional, so a landing whose boundary has passed — which is how
@@ -3762,6 +3872,7 @@ Looper {
         if(seq != readingSeq) { ^this };   // cancelled or re-armed meanwhile
         readingIndex   = p[\index];
         pendingReading = nil;
+        landingFrom    = nil;
         // The clock: a new period from this tick, and the tick reference moved
         // to this boundary so the next reading can find Live's bar line again.
         // When no boundary in reach could carry it, Start goes out again — the
@@ -3813,6 +3924,7 @@ Looper {
         readingRoutine = this.prStopRoutine(readingRoutine);
         // Bumped so a landing in flight belongs to a reading that no longer is.
         readingSeq = readingSeq + 1;
+        landingFrom = nil;
         if(pendingReading.notNil) {
             this.prLogEvent(\readingCancelled, (index: pendingReading[\index]));
             pendingReading = nil;

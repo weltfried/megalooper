@@ -427,7 +427,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 ![The Perform view](images/perform.png)
 
-*Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3. Under the status band, a column per layer, then the actions and the macros.*
+*Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3, which the count under the state block shows as group 2 of 2+2+3. Under the status band, a column per layer, then the actions and the macros.*
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
@@ -437,10 +437,11 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 │ LOOPER STATE   │ TAKE · DETECTED                          │ INPUT              │
 │ ▶ PLAYING      │ 7/8   103.2   2   Dm                     │ ▇▇▇▇▇▇▇▇▇░░ -9 dB  │  the status band
 │ R → overdub    │ [or 7/4 @ 206.4?] close call: press A    │ ■ Onset thr 0.50   │  (Perform only)
-├────────────────┴──────────────────────────────────────────┴────────────────────┤
-│ BAR 2/2 · BEAT 3/7                                              2.44 / 8.14 s  │
-│ │1 2 3 4 5 6 7│1 2 ▓ 4 5 6 7│ ← the beat under the playhead, in the state's colour
-├──────┬────────┬────────┬─────────┬───────┬───────┬─────────────────────────────┤
+├────────────────┼──────────────────────────────────────────┴────────────────────┤
+│ COUNT · 2+2+3  │ BAR 2/2 · BEAT 3/7                            2.44 / 8.14 s   │
+│ 2  ■□  BAR 2/2 │ │1 2┊3 4┊5 6 7│1 2┊▓ 4┊5 6 7│ ← the beat that plays           │
+│ ▬▬ ██ ▭▭▭      │    ┊ a group's head; every other group shaded                 │
+├──────┬────────┬┴───────┬─────────┬───────┬───────┬─────────────────────────────┤
 │ Loop │ Cutter │ Grains │ Effects │ Drums │ Synth │ ACTIONS · FOOTSWITCH        │
 │[FWD] │ [ON]   │ [OFF]  │ [2 ON]  │[MAIN] │ [OFF] │ Trigger  Stop  Break        │  Perform
 │ ...  │ ...    │ ...    │ ...     │ ...   │ ...   │ Next reading  Dissolve      │
@@ -471,8 +472,10 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
   signature, BPM, bars, key, and the reading chip (`or 7/4 @ 206.4?` on a close
   call, `→ 7/4 @ 206.4 BPM · 2 bars · lands in 1 loop` while a reading is
   armed) with **Revert**;
-  the **input** — the level in dB and the **onset lamp**; and the **bar grid**,
-  a cell per beat with the bar lines in ink and the beat under the playhead
+  the **input** — the level in dB and the **onset lamp**; under the state
+  block the **count**, the beat group the loop is in, big, with the count-in
+  before an event; and beside it the **bar grid**, a cell per beat with the
+  bar lines in ink, the beat groups marked and the beat under the playhead
   filled. On every other view it folds into a 56 px **strip** — state, take,
   position, lamp and meter — so they never leave the screen.
 - **The views**:
@@ -589,14 +592,43 @@ notifications, so nothing here can be clicked into a state you didn't intend.
 
 ![The status band](images/status-band.png)
 
-*Fig: The status band on Perform: the looper's state, the take as it was read (7+7+7+8/8 at 103.2 BPM, four bars, D minor), the input, and the bar grid with the beat that is playing.*
+*Fig: The status band on Perform: the looper's state, the take as it was read (7+7+7+8/8 at 103.2 BPM, four bars, D minor), the input, the count (group 2 of the bar's 2+2+3) and the bar grid with the beat that is playing.*
 
-- **Bar grid** — a cell per beat, bar lines in ink, the beats played this pass
-  shaded and the beat under the playhead filled in the state's colour (the
-  hatch on a break), with `BAR 2/2 · BEAT 3/7` and `3.42 / 7.00 s` over it.
-  Read straight off the engine's own phase bus at 20 Hz, so it cannot drift
-  against the audio. With no meter detected it falls back to elapsed/total
-  alone rather than inventing a beat. **Bar 1 beat 1 is where you pressed
+- **Count** — the beat group the loop is in, big enough to read across the
+  stage. The groups are the analyser's: 7/8 is 2+2+3, an 8/8 bar 2+2+2+2,
+  12/8 four threes, 5/8 2+3; in 4/4 each beat is its own group, so the count
+  is the beat. Beside the number, the group's beats as squares (filled up to
+  the one playing), the bar, and the bar's groups as a strip. On uneven bars
+  the odd one is flagged a bar ahead: all through the third bar of
+  7+7+7+8, `8 NEXT` stands in the corner, and the caption says `THE 8` while
+  it plays.
+
+  **The count-in.** Before something that lands on the next loop boundary — a
+  break's end, a reading, the next loop's recording (and its close), the
+  cutter coming in — the caption says what and how many loops away
+  (`BACK IN 1 LOOP`). In the last bar before it the block turns yellow and
+  counts the groups left, `3 2 1` in 7/8 or `4 3 2 1` in an 8/8 bar, and the
+  grid outlines that bar; on the boundary it shows the event's word (`BACK`,
+  `NEW`, `REC`, `LOOP`, `CUT`) for one group. An event cancelled before its
+  boundary says nothing.
+
+  The count is drawn **on** the beat, not sampled: between the 20 Hz reads of
+  the engine's phase bus the playhead is predicted from the last one, and the
+  count's routine sleeps to the next beat line. The grid is painted from the
+  same prediction, so the two never show different beats.
+
+![The count-in](images/count-in.png)
+
+*Fig: The count-in: the next loop is armed and the playhead is in the last bar of 7+7+7+8, its third group. Two groups to go; the grid outlines the bar.*
+
+- **Bar grid** — a cell per beat, bar lines in ink, a heavier line at each
+  beat group's head with every other group faintly shaded, the odd bar of
+  uneven bars marked along its top, the beats played this pass shaded and the
+  beat under the playhead filled in the state's colour (the hatch on a break),
+  with `BAR 2/2 · BEAT 3/7` and `3.42 / 7.00 s` over it. Read off the engine's
+  own phase bus 20 times a second and predicted between the reads, so it
+  cannot drift against the audio. With no meter detected it falls back to
+  elapsed/total alone rather than inventing a beat. **Bar 1 beat 1 is where you pressed
   record** — the same downbeat the drums' step 1, the cutter's beat 0 and the
   break's resume use, so the four never disagree, even on a take that opens
   with a pickup. A meter detected from an overdub counts from the downbeat that
@@ -1559,7 +1591,8 @@ in units of the denominator; `numerator` is the commonest bar, `k` the count),
 and everything that counts bars follows them:
 
 - **The bar grid and the counter.** The fourth bar is drawn an eighth longer, and
-  the counter goes `BAR 4/4 · BEAT 8/8` there.
+  the counter goes `BAR 4/4 · BEAT 8/8` there. The count says `8 NEXT` all
+  through the third bar, and counts the fourth in its own groups, 2+2+2+2.
 - **The drums.** With **Retrig** on (the default, on the Drums view), the step lanes start
   again on the first step of every bar, so a 7/8 bar plays 14 steps of a
   16-step lane and the 8/8 bar all 16. Set `MegaSADrums.retrigAt = \live`

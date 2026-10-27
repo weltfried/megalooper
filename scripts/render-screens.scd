@@ -58,6 +58,11 @@ take = (numerator: 7, denominator: 8, bpm: 103.2, k: 4, sub: 1, n: 29, tau: tau,
 ~looper.instVarPut(\lastResult, take);
 ~looper.instVarPut(\loopFrames, (29 * tau * 48000).round.asInteger);
 ~looper.instVarPut(\state, \playing);
+// A playhead the position poll can read, parked in bar 2, beat 3, so the
+// count is worked out as on the rig: the poll re-anchors on it every 50 ms.
+~looper.instVarPut(\engineSynth, ~tStubSynth.(~looper, \looperEngine));
+~renderPhase = 9.5 * tau;
+~looper.instVarPut(\phaseBus, (get: { |self, action| action.value(~renderPhase) }));
 ~looper.instVarPut(\onsets, List.newFrom([0, 2, 4, 6, 7, 9, 11, 13, 14, 16, 18, 20, 21, 23, 24, 26, 27, 28]
     .collect { |i| [i * tau, if([0, 7, 14, 21].includes(i)) { 1.0 } { 0.5 }] }));
 
@@ -277,6 +282,18 @@ Routine {
         // Parts of views, each for the section that explains it.
         goto.(\perform);
         part.(~renderParts[\buildStatusBand], "status-band");
+        // The count-in: the next loop armed, the playhead in the last bar, its
+        // third group (bar 4 is 2+2+2+2), two groups to go. The boundary is
+        // counted from loopStartTime, so that is put where this playhead
+        // says the loop began.
+        ~renderPhase = 25.5 * tau;
+        ~looper.instVarPut(\loopStartTime, SystemClock.seconds - ~renderPhase);
+        ~looper.instVarPut(\nextRecState, \armed);
+        wait.(0.3);
+        cropTo.(rectOf.(~statusCountView).union(rectOf.(~guiPositionView)), "count-in");
+        ~looper.instVarPut(\nextRecState, \idle);
+        ~renderPhase = 9.5 * tau;
+        wait.(0.3);
         part.(find.(~guiWindow.view, "BREAK LOOPS") !? { |v| v.parent }, "perform-actions");
         part.(find.(~guiWindow.view, "○ Record set"), "record-set");
         goto.(\sound);

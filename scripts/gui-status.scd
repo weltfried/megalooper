@@ -262,7 +262,8 @@
     var frac = (pos !? { |p| p[\fraction] }) ? 0;
     var running = phase.notNil and: { (st == \playing) or: { st == \overdubbing } };
     var brk = l.notNil and: { l.onBreak };
-    var n, bi, cw, x, cur, ink, i, text, stripe, starts, inBar;
+    var r = l !? { |x| x.countResult };
+    var n, bi, cw, x, cur, ink, i, text, stripe, starts, inBar, heads, shade, a, bar0, counting;
     Pen.fillColor = ~gt[\panel];
     Pen.addRect(Rect(0, top, w, gh));
     Pen.fill;
@@ -289,6 +290,24 @@
             cw = w / n;
             bi = (frac * n).floor.asInteger.clip(0, n - 1);
             cur = if(st == \overdubbing) { ~gt[\dub] } { ~gt[\play] };
+            // The beat groups (MeterAnalyzer.beatGrouping, as the count has
+            // them): a heavier line at each group's head, every other group
+            // faintly shaded, so 2+2+3 reads without a number.
+            heads = Set.new;
+            shade = List.new;
+            starts.do { |s0, bk|
+                a = s0;
+                MeterAnalyzer.beatGrouping(lens[bk], (r !? { |x| x[\denominator] }) ? 4).do { |g, gi|
+                    if(gi > 0) { heads.add(a) };
+                    if(gi.odd) { shade.add([a, g]) };
+                    a = a + g;
+                };
+            };
+            if(compact != true) {
+                Pen.fillColor = Color(~gt[\panel2].red, ~gt[\panel2].green, ~gt[\panel2].blue, 0.5);
+                shade.do { |sg| Pen.addRect(Rect(cw * sg[0], top, cw * sg[1], gh)) };
+                Pen.fill;
+            };
             // The beats played this pass, and the one under the playhead.
             if(running) {
                 if(bi > 0) {
@@ -317,11 +336,32 @@
             // The beat lines, then the bar lines over them: a bar line is a
             // beat line too, and drawing the heavy one second means it wins.
             Pen.fillColor = ~gt[\line];
-            n.do { |k| if(inBar[k] != 1) { Pen.addRect(Rect((cw * k).round, top, 1, gh)) } };
+            n.do { |k| if((inBar[k] != 1) and: { heads.includes(k).not }) { Pen.addRect(Rect((cw * k).round, top, 1, gh)) } };
+            Pen.fill;
+            Pen.fillColor = ~gt[\mute];
+            heads.do { |k| Pen.addRect(Rect((cw * k).round, top, 2, gh)) };
             Pen.fill;
             Pen.fillColor = ~gt[\ink];
             starts.do { |k| if(k > 0) { Pen.addRect(Rect(((cw * k) - 1).round, top, 3, gh)) } };
             Pen.fill;
+            if(compact != true) {
+                // The odd bar of uneven bars, marked across its top.
+                if(MeterAnalyzer.isUneven(r)) {
+                    Pen.fillColor = ~gt[\ink];
+                    starts.do { |k, bk| if(lens[bk] != r[\numerator]) { Pen.addRect(Rect(cw * k, top, cw * lens[bk], 5)) } };
+                    Pen.fill;
+                };
+                // The bar a count-in counts down in.
+                counting = running and: { ~countShown.notNil } and: { ~countShown[\c].notNil }
+                    and: { ~countShown[\c][\countdown].notNil };
+                if(counting) {
+                    bar0 = starts.lastIndexForWhich { |k| k <= bi } ? 0;
+                    Pen.strokeColor = ~gt[\armed];
+                    Pen.width = 4;
+                    Pen.addRect(Rect((cw * starts[bar0]) + 2, top + 2, (cw * lens[bar0]) - 4, gh - 4));
+                    Pen.stroke;
+                };
+            };
             // The beat numbers, where a cell can hold one: a multiplied loop
             // of hundreds of beats shows its lines alone.
             if((compact != true) and: { cw >= 16 }) {
@@ -390,6 +430,239 @@
     } {
         set.(~guiPosShort, words[2]);
         ~guiPositionStrip !? { |v| if(v.isClosed.not) { v.refresh } };
+    };
+};
+
+// ---- The count ---------------------------------------------------------------------------
+// Perform's count, under the state block (docs/dev/rc600-picks.md, Phase 1):
+// the group of the bar the playhead is in, big (1 2 3 in 7/8, the analyser's
+// 2+2+3), its beats as squares, the bar, the bar's groups as a strip, the odd
+// bar of uneven bars a bar ahead, and in the last bar before an event that
+// lands on a loop boundary, the groups left: 3 2 1, then the event's word for
+// a group. The arithmetic is Looper.beatCountAt; what is coming,
+// Looper:upcoming.
+//
+// It is painted ON the beat, not sampled: the shell's count routine sleeps to
+// the next beat line (~countTick), and the position between polls is predicted
+// from the last answer (~countAnchor: the phase, when it came, the length it
+// was of). The 20 Hz poll paints the grid from the same prediction, so the two
+// never show different beats.
+//
+// ~countDelay moves what is shown later than the engine plays it. 0: the
+// master's 20 ms look-ahead and the output buffer come to about what the
+// screen takes to show a repaint. If the count looks early or late against the
+// drums on the rig, this is the knob.
+~countDelay = ~countDelay ? 0;
+~countAnchor = nil;
+~countShown = nil;
+~countKey = nil;
+~countPrevNear = nil;
+~countFlash = nil;
+// What each event is called while it is counted to, and for a group after.
+~countWords = (
+    break: (cap: "BACK IN", word: "BACK", fill: \play),
+    reading: (cap: "NEW READING IN", word: "NEW", fill: \armed),
+    recordNextLoop: (cap: "REC NEXT LOOP IN", word: "REC", fill: \rec),
+    recordNextLoopEnds: (cap: "NEXT LOOP CLOSES IN", word: "LOOP", fill: \play),
+    cutter: (cap: "CUTTER IN", word: "CUT", fill: \cut)
+);
+
+// Where the playhead is at `now`, in seconds into the loop, from the poll's
+// last answer; nil without one, or with one of a loop that has since changed
+// length (a multiply, an undo, a new take: the next answer is 50 ms away).
+~countPosAt = { |now|
+    var l = ~looper, a = ~countAnchor, dur;
+    dur = (l !? { |x| x.loopDuration }) ? 0;
+    if(l.isNil or: { a.isNil } or: { dur <= 0 } or: { (a[\dur] - dur).abs > 1e-6 }) { nil } {
+        (a[\phase] + ((if(l.reverseFlag) { -1 } { 1 }) * ((now - (~countDelay ? 0)) - a[\at]))).mod(dur)
+    }
+};
+
+// What the count shows at `now` (Main.elapsedTime): (st:, brk:, why:, c:, near:,
+// flash:, wait:). `c` is Looper.beatCountAt's answer, nil when there is
+// nothing to count (`why` says what); `near` the next event; `flash` an event
+// just landed; `wait` the seconds to the next beat line, at most a tenth.
+~countCompute = { |now|
+    var l = ~looper, out = (wait: 0.1, brk: false, why: ""), st, dur, r, shown, pos, near, c, prev, beatDur;
+    st = (l !? { |x| x.state }) ? \empty;
+    out[\st] = st;
+    out[\brk] = l.notNil and: { l.onBreak };
+    dur = (l !? { |x| x.loopDuration }) ? 0;
+    r = l !? { |x| x.countResult };
+    shown = now - (~countDelay ? 0);
+    pos = ~countPosAt.(now);
+    case
+    { st == \recording } { out[\why] = "starts when\nthe loop closes" }
+    { dur <= 0 } { out[\why] = "no loop" }
+    { (st != \playing) and: { st != \overdubbing } } { out[\why] = "stopped" }
+    { pos.isNil } { }
+    { Looper.beatCountAt(0, r, dur)[\group].isNil } { out[\why] = "no grid\non this take" }
+    {
+        near = l.upcoming(shown).select { |e| e[\at] > shown }.minItem { |e| e[\at] };
+        c = Looper.beatCountAt(pos, r, dur, near !? { |e| e[\at] - shown }, l.reverseFlag);
+        beatDur = r[\tau] * (r[\sub] ? 1);
+        // An event counted to and now past: its word, for the group it lands
+        // on. One that went before its time was cancelled, and says nothing.
+        prev = ~countPrevNear;
+        if(prev.notNil and: { shown >= prev[\at] } and: { shown < (prev[\at] + 1) }) {
+            ~countFlash = (what: prev[\what], until: prev[\at] + (c[\groups][c[\group] - 1] * beatDur));
+        };
+        ~countPrevNear = near;
+        out[\c] = c;
+        out[\near] = near;
+        out[\wait] = ((c[\toEdge] ? 0.1) + 0.002).clip(0.004, 0.1);
+    };
+    if(out[\c].isNil) { ~countPrevNear = nil };
+    // Ended on its beat line, with slack for the anchor's few ms against the
+    // boundary's own clock.
+    if(~countFlash.notNil and: { out[\c].isNil or: { shown >= (~countFlash[\until] - 0.01) } }) { ~countFlash = nil };
+    out[\flash] = ~countFlash;
+    out
+};
+
+// One step of the shell's count routine: work out the count, and repaint it,
+// and the grid with it, when what it shows has moved. Answers the seconds to
+// sleep.
+~countTick = {
+    var now = Main.elapsedTime, s = ~countCompute.(now), c = s[\c], key, pos;
+    key = [s[\st], s[\brk], s[\why], c !? { [c[\bar], c[\beat], c[\countdown], c[\nextOdd], c[\loopsLeft], c[\groups]] },
+        s[\near] !? { |e| e[\what] }, s[\flash] !? { |f| f[\what] }];
+    ~countShown = s;
+    if(key != ~countKey) {
+        ~countKey = key;
+        if(~guiView == \perform) {
+            ~statusCountView !? { |v| if(v.isClosed.not) { v.refresh } };
+            // The grid's beat on the same line as the count.
+            pos = ~countPosAt.(now);
+            if(pos.notNil and: { c.notNil }) {
+                ~guiLoopPhase = pos;
+                ~guiLoopPos = Looper.loopPositionAt(pos, ~looper.countResult, ~looper.loopDuration);
+                ~statusRepaintGrids.();
+            };
+        };
+    };
+    s[\wait]
+};
+
+// The break's hatch over a rectangle (the state block's).
+~statusHatch = { |rect, step = 28, width = 10|
+    var x0;
+    Pen.fillColor = ~guiHatchDark;
+    Pen.addRect(rect);
+    Pen.fill;
+    Pen.push;
+    Pen.addRect(rect);
+    Pen.clip;
+    Pen.strokeColor = ~guiHatchLight;
+    Pen.width = width;
+    ((rect.width + rect.height) / step).ceil.asInteger.do { |i|
+        x0 = rect.left + (i * step) - rect.height;
+        Pen.line(Point(x0, rect.bottom), Point(x0 + rect.height, rect.top));
+    };
+    Pen.stroke;
+    Pen.pop;
+};
+
+~statusDrawCount = { |v|
+    var b = v.bounds, w = b.width, h = b.height;
+    var s = ~countShown ? (why: ""), c = s[\c], near = s[\near], fl = s[\flash];
+    var counting = c.notNil and: { c[\countdown].notNil } and: { fl.isNil };
+    var fill = ~gt[\panel], ink = ~gt[\ink], hatch = false;
+    var fade = { |col, a| Color(col.red, col.green, col.blue, a) };
+    // The number's column narrows with the block (~guiStatusFit), as the
+    // state's words do.
+    var right = (w * 0.455).round, room = w - right - 20, big = (132 * w / 330).clip(84, 132), cap, num, cells, sq = 20, gap = 7, total, acc = 0, gx, gw, tag, tw, f, word;
+    case
+    { fl.notNil } { fill = ~gt[~countWords[fl[\what]][\fill]]; ink = ~gt[\onacc] }
+    { counting } { fill = ~gt[\armed]; ink = ~gt[\onacc] }
+    { s[\brk] == true } { hatch = true; ink = Color.new255(243, 243, 241) };
+    if(hatch) { ~statusHatch.(Rect(0, 0, w, h)) } {
+        Pen.fillColor = fill;
+        Pen.addRect(Rect(0, 0, w, h));
+        Pen.fill;
+    };
+    if(c.isNil) {
+        Pen.stringInRect("COUNT", Rect(22, 12, w - 44, 18), ~guiMono.(12, true), fade.(~gt[\mute], 1), QAlignment(\left));
+        Pen.stringInRect("–", Rect(16, 26, right - 16, h - 30), ~guiSans.(big, true), ~gt[\line], QAlignment(\left));
+        Pen.stringInRect(s[\why] ? "", Rect(right, 40, room, 60), ~guiMono.(13, true), ~gt[\mute], QAlignment(\topLeft));
+    } {
+        if(fl.notNil) {
+            word = ~countWords[fl[\what]][\word];
+            Pen.stringInRect(word, Rect(18, 14, w - 36, h - 20), ~statusFitFont.(word, 116, w - 36), ink, QAlignment(\left));
+        } {
+            // The odd bar, a bar ahead: a tag in the top corner.
+            if(c[\nextOdd] and: { counting.not }) {
+                tag = c[\nextBeatsPerBar].asString ++ " NEXT";
+                f = ~guiMono.(14, true);
+                tw = tag.bounds(f).width + 18;
+                Pen.fillColor = ~gt[\armed];
+                Pen.addRect(Rect(w - tw - 14, 10, tw, 24));
+                Pen.fill;
+                Pen.stringInRect(tag, Rect(w - tw - 14, 10, tw, 24), f, ~gt[\onacc], QAlignment(\center));
+            };
+            cap = case
+                { counting } { ~countWords[near[\what]][\cap] }
+                { near.notNil } { ~countWords[near[\what]][\cap] ++ " " ++ c[\loopsLeft]
+                    ++ (if(c[\loopsLeft] == 1) { " LOOP" } { " LOOPS" }) }
+                { "COUNT · " ++ c[\groups].collect(_.asString).join("+")
+                    ++ (if(c[\barOdd]) { " · THE " ++ c[\beatsPerBar] } { "" }) };
+            Pen.stringInRect(cap, Rect(22, 12, w - 44 - (if(c[\nextOdd] and: { counting.not }) { tw ? 0 } { 0 }), 18),
+                ~guiMono.(12, true), fade.(if(near.notNil and: { counting.not }) { ~gt[\armed] } { ink }, 0.9),
+                QAlignment(\left));
+            // The number: the count-in, or the group (in 4/4, where every
+            // group is one beat, that is the beat).
+            num = if(counting) { c[\countdown] } { c[\group] };
+            Pen.stringInRect(num.asString, Rect(14, 26, right - 14, h - 30), ~guiSans.(big, true), ink, QAlignment(\left));
+            // The group's beats, or the bar's when every group is one beat.
+            if(counting.not) {
+                cells = if(c[\groups].every { |g| g == 1 }) {
+                    c[\groups].collect { |g, i| i < c[\group] }
+                } {
+                    Array.fill(c[\groups][c[\group] - 1], { |i| i < c[\groupBeat] })
+                };
+                cells.do { |on, i|
+                    gx = right + (i * (sq + gap));
+                    if((gx + sq) <= (right + room)) {
+                        if(on) {
+                            Pen.fillColor = ink;
+                            Pen.addRect(Rect(gx, 46, sq, sq));
+                            Pen.fill;
+                        } {
+                            Pen.strokeColor = ink;
+                            Pen.width = 2;
+                            Pen.addRect(Rect(gx + 1, 47, sq - 2, sq - 2));
+                            Pen.stroke;
+                        };
+                    };
+                };
+            };
+            Pen.stringInRect("BAR " ++ c[\bar] ++ "/" ++ c[\barCount], Rect(right, 82, room, 24),
+                ~guiMono.(18, true), ink, QAlignment(\left));
+            // The bar's groups as a strip: those played faint, this one full.
+            total = c[\groups].sum;
+            c[\groups].do { |g, i|
+                gx = right + (acc / total * room);
+                gw = (g / total * room) - 4;
+                case
+                { (i + 1) < c[\group] } {
+                    Pen.fillColor = fade.(ink, 0.45);
+                    Pen.addRect(Rect(gx, h - 40, gw, 12));
+                    Pen.fill;
+                }
+                { (i + 1) == c[\group] } {
+                    Pen.fillColor = ink;
+                    Pen.addRect(Rect(gx, h - 40, gw, 12));
+                    Pen.fill;
+                }
+                {
+                    Pen.strokeColor = ink;
+                    Pen.width = 2;
+                    Pen.addRect(Rect(gx + 1, h - 39, gw - 2, 10));
+                    Pen.stroke;
+                };
+                acc = acc + g;
+            };
+        };
     };
 };
 
@@ -486,6 +759,11 @@
     ~guiPosSmall = ~guiMonoText.("", 15, ~gt[\mute], true).align_(\right);
     ~guiPositionView = UserView().canFocus_(false).minHeight_(60)
         .drawFunc_({ |v| ~statusDrawGrid.(v, false) });
+    ~statusCountView = UserView().canFocus_(false).fixedWidth_(330)
+        .toolTip_("The count: the group of the bar the playhead is in (7/8 is 2+2+3), its beats,\n"
+            "the bar. In the last bar before a break ends, a reading lands, the next loop\n"
+            "records or the cutter comes in, the groups left: 3 2 1.")
+        .drawFunc_({ |v| ~statusDrawCount.(v) });
 
     row1 = View().fixedHeight_(190).layout_(HLayout(
         ~statusStateLabel,
@@ -515,11 +793,16 @@
                 .spacing_(0).margins_(0), nil).spacing_(14).margins_(0)
         ).margins_([24, 22, 24, 18]).spacing_(8))
     ).margins_(0).spacing_(0));
-    row2 = View().fixedHeight_(126).layout_(VLayout(
-        HLayout(~guiPosBig, nil, ~guiPosSmall).margins_(0),
-        [~guiPositionView, stretch: 1]
-    ).margins_([26, 14, 26, 14]).spacing_(8));
-    band = View().background_(~gt[\bg]).fixedHeight_(318).layout_(VLayout(
+    // The count under the state block, the grid beside it.
+    row2 = View().fixedHeight_(172).layout_(HLayout(
+        ~statusCountView,
+        ~guiRule.(true),
+        [View().layout_(VLayout(
+            HLayout(~guiPosBig, nil, ~guiPosSmall).margins_(0),
+            [~guiPositionView, stretch: 1]
+        ).margins_([26, 16, 26, 16]).spacing_(10)), stretch: 1]
+    ).margins_(0).spacing_(0));
+    band = View().background_(~gt[\bg]).fixedHeight_(364).layout_(VLayout(
         row1, ~guiRule.(), row2, ~guiRule.()
     ).margins_(0).spacing_(0));
     ~guiStatusBandMin = band.minSizeHint.width;
@@ -563,7 +846,7 @@
 ~guiStatusFit = { |width|
     var band = width < (~guiStatusBandMin ? 0), strip = width < (~guiStatusStripMin ? 0);
     [
-        [~statusStateLabel, band, 330, 220], [~guiStatusInput, band, 300, 210],
+        [~statusStateLabel, band, 330, 220], [~statusCountView, band, 330, 220], [~guiStatusInput, band, 300, 210],
         [~statusStateStrip, strip, 220, 150], [~guiStatusTake, strip, 280, 190], [~guiStatusOnset, strip, 180, 130]
     ].do { |item|
         var v = item[0], to = if(item[1]) { item[3] } { item[2] };

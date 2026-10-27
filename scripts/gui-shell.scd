@@ -920,6 +920,16 @@
         if(gen != ~guiGen or: { ~guiWindow.isNil } or: { ~guiWindow.isClosed }) { nil } { ~guiCpuPaint.(); 1 }
     });
 
+    // ---- The count -----------------------------------------------------------------------
+    // Perform's count is repainted on the beat rather than at the poll's rate:
+    // this sleeps to the next beat line ~countTick predicts, and never longer
+    // than a tenth of a second, so a state change shows within that.
+    ~guiCountRoutine = Routine {
+        while { (gen == ~guiGen) and: { ~guiWindow.notNil } and: { ~guiWindow.isClosed.not } } {
+            (~countTick.() ? 0.1).wait;
+        };
+    }.play(AppClock);
+
     // ---- Position poll ----------------------------------------------------------------
     // queryLoopPhase is a control-bus round trip, so its answer arrives on the
     // OSC thread and may touch only data. The repaint happens here, one tick
@@ -934,8 +944,13 @@
                 l.queryLoopPhase { |secs|
                     // What the grid and the words are painted from: unchanged
                     // (no loop, a stopped one), nothing is repainted. A take
-                    // being recorded counts its seconds with no phase.
-                    var key = [secs, l.state, l.loopDuration, l.lastResult.identityHash, l.onBreak];
+                    // being recorded counts its seconds with no phase. The
+                    // reading is countResult: lastResult swaps a little before
+                    // a reading lands, and the loop plays by the old one until.
+                    var key = [secs, l.state, l.loopDuration, l.countResult.identityHash, l.onBreak];
+                    // What the count, and the grid between answers, predict
+                    // the playhead from (gui-status.scd, ~countPosAt).
+                    ~countAnchor = secs !? { |p| (phase: p, at: Main.elapsedTime, dur: l.loopDuration) };
                     if((key != ~guiLoopKey) or: { l.state == \recording }) {
                         ~guiLoopKey = key;
                         ~guiLoopDirty = true;
@@ -947,7 +962,19 @@
                     // The fill and the playhead are drawn only when
                     // ~guiLoopPhase is real, so this cannot fake a position.
                     ~guiLoopPos = Looper.loopPositionAt(
-                        secs ? 0, l.lastResult, l.loopDuration);
+                        secs ? 0, l.countResult, l.loopDuration);
+                };
+            };
+            // Painted where the playhead is now, as the count is, rather than
+            // where it was when the bus was read: the count's routine moves the
+            // grid's beat on its line, and a stale answer painted after it
+            // would move it back.
+            ~looper !? { |l|
+                ~countPosAt.(Main.elapsedTime) !? { |p|
+                    if(~guiLoopPhase.notNil) {
+                        ~guiLoopPhase = p;
+                        ~guiLoopPos = Looper.loopPositionAt(p, l.countResult, l.loopDuration);
+                    };
                 };
             };
             if(~guiLoopDirty) {
