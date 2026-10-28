@@ -59,7 +59,7 @@ var baseline = (
     // chords (follow, chordPeriod, chordStarts and chordRoots, 32 slots each,
     // and the shift added to the pitch; roadmap item 8). Deliberate — see the
     // graph's comment; scripts/sa/nrt-grains.scd renders it.
-    'looperGranular':        [ 8824, 783711317 ]
+    'looperGranular':        [ 8824, 556604813 ]
 );
 // Defined here rather than leaning on ArrayedCollection:hash, so the
 // fingerprint is fixed by this file and cannot shift under the test.

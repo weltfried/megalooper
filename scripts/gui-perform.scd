@@ -230,10 +230,10 @@
         'looper.granularMorph', "Morph: 0 the frozen drone, 1 the pulsed scan in time with the loop.");
     ~granularLabel = ~performValue.((l !? { |lp| lp.granularMorph } ? 0).round(0.01).asString);
     ~performGrainAmp = ~mapTag.(~guiBar.(\grain)
-        .value_(l !? { |lp| lp.granularAmp } ? 0.7)
+        .value_(l !? { |lp| lp.granularAmp } ? 0.3)
         .action_({ |sl| ~looper !? { |lp| lp.granularAmp = sl.value } }),
         'looper.granularAmp', "The granular layer's level against the dry loop.");
-    ~performGrainAmpLabel = ~performValue.((l !? { |lp| lp.granularAmp } ? 0.7).round(0.01).asString);
+    ~performGrainAmpLabel = ~performValue.((l !? { |lp| lp.granularAmp } ? 0.3).round(0.01).asString);
     grainCol = ~performColumn.((key: \grain, name: "Grains", view: \sound,
         sw: { ~performSw.("G", 'looper.granular') },
         toggle: ~granularPerformButton,

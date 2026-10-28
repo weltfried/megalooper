@@ -1043,7 +1043,7 @@ without disturbing morph itself.
 
 | Control | Range | What it does |
 | --- | --- | --- |
-| **Level** | 0–1 (0.7) | Granular level, summed with the engine before the master limiter. |
+| **Level** | 0–1 (0.3) | Granular level, summed with the engine before the master limiter. |
 | **Pitch** | ±24 st | Grain transposition. The read pointer is untouched, so this pitches the layer *without* changing how fast it moves through the loop. |
 | **Detune** | 0–12 st | Random detune redrawn for **every grain**. Under ~0.2 st it thickens like a chorus; a few semitones shatters the loop into pitched confetti. |
 | **Grain size** | ⅛–8 × | Grain length as a multiple of morph's (0.4 s drone, one beat pulsed). Below ~0.2× grains stop carrying pitch and read as texture. |

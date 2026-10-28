@@ -81,10 +81,10 @@
             "1 = pulsed scan: one grain per detected beat, reading through the\n"
             "loop in time, so the granulator's rhythm matches what you played.\n"
             "Everything below bends whatever this asks for."),
-    (key: \granularAmp, label: "Level", spec: ControlSpec(0, 1, \lin, 0, 0.7),
-        round: 0.01, default: 0.7,
+    (key: \granularAmp, label: "Level", spec: ControlSpec(0, 1, \lin, 0, 0.3),
+        round: 0.01, default: 0.3,
         tip: "Level of the granular layer, summed with the engine before the\n"
-            "master limiter. 0.7 by default."),
+            "master limiter. 0.3 by default."),
     (key: \granularPitch, label: "Pitch", spec: ControlSpec(-24, 24, \lin, 1, 0),
         round: 1, unit: " st", default: 0,
         tip: "Grain transposition in semitones. The read pointer is untouched,\n"

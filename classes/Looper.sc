@@ -284,7 +284,7 @@ Looper {
     // NEUTRAL — an untouched instrument sounds exactly as it did before these
     // existed. See the \looperGranular SynthDef for how each one folds in.
     var <granularMorph = 0;
-    var <granularAmp = 0.7;        // layer level, 0..1
+    var <granularAmp = 0.3;        // layer level, 0..1
     var <granularPitch = 0;        // grain transposition, semitones
     var <granularDetune = 0;       // +/- semitones of PER-GRAIN random detune
     var <granularSize = 1;         // grain-window multiplier on morph's base
@@ -592,7 +592,7 @@ Looper {
     // Looper (scripts/sa/nrt-grains.scd).
     *granularGraph {
         ^{ |bufnum, startFrame=0, loopFrames=44100,
-             tau=0.5, morph=0, amp=0.7, out=0,
+             tau=0.5, morph=0, amp=0.3, out=0,
              pitch=0, detune=0, size=1, density=1,
              sizeRand=0.1, position=0, scan=0, sprayMs=0,
              envbuf= -1, phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0|
@@ -3369,7 +3369,7 @@ Looper {
         ^[
             // file key,  model accessor,     lo,    hi,   default
             [\morph,    \granularMorph,      0,     1,    0],
-            [\amp,      \granularAmp,        0,     1,    0.7],
+            [\amp,      \granularAmp,        0,     1,    0.3],
             [\pitch,    \granularPitch,    -48,    48,    0],
             [\detune,   \granularDetune,     0,    24,    0],
             [\size,     \granularSize,       0.01, 16,    1],

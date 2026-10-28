@@ -519,7 +519,7 @@ got = ask.(r, "{\"command\": \"context\"}").at("result");
         got.at("grains").at("intensity"), got.at("cutter").at("on"), got.at("cutter").at("mode"),
         got.at("cutter").at("voices").size, got.at("cutter").at("voices")[0].at("proc"),
         got.at("cutter").at("voices")[0].at("params").keys.asArray.sort],
-    [false, 0.7, "Hann (built in)", 1.0, false, "insert", 1, "break",
+    [false, 0.3, "Hann (built in)", 1.0, false, "insert", 1, "break",
         ["cutchance", "maxblock", "minblock", "phraselength", "repeats", "rollchance"]]);
 
 // ---- the grains
@@ -528,7 +528,7 @@ got = ask.(r, "{\"command\": \"set_grains\", \"args\": {\"settings\": {\"pitch\"
 ~tEq.("set_grains sets the settings named and the window, says a value held to its range, leaves the rest",
     [got.at("ok"), l.granularPitch, l.granularSpray, l.granularMorph, l.granularEnv, l.granularAmp,
         got.at("result").at("corrections"), got.at("result").at("window"), r.changeCount],
-    [true, -12, 2000, 0.25, 2, 0.7, ["grains.spray 9000 -> 2000.0"], "Percussive", 1]);
+    [true, -12, 2000, 0.25, 2, 0.3, ["grains.spray 9000 -> 2000.0"], "Percussive", 1]);
 got = ask.(r, "{\"command\": \"set_grains\", \"args\": {\"on\": true}}");
 ~tEq.("...on with no loop recorded is refused by the looper, and the answer says so",
     [got.at("ok"), l.granularOn, got.at("result").at("corrections").first.contains("no loop recorded")], [true, false, true]);

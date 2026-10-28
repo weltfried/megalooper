@@ -70,11 +70,11 @@ level.applyGranularPreset(roundTripped);
 ~tNear.("recall restores the level", level.granularAmp, 0.31, 1e-9);
 // A file from before the level existed as a field. It is silently defaulted
 // rather than left alone, which is deliberate — a preset is the WHOLE layer,
-// not a patch — but it means an old preset resets the level to 0.7.
+// not a patch — but it means an old preset resets the level to 0.3.
 level.granularAmp = 0.42;
 level.applyGranularPreset((version: 1, name: "older build", env: "Hann", morph: 0.5));
 ~tNear.("a preset with no level field defaults it, not keeps it",
-    level.granularAmp, 0.7, 1e-9);
+    level.granularAmp, 0.3, 1e-9);
 }.value;
 
 // Recall goes through the SETTERS, never the vars. That is what makes a running

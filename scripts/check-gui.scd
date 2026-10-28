@@ -237,7 +237,7 @@ s.waitForBoot {
     ~ok.("the pedal moves the Arc macro",
         (~intensitySlider.value - 0.4).abs < 0.01, ~intensitySlider.value.asString);
     ~ok.("the pedal leaves the stored granular level alone",
-        ~looper.granularAmp == 0.7, ~looper.granularAmp.asString);
+        ~looper.granularAmp == 0.3, ~looper.granularAmp.asString);
     ~ok.("heel takes the grains to nothing and leaves the cutter's level alone",
         { ~looper.intensity = 0; (~looper.prGranularMix == 0) and: { ~looper.prBBCutMix == 1 } }.value);
     ~ok.("heel leaves the dry loop at full",  ~looper.prLoopMix == 1);
