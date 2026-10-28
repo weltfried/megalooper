@@ -1615,12 +1615,18 @@ Looper {
 
     // Derive the meter from the overdub's onsets against the EXISTING loop
     // length. force = true is the "Detect now" button: it bypasses the
-    // already-has-a-meter gate but not the quality guards.
+    // already-has-a-meter gate but not the quality guards. A press that finds
+    // nothing is refused out loud (the footer), since Perform has no line of
+    // its own to say so; the run at an overdub's end stays quiet.
     detectMeterFromOverdub { |force = false|
         var loopSecs = loopFrames / server.sampleRate;
         var folded, times, strengths, first, result, n;
 
-        if(loopFrames <= 0) { "Overdub detect: no loop recorded.".warn; ^this };
+        if(loopFrames <= 0) {
+            "Overdub detect: no loop recorded.".warn;
+            if(force) { this.prRefused(\detectMeterFromOverdub, "no loop recorded") };
+            ^this
+        };
         if(force.not and: { this.prHasValidMeter }) {
             "Overdub detect: loop already has a meter — skipping.".postln;
             this.prLogEvent(\overdubDetect, (outcome: \skipped, force: force));
@@ -1632,6 +1638,12 @@ Looper {
                 ++ overdubMinOnsets ++ " — no beat found.").postln;
             this.prLogEvent(\overdubDetect,
                 (outcome: \tooFew, force: force, onsetCount: folded.size));
+            if(force) {
+                this.prRefused(\detectMeterFromOverdub, "no beat in the last overdub: "
+                    ++ folded.size ++ " onsets, " ++ overdubMinOnsets ++ " needed"
+                    // Onsets are only gathered while the switch is on.
+                    ++ (if(analyzeOverdubs) { "" } { " · Overdub meter is off" }))
+            };
             ^this
         };
         // Anchor the grid at the first onset; accentAlign then recovers where the
@@ -1646,6 +1658,10 @@ Looper {
                 ++ " onsets (" ++ result[\error] ++ ").").postln;
             this.prLogEvent(\overdubDetect, (outcome: \noFit, force: force,
                 onsetCount: folded.size, error: result[\error]));
+            if(force) {
+                this.prRefused(\detectMeterFromOverdub,
+                    "no meter fits the last overdub's " ++ folded.size ++ " onsets")
+            };
             ^this
         };
 

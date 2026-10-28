@@ -16,7 +16,9 @@
 // values worth grabbing, and a line saying what it is doing. A layer that is
 // off loses its colour (the switch goes dark and dashed, the bar and the
 // values fade), so a glance across the five says what is sounding. A name
-// opens the view where the rest of that layer is.
+// opens the view where the rest of that layer is. The onset notes' switch and
+// Chance are under the Drums on SA, and a column of their own elsewhere; the
+// overdub meter's switch is in the band's take line (gui-status.scd).
 //
 // Right, the ACTIONS, each a tile with the key and the footswitch that fire
 // it, and a second line saying what it will do now; a tile is lit only while
@@ -67,7 +69,7 @@
     var name = LooperTile().states_([[p[\name], ~gt[\ink], nil]]).cycles_(false).align_(\left)
         .font_(~guiSans.(22, true)).pad_(0).fixedHeight_(30)
         .toolTip_(p[\view] !? { |v| "Open " ++ ~guiViewLabels[v] ++ " · key " ++ ~guiViewNumbers[v] } ? "")
-        .action_({ p[\view] !? { |v| ~guiSelectView.(v) } });
+        .action_({ p[\view] !? { |v| ~guiSelectView.(v); p[\page] !? { |pg| ~guiSetupShow !? { |f| f.(pg) } } } });
     var sw = ~guiMonoText.("", 11, ~gt[\mute]).align_(\right);
     var note = ~guiText.("", 13, ~gt[\mute]);
     // One line, however narrow the column (six on SA): it keeps to its corner.
@@ -242,6 +244,26 @@
             ~performParam.("Level", ~performGrainAmpLabel, ~performGrainAmp)
         ]));
 
+    // ---- Onset notes ----------------------------------------------------------------
+    // The loop's onsets replayed as a drum part, their switch and Chance (Setup ›
+    // Analysis has the rest). On SA they play the onset kit, so they sit under
+    // the Drums; the other rigs give them a column of their own, below.
+    ~performOnsetChance = ~mapTag.(~guiBar.(\drum)
+        .value_(l !? { |lp| lp.onsetNoteChance } ? 1)
+        .action_({ |sl| ~looper !? { |lp| lp.onsetNoteChance = sl.value } }),
+        'looper.onsetNoteChance',
+        "How likely each onset is to sound: 100 % is every hit as played. Which hits drop out\n"
+            "is fixed per take, so the thinned part still repeats exactly. Re-roll on Setup ›\n"
+            "Analysis draws another subset.");
+    ~performOnsetChanceLabel = ~performValue.("—");
+    ~performOnsetNotesTile = if(sa) {
+        ~guiLayerTile.(\drum, "Onset notes", "Onset notes", 28).font_(~guiSans.(14, true))
+    } { ~guiLayerTile.(\drum) };
+    ~midiTip.(~performOnsetNotesTile.action_({ ~looper !? { |lp| lp.onsetNotes = lp.onsetNotes.not } }),
+        'looper.onsetNotes', "Play the loop's onsets as a drum part, locked to the loop: it keeps going\n"
+            "when you stop playing, and repeats exactly.");
+    if(sa) { ~midiWatch.(~performOnsetNotesTile, { |t| t.sw_(~performSw.(nil, 'looper.onsetNotes')) }) };
+
     // ---- Megalooper SA: Effects and Drums ----------------------------------------------
     if(sa) {
         ~performFxTile = LooperTile().cycles_(false).font_(~guiMono.(16, true)).fixedHeight_(46)
@@ -275,7 +297,9 @@
             rows: [
                 ~performParam.("Pattern", ~performDrumsPatternLabel, ~performDrumsPattern),
                 ~performParam.("Kit", ~performDrumsKitLabel, ~performDrumsKit)
-            ]));
+            ],
+            extra: [~performOnsetNotesTile,
+                ~performParam.("Chance", ~performOnsetChanceLabel, ~performOnsetChance)]));
         // The synth (gui-synth.scd): its switch, two of the Wave synth's
         // settings to play with, a new sound. With a plugin playing instead,
         // those three are the Wave synth's and grey.
@@ -307,8 +331,14 @@
         ~performFxTile = nil;
         ~performDrumsTile = nil;
         ~performSynthTile = nil;
+        // In the Drums' colour: they are a drum part, and no Drums column
+        // shares this rig's Perform.
+        drumCol = ~performColumn.((key: \drum, name: "Onset notes", view: \setup, page: \analysis,
+            sw: { ~performSw.(nil, 'looper.onsetNotes') },
+            toggle: ~performOnsetNotesTile,
+            rows: [~performParam.("Chance", ~performOnsetChanceLabel, ~performOnsetChance)]));
     };
-    columns = [loopCol, cutCol, grainCol] ++ (if(sa) { [fxCol, drumCol] ++ (synthCol !? { [synthCol] } ? []) } { [] });
+    columns = [loopCol, cutCol, grainCol] ++ (if(sa) { [fxCol, drumCol] ++ (synthCol !? { [synthCol] } ? []) } { [drumCol] });
 
     // ---- Actions ---------------------------------------------------------------------------
     ~performAction.(\trigger, "Trigger", "R", 'looper.trigger', { |lp| lp.trigger },
@@ -568,6 +598,27 @@
     };
 };
 
+// The onset notes' switch and Chance; on a rig without the Drums column, their
+// column's band and line too.
+~performPaintOnsetNotes = {
+    var l = ~looper, on, count, playing;
+    if(l.notNil and: { ~performOnsetNotesTile.notNil } and: { ~performOnsetNotesTile.isClosed.not }) {
+        on = l.onsetNotes == true;
+        ~guiLayerPaint.(~performOnsetNotesTile, on, \drum);
+        if(~performOnsetChance.held.not) { ~performOnsetChance.value_(l.onsetNoteChance) };
+        ~performOnsetChance.dim_(if(on) { 1 } { 0.3 });
+        ~performOnsetChanceLabel.string_((l.onsetNoteChance * 100).round.asInteger.asString ++ " %");
+        if(~performDrumsTile.isNil) {
+            ~performPaintBand.(\drum, on);
+            count = l.onsetNoteCount;
+            playing = l.onsetNotePlayingCount;
+            ~performNote.(\drum, if(count == 0) { "No pattern yet: an analysed take makes one." } {
+                (if(playing == count) { count.asString } { playing.asString ++ " of " ++ count })
+                    ++ " hits a pass · the rest on Setup" });
+        };
+    };
+};
+
 // The tiles' lines, and which are lit.
 ~performPaintActions = {
     var l = ~looper, st, brk, chain, left;
@@ -679,6 +730,7 @@
     ~performPaintGrains.();
     ~performPaintFx.();
     ~performPaintDrums.();
+    ~performPaintOnsetNotes.();
     ~performPaintActions.();
 };
 

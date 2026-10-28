@@ -196,3 +196,32 @@ l.nextReading;
 ~tAssert.("a refusal publishes nothing, so no button lights", notified.isEmpty, "notified " ++ notified);
 ~tAssert.("no runner-up to show either", l.runnerUp.isNil and: { l.readingMargin.isNil }, "");
 }.value;
+
+// Detect now (the overdub meter's button, on Setup and in Perform's band) that
+// finds nothing says why in the footer, as a refusal; the run at an overdub's
+// end, unasked, stays quiet. What it heard is the overdub's onsets, gathered
+// only while the switch is on, so a press with the switch off says that too.
+{
+var l = ~tLooper.(), refused = List.new;
+SimpleController(l).put(\refused, { |o, w, what, why| refused.add([what, why]) });
+l.detectMeterFromOverdub(true);
+~tEq.("Detect now with no loop: refused, and why", refused.asArray,
+    [[\detectMeterFromOverdub, "no loop recorded"]]);
+refused.clear;
+l.detectMeterFromOverdub(false);
+~tEq.("...the run at an overdub's end says nothing", refused.size, 0);
+~tPut.(l, \loopFrames, 2 * 48000);
+~tGet.(l, \overdubOnsets).addAll([[0.1, 1.0], [0.6, 0.5], [1.1, 1.0]]);
+l.detectMeterFromOverdub(true);
+~tEq.("Detect now on three onsets: refused, with the count and the switch that was off", refused.asArray,
+    [[\detectMeterFromOverdub, "no beat in the last overdub: 3 onsets, 8 needed · Overdub meter is off"]]);
+refused.clear;
+~tPut.(l, \analyzeOverdubs, true);
+l.detectMeterFromOverdub(true);
+~tEq.("...with the switch on, the count alone", refused.asArray,
+    [[\detectMeterFromOverdub, "no beat in the last overdub: 3 onsets, 8 needed"]]);
+refused.clear;
+l.detectMeterFromOverdub(false);
+~tEq.("...and unasked, nothing", refused.size, 0);
+~tEq.("no reading came of any of it", l.analysedResult, nil);
+}.value;

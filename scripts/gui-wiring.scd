@@ -213,7 +213,8 @@
             { ~analysisPaintMonitor !? { |f| f.() } }.defer;
         })
         .put(\analyzeOverdubs, { |looper, what, val|
-            { ~overdubDetectButton !? { |b| if(b.isClosed.not) { b.value = if(val) { 1 } { 0 } } } }.defer;
+            { ~overdubDetectButton !? { |b| if(b.isClosed.not) { b.value = if(val) { 1 } { 0 } } };
+              ~statusPaintDubMeter !? { |f| f.() } }.defer;
         })
         // A successful overdub detection: report it where the tuning happens.
         // onAnalysis already handles Live and the export fields, and the
@@ -232,7 +233,7 @@
             { ~inChannelSeg !? { |s| ~guiSegSet.(s, ~inChannelCounts.indexOf(val) ? 0) } }.defer;
         });
 
-    // ---- onset notes (gui-analysis.scd) ------------------------------------
+    // ---- onset notes (gui-analysis.scd, and Perform's switch and Chance) ----
     // Every one of these repaints the same small panel, so they share a single
     // handler rather than each carrying its own widget list. \onsetNotePattern
     // is the model telling us a take was analysed and the pattern changed size.
@@ -240,7 +241,8 @@
      \onsetNoteDynRange, \onsetNoteGateMs, \onsetNoteOffsetMs,
      \onsetNoteChance, \onsetNotePattern].do { |key|
         ~looperController.put(key, { |looper, what, val|
-            { ~onsetNotesRefresh !? { |f| f.() } }.defer;
+            { ~onsetNotesRefresh !? { |f| f.() };
+              ~performPaintOnsetNotes !? { |f| f.() } }.defer;
         });
     };
 

@@ -285,8 +285,66 @@ Routine {
             [~granularSlider, 'looper.granularMorph'], [~feedbackSlider, 'looper.feedback'],
             [~saRigLevels[\drums][\slider], 'sa.level.drums'], [~drumsLevels[\drums][\slider], 'sa.level.drums'],
             [~saRigLevels[\drums][\mute], 'sa.mute.drums'], [~drumsLevels[\drums][\mute], 'sa.mute.drums'],
-            [~saRigLevels[\onsetKit][\slider], 'sa.level.onsetKit'], [~drumsLevels[\onsetKit][\slider], 'sa.level.onsetKit']
+            [~saRigLevels[\onsetKit][\slider], 'sa.level.onsetKit'], [~drumsLevels[\onsetKit][\slider], 'sa.level.onsetKit'],
+            [~statusDubMeterButton, 'looper.analyzeOverdubs'], [~overdubDetectButton, 'looper.analyzeOverdubs'],
+            [~statusDetectNowButton, 'looper.detectMeterFromOverdub'],
+            [~performOnsetNotesTile, 'looper.onsetNotes'], [~onsetNotesButton, 'looper.onsetNotes'],
+            [~performOnsetChance, 'looper.onsetNoteChance'], [~onsetNoteChanceSlider, 'looper.onsetNoteChance']
         ].every { |pair| pair[0].notNil and: { e.(pair[0]) == pair[1] } });
+    });
+
+    // On Perform since 2026-10-28, for quick access: the overdub meter's switch
+    // and Detect now in the band's take line, the onset notes' switch and
+    // Chance under the Drums. Each writes the model and is painted back, here
+    // and on Setup › Analysis, and the Drums column grew no taller than Loop's.
+    section.("Perform's overdub meter and onset notes", {
+        var l = ~looper, cols = ~performColumns;
+        // The model to the views, as boot does (it is wired again further down).
+        ~wireLooperController.();
+        ~guiSelectView.(\perform);
+        tick.();
+        l.analyzeOverdubs = false;
+        tick.();
+        // Pressed at the value it shows: only the model's repaint can light it.
+        ~statusDubMeterButton.valueAction_(0);
+        tick.();
+        ok.("the band's Overdub meter switches it on",
+            [l.analyzeOverdubs, ~statusDubMeterButton.value, ~overdubDetectButton.value] == [true, 1, 1],
+            [l.analyzeOverdubs, ~statusDubMeterButton.value, ~overdubDetectButton.value].asString);
+        ~overdubDetectButton.valueAction_(0);
+        tick.();
+        ok.("...and Setup's switch, off, paints it off", ~statusDubMeterButton.value == 0);
+        ok.("Detect now sits beside Revert", ~statusDetectNowButton.parent === ~revertReadingButton.parent);
+        ~statusDetectNowButton.valueAction_(0);
+        tick.();
+        ok.("...and with no loop it is refused out loud", (~guiToast !? { |t| t[\msg] } ? "").contains("no loop recorded"),
+            ~guiToast.asString);
+        l.onsetNotes = false;
+        tick.();
+        ~performOnsetNotesTile.valueAction_(0);
+        tick.();
+        ok.("Perform's Onset notes switches them on",
+            [l.onsetNotes, ~performOnsetNotesTile.value, ~onsetNotesButton.value] == [true, 1, 1],
+            [l.onsetNotes, ~performOnsetNotesTile.value, ~onsetNotesButton.value].asString);
+        ~onsetNotesButton.valueAction_(0);
+        tick.();
+        ok.("...and Setup's switch, off, paints it off", ~performOnsetNotesTile.value == 0);
+        ~performOnsetChance.valueAction_(0.4);
+        tick.();
+        ok.("Perform's Chance sets the chance, and both views show it",
+            ((l.onsetNoteChance - 0.4).abs < 1e-6) and: { (~onsetNoteChanceSlider.value - 0.4).abs < 1e-6 }
+                and: { ~performOnsetChanceLabel.string == "40 %" },
+            [l.onsetNoteChance, ~onsetNoteChanceSlider.value, ~performOnsetChanceLabel.string].asString);
+        l.onsetNoteChance = 1;
+        tick.();
+        ok.("...and follows the model", (~performOnsetChance.value == 1) and: { ~performOnsetChanceLabel.string == "100 %" });
+        ok.("they are in the Drums column", [~performOnsetNotesTile, ~performOnsetChance].every { |v|
+            var p = v;
+            while { p.notNil and: { p !== cols[\drum][\band].parent } } { p = p.parent };
+            p.notNil });
+        ok.("which needs no more height than the Loop column",
+            cols[\drum][\band].parent.minSizeHint.height <= cols[\loop][\band].parent.minSizeHint.height,
+            [cols[\drum][\band].parent.minSizeHint.height, cols[\loop][\band].parent.minSizeHint.height].asString);
     });
 
     section.("map mode lays a mask over every tagged view", {

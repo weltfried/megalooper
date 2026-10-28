@@ -14,7 +14,8 @@
 // still being assembled, without a single ordering rule.
 //
 // The status is READ-ONLY on purpose (but for Revert, which is part of what
-// the reading chip says). It shows what the model REPORTS, never what the
+// the reading chip says, and the overdub meter's switch and Detect now beside
+// it, which make a reading of their own). It shows what the model REPORTS, never what the
 // keypress asked for: every piece is driven from a `this.changed(...)`
 // notification in Looper or from the shell's position poll, so a refused
 // action leaves the display telling the truth.
@@ -254,6 +255,15 @@
     };
     // What the Perform tiles say about the reading (Next reading's sub).
     ~performPaintReading !? { |f| f.value };
+};
+
+// The take line's Overdub meter switch, from the model.
+~statusPaintDubMeter = {
+    ~statusDubMeterButton !? { |b|
+        if(b.isClosed.not) {
+            b.value_(if(~looper.notNil and: { ~looper.analyzeOverdubs == true }) { 1 } { 0 });
+        };
+    };
 };
 
 // ---- The bar grid --------------------------------------------------------------------
@@ -895,6 +905,24 @@
         .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(92, 28)).pad_(6)
         .action_({ ~looper !? { |l| l.revertReading } }),
         'looper.revertReading', "Back to what the analyser heard, on the next loop boundary.");
+    // Overdub meter detection, beside Revert because what it changes is the
+    // reading this line shows; Setup › Analysis has it too, with what it found.
+    // Written to the model and painted back (~statusPaintDubMeter).
+    ~statusDubMeterButton = ~mapTag.(LooperTile().cycles_(false)
+        .states_([["○ Overdub meter", ~gt[\ink], nil], ["● Overdub meter", ~gt[\onacc], ~gt[\ink]]])
+        .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(140, 28)).pad_(6)
+        .action_({ ~looper !? { |l| l.analyzeOverdubs = l.analyzeOverdubs.not } }),
+        'looper.analyzeOverdubs',
+        "Derive the meter from a rhythmic overdub when the first take had no beat. It runs\n"
+            "when an overdub ends, only while the loop has no meter yet, so it cannot change\n"
+            "the tempo under you. It listens to overdubs only while it is on.");
+    ~statusDetectNowButton = ~mapTag.(LooperTile().states_([["Detect now", ~gt[\ink], nil]]).cycles_(false)
+        .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(96, 28)).pad_(6)
+        .action_({ ~looper !? { |l| l.detectMeterFromOverdub(true) } }),
+        'looper.detectMeterFromOverdub',
+        "Read the meter from the last overdub now, even if the loop already has one.\n"
+            "The footer says so when it finds none.");
+    ~statusPaintDubMeter.();
     ~guiLevelView = UserView().canFocus_(false).fixedHeight_(18)
         .drawFunc_({ |v| ~statusDrawMeter.(v, true) });
     ~guiLevelDb = ~guiMonoText.("—", 12, ~gt[\mute]).align_(\center);
@@ -933,7 +961,7 @@
             ).spacing_(34).margins_(0),
             nil,
             View().fixedHeight_(28).layout_(HLayout(~guiReadingChipBox, [~guiReadingHint, stretch: 1],
-                ~revertReadingButton).spacing_(10).margins_(0))
+                ~statusDubMeterButton, ~statusDetectNowButton, ~revertReadingButton).spacing_(10).margins_(0))
         ).margins_([30, 22, 30, 18]).spacing_(0)), stretch: 1],
         ~guiRule.(true),
         ~guiStatusInput = View().fixedWidth_(300).layout_(VLayout(
@@ -1015,6 +1043,7 @@
     ~statusPaintState.();
     ~statusPaintTake.();
     ~statusPaintThreshold.();
+    ~statusPaintDubMeter.();
     ~statusRepaintGrids.();
     ~performRefreshAll !? { |f| f.value };
     ~bbcutPaintHeader !? { |f| f.value };

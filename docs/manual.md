@@ -511,7 +511,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
   Break hatch while a break is open) with what R does next; the **take** —
   signature, BPM, bars, key, and the reading chip (`or 7/4 @ 206.4?` on a close
   call, `→ 7/4 @ 206.4 BPM · 2 bars · lands in 1 loop` while a reading is
-  armed) with **Revert**;
+  armed) with **Overdub meter**, **Detect now** and **Revert** beside it;
   the **input** — the level in dB and the **onset lamp**; under the state
   block the **count**, the beat group the loop is in, big, with the count-in
   before an event; and beside it the **bar grid**, a cell per beat with the
@@ -522,7 +522,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, and the **macros**: Master, Arc, Onset |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, and the onset notes' switch and Chance; on a rig without Megalooper SA's drums, a column of their own) and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, and the **macros**: Master, Arc, Onset |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
@@ -627,8 +627,9 @@ The controls, by view:
 
 The top of Perform (`scripts/gui-status.scd` builds and paints it) answers
 "what is it doing right now" at a glance, and its strip keeps the answer on
-every other view. It is **read-only** but for Revert — painted from model
-notifications, so nothing here can be clicked into a state you didn't intend.
+every other view. It is **read-only** but for the take line's three tiles —
+Overdub meter, Detect now and Revert — and painted from model notifications,
+so nothing here can be clicked into a state you didn't intend.
 
 ![The status band](images/status-band.png)
 
@@ -803,14 +804,19 @@ shares.
 
 For loops that open atmospheric. Take one has no attacks, so no meter is found
 and the drums never start — correct, there is no beat to follow. Turn on
-**Overdub meter detection** on Setup's Analysis page, overdub a rhythmic
+**Overdub meter** in the take line of Perform's status band (or **Overdub meter
+detection** on Setup's Analysis page: the same switch), overdub a rhythmic
 pattern, and the meter is derived from *that* instead, then the drums start.
 
 - **Runs on `endOverdub`**, and only while the loop still has **no valid meter**
   (a length-anchored fallback counts as none). Without that gate every overdub
   would re-tempo the drums mid-performance.
-- **Detect now** forces a re-analysis of the last overdub's onsets past that
-  gate. The quality guards below still apply.
+- It hears an overdub **only while the switch is on**: switch it on before
+  you play the rhythm.
+- **Detect now**, beside it, forces a re-analysis of the last overdub's onsets
+  past that gate. The quality guards below still apply; when they find no
+  beat, the footer says why (`Refused: no beat in the last overdub: 5 onsets,
+  8 needed`), and Setup's Analysis page shows what a detection found.
 - Onsets arrive already in **loop coordinates**: the engine publishes its read
   position on a control bus and the analyser latches it at each onset, so
   several loop passes fold onto one grid with no clock arithmetic — and playing
@@ -875,8 +881,11 @@ reading that has not landed.
 
 The onsets `MeterAnalyzer` fits its grid to are also, straightforwardly, a drum
 part — they are exactly where the attacks were. Turn on **Onset notes** on
-Setup's Analysis page and they play the **onset kit** (its kit is chosen on the
-Drums view), once per loop pass: a drum part from the rhythm you played.
+Perform, under the Drums, or on Setup's Analysis page, and they play the
+**onset kit** (its kit is chosen on the Drums view), once per loop pass: a drum
+part from the rhythm you played. Perform has their **Chance** too; the rest of
+their settings are on the Analysis page. On a rig without Megalooper SA's drums
+they are sent as MIDI notes, and Perform gives them a column of their own.
 
 ### It replays the loop, it does not track your hands
 
