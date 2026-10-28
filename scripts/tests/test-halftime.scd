@@ -1,5 +1,5 @@
-// Half-time (docs/dev/rc600-picks.md, 3a): the loop at half speed under drums
-// that keep their tempo. On the server-free fixture: what a press does in each
+// Half-time (docs/dev/rc600-picks.md, 3a): the loop at half speed, the drums
+// at half tempo with it (test-megadrums-sched.scd). On the server-free fixture: what a press does in each
 // state and what it sends the engine (when the engine is to take it is the
 // server's, checked offline by scripts/sa/nrt-engine-rate.scd), the landing and
 // the release, what is refused at half-time and what refuses it, and what keeps

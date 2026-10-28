@@ -56,8 +56,9 @@
 //      the half-speed pass (it ends with it). Every loop click before, at half
 //      speed (every other 16th, its peak a sample later, stretched) and after,
 //      where the timing says, 0 +- 0 samples, and each on a step of the drums,
-//      which keep every 16th through both edges; the onset kit at half
-//      density, on the loop's clicks.
+//      which slow down with it (2026-10-28): their 16ths twice as long from
+//      the landing to the end, on one grid with those before and after; the
+//      onset kit at half density, on the loop's clicks.
 //
 // NRT_DRUMS_ONLY=align,half,levels,attacks,listen,loop,kits runs only those parts.
 //
@@ -801,6 +802,7 @@ halfTimeScene = { |label, bpm, num, den|
     var t0 = 0.5, tau, result, rig, d, l, ld, landAt, endAt, events, endT, rendered, res, loopCh, stepsCh, onsetCh;
     var loopPeaks, stepPeaks, onsetPeaks, expect = List.new, missing = List.new, offLoop = List.new, onGrid = List.new;
     var g0, s16f, offGrid, gridOf, inHalf, hits, offOnset = List.new, onsetIdx, nan, speeds = List.new, valid = List.new;
+    var landS, endS, halfSteps;
     var f0, press, lastFrame;
     ("== half-time " ++ label ++ ": " ++ bpm ++ " BPM " ++ num ++ "/" ++ den ++ ", a loop of " ++ frames
         ++ " frames, pressed in the third pass, again in the half-speed one ==").postln;
@@ -870,30 +872,43 @@ halfTimeScene = { |label, bpm, num, den|
         missing.isEmpty and: { offLoop.every { |x| x == 0 } } and: { loopPeaks.size == expect.size },
         missing.size.asString ++ " missing, " ++ (loopPeaks.size - expect.size) ++ " more peaks than clicks, off "
             ++ histoStr.(histo.(offLoop)));
-    // The drums keep their tempo through both edges: every step they play
-    // (not a roll's hits, which are off the 16ths) sits on one 16th grid, its
-    // first step's, from the first pass to the last. A click's peak is its
-    // frame 2.
+    // The drums slow down with the loop (the duo's choice, 2026-10-28): every
+    // step they play (not a roll's hits, which are off the 16ths) sits on its
+    // first step's 16th grid up to the landing, on 16ths twice as long from
+    // there to the end, and on 16ths again after it, both edges on a step of
+    // the grid before. A click's peak is its frame 2.
     s16f = frames / n16;
     hits = sounding.(rig).select { |h| (h[\kind] == \step) and: { h[\stamp] < (t0 + (7 * ld)) } }
         .collect { |h| detectNear.(stepPeaks, ((h[\stamp] * sr).round.asInteger) + 2, 6) };
     g0 = hits.first;
-    gridOf = { |x| (((x - g0) / s16f).round * s16f) + g0 };
+    // The edges as heard, on the grid before them (the loop's 960 samples late).
+    landS = ((((landAt * sr) + 960) - g0) / s16f).round * s16f + g0;
+    endS = landS + ((endAt - landAt) * sr);
+    gridOf = { |x|
+        case
+        { x < (landS - (s16f / 2)) } { (((x - g0) / s16f).round * s16f) + g0 }
+        { x < (endS - (s16f / 2)) } { (((x - landS) / (2 * s16f)).round * (2 * s16f)) + landS }
+        { (((x - endS) / s16f).round * s16f) + endS }
+    };
     offGrid = hits.collect { |x| x !? { (x - gridOf.(x)).round.asInteger } };
-    say.("the drums' steps against one 16th grid, " ++ hits.size ++ " of them: " ++ histoStr.(histo.(offGrid.reject(_.isNil))));
-    check.("half-time " ++ label ++ ": the drums keep one 16th grid through both edges, +- 1 sample",
+    say.("the drums' steps against their grid, " ++ hits.size ++ " of them: " ++ histoStr.(histo.(offGrid.reject(_.isNil))));
+    check.("half-time " ++ label ++ ": the drums' steps on their 16ths, twice as long at half-time, +- 1 sample",
         (hits.size > 40) and: { offGrid.every { |x| x.notNil and: { x.abs <= 1 } } },
         offGrid.count(_.isNil).asString ++ " not found, " ++ histoStr.(histo.(offGrid.reject(_.isNil))));
+    // (one per step: two lanes on a step are one peak)
+    halfSteps = hits.reject(_.isNil).asSet.asArray.sort.select { |x| (x >= (landS - 2)) and: { x < (endS - 2) } };
+    check.("half-time " ++ label ++ ": at half-time the drums play at half tempo (no two steps closer than two 16ths)",
+        (halfSteps.size > 4) and: { halfSteps.differentiate.drop(1).every { |dx| dx >= ((2 * s16f) - 2) } },
+        halfSteps.size.asString ++ " steps, gaps " ++ halfSteps.differentiate.drop(1).asSet.asArray.sort);
     // The loop on that grid: at speed 1 its click's peak on it; at half
     // speed the click is stretched, its peak (frame 2) two samples later
-    // than the grid point its start is on, at every other 16th.
+    // than the grid point its start is on, at every 16th of the drums' then.
     inHalf = { |x| (x >= ((landAt * sr) + 960)) and: { x < ((endAt * sr) + 960) } };
     loopPeaks.do { |x| onGrid.add((x - gridOf.(x)).round.asInteger - (if(inHalf.(x)) { 2 } { 0 })) };
     say.("the loop's clicks against the drums' grid (at half speed less the stretched peak's 2): "
         ++ histoStr.(histo.(onGrid)));
-    check.("half-time " ++ label ++ ": the loop stays on the drums' grid, at half speed every other 16th, +- 1 sample",
-        onGrid.notEmpty and: { onGrid.every { |x| x.abs <= 1 } }
-            and: { loopPeaks.select(inHalf).collect { |x| ((x - g0) / s16f).round.asInteger.even }.asSet.size == 1 },
+    check.("half-time " ++ label ++ ": the loop stays on the drums' grid, at half speed on each of their 16ths, +- 1 sample",
+        onGrid.notEmpty and: { onGrid.every { |x| x.abs <= 1 } } and: { loopPeaks.any(inHalf) },
         histoStr.(histo.(onGrid)));
     // The onset kit at half density: each hit on one of the loop's clicks
     // (at half speed, the stretched peak's 2 samples after it).

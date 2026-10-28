@@ -2315,7 +2315,132 @@ var bar = go.(\barLine), live = go.(\live);
 ~tAssert.("Live's rule walks on past the second bar line", live[0][2] != 0, live[0].asString);
 }.value;
 
+
+// ---------------------------------------------------------------- half-time --
+// The drums slow down with the loop (the duo's choice, 2026-10-28): from the
+// boundary half-time lands on, a 16th twice as long, and 16ths again from its
+// end. Planned a pass ahead, it goes into the grid ahead, as a reading does.
+// The Looper's side as its gestures leave it (toggleHalfTime, prHalfTimeLands,
+// prResetHalfTime), told to the drums as it tells them.
+~dsHalfSet = { |l, halfTime, at, speed, changedAt|
+    var was = l.speed;
+    ~tPut.(l, \halfTime, halfTime);
+    ~tPut.(l, \halfTimeAt, at);
+    speed !? { |s| ~tPut.(l, \speed, s) };
+    changedAt !? { |c| ~tPut.(l, \speedChangedAt, c); ~tPut.(l, \passOrigin, if(l.speed != 1) { c }) };
+    l.changed(\halfTime, halfTime);
+    if(l.speed != was) { l.changed(\speed, l.speed) };
+};
+~dsHalfFx = {
+    var fx = ~dsMake.();
+    ~dsPlain.(fx[\drums], \main, (3: ~dsEvery));
+    ~dsStart.(fx, 92.0);
+    ~dsRun.(fx, 93.0);
+    fx
+};
+~dsKicks = { |fx| ~dsGrid.(~dsOf.(~dsSounding.(fx[\log]), 36)) };
+{
+var fx = ~dsHalfFx.(), d = fx[\drums], l = fx[\looper], kicks;
+~dsHalfSet.(l, \armed, 94.0);
+~dsRun.(fx, 94.0);
+~dsHalfSet.(l, \on, nil, 0.5, 94.0);
+~dsRun.(fx, 95.0);
+~dsHalfSet.(l, \releasing, 98.0);
+~dsRun.(fx, 98.0);
+~dsHalfSet.(l, \off, nil, 1, 98.0);
+~dsRun.(fx, 99.0);
+kicks = ~dsKicks.(fx);
+~tAssert.("bundles were sent", kicks.size > 0);
+~tEqArray.("half-time: the drums' 16ths up to its landing", kicks.select { |t| (t > 93.6) and: { t < 94 } },
+    [93.625, 93.75, 93.875], 1e-9);
+~tEqArray.("...twice as long from it to its end: the drums at half tempo",
+    kicks.select { |t| (t >= 94) and: { t < 98 } }, (0..15).collect { |i| 94 + (i * 0.25) }, 1e-9);
+~tEqArray.("...and 16ths again from its end", kicks.select { |t| t >= 98 }.keep(4), [98.0, 98.125, 98.25, 98.375], 1e-9);
+~tEq.("...the step count goes on across both edges", d.playheadAt(98.0 + 1e-6)[\n], 32);
+~tEq.("...put in ahead: nothing sent was ever cancelled", ~dsHits.(fx[\log]).count(_[\cancelled]), 0);
+~tEq.("...and nothing dropped", d.dropped, 0);
+}.value;
+// Taken back before it lands: as if never armed.
+{
+var fa = ~dsHalfFx.(), fb = ~dsHalfFx.();
+~dsRun.(fa, 96.0);
+~dsHalfSet.(fb[\looper], \armed, 94.0);
+~dsRun.(fb, 93.9);
+~dsHalfSet.(fb[\looper], \off, nil);
+~dsRun.(fb, 96.0);
+~tAssert.("bundles were sent", ~dsSounding.(fb[\log]).size > 0);
+~tEq.("half-time taken back before it lands: the drums play as if it was never armed",
+    ~dsKeys.(~dsSounding.(fb[\log])), ~dsKeys.(~dsSounding.(fa[\log])));
+}.value;
+// Its end taken back: the drums stay at half tempo.
+{
+var fx = ~dsHalfFx.(), l = fx[\looper];
+~dsHalfSet.(l, \armed, 94.0);
+~dsRun.(fx, 94.0);
+~dsHalfSet.(l, \on, nil, 0.5, 94.0);
+~dsRun.(fx, 95.0);
+~dsHalfSet.(l, \releasing, 98.0);
+~dsRun.(fx, 96.0);
+~dsHalfSet.(l, \on, nil);
+~dsRun.(fx, 99.0);
+~tEqArray.("half-time's end taken back: the drums stay at half tempo past it",
+    ~dsKicks.(fx).select { |t| t >= 97.5 }, [97.5, 97.75, 98.0, 98.25, 98.5, 98.75, 99.0], 1e-9);
+}.value;
+// A reading armed before half-time, landing in it: timed again, its 16ths
+// twice as long too.
+{
+var fx = ~dsHalfFx.(), d = fx[\drums], l = fx[\looper], kicks;
+var r34 = (numerator: 3, denominator: 4, k: 1, bpm: 90, loopDur: 2.0);
+d.readingArmed((index: 1, result: r34, at: 98.0, loops: 2, restart: false), 93.0);
+~dsHalfSet.(l, \armed, 94.0);
+~dsRun.(fx, 94.0);
+~dsHalfSet.(l, \on, nil, 0.5, 94.0);
+~dsRun.(fx, 98.0);
+~tPut.(l, \readingIndex, 1);
+d.setAnalysis(r34, 98.0);
+d.readingCleared(98.0);
+~dsRun.(fx, 99.2);
+kicks = ~dsKicks.(fx);
+~tEqArray.("a reading armed before half-time lands in it at half tempo (12 16ths a loop, each twice as long)",
+    kicks.select { |t| t >= 98 }.keep(4), [98.0, 98 + (1 / 3), 98 + (2 / 3), 99.0], 1e-9);
+~tEqArray.("...after half-time's own 16ths", kicks.select { |t| (t > 97.4) and: { t < 98 } }, [97.5, 97.75], 1e-9);
+~tEq.("...nothing sent was ever cancelled", ~dsHits.(fx[\log]).count(_[\cancelled]), 0);
+}.value;
+// A reading and half-time on one boundary, half-time taken back: the
+// reading's 16ths as they would be without it.
+{
+var fx = ~dsHalfFx.(), d = fx[\drums], l = fx[\looper];
+var r34 = (numerator: 3, denominator: 4, k: 1, bpm: 90, loopDur: 2.0);
+d.readingArmed((index: 1, result: r34, at: 94.0, loops: 1, restart: false), 93.0);
+~dsHalfSet.(l, \armed, 94.0);
+~dsRun.(fx, 93.5);
+~dsHalfSet.(l, \off, nil);
+~dsRun.(fx, 94.0);
+~tPut.(l, \readingIndex, 1);
+d.setAnalysis(r34, 94.0);
+d.readingCleared(94.0);
+~dsRun.(fx, 95.0);
+~tEqArray.("a reading on half-time's boundary, half-time taken back: its own 16ths",
+    ~dsKicks.(fx).select { |t| t >= 94 }.keep(4), [94.0, 94 + (1 / 6), 94 + (2 / 6), 94.5], 1e-9);
+}.value;
+// A stop at half-time with the drums running on (Drums follow the loop:
+// Start only): the Looper's speed is 1 again at once, and the drums follow
+// from their next 16th.
+{
+var fx = ~dsHalfFx.(), l = fx[\looper];
+~dsHalfSet.(l, \armed, 94.0);
+~dsRun.(fx, 94.0);
+~dsHalfSet.(l, \on, nil, 0.5, 94.0);
+~dsRun.(fx, 95.03);
+~dsHalfSet.(l, \off, nil, 1, 95.03);
+~dsRun.(fx, 96.0);
+~tEqArray.("half-time put away by a stop, the drums running on: 16ths again from their next one",
+    ~dsKicks.(fx).select { |t| (t > 94.9) and: { t < 96 } }, [95.0, 95.25, 95.375, 95.5, 95.625, 95.75, 95.875], 1e-9);
+~tEq.("...nothing sent was ever cancelled", ~dsHits.(fx[\log]).count(_[\cancelled]), 0);
+}.value;
+
 ~dsDropKits.();
 [\dsDir, \dsMakeKits, \dsDropKits, \dsReader, \dsMake, \dsMakeGap, \dsEvery, \dsPlain, \dsStart, \dsRun, \dsHits,
     \dsVoices, \dsVoicesSounding, \dsVoiceKey, \dsVoiceKeys, \dsSounding, \dsOf, \dsGrid, \dsKey, \dsKeys,
-    \dsCancels, \dsRec, \dsLogged, \dsLogKey, \dsLogKeys, \dsEv, \dsGridOf].do { |k| currentEnvironment.put(k, nil) };
+    \dsCancels, \dsRec, \dsLogged, \dsLogKey, \dsLogKeys, \dsEv, \dsGridOf,
+    \dsHalfSet, \dsHalfFx, \dsKicks].do { |k| currentEnvironment.put(k, nil) };

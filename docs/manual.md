@@ -391,10 +391,11 @@ touched and never before.
 
 Press **Half-time** (Perform's Loop column, key `L`, or a switch mapped to
 `looper.halfTime`) and on the next loop boundary the loop drops into half
-time: half speed, an octave down, each pass twice as long, under drums, synth
-and effects that keep their tempo. Every loop event still lands on the drums'
-grid, at half the density. Press again and it ends with the half-speed pass,
-back at full speed on the boundary after it.
+time: half speed, an octave down, each pass twice as long. On Megalooper SA
+the drums slow down with it, to half tempo, and so do the synth's notes, which
+run on the drums' clock; their sounds keep their pitch. Every loop event still
+lands on the drums' grid. Press again and it ends with the half-speed pass,
+back at full speed, the drums with it, on the boundary after it.
 
 - **Armed, on, ending.** The tile says `½ armed` until the boundary, `½ HALF`
   while it plays, `½ ending` until the pass is out. A press before the
@@ -404,8 +405,12 @@ back at full speed on the boundary after it.
   again, however late the press reached it, so both edges are the loop's own
   boundaries and the drums stay on its grid through it.
 - **The count** counts in to both edges (`HALF-TIME IN`, `FULL TIME IN`), and
-  at half-time counts the loop's own bars, each now two drum bars long, with
-  `½` beside the bar in the header and in the count's caption.
+  at half-time counts the loop's own bars, each as long as a drum bar at half
+  tempo, with `½` beside the bar in the header and in the count's caption.
+- **The drums** take half tempo on the landing's boundary and full tempo on
+  the end's, their step count going on across both, so a pattern carries on
+  where it was. A stop at half-time with the drums playing on (Drums follow
+  the loop: *Start only*) brings them back to full tempo on their next 16th.
 - **What follows it:** a break lasts the rest of the pass at half speed, then
   whole half-speed passes; a reading lands on the end of a half-speed pass; the
   onset kit plays the loop's hits at half density; the chords change at half
@@ -414,6 +419,8 @@ back at full speed on the boundary after it.
   grid. The **grains** scan as the loop moves, and their pulse at full morph
   is the loop's pulse, twice as long; their pitch is their own, as granular
   pitch always is. A **dissolve** counts its bars at the speed it starts at.
+  The **Slicer** and **Tremolo** go at the loop's pace; the Tape Echo's and
+  the Envelope Filter's beat, and a plugin's tempo, stay at full tempo.
 - **Not with it:** overdub, Rec next loop, multiply and undo are refused at
   half-time, and half-time is refused while you overdub, record the next loop,
   while the cutter is starting or a dissolve runs. The footer says why. With

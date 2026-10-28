@@ -36,9 +36,10 @@
 // The grid comes in EPOCHS (a transport start: the Looper's Start, the drums'
 // bar 1 on a loop boundary, the patterns' step counters from 0, new dice) and
 // SEGMENTS within one (a reading landing without a restart: the step count
-// goes on, the 16th and the numerator change). A 16th is the loop's length over
-// the whole number of 16ths the reading in force gives it, so the grid can never
-// walk against the loop.
+// goes on, the 16th and the numerator change; or the loop's half-time, where
+// the 16th is twice as long). A 16th is the loop's length over the whole
+// number of 16ths the reading in force gives it, over the loop's speed, so the
+// grid can never walk against the loop.
 //
 // ---- The scheduler ----
 // pump(wall), every pumpPeriod on SystemClock, decides in time order every event
@@ -157,6 +158,9 @@ MegaSADrums {
     // in the hole only (prWants).
     var holeHist;
     var pendingLanding;
+    // The Looper's half-time still to land or end (at:, speed:), as an edge
+    // in the grid (see Half-time), or nil.
+    var halfEdge;
     var stepSerial = 0, recSerial = 0, onsetRunSerial = 0;
     var busy = false, jobs, queuedNotes;
     var onsetRun;
@@ -1517,6 +1521,7 @@ MegaSADrums {
             .put(\breakEndsAt, { |obj, what, x| x !? { |v| this.breakEndsAt(v) } })
             .put(\reading, { |obj, what, p| if(p.notNil) { this.readingArmed(p) } { this.readingCleared } })
             .put(\reverse, { |obj, what, flag| this.prReversed(flag) })
+            .put(\halfTime, { |obj, what, x| this.prHalfTimeChanged })
             .put(\speed, { |obj, what, x| this.prSpeedChanged(x) })
             .put(\state, { |obj, what, st|
                 if((st == \recording) and: { newLoopOff } and: { on }) { this.setOn(false) };
@@ -1730,6 +1735,8 @@ MegaSADrums {
             pl[\kind] = \segment;
             this.prRequest([\rewind, at]);
         };
+        // A half-time edge after the landing went with the segments it replaced.
+        this.prSyncEdges;
     }
 
     // A landing's segment out of its epoch again, and what it took the place
@@ -1737,7 +1744,10 @@ MegaSADrums {
     prUndoSegment { |pl|
         var ep = this.prEpoch(pl[\epoch]);
         ep !? {
-            ep[\segs] = (ep[\segs].reject { |s| s === pl[\target] } ++ (pl[\replaced] ? []))
+            // Not a half-time edge still to come: prSyncEdges puts the one in
+            // force back where it belongs now.
+            ep[\segs] = (ep[\segs].reject { |s| s === pl[\target] }
+                ++ (pl[\replaced] ? []).reject { |s| s[\edge] == \pending })
                 .sort { |a, b| a[\t0] <= b[\t0] };
         };
     }
@@ -1760,7 +1770,10 @@ MegaSADrums {
         case
         { pl[\kind] == \segment } {
             this.prUndoSegment(pl);
-            this.prRequest([\rewind, pl[\at]]);
+            // What comes back is timed again at the loop's speed, which half-time
+            // may have changed since it went (prRetimeGrid rewinds from there).
+            this.prSyncEdges;
+            this.prRetimeGrid(pl[\at]);
         }
         { pl[\kind] == \epoch } {
             if(epochs.includes(pl[\target])) {
@@ -1802,24 +1815,29 @@ MegaSADrums {
             pl[\kind] = \none;
             this.prInstallLanding(pl);
         };
+        // A half-time still to come lands in the new epoch too.
+        this.prSyncEdges;
         ^ep
     }
 
     // One grid segment from t0 (at tick tick0, 480 a quarter note): the 16th is
-    // the loop's length over the reading's whole number of 16ths. Its bar
-    // lines (barStarts, from tick0, every loop again) are the reading's bars,
-    // uneven ones too, and bar0 is how many bars the epoch had played before
-    // it, so the bar count goes on across a landing (prBarAt).
+    // the loop's length over the reading's whole number of 16ths, and twice
+    // that where the loop plays at half-time (speed, prSpeedAt; s16at1 the
+    // 16th at its own speed). Its bar lines (barStarts, from tick0, every loop
+    // again) are the reading's bars, uneven ones too, and bar0 is how many
+    // bars the epoch had played before it, so the bar count goes on across a
+    // landing (prBarAt).
     prSegment { |t0, tick0, result, loopDur, bar0 = 0|
         var n16 = this.class.sixteenthsFor(result);
         var bpm = result !? { |r| r[\bpm] };
         var dur = if((loopDur ? 0) > 0) { loopDur } { (result !? { |r| r[\loopDur] }) ? 0 };
         var s16 = if(dur > 0) { dur / n16 } { 15 / (bpm ? 120) };
+        var speed = this.prSpeedAt(t0);
         if((dur > 0) and: { bpm.notNil } and: { (((dur * bpm) / 15).round).asInteger != n16 }) {
             ("MegaSADrums: this reading puts " ++ n16 ++ " sixteenths in the loop, its tempo "
                 ++ (((dur * bpm) / 15).round).asInteger ++ "; the drums follow the bars.").warn;
         };
-        ^(t0: t0, tick0: tick0, s16: s16, n16: n16, loopDur: dur,
+        ^(t0: t0, tick0: tick0, s16: s16 / speed, s16at1: s16, speed: speed, n16: n16, loopDur: dur,
             numerator: ((result !? { |r| r[\numerator] }) ? 4).asInteger.max(1),
             denominator: ((result !? { |r| r[\denominator] }) ? 4).asInteger.max(1),
             k: (result !? { |r| r[\k] }) ? 1,
@@ -1834,6 +1852,119 @@ MegaSADrums {
         var loops = (rel / loopTicks).floor, within = rel - (loops * loopTicks);
         ^(seg[\bar0] ? 0) + (loops.asInteger * starts.size)
             + ((starts.count { |s| s <= within }) - 1).max(0)
+    }
+
+    // ---- Half-time ------------------------------------------------------------
+    // The drums play at the loop's speed (the duo's choice, 2026-10-28): at
+    // half-time each 16th is twice as long, so a bar of the loop is still a bar
+    // of theirs, and the synth's notes, on the same grid, follow. The sounds
+    // keep their pitch. The Looper plans half-time a pass or more ahead
+    // (\halfTime: armed, or ending, at halfTimeAt, one of its boundaries), so
+    // it goes into the grid ahead, as a reading does: an EDGE, a segment like
+    // the one in force there at the new speed. Taken back, it comes out. Every
+    // segment from a change on is timed again at the speed the loop plays at
+    // its start (prRetimeGrid), and the steps from there are decided again.
+
+    // The loop's speed at grid time t, as half-time has it planned: the
+    // Looper's now, or past a landing or an end still to come, the speed after.
+    prSpeedAt { |t|
+        var l = looper, at;
+        if(l.isNil) { ^1 };
+        at = l.halfTimeAt;
+        if(at.notNil and: { t >= (at - 1e-6) }) {
+            if(l.halfTime == \armed) { ^0.5 };
+            if(l.halfTime == \releasing) { ^1 };
+        };
+        ^l.speed ? 1
+    }
+
+    // The Looper's \halfTime: the edge still to come, if any, follows its plan.
+    // The one before stays where the Looper's speed changed on it (it landed:
+    // the grid's history now); otherwise it was taken back, or put away by a
+    // stop, and comes out, and the grid is timed again from it (a reading on
+    // its boundary had the speed it planned, with no edge of its own).
+    prHalfTimeChanged {
+        var l = looper, at, landed, from;
+        if(alive.not or: { l.isNil }) { ^this };
+        halfEdge !? { |e|
+            landed = ((l.speedChangedAt ? inf.neg) - e[\at]).abs < 0.001;
+            if(landed) {
+                epochs.do { |ep| ep[\segs].do { |s|
+                    if((s[\edge] == \pending) and: { (s[\t0] - e[\at]).abs < 1e-6 }) { s[\edge] = \landed };
+                } };
+            } { from = e[\at] };
+        };
+        at = l.halfTimeAt;
+        halfEdge = if(#[\armed, \releasing].includes(l.halfTime) and: { at.notNil }) {
+            (at: at, speed: if(l.halfTime == \armed) { 0.5 } { 1 })
+        };
+        this.prSyncEdges(from);
+    }
+
+    // The edges still to come out of the grid, and the one planned now in, in
+    // the epoch that plays at its time (unless a segment begins there already,
+    // a reading landing on the same boundary, which prRetimeGrid gives the speed),
+    // then the grid timed again from the first of them, or from `also` if
+    // that is earlier.
+    prSyncEdges { |also|
+        var e = halfEdge, from = also ? inf, ep, prev, tick, seg, i;
+        epochs.do { |x|
+            x[\segs].do { |s| if(s[\edge] == \pending) { from = from.min(s[\t0]) } };
+            x[\segs] = x[\segs].reject { |s| s[\edge] == \pending };
+        };
+        if(e.notNil) {
+            from = from.min(e[\at]);
+            ep = this.prEpochAt(e[\at]);
+            if(ep.notNil and: { this.prPlayingAt(e[\at]) }
+                and: { ep[\segs].every { |s| (s[\t0] - e[\at]).abs >= 1e-6 } }) {
+                prev = this.prSegAtTime(ep, e[\at]);
+                tick = this.prTicksAt(ep, e[\at]).round;
+                seg = prev.copy.putAll((t0: e[\at], tick0: tick, bar0: this.prBarAt(prev, tick), edge: \pending));
+                i = ep[\segs].detectIndex { |s| s[\t0] > e[\at] } ? ep[\segs].size;
+                ep[\segs] = ep[\segs].insert(i, seg);
+            };
+        };
+        if(from < inf) { this.prRetimeGrid(from) };
+    }
+
+    // Every segment from t on timed again: its first tick where the segment
+    // before it puts its start, its bar count from there, its 16th at the
+    // loop's speed there. Then the steps from t are decided again.
+    prRetimeGrid { |t|
+        var segs, prev;
+        epochs.do { |ep|
+            segs = ep[\segs];
+            segs.do { |seg, i|
+                if(seg[\t0] >= (t - 1e-6)) {
+                    if(i > 0) {
+                        prev = segs[i - 1];
+                        seg[\tick0] = (prev[\tick0] + (((seg[\t0] - prev[\t0]) / prev[\s16]) * 120)).round;
+                        seg[\bar0] = this.prBarAt(prev, seg[\tick0]);
+                    };
+                    seg[\speed] = this.prSpeedAt(seg[\t0]);
+                    seg[\s16] = (seg[\s16at1] ? seg[\s16]) / seg[\speed];
+                };
+            };
+        };
+        this.prRequest([\rewind, t]);
+    }
+
+    // The loop's speed changed off its boundaries (half-time put away by a
+    // stop, the drums running on after it): they follow from their next 16th.
+    prFollowSpeedNow {
+        var l = looper, t, ep, prev, tick, seg, i;
+        if(alive.not or: { l.isNil } or: { halfEdge.notNil }) { ^this };
+        t = wallClock.value + lead;
+        ep = this.prEpochAt(t);
+        if(ep.isNil or: { this.prPlayingAt(t).not }) { ^this };
+        prev = this.prSegAtTime(ep, t);
+        if(((prev[\speed] ? 1) - (l.speed ? 1)).abs < 1e-9) { ^this };
+        tick = (this.prTicksAt(ep, t) / 120).ceil * 120;
+        t = this.prTimeOfTick(ep, tick);
+        seg = prev.copy.putAll((t0: t, tick0: tick, bar0: this.prBarAt(prev, tick), edge: \landed));
+        i = ep[\segs].detectIndex { |s| s[\t0] > t } ? ep[\segs].size;
+        ep[\segs] = ep[\segs].insert(i, seg);
+        this.prRetimeGrid(t);
     }
 
     // ---- The onset sink (Looper.onsetNoteSink) ------------------------------
@@ -3197,10 +3328,11 @@ MegaSADrums {
     }
 
     // A segment's grid as the log gets it; origin is its start as heard, on
-    // the log's axis.
+    // the log's axis. At half-time the loop's length is a pass's, so it agrees
+    // with the tempo (15 * n16 / loopDur).
     prGridFields { |seg, delta, rec|
         ^(bpm: 15 / seg[\s16], numerator: seg[\numerator], denominator: seg[\denominator],
-            n16: seg[\n16], loopDur: seg[\loopDur], origin: rec.logTime(seg[\t0] + delta))
+            n16: seg[\n16], loopDur: seg[\loopDur] / (seg[\speed] ? 1), origin: rec.logTime(seg[\t0] + delta))
     }
 
     // The Looper's \sessionRecording: a recording that begins is told the
@@ -3309,9 +3441,11 @@ MegaSADrums {
         if(flag == true) { reversedSinceSpawn = true };
     }
 
-    // Half-time landed or ended: a probe sent across it is thrown away.
+    // Half-time landed or ended: a probe sent across it is thrown away. A
+    // speed the grid does not have yet (a stop's) the drums follow at once.
     prSpeedChanged { |x|
         speedCount = speedCount + 1;
+        this.prFollowSpeedNow;
     }
 
     // ---- The server side ----------------------------------------------------

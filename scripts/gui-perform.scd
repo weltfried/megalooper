@@ -178,7 +178,7 @@
             ["½  HALF", Color.white, ~gt[\loop]], ["½  ending", ~gt[\onacc], ~gt[\armed]]])
         .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
         .action_({ ~looper !? { |lp| lp.toggleHalfTime } }),
-        'looper.halfTime', "The loop at half speed, an octave down, under drums that keep their tempo. "
+        'looper.halfTime', "The loop at half speed, an octave down, the drums and the synth's notes at half tempo with it. "
             "Lands on the next loop; again, it ends with the pass. Key L.");
     ~midiWatch.(~performHalfTile, { |t| t.sw_(~performSw.("L", 'looper.halfTime')) });
     loopCol = ~performColumn.((key: \loop, name: "Loop",

@@ -185,8 +185,9 @@ Looper {
     var <lastResult, undoState;
     var <reverseFlag = false;
     // ---- Half-time (docs/dev/rc600-picks.md, 3a) ------------------------------
-    // The loop at half speed, an octave down, each pass twice as long, under
-    // drums that keep their tempo. `speed` is what the engine plays at, 1 or
+    // The loop at half speed, an octave down, each pass twice as long, with
+    // SA's drums at half tempo too (MegaSADrums' Half-time, the duo's choice
+    // of 2026-10-28; they keep their pitch). `speed` is what the engine plays at, 1 or
     // 0.5; `halfTime` what a press does next: \off, \armed (lands on
     // halfTimeAt), \on, \releasing (back to 1 on halfTimeAt). Both edges are
     // the loop's own boundaries, so the passes stay on loopStartTime's grid:
