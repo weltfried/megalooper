@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "megalooper",
   "display_name": "megalooper",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Let Claude read what megalooper is playing and change its drums, synth, effects, grains and cutter.",
   "long_description": "megalooper is a live looper for SuperCollider that finds the meter of what you play. With this extension Claude reads the loop (its meter, uneven bars too, its tempo, and what the take played on the bar grid) the drums, the synth and the effect chains of Megalooper SA, and the grains and the cutter, and changes them when you ask: a groove that fits your 7/8, a synth line over the chords you played, a dubbier echo, an octave-down drone. You hear every change at once, and megalooper's Revert takes it back. megalooper must be running, with AI APPS switched on in its Setup view. Only this Mac is talked to; no audio leaves it.",
   "author": {
