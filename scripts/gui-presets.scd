@@ -281,6 +281,23 @@
     ok
 };
 
+// A preset recalled outside the bar (the AI's load, or its revert): the menu
+// selects it (nil: none) and the name field shows it, as a recall from the
+// menu leaves them, so Save and Revert act on what plays. A name being typed
+// is left alone.
+~presetShow = { |key, slug|
+    var fam = ~presetFamilies[key];
+    fam !? {
+        fam[\loaded] = slug;
+        if(fam[\nameFocused] != true) {
+            fam[\nameField] !? { |f| if(f.isClosed != true) { f.string_(slug ? "") } };
+        };
+        ~presetDisarm.(key);
+        ~presetRefreshList.(key);
+        slug !? { ~presetSetStatus.(key, "Loaded " ++ slug) };
+    };
+};
+
 // Save doubles as save-as: type a new name and the write creates a new file,
 // which the rescan then selects.
 ~presetSave = { |key|

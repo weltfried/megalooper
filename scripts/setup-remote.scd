@@ -15,7 +15,8 @@
 //
 // What MegaRemote reads and changes it gets from ~remoteSource: the running
 // Looper and SA, the preset folders, the Grains view's rows (their tips are
-// what the AI is told), and the status line it speaks in.
+// what the AI is told), the status line it speaks in, and the preset the
+// Drums and Synth views show as loaded.
 
 ~remotePrefKey = "aiApps";
 
@@ -29,8 +30,17 @@
         // The sets recorded before (list_sets, get_set), and where the
         // playhead is as Perform's count predicts it (gui-status.scd).
         sessionDir: ~sessionDir,
-        playhead: { ~countPosAt !? { |f| f.value(Main.elapsedTime) } }.inEnvir)
+        playhead: { ~countPosAt !? { |f| f.value(Main.elapsedTime) } }.inEnvir,
+        // The preset the Drums or the Synth view's menu shows as loaded, and
+        // the one the AI loaded (or a revert brought back) selected there.
+        presetShown: { |part| ~remotePresetFamilies[part] !? { |k| ~presetFamilies !? { |fs| fs[k] } }
+            !? { |fam| fam[\loaded] } }.inEnvir,
+        showPreset: { |part, slug| ~remotePresetFamilies[part] !? { |k|
+            { ~presetShow !? { |f| f.value(k, slug) } }.defer } }.inEnvir)
 };
+
+// The preset bars (gui-presets.scd) of the parts whose presets the AI loads.
+~remotePresetFamilies = (drums: \saDrums, synth: \saSynth);
 
 // Stops whatever runs, then starts a MegaRemote afresh if the switch is on:
 // a boot run again, or the switch turned on, begins with no changes to

@@ -839,10 +839,13 @@ MegaSA {
     }
 
     // True once applied; false, with nothing changed, if the file is missing
-    // or is no synth file.
-    loadSynthPreset { |dir, slug, warnings|
+    // or is no synth file. A preset that puts another instrument in (or the
+    // same one with its sound) hands that switch, a Function, to
+    // `beforeSwitch` if one is given, to call when it may go: the AI's load
+    // keeps the playing plugin's sound first (MegaRemote).
+    loadSynthPreset { |dir, slug, warnings, beforeSwitch|
         if(dir.isNil) { ^false };
-        ^this.prReadSynth(dir +/+ slug ++ ".json", warnings)
+        ^this.prReadSynth(dir +/+ slug ++ ".json", warnings, beforeSwitch)
     }
 
     deleteSynthPreset { |dir, slug|
@@ -880,15 +883,16 @@ MegaSA {
         ^true
     }
 
-    prReadSynth { |path, warnings|
-        var data = MegaSASynthFile.read(path, warnings);
+    prReadSynth { |path, warnings, beforeSwitch|
+        var data = MegaSASynthFile.read(path, warnings), toSwitch;
         if(data.isNil or: { drums.isNil }) { ^false };
         drums.setNotes(data[\notes]);
         wave.setAll(data[\wave]);
         // The instrument, with its sound from beside the file if it kept one.
         if((data[\instrument] != instrumentKey) or: { data[\instrumentState].notNil }) {
-            this.setInstrument(data[\instrument], data[\instrumentState] !? { |n|
-                (kind: \program, path: path.dirname +/+ n) });
+            toSwitch = { this.setInstrument(data[\instrument], data[\instrumentState] !? { |n|
+                (kind: \program, path: path.dirname +/+ n) }) };
+            if(beforeSwitch.notNil) { beforeSwitch.value(toSwitch) } { toSwitch.value };
         };
         // Your table, by its name in your wavetables folder; one gone from
         // there leaves the set Analog's, and says so.

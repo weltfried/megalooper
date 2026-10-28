@@ -19,25 +19,38 @@
 // layer's settings, its window, its switch), \set_cutter (the cutter's
 // voices, its mode, its switch), \revert (the AI's own changes, newest
 // first), \save_drum_preset, \save_synth_preset, \save_sound,
-// \save_grains_preset and \save_cutter_preset. Every change is snapshotted
-// before it lands, so it can be taken back. A plugin is never put in or
-// taken out by the AI.
+// \save_grains_preset and \save_cutter_preset, \load_drum_preset and
+// \load_synth_preset (the player's own presets, as the Drums and Synth
+// views' menus recall them). Every change is snapshotted before it lands, so
+// it can be taken back. A plugin is never put in or taken out by the AI,
+// but by a synth preset of the player's that names one; the plugin playing
+// before keeps its sound for a revert.
 //
 // Everything a request reads or changes comes from `source`, a function
 // answering an Event (looper:, sa:, profile:, drumsPresetDir:,
 // synthPresetDir:, soundDir:, grainsPresetDir:, cutterPresetDir:,
-// grainParams:, say:, sessionDir:, playhead:), so a test hands it stubs; setup-remote.scd hands it
+// grainParams:, say:, sessionDir:, playhead:, presetShown:, showPreset:), so a test hands it stubs; setup-remote.scd hands it
 // the running ~looper and ~megaSA, the presets' folders, the Grains view's
-// rows (grainParams: their labels, window ranges and tips) and the window's
-// status line (say: a function of a String).
+// rows (grainParams: their labels, window ranges and tips), the window's
+// status line (say: a function of a String) and the preset its Drums or
+// Synth view shows as loaded (presetShown: a function of \drums or \synth
+// answering a slug or nil; showPreset: of the part and a slug or nil, which
+// selects it there).
 MegaRemote {
     var <source, <token, <port, responder, onShutDown, <started = false;
-    // The AI's changes, oldest first: (part:, label:, data:), data the part as
-    // it was just before the change: the drums' presetData, the synth's
-    // (notes:, wave:, on:), the chains' (sound:, on: [[id, flag] ...]), the
-    // grains' (preset:, on:) or the cutter's (preset:, on:), preset the
-    // Looper's own preset data for them.
+    // The AI's changes, oldest first: (part:, label:, data:, shown:), data
+    // the part as it was just before the change: the drums' presetData, the
+    // synth's (notes:, wave:, on:, table:, instrument:, and from a preset's
+    // load switched: true and instrumentState: the path the plugin playing
+    // then wrote its sound to), the chains' (sound:, on: [[id, flag] ...]),
+    // the grains' (preset:, on:) or the cutter's (preset:, on:), preset the
+    // Looper's own preset data for them. shown, for the drums and the synth
+    // where a window answers: [the slug its view showed as loaded, or nil].
     var changes;
+    // A preset's instrument waiting for the plugin playing now to write its
+    // sound (a Function, run once), and how many such sounds were written
+    // (their files are numbered).
+    var pendingSwitch, stateCount = 0;
 
     *new { |source| ^super.newCopyArgs(source) }
 
@@ -48,6 +61,10 @@ MegaRemote {
     *handshakePath { ^MegaFiles.userRoot +/+ "remote.json" }
     *requestPath { |id| ^this.dir +/+ id ++ ".request.json" }
     *replyPath { |id| ^this.dir +/+ id ++ ".reply.json" }
+    // The sounds of the instrument plugins a preset's load replaced.
+    *statesDir { ^this.dir +/+ "states" }
+    // How long a preset's instrument waits for the old one's sound, at most.
+    *switchWait { ^2 }
 
     // ---- starting and stopping ---------------------------------------------
 
@@ -61,6 +78,7 @@ MegaRemote {
         token = this.class.newToken;
         File.mkdir(this.class.dir);
         (this.class.dir +/+ "*.json").pathMatch.do { |p| File.delete(p) };
+        (this.class.statesDir +/+ "*").pathMatch.do { |p| File.delete(p) };
         responder = OSCdef(\megalooperRemote, { |msg, time, addr| this.receive(msg, addr) },
             this.class.oscPath).permanent_(true);
         why = MegaFiles.writeNow(this.class.handshakePath, this.handshakeText);
@@ -78,6 +96,7 @@ MegaRemote {
     // Stops listening and removes the handshake, if it is still this run's.
     stop {
         var text;
+        pendingSwitch !? { |go| this.prRunPendingSwitch(go) };
         responder !? { |r| r.free };
         responder = nil;
         onShutDown !? { |f| ShutDown.remove(f) };
@@ -177,6 +196,8 @@ MegaRemote {
             { command == "set_cutter" } { this.setCutter(args) }
             { command == "save_grains_preset" } { this.saveGrainsPreset(args) }
             { command == "save_cutter_preset" } { this.saveCutterPreset(args) }
+            { command == "load_drum_preset" } { this.loadDrumPreset(args) }
+            { command == "load_synth_preset" } { this.loadSynthPreset(args) }
             { this.class.failure("no command " ++ command.asString.quote ++ "; there are "
                 ++ this.class.commands.join(", ")) }
         } { |err| this.class.failure("megalooper failed to answer: " ++ err.errorString) }
@@ -184,7 +205,7 @@ MegaRemote {
 
     *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
         "set_cutter", "revert", "save_drum_preset", "save_synth_preset", "save_sound", "save_grains_preset",
-        "save_cutter_preset", "list_sets", "get_set"] }
+        "save_cutter_preset", "load_drum_preset", "load_synth_preset", "list_sets", "get_set"] }
 
     *success { |result| ^this.obj([\ok, true, \result, result]) }
     *failure { |why| ^this.obj([\ok, false, \error, why]) }
@@ -213,9 +234,11 @@ MegaRemote {
 
     prNoDrums { ^this.class.failure("there are no drums: this megalooper runs without Megalooper SA") }
 
-    prSnapshot { |part, label, data|
+    // `src` given, the preset the part's view shows is kept with it.
+    prSnapshot { |part, label, data, src|
         changes = changes ?? { List.new };
-        changes.add((part: part, label: label, data: data));
+        changes.add((part: part, label: label, data: data,
+            shown: src !? { |s| s[\presetShown] } !? { |f| [f.value(part)] }));
         while { changes.size > this.class.changesMax } { changes.removeAt(0) };
         this.changed(\aiChanges, this.changeCount);
     }
@@ -245,7 +268,7 @@ MegaRemote {
                 ++ drums.kitKeys.collect(_.asString).join(", "))
         };
         label = "drums' " ++ [given !? { which.asString ++ " pattern" }, kit !? { "kit" }].reject(_.isNil).join(" and ");
-        this.prSnapshot(\drums, label, drums.presetData("before the AI's change"));
+        this.prSnapshot(\drums, label, drums.presetData("before the AI's change"), src);
         kit !? { |k| if(k.asString.asSymbol != drums.kit(\steps)) { drums.setKit(\steps, k.asString.asSymbol) } };
         given !? { |g| drums.setPattern(which, this.class.mergePattern(drums.patterns[which], this.class.plain(g)), notes) };
         this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
@@ -259,28 +282,39 @@ MegaRemote {
     // all there are, if more): each part they touched as it was before the
     // earliest of them.
     revert { |args|
-        var src = source.value, drums = this.prDrums(src), count, taken, parts, notes = List.new, why, undone;
+        var src = source.value, drums = this.prDrums(src), count, taken, parts, notes = List.new, why, undone, mine;
         if(drums.isNil and: { this.prLooper(src).isNil }) { ^this.prNoDrums };
         count = (args !? { |a| a.at("count") }) ? 1;
         if(count.isInteger.not or: { count < 1 }) { ^this.class.failure("count is a whole number, 1 or more") };
         if(this.changeCount == 0) { ^this.class.failure("nothing to revert: the AI has changed nothing since megalooper started") };
         count = count.min(this.changeCount);
         taken = changes.asArray.drop(changes.size - count);
+        // A preset's instrument still waiting comes in first, so it is
+        // what goes.
+        pendingSwitch !? { |go| this.prRunPendingSwitch(go) };
         parts = [\drums, \synth, \chains, \grains, \cutter].select { |part| taken.any { |c| c[\part] == part } };
         parts.do { |part|
-            why = why ?? { this.prRestore(src, part, taken.detect { |c| c[\part] == part }[\data], notes) };
+            mine = taken.select { |c| c[\part] == part };
+            why = why ?? { this.prRestore(src, part, mine, notes) };
+            // The preset the view showed then, selected there again.
+            if(why.isNil) {
+                mine[0][\shown] !? { |s| if(s[0] != this.class.shownOf(src, part)) { this.prShowPreset(src, part, s[0]) } };
+            };
         };
         if(why.notNil) { ^this.class.failure(why) };
         count.do { changes.pop };
         this.changed(\aiChanges, this.changeCount);
         undone = taken.collect { |c| c[\label] }.reverse;
-        this.prSay(src, "The AI reverted the " ++ undone.join(", "));
-        ^this.class.success(this.class.obj([\reverted, undone, \aiChanges, this.changeCount]))
+        this.prSay(src, "The AI reverted the " ++ undone.join(", ")
+            ++ if(notes.isEmpty) { "" } { " (" ++ notes.join("; ") ++ ")" });
+        ^this.class.success(this.class.obj([\reverted, undone, \corrections, notes.asArray, \aiChanges, this.changeCount]))
     }
 
-    // A part put back as a snapshot holds it: nil when done, else why not.
-    prRestore { |src, part, data, notes|
+    // A part put back as the earliest of `mine`, its changes taken back
+    // (oldest first), holds it: nil when done, else why not.
+    prRestore { |src, part, mine, notes|
         var drums = this.prDrums(src), sa = src !? { |s| s[\sa] }, wave = sa !? { |m| m.wave }, looper = this.prLooper(src);
+        var data = mine[0][\data], kept, state, table;
         if(part == \grains) {
             if(looper.applyGranularPreset(data[\preset]).not) { ^"the grains could not be put back" };
             if(looper.granularOn != data[\on]) { looper.toggleGranular };
@@ -307,7 +341,131 @@ MegaRemote {
         drums.setNotes(data[\notes]);
         wave.setAll(data[\wave]);
         if(drums.notesOn != data[\on]) { drums.setNotesOn(data[\on]) };
+        // Your table and the instrument, as a preset's load may have changed
+        // them. The instrument goes back when one of the changes put another
+        // in, with the sound the plugin playing then wrote, or when it is
+        // simply another now.
+        if(wave.tableName != data[\table]) {
+            table = wave.loadTableNamed(data[\table]);
+            if(table.isString) {
+                notes.add("your table " ++ data[\table] ++ " did not load (" ++ table ++ "); Analog's plays");
+                wave.clearTable;
+            };
+        };
+        kept = mine.detect { |c| c[\data][\switched] == true } !? { |c| c[\data] };
+        if(kept.notNil or: { sa.instrumentKey != data[\instrument] }) {
+            state = kept !? { |k| if(k[\instrument] == data[\instrument]) { k[\instrumentState] } };
+            if(state.notNil and: { File.exists(state).not }) { state = nil };
+            sa.setInstrument(data[\instrument], state !? { |p| (kind: \program, path: p) });
+            if(data[\instrument].notNil and: { state.isNil }) {
+                notes.add(data[\instrument] ++ " is back with the sound it opens with: its own was not kept")
+            };
+        };
         ^nil
+    }
+
+    // The synth as a snapshot holds it.
+    prSynthData { |sa|
+        ^(notes: MegaSANoteSeq.copyPattern(sa.drums.notes), wave: sa.wave.settings.copy, on: sa.drums.notesOn,
+            table: sa.wave.tableName, instrument: sa.instrumentKey)
+    }
+
+    // A preset's instrument comes in, once: `go` if it is still the one
+    // waiting.
+    prRunPendingSwitch { |go|
+        if(pendingSwitch === go) {
+            pendingSwitch = nil;
+            go.value;
+        };
+    }
+
+    // ---- the player's presets, loaded ------------------------------------------------
+
+    // The slug of the preset `args` names (by its slug, as get_context lists
+    // them, or by the name it was saved under), among `names`; else the
+    // failure to answer. `what` is "drum" or "synth".
+    prPresetAsked { |args, dir, what, names, slugOf|
+        var name = args !? { |a| a.at("name") }, slug;
+        if(name.isKindOf(String).not or: { name.stripWhiteSpace.isEmpty }) { ^this.class.failure("name the preset") };
+        if(dir.isNil) { ^this.class.failure("there is no folder for " ++ what ++ " presets") };
+        slug = if(names.includesEqual(name)) { name } { slugOf.value(name) };
+        if(names.includesEqual(slug).not) {
+            ^this.class.failure("there is no " ++ what ++ " preset " ++ name.quote ++ "; "
+                ++ if(names.isEmpty) { "there are none yet" } { "there are " ++ names.join(", ") })
+        };
+        ^slug
+    }
+
+    prShowPreset { |src, part, slug| src !? { |s| s[\showPreset] } !? { |f| f.value(part, slug) } }
+
+    // One of the Drums view's presets, recalled as its menu recalls it: both
+    // patterns, the kits, their trims, Repeats, the reverb and the offset;
+    // the drums' switch, the break and the mixer's levels stay. Values held
+    // to a range are said in the answer's corrections.
+    loadDrumPreset { |args|
+        var src = source.value, drums = this.prDrums(src), dir = src !? { |s| s[\drumsPresetDir] };
+        var slug, before, notes = List.new, label;
+        if(drums.isNil) { ^this.prNoDrums };
+        slug = this.prPresetAsked(args, dir, "drum", drums.presetNames(dir), { |n| drums.presetSlug(n) });
+        if(slug.isString.not) { ^slug };
+        before = drums.presetData("before the AI's change");
+        if(drums.loadPreset(dir, slug, notes).not) {
+            ^this.class.failure("the drum preset " ++ slug.quote ++ " could not be read"
+                ++ if(notes.isEmpty) { "" } { ": " ++ notes.join("; ") })
+        };
+        label = "drum preset " ++ slug.quote;
+        this.prSnapshot(\drums, label, before, src);
+        this.prShowPreset(src, \drums, slug);
+        this.prSay(src, "The AI loaded the " ++ label ++ " (it can revert it)");
+        ^this.class.success(this.class.obj([\loaded, slug, \corrections, notes.asArray,
+            \drums, this.class.drumsOf(drums), \aiChanges, this.changeCount]))
+    }
+
+    // One of the Synth view's presets, recalled as its menu recalls it: the
+    // note pattern, the Wave synth, your table and the instrument; the
+    // sequencer's switch stays. A preset that puts another instrument in
+    // (or the same plugin with its sound) waits for the plugin playing now
+    // to write its sound, so a revert can bring it back: a moment, at most
+    // switchWait seconds.
+    loadSynthPreset { |args|
+        var src = source.value, sa = src !? { |s| s[\sa] }, dir = src !? { |s| s[\synthPresetDir] };
+        var slug, data, notes = List.new, label, waits;
+        if(sa.isNil or: { sa.drums.isNil } or: { sa.wave.isNil }) { ^this.prNoSynth };
+        slug = this.prPresetAsked(args, dir, "synth", sa.synthPresetNames(dir), { |n| sa.synthPresetSlug(n) });
+        if(slug.isString.not) { ^slug };
+        data = this.prSynthData(sa);
+        pendingSwitch !? { |go| this.prRunPendingSwitch(go) };
+        if(sa.loadSynthPreset(dir, slug, notes, { |go| this.prSwitchAfterKeeping(sa, data, go) }).not) {
+            ^this.class.failure("the synth preset " ++ slug.quote ++ " could not be read"
+                ++ if(notes.isEmpty) { "" } { ": " ++ notes.join("; ") })
+        };
+        waits = pendingSwitch.notNil;
+        label = "synth preset " ++ slug.quote;
+        this.prSnapshot(\synth, label, data, src);
+        this.prShowPreset(src, \synth, slug);
+        this.prSay(src, "The AI loaded the " ++ label ++ " (it can revert it)");
+        ^this.class.success(this.class.obj([\loaded, slug, \corrections, notes.asArray,
+            \instrumentComing, waits, \synth, this.class.synthOf(sa), \aiChanges, this.changeCount]))
+    }
+
+    // The switch to a preset's instrument (`go`), after the plugin playing
+    // now has written its sound into the snapshot's file; at once if the
+    // Wave synth plays. A plugin that does not answer holds it off no longer
+    // than switchWait.
+    prSwitchAfterKeeping { |sa, data, go|
+        var inst = sa.instrument, file;
+        data[\switched] = true;
+        if(inst.isNil or: { inst.state != \open }) { ^go.value };
+        stateCount = stateCount + 1;
+        file = this.class.statesDir +/+ "synth-" ++ stateCount ++ inst.stateExtension;
+        File.mkdir(file.dirname);
+        data[\instrumentState] = file;
+        pendingSwitch = go;
+        inst.saveState(\program, file, { |p, ok|
+            if(ok != true) { data[\instrumentState] = nil };
+            this.prRunPendingSwitch(go);
+        });
+        SystemClock.sched(this.class.switchWait, { this.prRunPendingSwitch(go); nil });
     }
 
     // ---- the synth ---------------------------------------------------------------------
@@ -345,8 +503,7 @@ MegaRemote {
         };
         label = "synth's " ++ [given !? { "note pattern" }, waveGiven !? { "Wave settings" },
             on !? { "sequencer switch" }].reject(_.isNil).join(" and ");
-        this.prSnapshot(\synth, label, (notes: MegaSANoteSeq.copyPattern(drums.notes), wave: wave.settings.copy,
-            on: drums.notesOn));
+        this.prSnapshot(\synth, label, this.prSynthData(src[\sa]), src);
         given !? { drums.setNotes(data[\notes]) };
         waveGiven !? { wave.setAll(data[\wave]) };
         on !? { |flag| if(flag != drums.notesOn) { drums.setNotesOn(flag) } };
@@ -864,13 +1021,19 @@ MegaRemote {
             \loop, this.loopOf(looper),
             \now, looper !? { |l| this.nowOf(l, src !? { |x| x[\playhead] }) },
             \tempo, sa !? { |m| m.tempo },
-            \drums, drums !? { |d| this.drumsOf(d) },
-            \synth, sa !? { |m| this.synthOf(m) },
+            \drums, drums !? { |d| this.drumsOf(d).add("presets", d.presetNames(src[\drumsPresetDir]))
+                .add("loadedPreset", this.shownOf(src, \drums)) },
+            \synth, sa !? { |m| this.synthOf(m).add("presets", m.synthPresetNames(src[\synthPresetDir]))
+                .add("loadedPreset", this.shownOf(src, \synth)) },
             \chains, sa !? { |m| m.sessionInfo[\chains] },
             \grains, looper !? { |l| this.grainsOf(l) },
             \cutter, looper !? { |l| this.cutterOf(l) }
         ])
     }
+
+    // The preset `part`'s view (\drums, \synth) shows as loaded, where a
+    // window answers: its slug, or nil.
+    *shownOf { |src, part| ^src !? { |s| s[\presetShown] } !? { |f| f.value(part) } }
 
     // The granular layer: on or off, its settings by name, its grain window,
     // and the arc's intensity, which scales its level.

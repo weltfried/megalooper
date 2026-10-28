@@ -263,6 +263,27 @@ fam[\nameField][\string] = "Cutter Preset";
     false);
 }.value;
 
+// ---- a preset recalled outside the bar (the AI's load, and its revert) ----
+
+{
+var fam = install.(\granular);
+fam[\nameField][\string] = "Shown";
+~saveGranularPreset.();
+fam[\nameField][\string] = "Other";
+~saveGranularPreset.();
+~presetShow.(\granular, "shown");
+~tEq.("a preset shown from outside is selected, its name in the field, and said",
+    [fam[\loaded], fam[\items][fam[\menu][\value]], fam[\nameField][\string], statusOf.(\granular)],
+    ["shown", "shown", "shown", "Loaded shown"]);
+~tEq.("...so Save saves back to it in one click", fam[\saveButton][\states][0][0], "Save");
+fam[\nameFocused] = true;
+fam[\nameField][\string] = "typing";
+~presetShow.(\granular, nil);
+~tEq.("none shown: nothing selected, and a name being typed stays",
+    [fam[\loaded], fam[\menu][\value], fam[\nameField][\string]], [nil, 0, "typing"]);
+fam[\nameFocused] = false;
+}.value;
+
 // ---- put the session back -----------------------------------------------
 
 [\bbcut, \granular].do { |key|

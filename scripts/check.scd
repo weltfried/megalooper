@@ -78,7 +78,7 @@ var expected = [
     \saDrumsKitDir, \saDrumsDefaultKits, \saDrumsStartKit, \saKeptDrumsPath, \saKeptDrumsBefore, \saAdoptKeptDrums, \saKeepDrums, \saLoadKeptDrums,
     \saKeptSynthPath, \saKeepSynth, \saLoadKeptSynth,
     \saDrumsKitLine, \setupSADrums, \saDrumsNewLoopApply, \saDrumsNewLoopSet,
-    \remoteApply, \remoteSet, \remoteOn, \remoteRevert, \remoteSource, \rigAiSection, \guiAiPaint, \guiAiTileMake,
+    \remoteApply, \remoteSet, \remoteOn, \remoteRevert, \remoteSource, \remotePresetFamilies, \rigAiSection, \guiAiPaint, \guiAiTileMake,
     \buildMidiPane, \guiSetupShow, \guiSetupNext, \guiSetupMenu, \guiSetupMenuOf, \guiPaneSeen, \guiTabLabel, \guiTabMenu,
     \remotePython, \remoteConfigText, \remoteCopyConfig, \remoteInstallExtension, \remoteRepo,
     \buildEffectsPane, \effectsBlurbs, \effectsFormat, \effectsMap, \effectsUnmap,
@@ -157,7 +157,7 @@ var expected = [
     \presetDir, \presetModel, \presetBarRows,
     \presetSetStatus, \presetRefreshList, \presetRefreshButtons,
     \presetArm, \presetDisarm, \presetLoad, \presetSave, \presetDelete,
-    \presetRevert, \presetStopTimers,
+    \presetRevert, \presetStopTimers, \presetShow,
     \buildGranularPane, \granularParams, \granularWidgets, \granularRefreshOne,
     \granularRefreshAll, \granularResetTweaks, \granularMapValue,
     \granularUnmapValue, \granularFormat, \granularRow, \granularSection
@@ -227,7 +227,7 @@ var callables = [
     \presetModel, \presetBarRows,
     \presetSetStatus, \presetRefreshList, \presetRefreshButtons,
     \presetArm, \presetDisarm, \presetLoad, \presetSave, \presetDelete,
-    \presetRevert, \presetStopTimers
+    \presetRevert, \presetStopTimers, \presetShow
 ];
 // The test suite is GLOBBED, not listed: adding a test file should not need a
 // second edit here before it is parse-checked. Parsed only — actually running

@@ -172,7 +172,8 @@ class Protocol:
         self.assertEqual([t["name"] for t in tools],
                          ["get_context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
                           "set_cutter", "revert", "save_synth_preset", "save_sound", "save_drum_preset",
-                          "save_grains_preset", "save_cutter_preset", "list_sets", "get_set"])
+                          "save_grains_preset", "save_cutter_preset", "load_drum_preset", "load_synth_preset",
+                          "list_sets", "get_set"])
         for t in tools:
             self.assertEqual(t["inputSchema"]["type"], "object")
         self.assertEqual({t["name"] for t in tools if t["annotations"]["readOnlyHint"]},
@@ -244,6 +245,7 @@ class Asking:
             ("set_grains", {"settings": {"morph": 0.2}, "window": "Swell", "on": True}),
             ("set_cutter", {"voices": [None, {"proc": "warp", "params": {"accel": 1.1}}], "voiceCount": 2, "mode": "gate"}),
             ("save_grains_preset", {"name": "g"}), ("save_cutter_preset", {"name": "c", "overwrite": True}),
+            ("load_drum_preset", {"name": "groove"}), ("load_synth_preset", {"name": "Bass Line"}),
         ]
         for name, args in cases:
             text, err = self.tool(name, args)
@@ -499,6 +501,25 @@ class RoundTrip:
         self.assertEqual(len(got["corrections"]), 1)
         self.assertFalse(self.tool("revert")[1])
         self.assertEqual(json.loads(self.tool("get_context", {"parts": ["synth"]})[0])["synth"], before)
+
+    def test_presets_loaded_over_osc_and_back(self):
+        ctx = json.loads(self.tool("get_context", {"parts": ["drums", "synth"]})[0])
+        self.assertEqual((ctx["drums"]["presets"], ctx["synth"]["presets"]), (["peer-groove"], ["peer-line"]))
+        drums, synth = ctx["drums"]["patterns"]["main"], ctx["synth"]["notes"]
+        text, err = self.tool("load_drum_preset", {"name": "Peer Groove"})
+        self.assertFalse(err, text)
+        got = json.loads(text)
+        self.assertEqual((got["loaded"], got["drums"]["patterns"]["main"]["delay"][0]), ("peer-groove", 11))
+        text, err = self.tool("load_synth_preset", {"name": "peer-line"})
+        self.assertFalse(err, text)
+        got = json.loads(text)
+        self.assertEqual((got["loaded"], got["synth"]["notes"]["root"], got["instrumentComing"]), ("peer-line", 5, False))
+        text, err = self.tool("load_drum_preset", {"name": "Funk"})
+        self.assertTrue(err)
+        self.assertIn("there are peer-groove", text)
+        self.assertFalse(self.tool("revert", {"count": 2})[1])
+        ctx = json.loads(self.tool("get_context", {"parts": ["drums", "synth"]})[0])
+        self.assertEqual((ctx["drums"]["patterns"]["main"], ctx["synth"]["notes"]), (drums, synth))
 
     def test_a_chain_change_over_osc_and_back(self):
         before = json.loads(self.tool("get_context", {"parts": ["chains"]})[0])["chains"]

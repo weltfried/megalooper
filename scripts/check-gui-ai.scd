@@ -1,14 +1,16 @@
 // megalooper — the window's side of AI apps (setup-remote.scd): the Setup
 // view's switch lets one in and shuts it out, kept in settings.json; the
 // footer's Revert shows while an AI change can be taken back, and takes it
-// back. Real Qt views, a MegaSA on a stub server, no rig. The switch's
+// back; a drum preset the AI loads is selected in the Drums view's preset
+// bar, and its revert selects what was there. Real Qt views, a MegaSA on a
+// stub server, no rig. The switch's
 // settings.json and MegaRemote's handshake go to scratch folders, never to
 // yours. It exits 0 or 1.
 //
 //   /Applications/SuperCollider.app/Contents/MacOS/sclang scripts/check-gui-ai.scd
 (
 var scripts = Looper.repoRoot +/+ "scripts";
-var pass = 0, fail = 0, fails = List.new, w, section, tile, said = List.new, before, sa;
+var pass = 0, fail = 0, fails = List.new, w, section, tile, said = List.new, before, sa, bar, fam;
 var ok = { |label, cond, detail|
     if(cond == true) { pass = pass + 1; ("  ok    " ++ label).postln }
     { fail = fail + 1; fails.add(label ++ " — " ++ (detail ? ""));
@@ -17,7 +19,7 @@ var ok = { |label, cond, detail|
 (scripts +/+ "tests" +/+ "_harness.scd").load;
 ["setup-routing.scd", "setup-midi.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd", "setup-remote.scd",
     "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd",
-    "gui-rig.scd", "gui-shell.scd"].do { |f|
+    "gui-rig.scd", "gui-shell.scd", "gui-drums.scd"].do { |f|
     (scripts +/+ f).load;
 };
 ~midiUserRootOverride = ~tTempPath.("check-gui-ai");
@@ -77,6 +79,36 @@ Routine {
     tick.();
     ok.("...then the one before: the drums as they were, and Revert hidden",
         (sa.drums.patterns[\main] == before) and: { tile.visible.not });
+
+    "== a preset the AI loads ==".postln;
+    ~saDrumsPresetDir = MegaFiles.userRoot +/+ "drum-presets";
+    sa.drums.setPattern(\main, MegaRemote.mergePattern(before, (delay: [9])));
+    sa.drums.savePreset(~saDrumsPresetDir, "AI Check");
+    sa.drums.setPattern(\main, before);
+    bar = Window("AI check: the drums' presets", Rect(0, 220, 700, 120));
+    bar.layout = VLayout(*~presetBarRows.(\saDrums, 80));
+    bar.alpha_(0).front;
+    fam = ~presetFamilies[\saDrums];
+    ~presetRefreshList.(\saDrums);
+    tick.();
+    // The name field takes the keyboard in a window of its own; in
+    // megalooper's it never does at open. A name being typed is left alone.
+    bar.view.focus(true);
+    tick.();
+    ~megaRemote.handle("{\"command\": \"load_drum_preset\", \"args\": {\"name\": \"AI Check\"}}");
+    tick.();
+    ok.("the AI loads a drum preset: it plays, and the Drums view's bar selects it with its name",
+        (sa.drums.patterns[\main][\delay][0] == 9) and: { fam[\menu].item == "ai-check" }
+            and: { fam[\nameField].string == "ai-check" } and: { fam[\loaded] == "ai-check" },
+        [fam[\menu].item, fam[\nameField].string, sa.drums.patterns[\main][\delay][0]].asString);
+    ok.("...and the context says it is the one shown",
+        ~megaRemote.handle("{\"command\": \"context\"}").at("result").at("drums").at("loadedPreset") == "ai-check");
+    tile.doAction;
+    tick.();
+    ok.("Revert: the drums as they were, and nothing selected in the bar again",
+        (sa.drums.patterns[\main] == before) and: { fam[\menu].value == 0 } and: { fam[\loaded].isNil },
+        [fam[\menu].item, fam[\loaded]].asString);
+    bar.close;
 
     "== shut out ==".postln;
     ~megaRemote.handle("{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"mute\": [true]}}}");

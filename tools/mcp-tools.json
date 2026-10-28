@@ -7,10 +7,12 @@
   "2025-03-26",
   "2024-11-05"
  ],
- "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, effect chains, a granular layer (the grains) and a cutter over the loop. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, how its bars are grouped (2+2+3), where the playhead is and what is about to land, its tempo, the drum patterns, the note sequence, the chains, the grains, the cutter), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth), the effect chains (set_chain), the grains (set_grains) and the cutter (set_cutter) can be changed and every change taken back (revert); the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them. The sets recorded before are there to learn from: list_sets lists them, get_set tells one in full (each take, what was played on its bar grid, the reading the analyser applied and what the players changed). Use them between rehearsals to answer what was played, what the analyser got wrong, or to write parts for a take from a past set.",
+ "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, effect chains, a granular layer (the grains) and a cutter over the loop. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, how its bars are grouped (2+2+3), where the playhead is and what is about to land, its tempo, the drum patterns, the note sequence, the chains, the grains, the cutter), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth), the effect chains (set_chain), the grains (set_grains) and the cutter (set_cutter) can be changed and every change taken back (revert); the player's own drum and synth presets can be loaded (load_drum_preset, load_synth_preset), as a start to change or to hear one they name; the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them; a synth preset of the player's may bring its own instrument plugin. The sets recorded before are there to learn from: list_sets lists them, get_set tells one in full (each take, what was played on its bar grid, the reading the analyser applied and what the players changed). Use them between rehearsals to answer what was played, what the analyser got wrong, or to write parts for a take from a past set.",
  "passedOn": [
   "get_set",
   "list_sets",
+  "load_drum_preset",
+  "load_synth_preset",
   "revert",
   "save_cutter_preset",
   "save_drum_preset",
@@ -27,7 +29,7 @@
   {
    "name": "get_context",
    "title": "What megalooper is playing",
-   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads), the synth (the note sequencer's pattern and the Wave synth's settings), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window, whether they follow the chords) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
+   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads; presets, the drum presets saved in the Drums view, and loadedPreset, the one it shows as loaded), the synth (the note sequencer's pattern and the Wave synth's settings; presets and loadedPreset, as the Synth view has them), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window, whether they follow the chords) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -336,7 +338,7 @@
   {
    "name": "revert",
    "title": "Take back changes",
-   "description": "Put the drums, the synth, the chains, the grains and the cutter back as they were before your newest change, or before the newest `count` changes. get_context's aiChanges says how many can be taken back (at most 32 are kept).",
+   "description": "Put the drums, the synth, the chains, the grains and the cutter back as they were before your newest change, or before the newest `count` changes. get_context's aiChanges says how many can be taken back (at most 32 are kept). The answer's corrections say what did not come back as it was (an instrument plugin whose sound could not be kept, a table no longer there).",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -486,6 +488,54 @@
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "load_drum_preset",
+   "title": "Load a drum preset",
+   "description": "Load one of the player's drum presets, as picking it in megalooper's Drums view does: both patterns, the kits, their trims, Repeats, the reverb and the offset. The drums' switch, the break and the mixer's levels stay as they are. get_context lists the presets under drums.presets, and drums.loadedPreset is the one the view shows. Values a hand-edited file holds out of range are held to it and listed in the answer's corrections. The answer holds the drums as they now are. It can be taken back with revert.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "A preset from drums.presets in get_context."
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "load_synth_preset",
+   "title": "Load a synth preset",
+   "description": "Load one of the player's synth presets, as picking it in megalooper's Synth view does: the note pattern, the Wave synth's settings, its table and the instrument (the Wave synth, or a plugin with the sound the preset kept). The sequencer's switch stays as it is: set_synth's on switches it. get_context lists the presets under synth.presets, and synth.loadedPreset is the one the view shows. When the preset brings another instrument while a plugin plays, that plugin's sound is kept first, so revert can bring it back; instrumentComing in the answer then says the preset's instrument comes in a moment later. Values out of range are held to it and listed in the answer's corrections. It can be taken back with revert.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "A preset from synth.presets in get_context."
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
     "idempotentHint": true,
     "openWorldHint": false
    }

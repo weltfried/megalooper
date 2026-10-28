@@ -27,15 +27,16 @@ nothing waits for a bar line.
 | **The loop** | Its meter (uneven bars too) and how each bar is grouped (2+2+3), how well the take's loud hits fit that meter's strong beats (the analyser's accent score), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
 | **Now** | Where the loop is (bar, beat, beat group), half-time, reverse, a break or a dissolve, the arc's intensity, and what lands on a coming boundary | — |
 | **Past sets** | Every set recorded with **Record set**: each take, what was played on its bar grid, the meter the analyser applied and its runners-up, and what you changed (readings, bars by hand, the threshold) | — |
-| **The drums** | Both step patterns, the kits and their pads | The patterns, the kit the steps play; save as a drum preset |
-| **The synth** | The note sequence and the Wave synth's settings | Both, and the sequencer on or off; save as a synth preset |
+| **The drums** | Both step patterns, the kits and their pads, your drum presets | The patterns, the kit the steps play; load one of your drum presets; save as a drum preset |
+| **The synth** | The note sequence and the Wave synth's settings, your synth presets | Both, and the sequencer on or off; load one of your synth presets; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
 | **The Grains** | On or off, every setting, the grain window, whether they follow the chords | All of them; save as a granular preset |
 | **The Cutter** | On or off, the mode, every voice (procedure, parameters, cut synth, effects, ratio, level, pan) | All of them, voices added and removed; save as a cutter preset |
 
 It cannot change the loop, the mixer, the drums' onset kit, Repeats, reverb
-or trims, the arc (the pedal's intensity) or the MIDI map, and it only reads
-the past sets.
+or trims (other than by loading a drum preset of yours, which holds them),
+the arc (the pedal's intensity) or the MIDI map, and it only reads the past
+sets.
 
 The past sets are there to prepare between rehearsals: "what did the
 analyser get wrong on Monday, and what did we play there?", "write drums for
@@ -51,7 +52,14 @@ over an analysed one, and the Cutter comes in at the loop's next downbeat.
 **Plugins stay yours.** The AI may move a plugin in its chain and switch it
 on or off. It cannot add one, remove one, or touch the plugin's own
 settings, and it does not see them. The same goes for an instrument plugin
-playing the synth.
+playing the synth, with one exception: a synth preset of yours that you
+ask it to load brings the instrument it was saved with, plugin and sound,
+as picking it in the Synth view does.
+
+**Your presets.** Ask for one by name ("load the drum preset Groove", "start
+from my synth preset Bass Line and make it busier"). The AI recalls it as
+the view's menu does, and the menu shows it as loaded. The drums' switch,
+the break, the mixer and the sequencer's switch stay as they are.
 
 A preset or sound is never saved over one of the same name unless you say
 so in the conversation.
@@ -134,10 +142,14 @@ small files in `remote/`, beside it, in megalooper's folder
 - **In the conversation**: "revert that", or "revert the last three".
 - Revert puts back the part the AI changed as it was just before: the drums
   (both patterns, the kits, the pad trims, Repeats, the reverb), the synth
-  (the note sequence, the Wave synth, its switch), the effects (devices,
-  places, settings, switches), the Grains (settings, window, switch) or the
-  Cutter (voices, mode, switch). A plugin's own sound is never touched, so
-  it needs nothing put back.
+  (the note sequence, the Wave synth, your table, the instrument, its
+  switch), the effects (devices, places, settings, switches), the Grains
+  (settings, window, switch) or the Cutter (voices, mode, switch). A
+  plugin's own sound is never changed by the AI. When a synth preset it
+  loads replaces an instrument plugin, that plugin's sound is written to
+  `remote/states/` first, and Revert brings the plugin back with it.
+- Reverting a preset's load selects in the Drums or Synth view's menu what
+  was there before.
 - What you changed by hand in the same part after the AI's change goes back
   with it: Revert restores the whole drums, synth, effects, Grains or Cutter
   as they were.
@@ -187,6 +199,7 @@ What the app is offered, for reference. You never call these yourself.
 | `set_cutter` | Change the Cutter's voices, its mode, its switch |
 | `revert` | Take back the newest change, or several |
 | `save_drum_preset`, `save_synth_preset`, `save_sound`, `save_grains_preset`, `save_cutter_preset` | Save under a name, in the menus you already use |
+| `load_drum_preset`, `load_synth_preset` | Load one of your presets, as picking it in the Drums or Synth view does |
 | `list_sets` | The sets recorded before, newest first: each take's meter, what you changed |
 | `get_set` | One recorded set in full: every take and what it played, every reading armed, landed or cancelled |
 
