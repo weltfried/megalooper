@@ -4,7 +4,10 @@ MeterAnalyzer {
     classvar <onsetTolerance = 0.2;
     classvar <preferredBpm = 110;
     classvar <bpmRangeLo = 50;
-    classvar <bpmRangeHi = 220;
+    // The duo never plays above 160 (2026-10-28), so a faster reading is the
+    // eighth taken for the beat: sets were read 4/4 at 164.37 (82.19 next on
+    // the list) and 7+7+2/8 at 197.85.
+    classvar <bpmRangeHi = 160;
     classvar <maxK = 4;
     classvar <maxN = 128;
     classvar <loopTolerance = 0.10;
@@ -27,8 +30,10 @@ MeterAnalyzer {
     classvar <snapTrustFit = 0.9;
     // Uneven bars, detected (analyzeUneven). Settable for the sweeps the
     // duo's labelled takes will allow; tuned so far on synthetic takes only.
-    //   unevenPulse     the pulse it looks for, seconds: an eighth at 220 to a
-    //                   quarter at 80 BPM
+    //   unevenPulse     the pulse it looks for, seconds: an eighth at
+    //                   bpmRangeHi (160) to a quarter at 80 BPM. A finer grid
+    //                   gives no reading in range, but could still win the
+    //                   barring and turn a slower one away
     //   unevenBar       the common bar, in pulses
     //   unevenMaxDev    how far an odd bar may be from it, in pulses (the duo's
     //                   5+5+5+8 is +3)
@@ -40,7 +45,7 @@ MeterAnalyzer {
     //                   (the turnaround ends the phrase)
     //   unevenTwoOddCost two odd bars in a cycle, which they rarely play (a
     //                   loop holding 7 7 7 8 twice has one, played twice)
-    classvar <>unevenPulse = #[0.13, 0.75];
+    classvar <>unevenPulse = #[0.1875, 0.75];
     classvar <>unevenBar = #[4, 16];
     classvar <>unevenMaxDev = 4;
     //   unevenMinBar    the shortest an odd bar may be, in pulses

@@ -74,18 +74,24 @@ meter.("4/4 with +/-20ms jitter", 2.0, [0.01, 0.49, 1.02, 1.51], 4, 4, 120, 1.5)
 
 // ---- the known octave error ---------------------------------------------
 
-// Two bars of 4/4 at 87, sixteen eighths. The meter comes out right and it
-// correctly refuses to call this 16/8 or 8/4 — but the tempo lands on the
-// EIGHTH pulse, reporting exactly double. Recorded rather than hidden: onset
-// quality is the known weak link in meter detection, and this is what a dense
-// even subdivision currently does. If it ever stops reproducing the run says so.
+// Two bars of 4/4 at 87, sixteen eighths, no accents. Until bpmRangeHi came
+// down to 160 (2026-10-28) the tempo landed on the EIGHTH pulse: 4/4 at 174.
+// That reading is out of range now, and the next near-tie takes its place:
+// 12/8 at 130.5, the same bar and the same beat (a dotted quarter at 87) with
+// the hits as duplets. It wins on the near-110 preference alone, which counts
+// quarters, by 0.013; 4/4 at 87 is next on the list, one press away. Recorded
+// rather than hidden: if it ever stops reproducing the run says so.
 {
 var r = MeterAnalyzer.analyze(5.5172, (0..15).collect { |i| i * (5.5172/16) });
-~tEq.("dense 4/4 over 2 bars still reads 4/4",
-    "" ++ r.numerator ++ "/" ++ r.denominator, "4/4");
-~tXfail.("dense 4/4 over 2 bars reports double tempo",
-    (r.bpm - 174.0).abs < 1.0,
-    "got " ++ r.bpm.round(0.1) ++ ", musically 87 — beat found on the eighth");
+var next = r[\candidates] !? { |c| c[1] };
+~tAssert.("dense 4/4 over 2 bars no longer reports double tempo",
+    (r.bpm - 174.0).abs >= 1.0, "got " ++ r.bpm.round(0.1));
+~tEq.("...4/4 in two bars is the next reading",
+    next !? { |c| [MeterAnalyzer.sigString(c), c[\k]] }, ["4/4", 2]);
+~tNear.("...at 87", next !? { |c| c[\bpm] } ? 0, 87.0, 0.1);
+~tXfail.("dense 4/4 over 2 bars reads 12/8 at the same beat",
+    MeterAnalyzer.sigString(r) == "12/8",
+    "got " ++ MeterAnalyzer.sigString(r) ++ " at " ++ r.bpm.round(0.1) ++ ", musically 4/4 at 87");
 }.value;
 
 // ---- the caller's stack must come back intact ----------------------------

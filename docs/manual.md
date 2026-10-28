@@ -1596,7 +1596,7 @@ be an argument inside a single def.
 
 For each candidate, an iterative least-squares fit picks the pulse period
 `tau` that best places onsets on a grid. The fit with the lowest residual
-*and* a BPM in `[50, 220]` wins, with a soft tiebreaker toward BPMs near 110.
+*and* a BPM in `[50, 160]` wins, with a soft tiebreaker toward BPMs near 110.
 If no grid fits, the analyser tries uneven bars. If none fit either, the take
 is *length-anchored*: the loop is kept as whole bars of the **Fallback meter**
 (Setup's Analysis page, 4/4 by default), as many as put the tempo nearest
