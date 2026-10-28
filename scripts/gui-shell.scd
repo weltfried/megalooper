@@ -557,15 +557,21 @@
     ~guiCpuTile = LooperTile().cycles_(false).align_(\center).fixedHeight_(52).fixedWidth_(80)
         .font_(~guiMono.(13, true)).subFont_(~guiMono.(11, false)).pad_(4)
         .toolTip_("The audio server's load: its average, and its peak under it. Red past "
-            ++ ~guiCpuWarn ++ " %: near 100 % the sound breaks up.");
+            ++ ~guiCpuWarn ++ " %: near 100 % the sound breaks up.\nThe buffer: "
+            ++ ~audioBufferRunningLabel.(~audioBuffer) ++ ". A big one can read several times higher here.");
     ~guiCpuPainted = nil;
     ~guiCpuPaint.();
-    // Two lines that say what they are: the rig, and MIDI's lamp ("SA ●" alone
-    // read as nothing).
-    rigView = View().fixedWidth_(104).toolTip_("The rig in use, and MIDI arriving from it: the lamp lights at each message")
+    // Two lines that say what they are: the rig, then the buffer it runs at and
+    // MIDI's lamp ("SA ●" alone read as nothing). The buffer sits by the rig
+    // because the two came apart: a rig of yours at 64, megalooper's at the
+    // device's own 512 (2026-10-28).
+    rigView = View().fixedWidth_(104)
+        .toolTip_("The rig in use, the buffer it runs at (" ++ ~audioBufferRunningLabel.(~audioBuffer)
+            ++ "), and MIDI arriving from it: the lamp lights at each message")
         .layout_(VLayout(
             HLayout(nil, ~guiMonoText.("RIG " ++ rig, 11, ~gt[\mute]), nil).margins_(0),
-            HLayout(nil, ~guiMonoText.("MIDI", 11, ~gt[\mute]), ~guiMidiLamp, nil).margins_(0).spacing_(6)
+            HLayout(nil, ~guiMonoText.(~audioBufferRunningShort.(~audioBuffer), 11, ~gt[\mute]),
+                ~guiMonoText.("MIDI", 11, ~gt[\mute]), ~guiMidiLamp, nil).margins_(0).spacing_(6)
         ).margins_([0, 8, 0, 8]).spacing_(2));
     rigRule = rule.();
     bar = View().background_(~gt[\bg]).fixedHeight_(52).layout_(HLayout(*([

@@ -501,7 +501,9 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
   (dark or light, key **T**, kept for the next boot; with the loop
   stopped, since the rebuild holds the language for 65–80 ms), **?** (the help lines: the sentences that explain a page, hidden
   or shown together, key **H**, kept for the next boot), the rig
-  (`RIG SASYSTEM`) and a lamp for MIDI arriving,
+  (`RIG SASYSTEM`) with the buffer it runs at under it (`BUF 64`; hover
+  for whether it is the one you chose or the device's own) and a lamp for
+  MIDI arriving,
   **MIDI MAP** and **Record set** — the set recorder, with what it writes
   under it.
 - **The status band**, on Perform: the **state block** (`EMPTY`, `● REC`,

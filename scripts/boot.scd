@@ -192,6 +192,8 @@ s.boot;
 s.waitForBoot {
     s.meter;
     ~checkSampleRate.();
+    // The buffer it runs at, for the boot line and the top bar's rig block.
+    ~audioBuffer = ~audioBufferRunning.(s);
 
     // MIDI I/O first: the Looper is constructed with ~midiOut and sends its
     // MIDI clock through it.
@@ -264,7 +266,7 @@ s.waitForBoot {
         // ~inChannel is the Looper's (the guitar chain's bus) by now; the
         // guitar's own input is the profile's.
         ("Megalooper SA on " ++ ~audioDeviceLabel.(~rp) ++ " at " ++ s.sampleRate.round ++ " Hz, "
-            ++ s.options.hardwareBufferSize ++ " frames: instrument on input "
+            ++ ~audioBufferRunningLabel.(~audioBuffer) ++ ": instrument on input "
             ++ (~rp[\inChannel] + 1) ++ " through "
             ++ (~megaSA.guitarPlugin !? { |p| p.name } ? "nothing (dry)")
             ++ ", the mix on outputs 1/2.").postln;

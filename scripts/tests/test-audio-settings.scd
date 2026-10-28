@@ -268,3 +268,52 @@ notes = List.new;
 ~checkAudioPair.(rp, info, \saSystem, notes);
 ~tEq.("...one rate: nothing to say", notes.asArray, []);
 }.value;
+
+// ---- the buffer the server runs at
+// A chosen buffer is the server's, and the device is not asked: CoreAudio
+// keeps the size per program, so a device asked from here never says what
+// scsynth asked for. None chosen, it says what a program that asks for none
+// gets (tools/coreaudio.py; here a stand-in in a root of the test's own that
+// answers as the real one does, so no device is touched).
+{
+var dir = ~tTempPath.("audio-buffer"), wasRoot = ~megalooperRoot, opts, b;
+var run = { |buffer, outDevice|
+    opts = ServerOptions.new;
+    opts.hardwareBufferSize = buffer;
+    opts.outDevice = outDevice;
+    ~audioBufferRunning.((options: opts))
+};
+~megalooperRoot = dir;
+protect {
+    b = run.(64, "Interface");
+    ~tEq.("a chosen buffer is the server's, the device not asked (the root has no tool)", [b[\frames], b[\own]], [64, false]);
+    ~tEq.("...the boot line says it, and the rig block", [~audioBufferRunningLabel.(b), ~audioBufferRunningShort.(b)],
+        ["64 frames", "BUF 64"]);
+    if(MegaFiles.isMac) {
+        File.mkdir(dir +/+ "tools");
+        File.use(dir +/+ "tools" +/+ "coreaudio.py", "w", { |f| f.write(
+            "import json, sys\n"
+            "a = sys.argv[1:]\n"
+            "if a[0] == 'defaults':\n"
+            "    print(json.dumps({'input': {'name': 'Mic'}, 'output': {'name': 'Default Out'}, 'agree': True}))\n"
+            "elif a[0] == 'latency' and a[1:3] == [a[1], '--json']:\n"
+            "    print(json.dumps({'buffer_now': {'Interface': 512, 'Default Out': 256}.get(a[1], 0), 'name': a[1]}))\n") });
+        b = run.(nil, "Interface");
+        ~tEq.("none chosen: the output device's own, as the device says it", [b[\frames], b[\own]], [512, true]);
+        ~tEq.("...the boot line says whose, the rig block the size", [~audioBufferRunningLabel.(b), ~audioBufferRunningShort.(b)],
+            ["512 frames (the device's own)", "BUF 512"]);
+        ~tEq.("the system's default output: asked by its name", run.(nil, nil)[\frames], 256);
+        b = run.(nil, "Gone");
+        ~tEq.("a device that says nothing usable: no size, and the words say so",
+            [b[\frames], b[\own], ~audioBufferRunningLabel.(b), ~audioBufferRunningShort.(b)],
+            [nil, true, "the device's own", "BUF –"]);
+    } {
+        ~tSkip.("the device's own buffer", "CoreAudio only");
+    };
+    ~tEq.("no reading at all (a window built without a boot)", [~audioBufferRunningLabel.(nil), ~audioBufferRunningShort.(nil)],
+        ["the device's own", "BUF –"]);
+} {
+    ~megalooperRoot = wasRoot;
+    ~tRemoveTree.(dir);
+};
+}.value;

@@ -236,7 +236,10 @@ controllers, because megalooper does. So megalooper sends:
   **Buffer** in the launcher. At 48 kHz that adds about 5 ms each way, so run
   the round-trip step on the Calibrate view again afterwards.
 - The **CPU** figure in the top bar is the audio server's load. It turns red
-  past 60 %.
+  past 60 %. It depends on the buffer as much as on the effects: on a MacBook
+  Pro the same set read 19 % at the device's own 512 frames and 4 % at 64.
+  `BUF` under the rig's name says which buffer is running; with nothing
+  chosen under **Buffer** it is the device's own.
 
 ## When something is wrong
 

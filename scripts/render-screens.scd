@@ -47,6 +47,8 @@ File.mkdir(~saDrumsPresetDir);
     outputs: [(name: "MacBook Pro Speakers", channels: 2)],
     defaultIn: "MacBook Pro Microphone", defaultOut: "MacBook Pro Speakers") };
 ~rp = ~audioProfile.(~routingProfiles[\saSystem], (), ~audioDevicesNow.());
+// The buffer the top bar shows under the rig: a MacBook's own, none chosen.
+~audioBuffer = (frames: 512, own: true);
 ~liveRecordToggle = { };
 
 // The take: three bars of 7/8 and one of 8/8 at 103.2, playing, as on the

@@ -644,6 +644,43 @@
 ~audioBuffers = [nil, 64, 128, 256, 512, 1024];
 ~audioBufferLabel = { |n| if(n.isNil) { "the device's own" } { n.asString ++ " frames" } };
 
+// The buffer the server runs at, once it has booted: (frames:, own:), `own`
+// true when none was chosen and the device's own applies. CoreAudio keeps the
+// buffer size per program, so asked from here a device says what it gives a
+// program that asks for none, which is what scsynth got then, but never what
+// scsynth asked for (with the server at 64 it still says 512). So a chosen
+// size is the server's, and only the device's own is asked: the output
+// device's, or the system's default output's. frames nil where nothing
+// answers (not a Mac, or the tool failed). It matters for the load: the same
+// work read 19 % at 512 frames and 4 % at 64 (2026-10-28).
+~audioBufferRunning = { |srv|
+    var chosen = srv.options.hardwareBufferSize, name, frames;
+    var tool = (~megalooperRoot ?? { Looper.repoRoot }) +/+ "tools" +/+ "coreaudio.py";
+    var ask = { |args|
+        var d = try { ("python3 " ++ tool.quote ++ " " ++ args ++ " 2>/dev/null").unixCmdGetStdOut.parseJSON };
+        if(d.isKindOf(Dictionary)) { d }
+    };
+    if(chosen.notNil) { (frames: chosen, own: false) } {
+        if(MegaFiles.isMac) {
+            name = srv.options.outDevice ?? {
+                ask.("defaults --json") !? { |d| d["output"] } !? { |o| if(o.isKindOf(Dictionary)) { o["name"] } }
+            };
+            frames = name !? { |n| ask.("latency " ++ n.asString.quote ++ " --json") } !? { |d| d["buffer_now"] };
+            frames = frames !? { |f| f.asInteger } !? { |f| if(f > 0) { f } };
+        };
+        (frames: frames, own: true)
+    }
+};
+// "64 frames", "512 frames (the device's own)", or "the device's own" when
+// the device did not say; the rig block's short form, "BUF 512".
+~audioBufferRunningLabel = { |b|
+    case
+    { (b !? { |x| x[\frames] }).isNil } { ~audioBufferLabel.(nil) }
+    { b[\own] == true } { b[\frames].asString ++ " frames (the device's own)" }
+    { ~audioBufferLabel.(b[\frames]) }
+};
+~audioBufferRunningShort = { |b| "BUF " ++ ((b !? { |x| x[\frames] }) ? "–").asString };
+
 // A device menu's entries, [(name:, label:)], the first the system's default
 // (name nil). A device chosen before and not connected now stays, marked, so
 // the choice is not lost: the start takes the system's default for it then.
