@@ -113,6 +113,10 @@
 .points h3 a { text-decoration: none; }
 .points p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--soft); }
 
+/* ---------------------------------------------------------------- why */
+.why { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 32px 64px; align-items: start; }
+.why__head { display: flex; flex-direction: column; gap: 18px; }
+.why__text { display: flex; flex-direction: column; gap: 18px; max-width: 620px; }
 /* --------------------------------------------------------- screenshot */
 .shot { padding: clamp(40px, 6vw, 72px) 24px; display: flex; flex-direction: column; gap: 14px; }
 .shot .slot { aspect-ratio: 16 / 10; }

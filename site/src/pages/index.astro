@@ -1,5 +1,6 @@
 ---
-// The homepage. Copy is final as written in the design (Site Home).
+// The homepage. Copy is final as written in the design (Site Home), except
+// the Why section, which is the author's own.
 import fs from 'node:fs';
 import Base from '../layouts/Base.astro';
 import Wordmark from '../components/Wordmark.astro';
@@ -39,6 +40,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
       <Wordmark href="#top" />
       <nav aria-label="Sections">
         <a href="#features">Features</a>
+        <a href="#why">Why</a>
         <a href="#meter">How it counts</a>
         <a href="#plugins">Plugins</a>
         <a href="#ai">AI apps</a>
@@ -147,6 +149,19 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
           <div><h3>Records the set</h3><p>The whole set's audio, each part of the mix, every drum hit as MIDI, a dry tap and a log of everything pressed, named with the tempo and meter.</p></div>
           <div><h3><a href="#ai">AI apps, if you want them ↓</a></h3><p>Ask Claude Desktop for a groove that fits your 7/8 and hear it at once. Off until you switch it on; one click reverts.</p></div>
         </div>
+      </div>
+    </section>
+
+    <section id="why" class="band">
+      <div class="wrap pad why">
+        <div class="why__head">
+          <div class="eyebrow">WHY I BUILT IT</div>
+          <h2 class="h2">I wanted everything else to follow my playing.</h2>
+        </div>
+        <div class="why__text">
+          <p class="body">I have used Ableton Live for years, and I still love it. Its Looper is a great tool. But Live couldn't recognise the meter of the loops I recorded with it: the set stayed in the time signature it had been given before I played a note. That stood in the way of how I wanted to perform. I wanted to play a phrase in whatever meter it came out in, and have the drums, the sequencers and the effects follow it.</p>
+          <p class="body">That's why I started megalooper. At first it was an add-on to Live, with the audio going from Live to megalooper and back again. It worked, but it was never a beautiful solution. So I rebuilt the sequencers and effects I cared about in SuperCollider, and megalooper became an instrument of its own.</p>
+          <p class="body">As a side effect, I could design the screen as well. In Live I had to switch between views and tracks, and an effect's display was too small to read while playing on stage. megalooper's Perform view shows what is going on in one view: the loop, the meter it heard, every layer and the actions, laid out to be read from where you stand with your instrument.</p>        </div>
       </div>
     </section>
 
@@ -322,6 +337,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
       <div class="hfoot__about">
         <Wordmark href="#top" />
         <p>Built for a guitar and bass duo, and used on stage. GPL-3.0-or-later, the same as SuperCollider.</p>
+        <p>Ableton and Live are trademarks of Ableton AG. megalooper is not affiliated with, or endorsed by, Ableton.</p>
       </div>
       <nav aria-label="Footer">
         <a href={manual('welcome')}>Manual</a>
