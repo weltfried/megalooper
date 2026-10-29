@@ -17,8 +17,9 @@ You hear every change at once. **↶ Revert AI change**, at the bottom of the
 window, takes the AI's newest change back, and the one before it, up to 32
 of them.
 
-It is for preparing, not for the stage: an answer takes a few seconds, and
-nothing waits for a bar line.
+Mostly it is for preparing: ask, listen, keep or revert. With the right
+workflow it can also play along on stage, as a bandmate (*On stage, as a
+bandmate*, below).
 
 ## What it can do
 
@@ -159,6 +160,27 @@ small files in `remote/`, beside it, in megalooper's folder
   forgets its list of changes. Keep (on each view) is still how a sound,
   drums or synth become what megalooper starts with.
 
+## On stage, as a bandmate
+
+An answer takes a few seconds, and a change lands at once, not on the next
+bar line, so the AI is no drummer to count on for the downbeat. It can still
+make its own moves while you play. In an experiment, Claude Desktop ran the
+set as the orchestrator: it kept asking megalooper what was playing (the
+loop's state and where the loop is now: bar, beat, a break, what is about to
+land), and made different decisions from what it saw, one thing while the
+loop ran and another when it stopped.
+
+To build such a workflow:
+
+- **Say what to watch and what to do** in plain words, before the set: what
+  to look at, how often, and what to change in each case.
+- **Choose moves that sound right whenever they land**: a drum pattern, an
+  effect's setting, one of your presets. Only the Cutter waits, for the
+  loop's next downbeat.
+- **Every look is a question to the AI service.** A long set uses your
+  subscription's allowance faster, and the app must stay online all along.
+- **Try it in a rehearsal first**, with **↶ Revert AI change** within reach.
+
 ## Good to know
 
 - **The take is what the analysis heard.** The grid of hits comes from
@@ -169,9 +191,10 @@ small files in `remote/`, beside it, in megalooper's folder
 - **It knows the settings by their descriptions.** It cannot hear. What it
   knows about an effect is its name, its range and the tooltip you see in
   the window. Expect a good start, and tune by ear.
-- **Seven built-in effects.** It works with the effects megalooper has
+- **Sixteen built-in effects.** It works with the effects megalooper has
   (Pitch Shift, Dual Delay, Envelope Filter, Pitch Loops, Tape Echo, Drive,
-  Crusher), in any chain.
+  Crusher, EQ, Compressor, Noise Gate, Freeze, Slicer, Tremolo, Octave Down,
+  Ring Mod, Reverb), in any chain.
 - **Chain names.** The AI calls the Instrument chain `guitar`; ask for "the
   instrument chain" and it will find it.
 
