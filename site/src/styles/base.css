@@ -121,6 +121,17 @@ img { max-width: 100%; }
   :root:not([data-theme]) .wordmark .logo-dark { display: block; }
 }
 
+/* A screenshot drawn in both of the app's themes is in the page twice; the
+   theme hides the other one, so each keeps its own layout. */
+:root[data-theme="light"] .shot-dark,
+:root[data-theme="dark"] .shot-light { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .shot-light { display: none; }
+}
+@media not (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .shot-dark { display: none; }
+}
+
 /* Inline marks, the same in the manual and on the homepage. */
 kbd {
   display: inline-flex; align-items: center; justify-content: center;

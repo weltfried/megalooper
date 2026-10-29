@@ -29,8 +29,11 @@ const DRUMS: [string, number[]][] = [
 ];
 const step0 = Math.floor(t0 * 14);
 
-// The Perform view, from docs/images/ (scripts/render-screens.scd makes it).
+// The Perform view, from docs/images/ (scripts/render-screens.scd makes it),
+// and its light twin if there is one, shown when the page is light.
 const perform = fs.existsSync('../docs/images/perform.png') ? `${base}docs/images/perform.png` : null;
+const performLight = perform && fs.existsSync('../docs/images/perform-light.png') ? `${base}docs/images/perform-light.png` : null;
+const performAlt = "megalooper's Perform view: the status band, a column per layer, and the actions";
 
 const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
 ---
@@ -170,9 +173,11 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
     <section class="band">
       <div class="wrap shot">
         <div class:list={['slot', { 'slot--filled': perform }]}>
-          {perform
-            ? <img src={perform} alt="megalooper's Perform view: the status band, a column per layer, and the actions" />
-            : <span>Screenshot: the Perform view, 1440 × 900</span>}
+          {perform && performLight
+            ? <><img class="shot-dark" src={perform} alt={performAlt} loading="lazy" /><img class="shot-light" src={performLight} alt={performAlt} loading="lazy" /></>
+            : perform
+              ? <img src={perform} alt={performAlt} />
+              : <span>Screenshot: the Perform view, 1440 × 900</span>}
         </div>
         <div class="shot__cap"><span>The Perform view: status band, a column per layer, and the actions with their footswitches.</span><span>KEYS 1–6 SWITCH VIEWS</span></div>
       </div>

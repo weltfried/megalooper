@@ -37,6 +37,15 @@ function shotSize(src: string): { width: number; height: number } | null {
     return null;
   }
 }
+// A screenshot's light twin, x-light.png beside x.png (render-screens.scd's
+// light run), if there is one: the page holds both and the theme shows one
+// (base.css, .shot-dark and .shot-light). Null for anything else.
+export function lightTwin(src: string): string | null {
+  const at = src.indexOf('docs/images/');
+  if (at < 0 || !src.endsWith('.png') || src.endsWith('-light.png')) return null;
+  const twin = `${src.slice(0, -4)}-light.png`;
+  return fs.existsSync(path.join(REPO_ROOT, twin.slice(at))) ? twin : null;
+}
 export const GITHUB = 'https://github.com/weltfried/megalooper';
 const FIGURES_DIR = path.join(process.cwd(), 'src', 'figures');
 
@@ -481,16 +490,21 @@ function components(tree: any) {
           if (first?.type === 'text') first.value = first.value.replace(/^Fig:\s*/, '');
           parent.children.splice(j, 1);
           // A screenshot shows at its own size, shrunk to the article's width
-          // when it is wider: a click opens it at full size.
+          // when it is wider: a click opens it at full size. One drawn in
+          // both themes is there twice, the theme showing one; a hidden lazy
+          // image is never fetched.
           const img = kids[0];
-          const size = shotSize(String(img.properties.src ?? ''));
-          if (size) Object.assign(img.properties, size);
-          img.properties.loading = 'lazy';
-          img.properties.decoding = 'async';
+          const src = String(img.properties.src ?? '');
+          const shot = (from: string, theme?: string) => {
+            const el = h('img', { ...img.properties, src: from, loading: 'lazy', decoding: 'async' });
+            const size = shotSize(from);
+            if (size) Object.assign(el.properties, size);
+            return h('a', { href: from, title: 'Open at full size', className: theme ? [`shot-${theme}`] : undefined }, [el]);
+          };
+          const twin = lightTwin(src);
           parent.children[index] = h('figure', { className: ['fig'] }, [
-            h('div', { className: ['fig__body', 'fig__body--img'] }, [
-              h('a', { href: img.properties.src, title: 'Open at full size' }, [img]),
-            ]),
+            h('div', { className: ['fig__body', 'fig__body--img'] },
+              twin ? [shot(src, 'dark'), shot(twin, 'light')] : [shot(src)]),
             h('figcaption', em.children),
           ]);
           return SKIP;

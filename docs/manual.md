@@ -1524,7 +1524,7 @@ megalooper/
     gui-shell.scd        -- THE window: top bar, status band, views, footer, keys
     gui-wiring.scd       -- SimpleController wiring + ~doExport
     launcher.scd         -- rig picker shown by the Desktop icon
-    render-screens.scd   -- the manual's screenshots, off screen
+    render-screens.scd   -- the manual's screenshots, off screen (light: the light theme's)
     check.scd            -- static check: parse + load every script, no server
     check-gui.scd        -- boots a rig, builds the window, asserts on it, quits
     check-gui-*.scd      -- each pane built off screen and driven: ai, drums,

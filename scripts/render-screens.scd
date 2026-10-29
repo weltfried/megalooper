@@ -6,13 +6,20 @@
 // scratch one. The window is shown fully transparent (a window never shown
 // cannot be grabbed), each view is selected in turn and grabbed to a PNG.
 //
-//   sclang -u 57900 scripts/render-screens.scd [out dir]
+//   sclang -u 57900 scripts/render-screens.scd [out dir] [light]
 //
 // The out dir defaults to docs/images/. Quit a running megalooper first.
+// With `light` the window is drawn in the light theme and every file is
+// named with -light added (perform-light.png): the site shows those when
+// its own theme is light, the others when it is dark. Run it once without
+// and once with.
 (
 var scripts = Looper.repoRoot +/+ "scripts";
 var kitDir = Looper.repoRoot +/+ "presets" +/+ "sa" +/+ "drums" +/+ "kits";
 var out = thisProcess.argv[0] ?? { Looper.repoRoot +/+ "docs" +/+ "images" };
+var theme = if(thisProcess.argv[1] == "light") { \light } { \dark };
+// Where a shot is written: its name, -light in the light theme.
+var pathOf = { |name| out +/+ (name ++ (if(theme == \light) { "-light" } { "" }) ++ ".png") };
 var reader = { |srv, path, done|
     done.((bufnum: 100, path: path, numChannels: 2, sampleRate: 48000, numFrames: 48000)) };
 var stub, sstub, m, d, tmp, now = 1000.0, take, tau, shots = List.new, failed = List.new;
@@ -113,7 +120,7 @@ m.instVarPut(\drums, d);
 Routine {
     var wait = { |s = 0.6| s.wait };
     var grab = { |name|
-        var path = out +/+ (name ++ ".png"), img;
+        var path = pathOf.(name), img;
         try {
             img = Image.fromWindow(~guiWindow);
             img.write(path, "png");
@@ -174,7 +181,7 @@ Routine {
         };
     };
     var cropTo = { |r, name, pad = 12|
-        var img, path = out +/+ (name ++ ".png"), w = ~guiWindow.view.bounds;
+        var img, path = pathOf.(name), w = ~guiWindow.view.bounds;
         r = Rect.fromPoints(Point((r.left - pad).max(0), (r.top - pad).max(0)),
             Point((r.right + pad).min(w.width), (r.bottom + pad).min(w.height)));
         try {
@@ -219,7 +226,7 @@ Routine {
     // as its layout lets it be, grabbed down to the last widget it draws.
     var panel = { |key|
         var w, view, origin, walk, img, right = 0, bottom = 0;
-        var path = out +/+ ("fx-" ++ key.asString.toLower ++ ".png");
+        var path = pathOf.("fx-" ++ key.asString.toLower);
         try {
             ~effectsSelected = key;
             ~effectsWidgets = IdentityDictionary.new;
@@ -258,6 +265,8 @@ Routine {
             var f = currentEnvironment[k];
             currentEnvironment[k] = { |...args| var v = f.valueArray(args); ~renderParts[k] = v; v };
         };
+        // The window builds in ~guiThemeName's theme (gui-shell.scd).
+        ~guiThemeName = theme;
         ~buildGuiWindow.(false);
         wait.();
         ~guiWindow.alpha_(0).visible_(true);
