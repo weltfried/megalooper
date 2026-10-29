@@ -14,6 +14,10 @@
 MegaSAChain {
     var <track, <bus, <sourceDef, <sourceArgs, <devices;
     var <group, <source, <phaseBus;
+    // The busses of MegaSAFx.keyTracks' chains, by index, for a keyed device
+    // (the Compressor's Key): MegaSA gives every chain the same ones. Nil,
+    // a keyed device hears itself whatever its Key.
+    var <>keyBuses;
 
     // track: \guitar, \loop, \drums or \bass. bus: a two-channel audio Bus.
     // sourceDef and sourceArgs: the source's SynthDef (\megaSAChainIn,
@@ -50,23 +54,25 @@ MegaSAChain {
     built { ^group.notNil }
 
     // On the server: a group added to `target` by `addAction`, the source at
-    // its head, then every device in order, each with the chain's bus and
-    // the beat. A chain already built is freed first.
+    // its head, then every device in order, each with the chain's bus, the
+    // beat and the key busses. A chain already built is freed first.
     build { |target, addAction = \addToTail, beatDur = 0.6|
         this.free;
         group = Group(target, addAction);
-        // The loop's phase, for a device that follows it (setPhaseBus).
-        phaseBus !? { |b| group.set(\phaseBus, b) };
         source = Synth.head(group, sourceDef, sourceArgs ++ [\bus, bus.index]);
         // A device that cannot be built costs that device only: the rest of
         // the chain comes up, in order, and the post window says which.
         devices.do { |d|
-            try { d.build(group, \addToTail, bus.index, beatDur) } { |err|
+            try { d.build(group, \addToTail, bus.index, beatDur, keyBuses) } { |err|
                 d.forget;
                 ("MegaSA: " ++ d.name ++ " (" ++ d.id ++ ") was not built on the " ++ MegaSASound.trackLabel(track) ++ " chain ("
                     ++ err.errorString ++ "); the chain plays without it.").warn;
             };
         };
+        // The loop's phase, for a device that follows it (setPhaseBus), once
+        // the devices are there: a group's n_set reaches the nodes in it
+        // when it lands, and none that come after.
+        phaseBus !? { |b| group.set(\phaseBus, b) };
         ^group
     }
 

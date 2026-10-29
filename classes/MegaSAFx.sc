@@ -40,6 +40,10 @@ MegaSAFx {
     *extraKeys { ^[\eq, \compressor, \noiseGate, \freeze, \slicer, \tremolo, \octaveDown, \ringMod, \reverb] }
     // Every type there is: the default chains' and the others.
     *typeKeys { ^this.keys ++ this.extraKeys }
+    // The chains a keyed type can listen to (its Key, 1 on), in the order the
+    // server runs them: their busses reach its synth as \keyBuses
+    // (MegaSAChain.keyBuses).
+    *keyTracks { ^[\guitar, \bass, \loop, \drums, \synth] }
 
     // What an effect is called. Megalooper's own names since release 1.0: the
     // effects were built after devices of Ableton Live and went by those
@@ -414,13 +418,28 @@ MegaSAFx {
         ^x * \eqOutput.kr(0, 0.05).dbamp
     }
 
+    // What a keyed device listens to: its own input (Key 0), or another
+    // chain's bus as it stands (Key 1 on, MegaSAFx.keyTracks), read with
+    // InFeedback: a chain the server runs after this one (instrument, bass,
+    // loop, drums, synth, in that order) is heard from the block before, 64
+    // frames late, and its own chain's bus is this device's input. Unknown
+    // busses (\keyBuses not given) are its own. Then the key's high cut, out
+    // at 20 kHz and fading itself in over the top kilohertz, as the EQ's is.
+    *keySignal { |sig, bus, key, cut|
+        var given = Select.kr(key - 1, \keyBuses.kr(-1 ! this.keyTracks.size));
+        var x = Select.ar(key > 0, [sig, InFeedback.ar(Select.kr(given < 0, [given, bus]), 2)]);
+        ^LinXFade2.ar(x, LPF.ar(LPF.ar(x, cut), cut), (((20000 - cut) / 1000).clip(0, 1) * 2) - 1)
+    }
+
     // The drums' compressor's gain computer (MegaSADrumsFx.compGainDb: a soft
-    // knee, then 1/ratio), on the louder side's peak, so both sides move
-    // together. No look-ahead: a Limiter's would put its delay on the
-    // instrument as it is played. Above full scale the output bends rather
-    // than runs on (softclip, linear below 1), against a makeup turned up.
-    *compressor { |sig|
-        var peak = sig.collect(_.abs).reduce(\max);
+    // knee, then 1/ratio), on the louder side's peak of its key (keySignal),
+    // so both sides move together. No look-ahead: a Limiter's would put its
+    // delay on the instrument as it is played. Above full scale the output
+    // bends rather than runs on (softclip, linear below 1), against a makeup
+    // turned up.
+    *compressor { |sig, bus|
+        var key = this.keySignal(sig, bus, \compressorKey.kr(0), \compressorKeyFilter.kr(20000, 0.05));
+        var peak = key.collect(_.abs).reduce(\max);
         var level = this.follow(peak, \compressorAttack.kr(0.01), \compressorRelease.kr(0.12));
         var gainDb = MegaSADrumsFx.compGainDb(level.max(1e-6).ampdb, \compressorThreshold.kr(-18, 0.05),
             \compressorRatio.kr(4, 0.05), \compressorKnee.kr(6, 0.05), \compressorMakeup.kr(0, 0.05));
@@ -585,6 +604,9 @@ MegaSAFx {
     //   followsTempo  it reads \beatDur, which each chain's group is sent
     //   followsPhase  it reads \phaseBus, the loop's phase bus, which each
     //                 chain's group is sent once a Looper is attached
+    //   keyed         its dsp listens to a key (keySignal): it reads
+    //                 \keyBuses, the busses of keyTracks' chains, which its
+    //                 synth is given as it starts
     //   sleeps        true: nothing it remembers is heard past its fade-in
     //                 (filter states, an envelope follower, an LFO's phase),
     //                 so its synth pauses itself once switched off
@@ -671,9 +693,10 @@ MegaSAFx {
                 memBytes: { |sr| 0 },
                 latency: none),
             (key: \compressor, track: \any, group: "Utility", width: \stereo, followsTempo: false, sleeps: true,
+                keyed: true,
                 blurb: "Evens the level out: louder than the threshold, turned down by the ratio.",
                 mainKnobs: [\compressorThreshold, \compressorRatio, \compressorMakeup],
-                dsp: { |sig| this.compressor(sig) },
+                dsp: { |sig, bus| this.compressor(sig, bus) },
                 memBytes: { |sr| 0 },
                 latency: none),
             (key: \noiseGate, track: \any, group: "Utility", width: \stereo, followsTempo: false, sleeps: true,
@@ -746,15 +769,16 @@ MegaSAFx {
     // they came. On the guitar chain, which is dual mono, that sum is exactly
     // the signal each effect had in the one-synth chain before the split; on a
     // stereo chain a mono device switched off leaves the stereo as it was.
-    // Its switch starts off, so a device made without one passes its chain
-    // through. `bus` must always be given: at its default, 0, it would write
-    // the interface's outputs.
+    // Its dsp gets the bus too, for a keyed type's key (keySignal), which
+    // reads its own chain's there. Its switch starts off, so a device made
+    // without one passes its chain through. `bus` must always be given: at
+    // its default, 0, it would write the interface's outputs.
     *deviceDef { |key|
         var t = this.type(key);
         ^SynthDef(this.deviceDefName(key), { |bus|
             var dry = In.ar(bus, 2);
             var sig = if(t[\width] == \mono) { (dry[0] + dry[1]) * 0.5 } { dry };
-            ReplaceOut.ar(bus, this.slot(dry, t[\switch], t[\dsp].value(sig)));
+            ReplaceOut.ar(bus, this.slot(dry, t[\switch], t[\dsp].value(sig, bus)));
             if(t[\sleeps] == true) { this.sleepWhenFaded(t[\switch]) };
         })
     }
@@ -821,10 +845,12 @@ MegaSAFx {
 
     // What Random leaves where it is: the levels an effect ends on, and the
     // Auto Filter's makeup gain (up to 26 dB), so a draw changes the sound
-    // and not how loud it leaves the effect. The feedbacks stop at 90 % and
-    // are softened, so none of them can run away.
+    // and not how loud it leaves the effect; and the Compressor's Key, which
+    // chain it listens to, the player's routing rather than its sound. The
+    // feedbacks stop at 90 % and are softened, so none of them can run away.
     *randomKeeps { ^#[\filterMakeup, \filterOutput, \pitchLoopOutput, \echoOutput, \saturatorOutput,
-        \eqOutput, \compressorMakeup, \noiseGateThreshold, \noiseGateRange, \freezeDry, \octaveDownDry] }
+        \eqOutput, \compressorMakeup, \compressorKey, \noiseGateThreshold, \noiseGateRange, \freezeDry,
+        \octaveDownDry] }
 
     // A value held to a setting's range and step, or the nearest of its
     // choices. A name that is no setting passes through.
@@ -1204,6 +1230,17 @@ MegaSAFx {
                 spec: ControlSpec(0, 1, \lin, 0, 1),
                 tip: "The signal as it came against the compressed one: all compressed by\n"
                     "default. Lower is parallel compression."),
+            (fx: \compressor, name: \compressorKey, label: "Key",
+                spec: ControlSpec(0, this.keyTracks.size, \lin, 1, 0),
+                choices: [[0, "Itself"], [1, "Instrument"], [2, "Bass"], [3, "Loop"], [4, "Drums"], [5, "Synth"]],
+                tip: "What turns it down: itself by default, or another chain as it leaves\n"
+                    "its effects, before its fader. On the bass or the loop keyed by the\n"
+                    "drums, it pumps on the kick; on the loop keyed by the instrument, the\n"
+                    "loop makes room while you play. Its own chain's name is itself."),
+            (fx: \compressor, name: \compressorKeyFilter, label: "Key Filter", units: " Hz",
+                spec: ControlSpec(40, 20000, \exp, 0, 20000),
+                tip: "Cuts the key above this, 24 dB an octave, so only its lows turn it\n"
+                    "down: about 100 Hz leaves the kick. Out at 20 kHz, the default."),
 
             // ---- Noise gate
             (fx: \noiseGate, name: \noiseGateThreshold, label: "Threshold", units: " dB",

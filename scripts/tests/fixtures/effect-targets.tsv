@@ -1,4 +1,6 @@
 sa.fx.compressorAttack	Attack	Compressor	Effects	continuous
+sa.fx.compressorKey	Key	Compressor	Effects	choice
+sa.fx.compressorKeyFilter	Key Filter	Compressor	Effects	continuous
 sa.fx.compressorKnee	Knee	Compressor	Effects	continuous
 sa.fx.compressorMakeup	Makeup	Compressor	Effects	continuous
 sa.fx.compressorMix	Dry/Wet	Compressor	Effects	continuous

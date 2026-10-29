@@ -314,6 +314,10 @@ MegaSA {
         bassChain = if(bassIn.notNil) { MegaSAChain(\bass, bassBus, \megaSAChainIn, [\in, bassIn]) }
             { MegaSAChain(\bass, bassBus, \megaSAChainOn, []) };
         synthChain = MegaSAChain(\synth, synthBus, \megaSAChainOn, []);
+        // Every chain's bus, for a keyed device's Key (the Compressor's), as
+        // it stands when the device reads it: after its chain's effects,
+        // before its fader.
+        this.chains.do { |c| c.keyBuses = MegaSAFx.keyTracks.collect { |t| this.chainFor(t).bus.index } };
         if(sound.isNil) {
             MegaSAFx.guitarKeys.do { |k| guitarChain.add(MegaSADevice(k, k)) };
             pluginPath !? { |p|
@@ -1341,7 +1345,7 @@ MegaSA {
         limbo.remove(device);
         anchor = chain.anchorFor(chain.indexOf(device));
         if(device.node.isNil) {
-            this.prSend(t0, [device.newOffMsg(server, anchor, chain.bus.index, beatDur)]
+            this.prSend(t0, [device.newOffMsg(server, anchor, chain.bus.index, beatDur, chain.keyBuses)]
                 ++ this.prPhaseMsgs(device, chain));
             t1 = t0 + this.class.birthGap;
             if(device.on) { this.prSend(t1, device.switchMsgs(true)) };

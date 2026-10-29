@@ -66,3 +66,59 @@ targets['sa.fx.noiseGateThreshold'][\set].value(-40);
 ~megaSA = was;
 sa.free;
 }.value;
+
+// The Compressor's side chain: its Key, itself or one of the chains, whose
+// busses every chain gives a keyed device's synth as it starts (\keyBuses,
+// MegaSAFx.keySignal). What it does with them is nrt-utility.scd's.
+{
+var sa, srv, d, want, log, iNew, iSet, held;
+var key = MegaSAFx.param(\compressorKey);
+// The key busses an s_new started a node with: the values between [ and ]
+// after \keyBuses (an array goes out in scsynth's bracket form), or nil.
+var keyArgs = { |srv, node|
+    var msg = node !? { |n| srv[\writes].collect(_[1]).detect { |m| (m[0] == 9) and: { m[2] == n.nodeID } } };
+    var at = msg !? { |m| m.indexOf(\keyBuses) };
+    at !? { msg.copyRange(at + 2, msg.indexOf($]) - 1) }
+};
+~tEq.("the Compressor's Key and Key Filter come last in its panel, at Itself and 20 kHz",
+    MegaSAFx.paramsOf(\compressor).collect(_[\name]).keep(-2)
+        ++ [key[\spec].default, MegaSAFx.param(\compressorKeyFilter)[\spec].default],
+    [\compressorKey, \compressorKeyFilter, 0, 20000]);
+~tEq.("...the Key a menu: itself, then each chain in the order the server runs them",
+    key[\choices].collect(_[1]), ["Itself", "Instrument", "Bass", "Loop", "Drums", "Synth"]);
+~tEq.("...one choice per key track, 1 on", key[\choices].drop(1).collect(_[0]), (1 .. MegaSAFx.keyTracks.size));
+~tEq.("only the Compressor is keyed", MegaSAFx.typeKeys.select { |k| MegaSAFx.type(k)[\keyed] == true }, [\compressor]);
+
+srv = ~tStubServer.();
+sa = ~tMegaSA.(srv, nil, nil, nil, nil, nil, 1);
+want = [sa.guitarBus, sa.bassBus, sa.loopFxBus, sa.stepsBus, sa.synthBus].collect(_.index);
+~tEq.("the key busses: the instrument's, the bass's, the loop's after its chain, the drums' and the synth's",
+    MegaSAFx.keyTracks.collect { |t| sa.chainFor(t).bus.index }, want);
+~tEq.("...and every chain holds them all", sa.chains.collect(_.keyBuses), want ! sa.chains.size);
+d = sa.insertDevice(\guitar, nil, \compressor);
+~tEq.("a Compressor put in a chain starts with them", keyArgs.(srv, d.node), want);
+~tEq.("...an EQ, which has no key, doesn't", keyArgs.(srv, sa.insertDevice(\guitar, nil, \eq).node), nil);
+sa.moveDevice(d.id, \bass, 0);
+~tEq.("...one moved to another chain keeps the same ones: no new synth", [sa.chainOf(d).track, keyArgs.(srv, d.node)],
+    [\bass, want]);
+sa.setParam(d.id, \compressorKey, 4);
+~tEq.("its Key is a setting, sent as one", ~tLastSet.(sa, d.node, \compressorKey), 4);
+sa.bassChain.build(sa.guitarChain.group, \addToTail, 0.5);
+~tEq.("a chain built again starts its Compressor with them too, and its Key as it stands",
+    [keyArgs.(srv, d.node), ~tStartArgs.(srv, d.node)[\compressorKey]], [want, 4]);
+held = (1 .. 20).collect { sa.randomizeFx(d.id); d.param(\compressorKey) };
+~tEq.("Random leaves the Key, which chain it hears, where it is", held.asSet.asArray, [4]);
+
+// The loop's phase reaches a device that follows it on a chain built after
+// the phase was given (the loop's, built once the Looper is attached): the
+// group hears it once the devices are in it.
+d = sa.insertDevice(\guitar, nil, \slicer);
+sa.guitarChain.setPhaseBus(37);
+sa.guitarChain.build(srv[\defaultGroup], \addBefore, 0.5);
+log = srv[\writes].collect(_[1]);
+iNew = log.detectIndex { |m| (m[0] == 9) and: { m[2] == d.node.nodeID } };
+iSet = log.detectIndex { |m| (m[0] == 15) and: { m[1] == sa.guitarChain.group.nodeID } and: { m.includes(\phaseBus) } };
+~tAssert.("a chain built with the loop's phase sends its group the phase after its devices' synths",
+    iNew.notNil and: { iSet.notNil } and: { iSet > iNew }, [iNew, iSet].asString);
+sa.free;
+}.value;

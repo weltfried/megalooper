@@ -307,6 +307,27 @@ scale the output bends rather than runs on, should the makeup push it there.
 Before Drive or a delay it evens what they hear; on the loop it holds a
 take that came out uneven.
 
+**Side chain.** **Key** says what turns it down: itself, as it starts, or
+another chain. Keyed by another chain, it listens to that chain and turns its
+own down:
+
+- **On the loop, keyed by the Instrument**, the loop makes room while you play
+  over it and comes back when you stop.
+- **On the bass, the synth or the loop, keyed by the Drums**, it pumps on the
+  kick. Turn **Key Filter** down to about 100 Hz, so only the kick's lows move
+  it, not the hi-hats.
+
+The key is the other chain after its effects and before its fader. Muting
+that chain's strip leaves the key as it was, so the pumping goes on;
+stopping what plays there stops it. The drums are heard before their reverb, so its tail doesn't hold the
+compressor down. A chain later in the line (instrument, bass, loop, drums,
+synth) is heard 64 samples late, 1.3 ms at 48 kHz, well inside an attack. Its
+own chain's name in the menu is the same as **Itself**.
+
+The looper records the instrument chain after its effects, so a keyed
+Compressor there is recorded into the loop, pumping and all. For pumping you
+hear but don't loop, put it on the loop, the bass or the synth.
+
 | Setting | Range | Default | What it does |
 |---|---|---|---|
 | **Threshold** | −60 to 0 dB | −18 dB | Above it the level is turned down |
@@ -316,6 +337,8 @@ take that came out uneven.
 | **Knee** | 0 to 24 dB | 6 dB | How gently it starts around the threshold; 0 is a hard corner |
 | **Makeup** | 0 to 24 dB | 0 dB | Gain back after it |
 | **Dry/Wet** | 0 to 100 % | 100 % | The signal as it came against the compressed one. Lower is parallel compression |
+| **Key** | Itself, Instrument, Bass, Loop, Drums, Synth | Itself | What turns it down. Random leaves it where it is |
+| **Key Filter** | 40 Hz to 20 kHz | 20 kHz (out) | Cuts the key above it, 24 dB an octave, so only its lows turn it down |
 
 ## Noise Gate
 

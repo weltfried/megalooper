@@ -59,6 +59,9 @@ MegaSADevice {
     followsTempo { ^this.typeRow !? { |t| t[\followsTempo] } ? false }
     // Whether its synth reads the loop's phase (\phaseBus): the Slicer.
     followsPhase { ^this.typeRow !? { |t| t[\followsPhase] } ? false }
+    // Whether its synth reads the chains' busses for its key (\keyBuses):
+    // the Compressor.
+    keyed { ^this.typeRow !? { |t| t[\keyed] } ? false }
 
     // The settings it has, in its panel's order (MegaSAFx.params' rows).
     params { ^if(this.typeRow.isNil) { [] } { MegaSAFx.paramsOf(type) } }
@@ -76,28 +79,31 @@ MegaSADevice {
     }
 
     // Its synth's starting controls on `bus` (an index): the bus, the switch
-    // as it stands, every setting in panel order, and the beat for a type
-    // that follows the tempo. A plugin starts not ready: it is told it is
-    // once it has opened (MegaSAPlugin.bypass).
-    startArgs { |bus, beatDur|
+    // as it stands, every setting in panel order, the beat for a type that
+    // follows the tempo, and for a keyed one the chains' busses (keyBuses,
+    // MegaSAChain's: one per MegaSAFx.keyTracks, the same for every chain,
+    // so a device moved to another chain needs no new ones). A plugin starts
+    // not ready: it is told it is once it has opened (MegaSAPlugin.bypass).
+    startArgs { |bus, beatDur, keyBuses|
         var args = [\bus, bus, this.switchName, on.binaryValue];
         this.params.do { |p| args = args ++ [p[\name], settings[p[\name]]] };
         if(this.followsTempo) { args = args ++ [\beatDur, beatDur] };
+        if(this.keyed and: { keyBuses.notNil }) { args = args ++ [\keyBuses, keyBuses] };
         if(this.isPlugin) { args = args ++ [\ready, 0] };
         ^args
     }
 
     // Its synth, added to `target` by `addAction`.
-    build { |target, addAction, bus, beatDur|
-        node = Synth(this.defName, this.startArgs(bus, beatDur), target, addAction);
+    build { |target, addAction, bus, beatDur, keyBuses|
+        node = Synth(this.defName, this.startArgs(bus, beatDur, keyBuses), target, addAction);
         ^node
     }
 
     // Its synth made in a bundle (an edit's): the node named now, the s_new
     // answered, switched off, after `target` (a node), for its switch to be
     // turned on by a message of its own after it, so it fades in.
-    newOffMsg { |server, target, bus, beatDur|
-        var args = this.startArgs(bus, beatDur);
+    newOffMsg { |server, target, bus, beatDur, keyBuses|
+        var args = this.startArgs(bus, beatDur, keyBuses);
         args[args.indexOf(this.switchName) + 1] = 0;
         node = Synth.basicNew(this.defName, server);
         ^node.newMsg(target, args, \addAfter)
