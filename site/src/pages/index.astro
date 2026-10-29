@@ -161,7 +161,9 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
         <div class="why__text">
           <p class="body">I have used Ableton Live for years, and I still love it. Its Looper is a great tool. But Live couldn't recognise the meter of the loops I recorded with it: the set stayed in the time signature it had been given before I played a note. That stood in the way of how I wanted to perform. I wanted to play a phrase in whatever meter it came out in, and have the drums, the sequencers and the effects follow it.</p>
           <p class="body">That's why I started megalooper. At first it was an add-on to Live, with the audio going from Live to megalooper and back again. It worked, but it was never a beautiful solution. So I rebuilt the sequencers and effects I cared about in SuperCollider, and megalooper became an instrument of its own.</p>
-          <p class="body">As a side effect, I could design the screen as well. In Live I had to switch between views and tracks, and an effect's display was too small to read while playing on stage. megalooper's Perform view shows what is going on in one view: the loop, the meter it heard, every layer and the actions, laid out to be read from where you stand with your instrument.</p>        </div>
+          <p class="body">As a side effect, I could design the screen as well. In Live I had to switch between views and tracks, and an effect's display was too small to read while playing on stage. megalooper's Perform view shows what is going on in one view: the loop, the meter it heard, every layer and the actions, laid out to be read from where you stand with your instrument.</p>
+          <p class="body">megalooper is free and open software. Everyone is welcome to use it to make great and interesting music, and everyone is welcome to <a href={GITHUB}>help me improve it</a>.</p>
+        </div>
       </div>
     </section>
 
@@ -307,6 +309,16 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
           <div><span class="m">SETUP · 5</span><span>AI APPS → Let AI apps in: On</span><span class="m">→</span><span>Install in Claude Desktop</span></div>
           <a href={manual('ai')}>Chapter 17 · AI apps →</a>
         </div>
+      </div>
+    </section>
+
+    <section id="light" class="band">
+      <div class="wrap pad split">
+        <div class="split__main">
+          <div class="eyebrow">LIGHT ON YOUR COMPUTER</div>
+          <h2 class="h2">About 5&nbsp;% CPU on an M1 MacBook.</h2>
+        </div>
+        <p class="body" style="max-width:520px">That is what megalooper's CPU meter reads with a loop, the grains and an amp plugin playing. The sound runs in SuperCollider's own engine, and effects you switch off sleep rather than compute silence, where they can. So megalooper suits older and slower computers too.</p>
       </div>
     </section>
 
