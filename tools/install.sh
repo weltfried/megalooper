@@ -24,6 +24,10 @@
 #   7. builds the Desktop icon (macOS) or adds megalooper to the application
 #      launcher (Linux).
 #
+# Each step says its number as it starts, a download shows its progress, and
+# the checks say which one runs and for how long (tools/run-checks.sh): on
+# an older computer they take minutes, and the install is not stuck.
+#
 # It deletes nothing of yours. The one thing it replaces is the "megalooper"
 # link in Extensions, when that link points at another checkout: run it again
 # after moving this folder.
@@ -53,13 +57,18 @@ for arg in "$@"; do
         --no-checks) CHECKS=0 ;;
         --no-app) APP=0 ;;
         --no-vstplugin) VST=0 ;;
-        -h|--help) sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,39p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "error: unknown option '$arg' (try --help)." >&2; exit 2 ;;
     esac
 done
 
-say()  { echo "megalooper: $*"; }
-fail() { echo "megalooper: error: $*" >&2; exit 1; }
+# What is said carries the step it belongs to ("[2/7] "), from step on.
+STEP=""
+say()  { echo "megalooper: $STEP$*"; }
+fail() { echo "megalooper: ${STEP}error: $*" >&2; exit 1; }
+step() { STEP="[$1/7] "; }
+# curl's progress bar where someone watches; silent but for errors in a log.
+if [ -t 2 ]; then CURL_SHOW=(--progress-bar); else CURL_SHOW=(-sS); fi
 
 case "$OS" in
     Darwin)
@@ -96,6 +105,9 @@ have_class() {
     done
     return 1
 }
+
+say "installing from $REPO: seven steps, each said as it starts."
+step 1
 
 # ---- 1. SuperCollider, and on Linux the packages beside it ----------------
 # pacman (Arch, Omarchy) or apt (Debian, Ubuntu): the same things under each
@@ -206,7 +218,7 @@ fetch_sc3plugins() {
     command -v curl >/dev/null 2>&1 || { say "sc3-plugins: curl is not here to fetch it."; return 1; }
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/megalooper-sc3plugins.XXXXXX")" || { say "sc3-plugins: could not make a folder to download into."; return 1; }
     say "sc3-plugins: fetching $sc into $dest (20 MB)"
-    if ! curl -fsSL --retry 2 -o "$tmp/sc3-plugins.zip" "$url"; then
+    if ! curl -fL --retry 2 "${CURL_SHOW[@]}" -o "$tmp/sc3-plugins.zip" "$url"; then
         say "sc3-plugins: could not fetch $url."
         rm -rf "$tmp"; return 1
     fi
@@ -231,6 +243,7 @@ fetch_sc3plugins() {
     say "sc3-plugins: installed"
 }
 
+step 2
 mkdir -p "$EXT" || fail "could not make $EXT."
 if have_class "Tartini.sc"; then
     say "sc3-plugins: found"
@@ -243,6 +256,7 @@ else
 fi
 
 # ---- 3. BBCut ----------------------------------------------------------------
+step 3
 if have_class "BBCut2.sc"; then
     say "BBCut: found"
 else
@@ -276,7 +290,7 @@ fetch_vstplugin() {
     command -v curl >/dev/null 2>&1 || { say "VSTPlugin: curl is not installed: it fetches VSTPlugin."; return 1; }
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/megalooper-vstplugin.XXXXXX")" || { say "VSTPlugin: could not make a folder to download into."; return 1; }
     say "VSTPlugin: fetching $VST_VERSION into $dest"
-    if ! curl -fsSL --retry 2 -o "$tmp/vstplugin.zip" "$url"; then
+    if ! curl -fL --retry 2 "${CURL_SHOW[@]}" -o "$tmp/vstplugin.zip" "$url"; then
         say "VSTPlugin: could not fetch $url."
         rm -rf "$tmp"; return 1
     fi
@@ -306,7 +320,10 @@ fetch_vstplugin() {
     say "VSTPlugin: installed"
 }
 
-if [ "$VST" -eq 1 ]; then
+step 4
+if [ "$VST" -eq 0 ]; then
+    say "VSTPlugin: not fetched (--no-vstplugin)"
+else
     if have_class "VSTPlugin.sc"; then
         say "VSTPlugin: found"
     elif [ -e "$EXT/VSTPlugin" ]; then
@@ -317,6 +334,7 @@ if [ "$VST" -eq 1 ]; then
 fi
 
 # ---- 5. megalooper's classes --------------------------------------------------
+step 5
 LINK="$EXT/megalooper"
 if [ -L "$LINK" ]; then
     was="$(readlink "$LINK")"
@@ -334,9 +352,12 @@ else
 fi
 
 # ---- 6. the quick checks -------------------------------------------------------
+step 6
 checks_failed=0
-if [ "$CHECKS" -eq 1 ]; then
-    say "running the quick checks (about half a minute)…"
+if [ "$CHECKS" -eq 0 ]; then
+    say "the quick checks: skipped (--no-checks)"
+else
+    say "the quick checks: the unit tests, the start-up scripts and the AI apps' bridge. About a minute on a recent computer, longer on an older one; the line under them says which runs and for how long."
     # sclang wants a display even for these; without one, Qt's off-screen one.
     if [ "$OS" = "Linux" ] && [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
         export QT_QPA_PLATFORM=offscreen
@@ -345,8 +366,12 @@ if [ "$CHECKS" -eq 1 ]; then
 fi
 
 # ---- 7. a way to start it -------------------------------------------------------
-if [ "$APP" -eq 1 ]; then
+step 7
+if [ "$APP" -eq 0 ]; then
+    say "no Desktop icon or launcher entry (--no-app)"
+else
     if [ "$OS" = "Darwin" ]; then
+        say "the Desktop icon"
         "$REPO/tools/make-app.sh" || say "warning: the Desktop icon was not built; ./tools/megalooper starts megalooper too."
     else
         data="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -368,11 +393,13 @@ if [ "$APP" -eq 1 ]; then
 fi
 
 echo
+STEP=""
+took="$((SECONDS / 60)) min $((SECONDS % 60)) s"
 if [ "$checks_failed" -eq 1 ]; then
-    say "installed, but the quick checks FAILED: see the log named above before you play."
+    say "installed in $took, but the quick checks FAILED: see the log named above before you play."
     exit 1
 fi
-say "installed."
+say "installed in $took."
 if [ "$APP" -eq 0 ]; then
     how="with ./tools/megalooper"
 elif [ "$OS" = "Darwin" ]; then

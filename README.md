@@ -90,6 +90,11 @@ The installer:
 6. runs the quick checks, which must end with `ALL CHECKS PASSED`;
 7. builds the Desktop icon.
 
+Each step says its number as it starts ("[6/7]"), and a download shows its
+progress. The checks take about a minute on a recent Mac and longer on an
+older one; the line under them says which check runs, for how many seconds,
+and which of the unit tests' files it is on, so you can see it is not stuck.
+
 Each download is checked against the file megalooper was tested with, and
 everything goes into `~/Library/Application Support/SuperCollider/Extensions`.
 

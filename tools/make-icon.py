@@ -36,6 +36,7 @@ def blend(dst, src, alpha):
 
 
 DIM = blend(GROUND_BOTTOM, INK, 0.35)
+CLEAR = bytes(4)  # a pixel outside the rounded square
 
 
 def rounded_square_alpha(x, y, size, radius):
@@ -116,6 +117,35 @@ def fill_polygon(rows, poly, colour, size):
                 row[1 + a * 4:1 + (b + 1) * 4] = pixel * (b + 1 - a)
 
 
+def square_span(py, big, radius):
+    """The pixels of row py inside the rounded square, as (first, last), or
+    None. A row crosses it in one run, so its two ends are found by bisection
+    with the same test a pixel at a time would make: the same pixels, at a
+    few dozen tests a row instead of one a pixel."""
+    def inside(px):
+        return rounded_square_alpha(px + 0.5, py + 0.5, big, radius) > 0.0
+
+    mid = big // 2
+    if not inside(mid):
+        return None
+    lo, hi = 0, mid  # the first pixel inside lies in lo..hi
+    while lo < hi:
+        m = (lo + hi) // 2
+        if inside(m):
+            hi = m
+        else:
+            lo = m + 1
+    first = lo
+    lo, hi = mid, big - 1  # the last one in lo..hi
+    while lo < hi:
+        m = (lo + hi + 1) // 2
+        if inside(m):
+            lo = m
+        else:
+            hi = m - 1
+    return first, lo
+
+
 def render(size):
     big = size * SS
     rows = []
@@ -125,11 +155,14 @@ def render(size):
         base = tuple(int(round(lerp(a, b, t))) for a, b in zip(GROUND_TOP, GROUND_BOTTOM))
         row = bytearray()
         row.append(0)  # PNG filter type 0 for this scanline
-        for px in range(big):
-            if rounded_square_alpha(px + 0.5, py + 0.5, big, radius) <= 0.0:
-                row.extend((0, 0, 0, 0))
-            else:
-                row.extend((base[0], base[1], base[2], 255))
+        span = square_span(py, big, radius)
+        if span is None:
+            row.extend(CLEAR * big)
+        else:
+            first, last = span
+            row.extend(CLEAR * first)
+            row.extend(bytes((base[0], base[1], base[2], 255)) * (last + 1 - first))
+            row.extend(CLEAR * (big - 1 - last))
         rows.append(row)
     for poly, colour in ribbon_quads(big):
         fill_polygon(rows, poly, colour, big)
@@ -137,13 +170,22 @@ def render(size):
 
 
 def downsample(big, raw, size):
-    """Box-filter the supersampled RGBA buffer down to size x size."""
+    """Box-filter the supersampled RGBA buffer down to size x size. A block
+    of samples all alike (most of them: the ground, the ribbon's inside, the
+    clear corners) is that sample, as the sums would make it."""
     out = []
     stride = big * 4 + 1
+    width = SS * 4
     for y in range(size):
         row = bytearray()
         row.append(0)
+        starts = [(y * SS + sy) * stride + 1 for sy in range(SS)]
         for x in range(size):
+            o = starts[0] + x * width
+            block = raw[o:o + width]
+            if block == raw[o:o + 4] * SS and all(raw[s + x * width:s + x * width + width] == block for s in starts[1:]):
+                row.extend(block[:4] if block[3] else CLEAR)
+                continue
             r = g = b = a = 0
             for sy in range(SS):
                 base = (y * SS + sy) * stride + 1

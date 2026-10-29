@@ -29,6 +29,10 @@ The script:
 5. runs the quick checks;
 6. adds megalooper to your application launcher.
 
+It says each step as it starts, and while the checks run, a line under them
+says which one, for how many seconds, so a slow computer does not look
+stuck.
+
 On another distribution, install SuperCollider, sc3-plugins, git, Python 3
 and a JACK (PipeWire's or JACK 2) yourself, then run the script.
 

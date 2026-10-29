@@ -44,17 +44,23 @@ echo "target : $APP"
 # ---- icon ----------------------------------------------------------------
 # iconutil wants a .iconset of exact sizes. Render each one from scratch rather
 # than downscaling a single master: the Möbius loop is drawn from geometry, so a
-# 32 px render is sharper than a 32 px resample of 1024.
+# 32 px render is sharper than a 32 px resample of 1024. Each size is drawn
+# once and copied where the set wants it twice (32 px is 16x16@2x and
+# 32x32), each said as it is drawn.
 ICONSET="$(mktemp -d)/megalooper.iconset"
 mkdir -p "$ICONSET"
-echo "icon   : rendering…"
+printf "icon   : drawing"
+for px in 16 32 64 128 256 512 1024; do
+    printf " %s" "$px"
+    python3 "$REPO/tools/make-icon.py" "$ICONSET/drawn-$px.png" "$px" >/dev/null
+done
+echo " px"
 for spec in "16:16x16" "32:16x16@2x" "32:32x32" "64:32x32@2x" \
             "128:128x128" "256:128x128@2x" "256:256x256" "512:256x256@2x" \
             "512:512x512" "1024:512x512@2x"; do
-    px="${spec%%:*}"
-    name="${spec##*:}"
-    python3 "$REPO/tools/make-icon.py" "$ICONSET/icon_$name.png" "$px" >/dev/null
+    cp "$ICONSET/drawn-${spec%%:*}.png" "$ICONSET/icon_${spec##*:}.png"
 done
+rm -f "$ICONSET"/drawn-*.png
 ICNS="$(mktemp -d)/megalooper.icns"
 iconutil -c icns "$ICONSET" -o "$ICNS"
 

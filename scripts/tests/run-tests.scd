@@ -79,6 +79,10 @@ var files = [
 ];
 var started = Main.elapsedTime;
 var failed;
+// Where tools/run-checks.sh reads which file runs, for the line that shows a
+// check running: piped, sclang's own output reaches its log in blocks, too
+// late to say that.
+var progress = "MEGALOOPER_PROGRESS".getenv;
 
 (dir +/+ "_harness.scd").load;
 ~tReset.();
@@ -90,13 +94,14 @@ if(~tOnly.notNil) {
     };
 };
 
-files.do { |f|
+files.do { |f, i|
     var counted = { (((~tState[\pass] + ~tState[\fail]) + ~tState[\xfail]) + ~tState[\xpass]) + (~tState[\skip] ? 0) };
     var before = counted.value;
     // The node IDs the default server has handed out: one is taken here, so a
     // file that made none leaves the next one just after it (_harness.scd's
     // trap; a node made there would have been made on a running megalooper).
     var trapBefore = Server.default.nextNodeID, trapMade;
+    progress !? { |p| File.use(p, "w", { |h| h.write("file " ++ (i + 1) ++ " of " ++ files.size ++ ", " ++ f.splitext[0]) }) };
     // Each file is protected on its own. An unhandled throw inside one must not
     // take the rest of the run down with it — and in a headless run it would do
     // worse than that: sclang would never reach the exit below, so it would

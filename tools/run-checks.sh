@@ -17,6 +17,10 @@
 # gets seven minutes; one that is killed by the clock counts as failed. The
 # exit code is the number of checks that failed.
 #
+# While a check runs, a line under the ones before says which, for how long,
+# and for the unit tests which file of how many: in a terminal it is kept
+# up to date in place, in a log it is a line every 30 s.
+#
 # Five of them play material the repository cannot ship: the kits' samples
 # and the reverb's impulse responses (exported from Ableton Live's library,
 # docs/drums.md) and one recorded take. Where it is missing they are skipped,
@@ -68,6 +72,25 @@ lacks() {
     esac
 }
 
+# What a check is, in words, beside its name while it runs.
+about() {
+    case "$1" in
+        run-tests) echo "the unit tests" ;;
+        check) echo "the start-up scripts" ;;
+        test-megalooper-mcp) echo "the AI apps' bridge" ;;
+        check-gui-*) echo "a window, unseen" ;;
+        nrt-*) echo "an offline render" ;;
+    esac
+}
+
+TTY=0
+[ -t 1 ] && TTY=1
+WIDTH="$(tput cols 2>/dev/null || echo 80)"
+pid=""
+# Ctrl-C stops the check that runs too: started in the background, it would
+# ignore the signal and run on until its clock.
+trap '[ -n "$pid" ] && kill "$pid" 2>/dev/null; [ "$TTY" -eq 1 ] && echo; exit 130' INT TERM
+
 LOGS="$(mktemp -d "${TMPDIR:-/tmp}/megalooper-checks.XXXXXX")"
 failed=0
 skipped=0
@@ -81,13 +104,34 @@ for check in $CHECKS; do
     fi
     port=$((58100 + RANDOM % 800))
     start=$(date +%s)
+    progress="$LOGS/$name.progress"
+    label="$(about "$name")"
     case "$check" in
         # The AI bridge's own check, which starts its sclang itself.
-        *.py) perl -e 'alarm shift; exec @ARGV' 420 python3 "$REPO/$check" > "$LOGS/$name.log" 2>&1 ;;
-        *) perl -e 'alarm shift; exec @ARGV' 420 "$SCLANG" -u "$port" ${MEGALOOPER_SCLANG_CONF:+-l "$MEGALOOPER_SCLANG_CONF"} \
-            "$REPO/$check" > "$LOGS/$name.log" 2>&1 ;;
+        *.py) perl -e 'alarm shift; exec @ARGV' 420 python3 "$REPO/$check" > "$LOGS/$name.log" 2>&1 & ;;
+        *) MEGALOOPER_PROGRESS="$progress" perl -e 'alarm shift; exec @ARGV' 420 "$SCLANG" -u "$port" \
+            ${MEGALOOPER_SCLANG_CONF:+-l "$MEGALOOPER_SCLANG_CONF"} "$REPO/$check" > "$LOGS/$name.log" 2>&1 & ;;
     esac
+    pid=$!
+    told=0
+    [ "$TTY" -eq 0 ] && echo "running $name${label:+ ($label)}"
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 0.5
+        secs=$(( $(date +%s) - start ))
+        now="$(cat "$progress" 2>/dev/null)"
+        if [ "$TTY" -eq 1 ]; then
+            line="running $name${label:+ ($label)}  ${secs} s${now:+ · $now}"
+            printf '\r\033[K%s' "${line:0:$((WIDTH - 1))}"
+        elif [ $((secs - told)) -ge 30 ]; then
+            told=$secs
+            echo "        $name: ${secs} s${now:+, $now}"
+        fi
+    done
+    wait "$pid"
     code=$?
+    pid=""
+    [ "$TTY" -eq 1 ] && printf '\r\033[K'
+    rm -f "$progress"
     secs=$(( $(date +%s) - start ))
     if [ "$code" -eq 0 ]; then
         echo "ok      $name  (${secs} s)"
