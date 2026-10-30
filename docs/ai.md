@@ -26,8 +26,8 @@ bandmate*, below).
 | | Read | Change |
 |---|---|---|
 | **The loop** | Its meter (uneven bars too) and how each bar is grouped (2+2+3), how well the take's loud hits fit that meter's strong beats (the analyser's accent score), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
-| **Now** | Where the loop is (bar, beat, beat group), half-time, reverse, a break or a dissolve, the arc's intensity, and what lands on a coming boundary | — |
-| **Past sets** | Every set recorded with **Record set**: each take, what was played on its bar grid, the meter the analyser applied and its runners-up, and what you changed (readings, bars by hand, the threshold) | — |
+| **Now** | Where the loop is (bar, beat, beat group), half-time, reverse, a break or a dissolve, the arc's intensity, and what lands on a coming boundary; with **Log every action** on, what you and it changed in the last minute | — |
+| **Past sets** | Every set recorded with **Record set**: each take, what was played on its bar grid, the meter the analyser applied and its runners-up, and what you changed (readings, bars by hand, the threshold); recorded with **Log every action**, every change and how everything was set at any second of the set | — |
 | **The drums** | Both step patterns, the kits and their pads, your drum presets | The patterns, the kit the steps play; load one of your drum presets; save as a drum preset |
 | **The synth** | The note sequence and the Wave synth's settings, your synth presets | Both, and the sequencer on or off; load one of your synth presets; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
@@ -43,6 +43,13 @@ The past sets are there to prepare between rehearsals: "what did the
 analyser get wrong on Monday, and what did we play there?", "write drums for
 the 7+7+7+8 we played at 10:02". They are the logs of **Record set** in the
 `sessions` folder; a set not recorded is not there.
+
+A set recorded with **Log every action** on (Setup's MIDI & AI page, [the
+manual](manual.md#every-action)) holds every change you made in it, and
+every one the AI made, marked as its own. Then the AI can say what you did
+in the part you liked ("what changed at 3:50 on Monday?") and bring a moment
+back ("the drums as they were at 4:00, saved as a preset"): it reads how
+everything was set at that second and sets it again.
 
 The Grains and the Cutter work on the loop and need a take: the Grains
 switch on over a recorded loop, the Cutter over an analysed one, and the
@@ -177,6 +184,9 @@ To build such a workflow:
   loop's next downbeat.
 - **Every look is a question to the AI service.** A long set uses your
   subscription's allowance faster, and the app must stay online all along.
+- **Let it see what you do.** With **Log every action** on, each look also
+  says what you and it changed in the last minute, so it can follow you (the
+  Grains just went on) and leave alone what you just touched.
 - **Try it in a rehearsal first**, with **↶ Revert AI change** within reach.
 
 ## Good to know
@@ -211,7 +221,7 @@ What the app is offered, for reference. You never call these yourself.
 
 | Tool | What it does |
 |---|---|
-| `get_context` | What is playing and how it is set, the take included; where the loop is now and what is coming; the AI's own changes by name |
+| `get_context` | What is playing and how it is set, the take included; where the loop is now and what is coming; the AI's own changes by name; with Log every action, what was changed in the last minute |
 | `describe` | What every setting of the drums, the synth, the effects, the Grains or the Cutter means |
 | `set_drum_pattern` | Change a drum pattern (main or break) and the steps' kit |
 | `set_synth` | Change the note sequence, the Wave synth, the sequencer's switch |
@@ -222,7 +232,8 @@ What the app is offered, for reference. You never call these yourself.
 | `save_drum_preset`, `save_synth_preset`, `save_sound`, `save_grains_preset`, `save_cutter_preset` | Save under a name, in the menus you already use |
 | `load_drum_preset`, `load_synth_preset` | Load one of your presets, as picking it in the Drums or Synth view does |
 | `list_sets` | The sets recorded before, newest first: each take's meter, what you changed |
-| `get_set` | One recorded set in full: every take and what it played, every reading armed, landed or cancelled |
+| `get_set` | One recorded set in full: every take and what it played, every reading armed, landed or cancelled; with Log every action, every change, and only some seconds of it if asked |
+| `get_set_state` | How everything was set at a second of a set recorded with Log every action |
 
 Every change is checked before anything happens: a request with one wrong
 part changes nothing. Values outside a setting's range are moved into it,

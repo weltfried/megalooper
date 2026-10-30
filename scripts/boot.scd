@@ -13,6 +13,7 @@
 //   setup-midimap.scd  ~setupMidiBindings: the MIDI router and its map
 //   setup-remote.scd   ~remoteApply: AI apps let in or not (MegaRemote), and
 //                      ~remoteRevert, the AI's last change taken back
+//   setup-actions.scd  ~actionsApply: Log every action on or off (MegaActionLog)
 //   gui-const.scd      ranges, menu contents, lifetimes. No window.
 //   gui-theme.scd      the stage theme: palettes, type, tiles, bars, segments
 //   gui-presets.scd    the preset bar's logic, shared by every preset family
@@ -135,6 +136,7 @@ if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };
     "setup-miditargets.scd",
     "setup-midimap.scd",
     "setup-remote.scd",
+    "setup-actions.scd",
     // Order matters three times over: gui-const.scd defines the ranges and
     // colours everything else reads; gui-presets.scd must precede the two files
     // that register preset families at load time; and gui-shell.scd must come
@@ -250,6 +252,9 @@ s.waitForBoot {
 
     // AI apps (setup-remote.scd): let in if the Setup view's switch says so.
     ~remoteApply.();
+    // Every action logged (setup-actions.scd), if the Analysis page's switch
+    // says so: after the window, whose views and preset bars it hears too.
+    ~actionsApply.();
 
     "Boot complete. R=trigger S=stop M=multiply U=undo V=reverse G=granular B=bbcut K=break D=dissolve C=clear N=next-loop A=reading".postln;
     ("MIDI: " ++ (~midiMap !? { |m| m.name } ? "no map") ++ ", set on the Setup view; MIDI MAP (top right) maps a control. ~midiLog = false to silence the MIDI log.").postln;

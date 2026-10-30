@@ -442,22 +442,25 @@ protect {
     p = MegaSAFx.param(\filterFreq);
     got = heard.(sa, { act.('sa.fx.filterFreq', [\position, 0.5]) });
     ~tAssert.("an effect knob sets its setting on the knob's law, MegaSA says so, and the chain hears it",
-        near.(sa.fxParam(\filterFreq), p[\spec].map(0.5)) and: { got == [[\fxParam, \filterFreq, sa.fxParam(\filterFreq)]] }
+        near.(sa.fxParam(\filterFreq), p[\spec].map(0.5))
+            and: { got == [[\fxParam, \filterFreq, sa.fxParam(\filterFreq)], [\fxSetting, \filter, \filterFreq, sa.fxParam(\filterFreq)]] }
             and: { stub[\msgs].last == [15, sa.fxNode(\filter).nodeID, \filterFreq, sa.fxParam(\filterFreq)] },
         [sa.fxParam(\filterFreq), got, stub[\msgs].last].asString);
     ~tEq.("...and it reads back through the model", targets['sa.fx.filterFreq'][\get].value, sa.fxParam(\filterFreq));
     ~tEq.("Bit Depth, a count: a quarter of the way is 5 bits", [heard.(sa, { act.('sa.fx.reduxBits', [\position, 0.25]) }),
-        sa.fxParam(\reduxBits)], [[[\fxParam, \reduxBits, 5.0]], 5.0]);
+        sa.fxParam(\reduxBits)], [[[\fxParam, \reduxBits, 5.0], [\fxSetting, \redux, \reduxBits, 5.0]], 5.0]);
     ~tEq.("an effect's menu: a knob picks High-pass, a press moves on to Band-pass",
         [heard.(sa, { act.('sa.fx.filterType', [\position, 0.3]) }), targets['sa.fx.filterType'][\get].value,
             { act.('sa.fx.filterType', [\next]); sa.fxParam(\filterType) }.value],
-        [[[\fxParam, \filterType, 1.0]], 1, 2.0]);
+        [[[\fxParam, \filterType, 1.0], [\fxSetting, \filter, \filterType, 1.0]], 1, 2.0]);
     ~tEq.("...the echo's note values are its divisions", { act.('sa.fx.echoBeatsL', [\position, 0]); sa.fxParam(\echoBeatsL) }.value,
         0.0625);
     got = heard.(sa, { act.('sa.fxReset.filter', [\fire]) });
     ~tAssert.("Live values puts every setting of the effect back, each through setFxParam",
         MegaSAFx.paramsOf(\filter).every { |q| sa.fxParam(q[\name]) == q[\spec].default }
-            and: { got.size == MegaSAFx.paramsOf(\filter).size } and: { got.every { |x| x[0] == \fxParam } },
+            and: { got.count { |x| x[0] == \fxParam } == MegaSAFx.paramsOf(\filter).size }
+            and: { got.count { |x| x[0] == \fxSetting } == MegaSAFx.paramsOf(\filter).size }
+            and: { got.every { |x| #[\fxParam, \fxSetting].includes(x[0]) } },
         got.asString);
     got = heard.(sa, { act.('sa.level.drums', [\position, 0.5]) });
     ~tAssert.("a strip's level: halfway is -27 dB, set as an amplitude, as its slider sets it",
@@ -561,7 +564,7 @@ protect {
         // (Stamped after the move, which is still on its way: ~tLastSet reads
         // the bundles too.)
         ~tEq.("a moved device keeps its controls: they reach it where it is now",
-            [got.collect(_.first), ~tLastSet.(sa, sa.fxNode(\delay), \delayMix)], [[\fxParam], sa.fxParam(\delayMix)]);
+            [got.collect(_.first), ~tLastSet.(sa, sa.fxNode(\delay), \delayMix)], [[\fxParam, \fxSetting], sa.fxParam(\delayMix)]);
         d2 = sa.insertDevice(\guitar, nil, \delay);
         ~tEq.("a second Delay has its own controls, built again after the insert: the effects' 176 and its eleven",
             { var now = ~midiTargetsBuild.();

@@ -10,6 +10,7 @@
  "instructions": "megalooper is a live looper for guitar and bass with drums, a note sequencer with a synth, effect chains, a granular layer (the grains) and a cutter over the loop. Call get_context first to see what is playing and how it is set (the loop's meter, which may be uneven bars like 7+7+7+8/8, how its bars are grouped (2+2+3), where the playhead is and what is about to land, its tempo, the drum patterns, the note sequence, the chains, the grains, the cutter), and loop.take: what the player played, per bar a grid of sixteenths with the hits' pitches and the chords heard. Fit drums and synth lines to it when asked for something that goes with the loop. Call describe for what the settings mean before changing them. The drums (set_drum_pattern), the synth (set_synth), the effect chains (set_chain), the grains (set_grains) and the cutter (set_cutter) can be changed and every change taken back (revert); the player's own drum and synth presets can be loaded (load_drum_preset, load_synth_preset), as a start to change or to hear one they name; the player hears a change at once, so change what was asked for, say what you changed, and offer to revert. Plugins (an amp, say) are the player's: you may move or switch them, not add, remove or set them; a synth preset of the player's may bring its own instrument plugin. The sets recorded before are there to learn from: list_sets lists them, get_set tells one in full (each take, what was played on its bar grid, the reading the analyser applied and what the players changed). Use them between rehearsals to answer what was played, what the analyser got wrong, or to write parts for a take from a past set. Asked to play along on stage, keep reading get_context (parts loop and now: whether the loop runs, where it is, what is about to land) and make your moves from what you see; an answer takes seconds and a change lands at once, not on a bar line, so prefer changes that sound right whenever they land.",
  "passedOn": [
   "get_set",
+  "get_set_state",
   "list_sets",
   "load_drum_preset",
   "load_synth_preset",
@@ -29,7 +30,7 @@
   {
    "name": "get_context",
    "title": "What megalooper is playing",
-   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads; presets, the drum presets saved in the Drums view, and loadedPreset, the one it shows as loaded), the synth (the note sequencer's pattern and the Wave synth's settings; presets and loadedPreset, as the Synth view has them), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window, whether they follow the chords) and the cutter (on, mode, its voices). Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
+   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads; presets, the drum presets saved in the Drums view, and loadedPreset, the one it shows as loaded), the synth (the note sequencer's pattern and the Wave synth's settings; presets and loadedPreset, as the Synth view has them), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window, whether they follow the chords) and the cutter (on, mode, its voices). recent (with Log every action on in megalooper): what the players and you changed in the last minute, oldest first, each with how long ago, the part, what, its arguments and by: player or ai. Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -44,7 +45,8 @@
         "synth",
         "chains",
         "grains",
-        "cutter"
+        "cutter",
+        "recent"
        ]
       },
       "description": "Only these parts (the profile, the tempo, aiChanges and aiChangeLabels always come)."
@@ -543,7 +545,7 @@
   {
    "name": "list_sets",
    "title": "The sets megalooper recorded",
-   "description": "The sets recorded with Record set, newest first: when, how long, each take with the meter reading the analyser applied, and how often the players asked for another reading (Next reading, or bars by hand), moved the onset threshold, overdubbed, broke, cleared or went to half-time. A take whose reading the players changed is one the analyser got wrong. Read only.",
+   "description": "The sets recorded with Record set, newest first: when, how long, each take with the meter reading the analyser applied, and how often the players asked for another reading (Next reading, or bars by hand), moved the onset threshold, overdubbed, broke, cleared or went to half-time. A take whose reading the players changed is one the analyser got wrong. everyAction: the set was recorded with Log every action, so get_set has every change in it and get_set_state can say how anything was set at any second; actions counts its changes. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -563,7 +565,7 @@
   {
    "name": "get_set",
    "title": "One recorded set in full",
-   "description": "One recorded set, in time: the reading it began with and every record but the drums' hits (counted): each take with the reading the analyser applied, its runners-up and what was played on its bar grid in sixteenths (X strong, x a hit, . none); every reading the players armed, landed or cancelled; threshold moves, overdubs, breaks, half-time, effect switches. Read only.",
+   "description": "One recorded set, in time: the reading it began with and every record but the drums' hits (counted): each take with the reading the analyser applied, its runners-up and what was played on its bar grid in sixteenths (X strong, x a hit, . none); every reading the players armed, landed or cancelled; threshold moves, overdubs, breaks, half-time, effect switches; and in a set recorded with every action (everyAction), each change: its part (looper, sa: the effects and the mixer, drums: the drums and the note sequence, wave: the Wave synth, window: views and preset bars), what changed, its arguments, and by: player or ai. A knob turned is at most ten changes a second; from and to keep a long set's answer short. Read only.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -574,10 +576,48 @@
      "grids": {
       "type": "boolean",
       "description": "false leaves out what each take played (true if not said)."
+     },
+     "from": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Only what happened from this many seconds into the set."
+     },
+     "to": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Only what happened up to this many seconds into the set."
      }
     },
     "required": [
      "id"
+    ],
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_set_state",
+   "title": "How a recorded set was set",
+   "description": "How everything was set at a second of a set recorded with Log every action (list_sets: everyAction): the drums, the synth, the effect chains, the mixer, the grains, the cutter and the looper's switches, in the shapes get_context gives them; asOf, the second each was written at; changedSince, the changes after that up to the second asked, which they do not hold yet (a part's settings are written once it has been left alone for two seconds). To bring a moment back, set what you need with set_drum_pattern, set_synth, set_chain, set_grains and set_cutter, and keep it with the save tools. Read only.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "The set's id from list_sets, or its stamp (261026_191112)."
+     },
+     "at": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Seconds into the set, as get_set gives them."
+     }
+    },
+    "required": [
+     "id",
+     "at"
     ],
     "additionalProperties": false
    },

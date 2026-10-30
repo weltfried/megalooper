@@ -30,6 +30,9 @@
         // The sets recorded before (list_sets, get_set), and where the
         // playhead is as Perform's count predicts it (gui-status.scd).
         sessionDir: ~sessionDir,
+        // What was changed in the last minute, with Log every action on
+        // (setup-actions.scd); nil while it is off.
+        recent: { ~actionLog !? { |a| a.recentWithin(60) } }.inEnvir,
         playhead: { ~countPosAt !? { |f| f.value(Main.elapsedTime) } }.inEnvir,
         // The preset the Drums or the Synth view's menu shows as loaded, and
         // the one the AI loaded (or a revert brought back) selected there.

@@ -978,11 +978,14 @@ MegaSA {
     }
 
     // A device's setting, announced as \fxParam when the device is its
-    // effect's default (its id is its type), whose settings are named alone.
-    // One that moves its delay (the Shifter's pitch) says \latency too.
+    // effect's default (its id is its type), whose settings are named alone,
+    // and for every device as \fxSetting, id, name, value (MegaActionLog's:
+    // every way a setting changes comes through here). One that moves its
+    // delay (the Shifter's pitch) says \latency too.
     prSetParam { |device, name, value|
         device.setParam(name, value);
         if(device.id == device.type) { this.changed(\fxParam, name, device.param(name)) };
+        this.changed(\fxSetting, device.id, name, device.param(name));
         this.prLatencyCheck;
     }
 

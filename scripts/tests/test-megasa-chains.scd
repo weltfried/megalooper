@@ -512,7 +512,7 @@ if(vst.isNil) { ~tSkip.("the plugin's switches", "VSTPlugin is not installed her
     plug[\held] = nil;
     said = heard.({ m.setFxParam(\shifterCoarse, 7) }, m);
     ~tEq.("...a Shifter's pitch moves its delay, and says so with its setting",
-        said.collect(_.first), [\fxParam, \latency]);
+        said.collect(_.first), [\fxParam, \fxSetting, \latency]);
     m.resetFx(\shifter);
     said = heard.({ m.insertDevice(\guitar, 0, \shifter) }, m);
     ~tEq.("...and so does an edit that adds a delay (a Shifter: 2 samples)",

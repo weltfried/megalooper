@@ -2,8 +2,9 @@
 // view's switch lets one in and shuts it out, kept in settings.json; the
 // footer's Revert shows while an AI change can be taken back, and takes it
 // back; a drum preset the AI loads is selected in the Drums view's preset
-// bar, and its revert selects what was there. Real Qt views, a MegaSA on a
-// stub server, no rig. The switch's
+// bar, and its revert selects what was there; and Log every action's switch
+// (setup-actions.scd), which feeds the AI what was just changed. Real Qt
+// views, a MegaSA on a stub server, no rig. The switches'
 // settings.json and MegaRemote's handshake go to scratch folders, never to
 // yours. It exits 0 or 1.
 //
@@ -18,8 +19,8 @@ var ok = { |label, cond, detail|
 };
 (scripts +/+ "tests" +/+ "_harness.scd").load;
 ["setup-routing.scd", "setup-midi.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd", "setup-remote.scd",
-    "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd",
-    "gui-rig.scd", "gui-shell.scd", "gui-drums.scd"].do { |f|
+    "setup-actions.scd", "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-sa.scd", "gui-midimap.scd",
+    "gui-mapmode.scd", "gui-rig.scd", "gui-shell.scd", "gui-drums.scd"].do { |f|
     (scripts +/+ f).load;
 };
 ~midiUserRootOverride = ~tTempPath.("check-gui-ai");
@@ -158,6 +159,37 @@ Routine {
             said.last[1] == \bad and: { said.last[0].contains(made) }, said.asString);
         ~remoteOpen = "/usr/bin/open";
         ~remoteClipboard = nil;
+    }.value;
+
+    "== Log every action ==".postln;
+    {
+        var row = ~actionsSection.(), aw = Window("actions check", Rect(0, 0, 700, 160));
+        var heard = { |what| (~remoteSource.()[\recent].value ? []).any { |e| e[2] == what } };
+        aw.layout = VLayout(row);
+        aw.alpha_(0).front;
+        tick.();
+        ok.("the switch builds, off with no settings.json saying otherwise",
+            row.isClosed.not and: { ~actionsSeg[\view].value == 0 } and: { ~actionsOn.() == false });
+        ~actionsApply.();
+        ok.("...so nothing listens, and the AI is told of no changes",
+            ~actionLog.isNil and: { ~remoteSource.()[\recent].value.isNil });
+        said.clear;
+        ~actionsSeg[\view].valueAction = 1;
+        tick.();
+        ok.("switched on: the log listens, kept in settings.json, and the status line says so",
+            ~actionLog.notNil and: { ~actionLog.on } and: { ~midiSettingsRead.()[\raw]["gui"]["logActions"] == "on" }
+                and: { said.last[0].contains("logged") }, said.asString);
+        ~looper.granularMorph = 0.42;
+        ~actionsNote.(\window, \view, \drums);
+        0.3.wait;
+        ok.("...a part's change and a view shown reach the AI's recent changes",
+            heard.(\granularMorph) and: { heard.(\view) });
+        ~actionsSeg[\view].valueAction = 0;
+        tick.();
+        ok.("switched off: nothing listens, settings.json says off, and the switch shows it",
+            ~actionLog.isNil and: { ~midiSettingsRead.()[\raw]["gui"]["logActions"] == "off" }
+                and: { ~actionsSeg[\view].value == 0 } and: { ~remoteSource.()[\recent].value.isNil });
+        aw.close;
     }.value;
 
     w.close;

@@ -409,11 +409,13 @@ MegaSAFx.keys.do { |k|
         (msg[0] == 15) and: { msg[1] == sa.fxNode(loopP[\fx]).nodeID } and: { msg[2] == loopP[\name] }, msg.asString);
     ~tAssert.("...which is not the guitar's", sa.fxNode(loopP[\fx]).nodeID != sa.fxNode(guitarP[\fx]).nodeID);
     // One notification per change, in the shape the Effects pane and the MIDI
-    // targets expect: \fx (key, flag), \fxParam (name, value).
+    // targets expect: \fx (key, flag), \fxParam (name, value); and a setting's
+    // \fxSetting (device, name, value), which Log every action hears.
     said = heard.({ sa.setFx(loopP[\fx], true) });
     ~tEq.("a switch says \\fx once, with the effect and its state", said, [[\fx, loopP[\fx], true]]);
     said = heard.({ sa.setFxParam(loopP[\name], loopP[\spec].map(0.25)) });
-    ~tEq.("a setting says \\fxParam once, with its name and value", said, [[\fxParam, loopP[\name], sa.fxParam(loopP[\name])]]);
+    ~tEq.("a setting says \\fxParam once, with its name and value, then \\fxSetting with its device", said,
+        [[\fxParam, loopP[\name], sa.fxParam(loopP[\name])], [\fxSetting, loopP[\fx], loopP[\name], sa.fxParam(loopP[\name])]]);
     said = heard.({ sa.setFx(loopP[\fx], false) });
     ~tEq.("...and off again", said, [[\fx, loopP[\fx], false]]);
     sa.setFxParam(guitarP[\name], guitarP[\spec].maxval * 10 + 1000);

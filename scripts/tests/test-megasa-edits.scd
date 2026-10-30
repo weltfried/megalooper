@@ -391,10 +391,12 @@ d = sa.insertDevice(\guitar, nil, \delay);
 d.pendingUntil = thisThread.seconds - 1;   // its insert landed
 said = heard.(sa, { sa.setParam(d.id, \delayMix, 0.25) });
 ~tEq.("a further device's setting goes to its own synth", stub[\msgs].last, [15, d.node.nodeID, \delayMix, 0.25]);
-~tEq.("...said by the device, not as \\fxParam, whose names are the default devices'", said, []);
+~tEq.("...said as \\fxSetting with the device's id, not as \\fxParam, whose names are the default devices'",
+    said, [[\fxSetting, d.id, \delayMix, 0.25]]);
 ~tEq.("...the default Delay's own untouched", sa.fxParam(\delayMix), MegaSAFx.param(\delayMix)[\spec].default);
 said = heard.(sa, { sa.setParam(\delay, \delayMix, 0.5) });
-~tEq.("a default device's, by id, is said as \\fxParam, as setFxParam's", said, [[\fxParam, \delayMix, 0.5]]);
+~tEq.("a default device's, by id, is said as \\fxParam, as setFxParam's (and as \\fxSetting)", said,
+    [[\fxParam, \delayMix, 0.5], [\fxSetting, \delay, \delayMix, 0.5]]);
 before = stub[\msgs].size;
 ~tCheck.("a setting the device has not, or no number, warns", {
     sa.setParam(d.id, \echoMix, 0.5); sa.setParam(d.id, \delayMix, "loud"); sa.setParam(\nothing, \delayMix, 0.5) });

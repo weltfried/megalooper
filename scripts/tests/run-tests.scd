@@ -31,6 +31,7 @@ var files = [
     "test-preset-bar.scd",
     "test-granular-presets.scd",
     "test-session-recorder.scd",
+    "test-action-log.scd",
     "test-bbcut-presets.scd",
     "test-loop-position.scd",
     "test-beat-count.scd",

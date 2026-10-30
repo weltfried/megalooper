@@ -94,7 +94,11 @@
     },
     {
       "name": "get_set",
-      "description": "One recorded set in full: every take, what was played, every reading the players changed."
+      "description": "One recorded set in full: every take, what was played, every reading the players changed, and with Log every action every change."
+    },
+    {
+      "name": "get_set_state",
+      "description": "How everything was set at a second of a set recorded with Log every action."
     }
   ],
   "keywords": [

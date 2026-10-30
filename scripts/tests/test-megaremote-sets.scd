@@ -122,5 +122,62 @@ got = ask.(r, "{\"command\": \"get_set\", \"args\": {\"id\": \"261020_100000\", 
         "{\"command\": \"get_set\", \"args\": {\"id\": \"990101\"}}"].collect { |q| ask.(r, q).at("ok") }, [false, false, false]);
 r = MegaRemote({ (looper: l, sa: nil, sessionDir: nil) });
 ~tEq.("with no sessions folder, no sets", ask.(r, "{\"command\": \"list_sets\"}").at("result").at("sets"), []);
+
+// ---- a set recorded with every action (MegaActionLog) ------------------------------------
+// Its first lines say how every part was set; then the changes, a state once
+// a part settled, and an AI app's change among the players'.
+lines = [
+    "{\"t\": 0.0, \"ev\": \"session\", \"date\": \"Wed Oct 21 20:00:00 2026\", \"actions\": true, \"view\": \"perform\"}",
+    "{\"t\": 0.05, \"ev\": \"state\", \"part\": \"drums\", \"state\": {\"drums\": {\"on\": true, \"stepsKit\": \"core-808\"}, \"synth\": {\"notesOn\": false}}}",
+    "{\"t\": 0.06, \"ev\": \"state\", \"part\": \"looper\", \"state\": {\"cutter\": {\"on\": false}, \"grains\": {\"on\": false}, \"looper\": {\"intensity\": 1.0}}}",
+    "{\"t\": 4.0, \"ev\": \"act\", \"args\": [true], \"part\": \"looper\", \"what\": \"granular\"}",
+    "{\"t\": 4.5, \"ev\": \"act\", \"args\": [0.6], \"part\": \"looper\", \"what\": \"granularMorph\"}",
+    "{\"t\": 6.5, \"ev\": \"state\", \"part\": \"looper\", \"state\": {\"cutter\": {\"on\": false}, \"grains\": {\"on\": true, \"morph\": 0.6}, \"looper\": {\"intensity\": 1.0}}}",
+    "{\"t\": 10.0, \"ev\": \"act\", \"args\": [\"main\", \"chance\", 0, 3, 5], \"by\": \"ai\", \"part\": \"drums\", \"what\": \"step\"}",
+    "{\"t\": 11.0, \"ev\": \"act\", \"args\": [\"drums\"], \"part\": \"window\", \"what\": \"view\"}",
+    "{\"t\": 20.0, \"ev\": \"sessionStop\", \"elapsed\": 20.0}"
+];
+File.use(dir +/+ "261021_200000-events.jsonl", "w", { |f| lines.do { |x| f.write(x ++ "\n") } });
+r = MegaRemote({ (looper: l, sa: nil, sessionDir: dir) });
+o = ask.(r, "{\"command\": \"list_sets\"}").at("result").at("sets")[0];
+~tEq.("list_sets: a set recorded with every action says so, and how many changes it holds",
+    [o.at("id"), o.at("everyAction"), o.at("actions")], ["261021_200000", true, 4]);
+~tEq.("...one recorded before says not", ask.(r, "{\"command\": \"list_sets\"}").at("result").at("sets")[1].at("everyAction"), false);
+got = ask.(r, "{\"command\": \"get_set\", \"args\": {\"id\": \"261021_200000\"}}").at("result");
+events = got.at("events");
+~tEq.("get_set: the changes in time, each with its part, what, args and whose; the states left out",
+    [got.at("everyAction"), events.collect { |e| [e.at("seconds"), e.at("part"), e.at("what"), e.at("by")] }],
+    [true, [[4.0, "looper", "granular", "player"], [4.5, "looper", "granularMorph", "player"], [10.0, "drums", "step", "ai"],
+        [11.0, "window", "view", "player"], [20.0, nil, nil, nil]]]);
+~tEq.("...a change's arguments as they were", events[2].at("args"), ["main", "chance", 0, 3, 5]);
+got = ask.(r, "{\"command\": \"get_set\", \"args\": {\"id\": \"261021_200000\", \"from\": 4.2, \"to\": 10.5}}").at("result");
+~tEq.("...from and to: only the seconds between", got.at("events").collect { |e| e.at("what") }, ["granularMorph", "step"]);
+~tEq.("...and from given as anything but seconds is refused",
+    ask.(r, "{\"command\": \"get_set\", \"args\": {\"id\": \"261021_200000\", \"from\": \"x\"}}").at("ok"), false);
+
+got = ask.(r, "{\"command\": \"get_set_state\", \"args\": {\"id\": \"261021_200000\", \"at\": 5}}").at("result");
+~tEq.("get_set_state at 5 s: the set's first states, and the changes since that they do not hold yet",
+    [got.at("grains").at("on"), got.at("drums").at("stepsKit"), got.at("synth").at("notesOn"),
+        got.at("changedSince").collect { |e| e.at("what") }], [false, "core-808", false, ["granular", "granularMorph"]]);
+~tEq.("...when each was written", [got.at("asOf").at("grains"), got.at("asOf").at("drums")], [0.06, 0.05]);
+got = ask.(r, "{\"command\": \"get_set_state\", \"args\": {\"id\": \"261021_200000\", \"at\": 12}}").at("result");
+~tEq.("...at 12 s: the grains as they settled at 6.5 s, and only what came after",
+    [got.at("grains").at("morph"), got.at("asOf").at("grains"), got.at("changedSince").collect { |e| [e.at("what"), e.at("by")] }],
+    [0.6, 6.5, [["step", "ai"], ["view", "player"]]]);
+~tEq.("...the members in get_context's order", got.keys.select { |k| #["drums", "synth", "grains", "cutter", "looper"].includesEqual(k) },
+    ["drums", "synth", "grains", "cutter", "looper"]);
+~tEq.("...a set recorded without every action, or no second asked for: refused",
+    [ask.(r, "{\"command\": \"get_set_state\", \"args\": {\"id\": \"261020_100000\", \"at\": 5}}").at("ok"),
+        ask.(r, "{\"command\": \"get_set_state\", \"args\": {\"id\": \"261021_200000\"}}").at("ok")], [false, false]);
+
+// The context: what the players and the AI just changed, with Log every action on.
+r = MegaRemote({ (looper: l, sa: nil, recent: { [[2.5, \looper, \granular, [true], nil],
+    [0.5, \drums, \step, [\main, \chance, 0, 3, 5], "ai"]] }) });
+o = ask.(r, "{\"command\": \"context\"}").at("result").at("recent").at("changes");
+~tEq.("the context's recent changes: how long ago, the part, what, args, and whose",
+    o.collect { |c| [c.at("secondsAgo"), c.at("part"), c.at("what"), c.at("args"), c.at("by")] },
+    [[2.5, "looper", "granular", [true], "player"], [0.5, "drums", "step", ["main", "chance", 0, 3, 5], "ai"]]);
+r = MegaRemote({ (looper: l, sa: nil) });
+~tEq.("...none with it off", ask.(r, "{\"command\": \"context\"}").at("result").at("recent"), nil);
 ~tRemoveTree.(dir);
 }.value;

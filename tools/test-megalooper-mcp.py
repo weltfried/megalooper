@@ -173,11 +173,11 @@ class Protocol:
                          ["get_context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
                           "set_cutter", "revert", "save_synth_preset", "save_sound", "save_drum_preset",
                           "save_grains_preset", "save_cutter_preset", "load_drum_preset", "load_synth_preset",
-                          "list_sets", "get_set"])
+                          "list_sets", "get_set", "get_set_state"])
         for t in tools:
             self.assertEqual(t["inputSchema"]["type"], "object")
         self.assertEqual({t["name"] for t in tools if t["annotations"]["readOnlyHint"]},
-                         {"get_context", "describe", "list_sets", "get_set"})
+                         {"get_context", "describe", "list_sets", "get_set", "get_set_state"})
         self.assertEqual({t["name"] for t in tools if t["annotations"].get("destructiveHint")},
                          {"save_drum_preset", "save_synth_preset", "save_sound", "save_grains_preset",
                           "save_cutter_preset"})

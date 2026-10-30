@@ -91,6 +91,34 @@
     ).margins_(0).spacing_(8))
 };
 
+// Log every action (setup-actions.scd): every change into Record set's log,
+// for AI apps and replays. The switch, kept in settings.json, and what it
+// costs; off, nothing listens. Under AI APPS on Setup's MIDI & AI page.
+~actionsPaint = {
+    ~actionsSeg !? { |s| ~guiSegSet.(s, ((~actionsOn !? { |f| f.value }) == true).binaryValue) };
+};
+// The cost, measured headless on an M1 (2026-10-30): three controls turned at
+// MIDI's 60 a second took 1.6 % of the language's time, the clock's 99th
+// percentile unmoved; nothing turning, nothing.
+~actionsHint = "Every change, yours and an AI app's, in the set's log: for AI apps and replays. "
+    "While knobs turn it takes under 2 % of the language's time; off, nothing.";
+~actionsSection = {
+    var tip = "Every change you make, and every one an AI app makes, goes into Record set's log, with how\n"
+        "everything is set when the set starts and once a part has settled after a change. AI apps can\n"
+        "then say what you did in a set, bring a moment of it back, and see what you just did.\n"
+        "docs/manual.md, Every action.";
+    var view;
+    ~actionsSeg = ~guiSeg.(["Off", "On"], (height: 28, font: ~guiSans.(13),
+        action: { |i| ~actionsSet !? { |f| f.value(i == 1) } }));
+    view = View().layout_(VLayout(
+        ~guiCaption.("RECORD SET", 11),
+        ~rigRow.("Log every action", ~actionsSeg[\view].fixedWidth_(170).toolTip_(tip)),
+        ~guiHint.(~actionsHint).toolTip_(tip)
+    ).margins_(0).spacing_(8));
+    ~actionsPaint.();
+    view
+};
+
 // AUDIO: on saSystem the devices and inputs it plays on, chosen here as in
 // the launcher (setup-routing.scd's audio settings), and Apply and restart:
 // the device is fixed when the server starts, so a change starts megalooper

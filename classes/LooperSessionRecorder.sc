@@ -1096,6 +1096,27 @@ LooperSessionRecorder {
         ^true
     }
 
+    // Several events at once, each [ev, fields, at], oldest first: one write
+    // and one flush for all of them (MegaActionLog's batches, ten a second
+    // while a knob turns). False when no log is open.
+    logEvents { |list|
+        var text = "", kept = List.new, when;
+        if(logFile.isNil) { ^false };
+        list.do { |e|
+            when = e[2] ? SystemClock.seconds;
+            if(this.prTakes(when)) {
+                text = text ++ this.prLine(e[0], e[1], when);
+                kept.add([e[0], e[1], when]);
+            };
+        };
+        if(text.notEmpty) {
+            logFile.write(text);
+            logFile.flush;
+            kept.do { |e| this.prFollow(e[0].asSymbol, e[1] ? (), e[2]) };
+        };
+        ^true
+    }
+
     // No log open (it could not be opened): nothing.
     prWrite { |ev, fields, when|
         if(logFile.isNil) { ^this };
@@ -1104,18 +1125,32 @@ LooperSessionRecorder {
         this.prFollow(ev.asSymbol, fields ? (), when);
     }
 
+    // One line. `fields` is an Event, written with its keys sorted, or an
+    // Array of key-value pairs, written in their own order (MegaActionLog
+    // gives them sorted, and spares a Dictionary and a sort per line).
     prLine { |ev, fields, at|
         var t = this.logTime(at).round(0.0001);
-        var line = "{\"t\": " ++ t ++ ", \"ev\": " ++ LooperSessionRecorder.jsonString(ev);
-        var keys;
+        var s = CollStream(String.new(128)), keys;
+        s << "{\"t\": " << t.asString << ", \"ev\": ";
+        LooperSessionRecorder.jsonStringOn(s, ev);
         fields !? { |f|
-            keys = f.keys.asArray.sort { |a, b| a.asString <= b.asString };
-            keys.do { |k|
-                line = line ++ ", " ++ LooperSessionRecorder.jsonString(k.asString)
-                    ++ ": " ++ LooperSessionRecorder.json(f[k]);
+            if(f.isKindOf(Dictionary)) {
+                keys = LooperSessionRecorder.prSortedKeys(f);
+                keys.do { |k|
+                    s << ", ";
+                    LooperSessionRecorder.jsonStringOn(s, k[0]) << ": ";
+                    LooperSessionRecorder.jsonOn(s, f[k[1]]);
+                };
+            } {
+                f.pairsDo { |k, v|
+                    s << ", ";
+                    LooperSessionRecorder.jsonStringOn(s, k) << ": ";
+                    LooperSessionRecorder.jsonOn(s, v);
+                };
             };
         };
-        ^line ++ "}\n"
+        s << "}\n";
+        ^s.contents
     }
 
     // The drums' hits that sounded, one `hit` line each, from MegaSADrums once
@@ -1159,33 +1194,93 @@ LooperSessionRecorder {
 
     // Any value as JSON. Events and Dictionaries become objects with sorted
     // keys, Symbols become strings, nil and non-finite numbers become null —
-    // the one token every reader accepts for "no value".
+    // the one token every reader accepts for "no value". Written into one
+    // stream (jsonOn): a 4 KB drums state in a third of the time that joining
+    // strings at every depth took.
     *json { |v|
-        ^case
-        { v.isNil }                    { "null" }
-        { v.isKindOf(Boolean) }        { v.asString }
+        var s = CollStream(String.new(256));
+        this.jsonOn(s, v);
+        ^s.contents
+    }
+
+    // `pause`, if given, is called after every value: a writer running in a
+    // Routine can wait there, so a long value is written a piece at a time
+    // (MegaActionLog's states). A Ref holds JSON already written, put in as
+    // it is.
+    *jsonOn { |s, v, pause|
+        var keys;
+        case
+        { v.isNil }                    { s << "null" }
+        { v.isKindOf(Ref) }            { s << v.value }
+        { v.isKindOf(Boolean) }        { s << v.asString }
         { v.isNumber }                 {
-            if((v != v) or: { v.abs == inf }) { "null" } { v.asString }
+            s << (if((v != v) or: { v.abs == inf }) { "null" } { v.asString })
         }
-        { v.isString }                 { this.jsonString(v) }
-        { v.isKindOf(Symbol) }         { this.jsonString(v.asString) }
+        { v.isString }                 { this.jsonStringOn(s, v) }
+        { v.isKindOf(Symbol) }         { this.jsonStringOn(s, v) }
+        // An object in its members' own order (a state MegaRemote's readers
+        // built: MegaActionLog).
+        { v.isKindOf(MegaJsonObject) } {
+            s << "{";
+            v.keys.do { |k, i|
+                if(i > 0) { s << ", " };
+                this.jsonStringOn(s, k) << ": ";
+                this.jsonOn(s, v.values[i], pause);
+                pause.value;
+            };
+            s << "}";
+        }
         { v.isKindOf(Dictionary) }     {
-            var keys = v.keys.asArray.sort { |a, b| a.asString <= b.asString };
-            "{" ++ keys.collect { |k|
-                this.jsonString(k.asString) ++ ": " ++ this.json(v[k])
-            }.join(", ") ++ "}"
+            keys = this.prSortedKeys(v);
+            s << "{";
+            keys.do { |k, i|
+                if(i > 0) { s << ", " };
+                this.jsonStringOn(s, k[0]) << ": ";
+                this.jsonOn(s, v[k[1]], pause);
+                pause.value;
+            };
+            s << "}";
         }
         { v.isSequenceableCollection } {
-            "[" ++ v.collect { |x| this.json(x) }.join(", ") ++ "]"
+            s << "[";
+            v.do { |x, i|
+                if(i > 0) { s << ", " };
+                this.jsonOn(s, x, pause);
+            };
+            s << "]";
         }
-        { this.jsonString(v.asString) }
+        { this.jsonStringOn(s, v.asString) };
+        ^s
     }
 
     *jsonString { |s|
-        ^"\"" ++ s.asString
-            .replace("\\", "\\\\").replace("\"", "\\\"")
-            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
-            ++ "\""
+        var str = s.asString;
+        ^if(this.prPlain(str)) { "\"" ++ str ++ "\"" } {
+            "\"" ++ str.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") ++ "\""
+        }
+    }
+
+    // A String as JSON, into a stream. Nearly every one (a key, a kit's
+    // name) needs no escaping and goes in as it is: a log written at every
+    // turn of a knob makes no copies it can do without, so the language's
+    // garbage collector has less to catch up on in the middle of a bar.
+    *jsonStringOn { |s, str|
+        str = str.asString;
+        if(this.prPlain(str)) { s << "\"" << str << "\"" } { s << this.jsonString(str) };
+        ^s
+    }
+
+    // Whether a String holds none of the five characters JSON escapes here
+    // (indexOf is a primitive: no copy, no loop in the language).
+    *prPlain { |str|
+        ^(str.includes($\\) or: { str.includes($") } or: { str.includes($\n) }
+            or: { str.includes($\r) } or: { str.includes($\t) }).not
+    }
+
+    // A Dictionary's keys, sorted as Strings, each made a String once.
+    *prSortedKeys { |d|
+        ^d.keys.asArray.collect { |k| [k.asString, k] }.sort { |a, b| a[0] <= b[0] }
     }
 
     // ===================================================================

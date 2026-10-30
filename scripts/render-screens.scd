@@ -261,7 +261,7 @@ Routine {
         // The builders whose views are parts below: kept as they are made.
         ~renderParts = IdentityDictionary.new;
         [\buildStatusBand, \buildBBCutPane, \buildGranularPane, \buildAnalysisPane, \buildDrumsPane,
-            \buildSynthPane, \buildMidiMapSection, \rigAiSection].do { |k|
+            \buildSynthPane, \buildMidiMapSection, \rigAiSection, \actionsSection].do { |k|
             var f = currentEnvironment[k];
             currentEnvironment[k] = { |...args| var v = f.valueArray(args); ~renderParts[k] = v; v };
         };

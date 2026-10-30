@@ -268,6 +268,7 @@
         if(key == \synth) { ~guiSay.("No Synth on this rig", \info) };
     } {
         ~guiView = key;
+        ~actionsNote !? { |f| f.value(\window, \view, key) };
         ~guiStack !? { |st| st.index = i };
         ~statusBand !? { |b| if(b.isClosed.not) { b.visible_(key == \perform) } };
         ~statusStrip !? { |b| if(b.isClosed.not) { b.visible_(key != \perform) } };
@@ -789,7 +790,8 @@
     };
     // Setup's pages, one stack inside its view (~guiSetupShow). Rig: the
     // routing, timing and levels beside the calibration. Analysis alone. MIDI
-    // & AI: the map, and AI apps over the monitor.
+    // & AI: the map, and AI apps and Record set's Log every action over the
+    // monitor.
     setupPages = (
         rig: sideRow.([
             [~guiPaneHolders[\rig], 100],
@@ -802,6 +804,8 @@
             [~guiPaneHolders[\midi], 110],
             [View().background_(~gt[\bg]).layout_(VLayout(
                 View().layout_(VLayout(~rigAiSection.()).margins_([22, 20, 22, 20])),
+                ~guiRule.(),
+                View().layout_(VLayout(~actionsSection.()).margins_([22, 20, 22, 20])),
                 ~guiRule.(),
                 [~buildMidiMonitorPanel.(), stretch: 1]
             ).margins_(0).spacing_(0)), 90]

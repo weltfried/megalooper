@@ -535,7 +535,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
 | **Synth** | 7 | The note sequencer, the Wave synth or a VST instrument, and their presets ([The synth](synth.md)) |
-| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars, the levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, and **AI apps** ([AI apps](ai.md)) |
+| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars, the levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, **AI apps** ([AI apps](ai.md)) and Record set's **Log every action** ([Every action](#every-action)) |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
 ![The Sound view](images/sound.png)
@@ -544,7 +544,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 ![Setup's MIDI & AI page](images/setup-midi.png)
 
-*Fig: Setup's MIDI & AI page on a fresh install: the MIDI map, still empty, AI APPS, and MIDI in.*
+*Fig: Setup's MIDI & AI page on a fresh install: the MIDI map, still empty, AI APPS, RECORD SET's Log every action, and MIDI in.*
 
 - **The footer**: the keys, and one status line. At rest it reads
   `keys 1–5 7 views · 6 calibrate · T theme · H help`. It says `Refused: …` in
@@ -1292,7 +1292,7 @@ turns the recordings into something that can be analysed afterwards.
 | `-guitar`, `-loop`, `-drums`, `-onset`, `-synth.wav` (and `-bass.wav` on a rig with a bass) | the parts of the mix as heard: your instrument, the loop, the drums, the onset kit and the synth, after their faders, so they sum to the master |
 | `<stamp>-<tempo>-<meter>-drums.mid` | every drum hit, steps and onset kit, to play other sounds with afterwards |
 | `<stamp>-<tempo>-<meter>-tap.wav` | the dry instrument, mono, straight off the analysis tap |
-| `<stamp>-<tempo>-<meter>-events.jsonl` | what happened: every record press, every take with the onsets it was analysed from and the readings it was offered, every next-reading press and where it landed, every threshold change, every transport action (play, stop, overdub, multiply, undo, clear), and every drum hit that sounded — one JSON object per line, times in seconds from the stomp |
+| `<stamp>-<tempo>-<meter>-events.jsonl` | what happened: every record press, every take with the onsets it was analysed from and the readings it was offered, every next-reading press and where it landed, every threshold change, every transport action (play, stop, overdub, multiply, undo, clear), and every drum hit that sounded — one JSON object per line, times in seconds from the stomp. With **Log every action**, every change too ([Every action](#every-action)) |
 
 **The names carry the tempo and the meter**: `261007_143012-165.04bpm-7-8-master.wav`
 is the set stomped at 14:30:12 on 7 Oct 2026, at 165.04 BPM in 7/8, ready to
@@ -1314,6 +1314,40 @@ the largest lever on meter detection that does not involve touching
 `MeterAnalyzer`. The event log is what makes that possible: without it the tap
 is audio nobody can place a take in, which is what the sets recorded before it
 existed turned out to be. See [Replaying a set](#replaying-a-set).
+
+### Every action
+
+**Log every action**, under RECORD SET on Setup's MIDI & AI page, puts
+every change into the set's log as well: every setting, switch and level you move,
+the effects' settings, the drums' steps, the note sequence and the Wave
+synth, the Grains and the Cutter, the arc, the presets you load and the view
+you look at, from the keyboard, a click, MIDI or an AI app alike. Off until
+you switch it on; megalooper keeps the choice for the next start.
+
+- **What a line says.** `act`: the part (`looper`, `sa`: the effects and the
+  mixer, `drums`: the drums and the note sequence, `wave`: the Wave synth,
+  `window`: its views and preset bars), what changed as megalooper names it,
+  and its arguments: which one and the new value. A change an AI app made says
+  `"by": "ai"`.
+- **A knob turned** is written ten times a second, its newest value each time,
+  not at every MIDI message: a turn of a second is ten lines. A click is one
+  line, at its own time.
+- **How everything was set.** The set's first lines hold every part's
+  settings as a whole (`state`), and each part's again once it has been left
+  alone for two seconds after a change. So how the drums, the synth, the
+  chains, the mixer, the Grains and the Cutter were set is known for every
+  second of the set.
+- **What uses it.** AI apps: what was changed in the last minute is in their
+  context, and in a past set they see every change (`get_set`) and how
+  everything was set at any second (`get_set_state`), so they can bring a
+  moment back ([AI apps](ai.md)).
+- **What it costs.** The log is written by the language, not the audio
+  engine, so the CPU tile does not show it. Measured on an M1 with three
+  controls turned at MIDI's sixty a second, it took 1.6 % of the language's
+  time and left the timing of its clock as it was; a state is written in
+  slices of a millisecond, so no tick waits for it. Nothing turning, it costs
+  nothing; switched off, nothing listens at all. A set with knobs turned half
+  the time writes about 3 MB an hour.
 
 ### Replaying a set
 
@@ -1480,6 +1514,7 @@ megalooper/
     PitchAnalyzer.sc     -- pure analysis: per-segment chord/pitch detection
     MegaFiles.sc         -- your megalooper folder, JSON read and written whole
     MegaRemote.sc        -- megalooper as a tool for an AI app
+    MegaActionLog.sc     -- Log every action: each change, and the parts' states, into the set's log
     MegaSA.sc            -- the instrument around the Looper: chains, mixer, drums, synth
     MegaSAChain.sc       -- one chain of devices
     MegaSADevice.sc      -- one device in a chain: a built-in effect or a plugin
@@ -1504,6 +1539,7 @@ megalooper/
     setup-model.scd      -- the Looper instance + the analysis/chord callbacks
     setup-sa.scd         -- the chains, the mixer, the drums and the synth around the Looper
     setup-remote.scd     -- AI apps: the switch that lets one in, and Revert
+    setup-actions.scd    -- Log every action: its switch, and the parts it listens to
     gui-const.scd        -- ranges, menu contents, lifetimes; no window
     gui-theme.scd        -- the stage theme: palettes, type, tiles, bars, segmented rows
     gui-presets.scd      -- the preset bar's logic, shared by every preset family
@@ -1833,6 +1869,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-preset-storage.scd` | the storage both families share, on real files |
 | `test-preset-bar.scd` | the shared preset bar driven end to end with stub widgets |
 | `test-session-recorder.scd` | set recording: file naming with the set's tempo, refusals, the transport guard, the stems, the stop and the WAVs' clock, and the event log — its JSON, the takes and labels read back from it, and what the looper and the drums write |
+| `test-action-log.scd` | Log every action: what is heard and what is not, a knob's changes written ten a second, whose a change was, a part's state once it settled, the lines as the recorder writes them, and the real parts' changes |
 | `test-session-midi.scd` | the set's `.mid`: the MIDI file writer and reader, ticks at the file name's tempo, the three tracks |
 | `test-midimap.scd` | the MIDI router: a map's rules (lookup, checks, what a press or a knob does), its controls, the map the numbers make, its responders, and the pedal's hysteresis on its own streams from the MIDI log |
 | `test-midimap-learn.scd` | learning a mapping: the 3 steps, bursts, two presses, on recorded pedal and footswitch streams |

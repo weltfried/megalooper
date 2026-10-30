@@ -272,6 +272,8 @@
             fam[\nameField] !? { |f| f.string_(slug) };
             ~presetDisarm.(key);
             ~presetSetStatus.(key, "Loaded " ++ slug);
+            // Which preset, for Log every action (the parts say what it set).
+            ~actionsNote !? { |f| f.value(\window, \preset, key, slug) };
         } {
             // The model refused it (bad file) and left the layer alone.
             ~presetSetStatus.(key, "Could not load " ++ slug

@@ -29,6 +29,7 @@ var dir = thisProcess.nowExecutingPath !? { |p| p.dirname }
     ?? { Looper.repoRoot +/+ "scripts" };
 var parts = [
     "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd", "setup-remote.scd",
+    "setup-actions.scd",
     "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-status.scd", "gui-perform.scd",
     "gui-bbcut.scd", "gui-granular.scd", "gui-analysis.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd", "gui-effects.scd",
     "gui-drums.scd", "gui-synth.scd",
@@ -64,6 +65,7 @@ var alsoParse = [
 ];
 // Entry points boot.scd calls, plus the shared data the callers read.
 var expected = [
+    \actionsApply, \actionsSet, \actionsOn, \actionsParts, \actionsNote, \actionsHeader, \actionsSection, \actionsHint,
     \routingProfiles, \defaultRoutingProfile, \applyRoutingProfile, \checkSampleRate,
     \applyServerOptions, \switchDeviceRate, \setupSA,
     \saGuitarPlugin, \saGuitarBankDir, \saGuitarBank, \saKeepSound,
@@ -163,6 +165,7 @@ var expected = [
     \granularUnmapValue, \granularFormat, \granularRow, \granularSection
 ];
 var callables = [
+    \actionsApply, \actionsSet, \actionsOn, \actionsParts, \actionsNote, \actionsHeader, \actionsSection,
     \applyRoutingProfile, \checkSampleRate, \setupMidiIO, \setupMidiBindings,
     \applyServerOptions, \switchDeviceRate, \setupSA,
     \saGuitarBankDir, \saGuitarBank, \saKeepSound, \buildSARigSection,

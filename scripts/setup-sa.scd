@@ -728,6 +728,8 @@
     ~megaSA !? { |m|
         var info = m.sessionInfo;
         ~saBuildId !? { |b| info.put(\build, b) };
+        // With Log every action on (setup-actions.scd): actions: true.
+        (~actionsHeader !? { |f| f.value }) !? { |more| info.putAll(more) };
         info
     }
 };

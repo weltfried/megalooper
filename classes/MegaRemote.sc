@@ -37,6 +37,8 @@
 // answering a slug or nil; showPreset: of the part and a slug or nil, which
 // selects it there).
 MegaRemote {
+    // The command being answered, nil between requests (handle).
+    classvar <applying;
     var <source, <token, <port, responder, onShutDown, <started = false;
     // The AI's changes, oldest first: (part:, label:, data:, shown:), data
     // the part as it was just before the change: the drums' presetData, the
@@ -161,14 +163,23 @@ MegaRemote {
     }
 
     // A request's text answered: (ok: true, result:) or (ok: false, error:).
+    // While it is answered, `applying` is its command: what changes then is
+    // the AI's (MegaActionLog writes it so).
     handle { |text|
-        var request = MegaFiles.parseObject(text), command, args;
+        var request = MegaFiles.parseObject(text), command, args, answer;
         if(request.isString) { ^this.class.failure("the request " ++ request) };
         command = request.at("command");
         args = request.at("args");
         if(args.notNil and: { args.isKindOf(MegaJsonObject).not }) {
             ^this.class.failure("args must be an object")
         };
+        applying = command;
+        answer = this.prAnswer(command, args);
+        applying = nil;
+        ^answer
+    }
+
+    prAnswer { |command, args|
         ^try {
             case
             { command == "ping" } {
@@ -181,6 +192,7 @@ MegaRemote {
             }
             { command == "list_sets" } { this.class.listSets(source.value, args) }
             { command == "get_set" } { this.class.getSet(source.value, args) }
+            { command == "get_set_state" } { this.class.getSetState(source.value, args) }
             { command == "describe" } {
                 this.class.describe(args !? { |a| a.at("topic") }, source.value) !? { |d| this.class.success(d) }
                     ?? { this.class.failure("no such topic; there are " ++ this.class.topics.join(", ")) }
@@ -205,7 +217,7 @@ MegaRemote {
 
     *commands { ^#["ping", "context", "describe", "set_drum_pattern", "set_synth", "set_chain", "set_grains",
         "set_cutter", "revert", "save_drum_preset", "save_synth_preset", "save_sound", "save_grains_preset",
-        "save_cutter_preset", "load_drum_preset", "load_synth_preset", "list_sets", "get_set"] }
+        "save_cutter_preset", "load_drum_preset", "load_synth_preset", "list_sets", "get_set", "get_set_state"] }
 
     *success { |result| ^this.obj([\ok, true, \result, result]) }
     *failure { |why| ^this.obj([\ok, false, \error, why]) }
@@ -1027,8 +1039,33 @@ MegaRemote {
                 .add("loadedPreset", this.shownOf(src, \synth)) },
             \chains, sa !? { |m| m.sessionInfo[\chains] },
             \grains, looper !? { |l| this.grainsOf(l) },
-            \cutter, looper !? { |l| this.cutterOf(l) }
+            \cutter, looper !? { |l| this.cutterOf(l) },
+            \recent, src !? { |s| s[\recent] } !? { |f| f.value } !? { |list| this.recentOf(list) }
         ])
+    }
+
+    // What the players and the AI changed in the last minute, oldest first,
+    // from MegaActionLog.recentWithin: nil when Log every action is off.
+    *recentOf { |list|
+        ^this.obj([
+            \about, "What was changed in the last minute, oldest first: secondsAgo, the part (looper, sa: the "
+                "effects and the mixer, drums: the drums and the note sequence, wave: the Wave synth, window: "
+                "its views and preset bars), what (the setting or switch, as megalooper names it), args (which "
+                "one and its new value), and by: player or ai (your own changes).",
+            \changes, list.collect { |e|
+                this.obj([\secondsAgo, e[0].round(0.1), \part, e[1].asString, \what, e[2].asString,
+                    \args, e[3].collect { |x| this.plainArg(x) }, \by, (e[4] ? "player").asString])
+            }
+        ])
+    }
+
+    // An action's argument as JSON can say it: a name as a String.
+    *plainArg { |x|
+        ^case
+        { x.isKindOf(Symbol) } { x.asString }
+        { x.isKindOf(Collection) and: { x.isString.not } and: { x.isKindOf(Dictionary).not } } {
+            x.collect { |y| this.plainArg(y) } }
+        { x }
     }
 
     // The preset `part`'s view (\drums, \synth) shows as loaded, where a
@@ -1303,7 +1340,10 @@ MegaRemote {
             \readingsLanded, count.("readingLanded"), \readingsCancelled, count.("readingCancelled"),
             \thresholdChanges, count.("threshold"), \overdubs, count.("overdubStart"),
             \breaks, count.("breakStart"), \clears, count.("clear"), \halfTime, count.("halfTime"),
-            \drumHits, set[\hits][\total]
+            \drumHits, set[\hits][\total],
+            // Recorded with Log every action: every change is in it, and
+            // get_set_state can say how anything was set at any second.
+            \everyAction, (h !? { |x| x[\actions] }) == true, \actions, count.("act")
         ])
     }
 
@@ -1312,18 +1352,19 @@ MegaRemote {
     // them; a take with what it played on the bar grid of the reading the
     // analyser applied (`grids` false leaves the grids out).
     *getSet { |src, args|
-        var id = args !? { |a| a.at("id") }, path, set, h, date, grids;
-        if(id.isNil) { ^this.failure("id is needed: list_sets gives the sets' ids") };
-        id = id.asString;
-        if(id.isEmpty or: { id.any { |c| (c.isAlphaNum or: { "-_.".includes(c) }).not } }) {
-            ^this.failure("no set " ++ id.quote) };
-        path = this.setFiles(src !? { |s| s[\sessionDir] }).detect { |p|
-            var i = this.setIdOf(p); (i == id) or: { i.beginsWith(id ++ "-") } };
-        if(path.isNil) { ^this.failure("no set " ++ id.quote ++ "; list_sets gives the ids") };
+        var found = this.setPathFor(src, args), path, set, h, date, grids, from, to, events;
+        found[\error] !? { |why| ^this.failure(why) };
+        path = found[\path];
         grids = (args.at("grids") ? true) != false;
+        from = args.at("from");
+        to = args.at("to");
+        if((from.notNil and: { from.isNumber.not }) or: { to.notNil and: { to.isNumber.not } }) {
+            ^this.failure("from and to are seconds into the set") };
         set = this.readSet(path);
         h = set[\header];
         date = h !? { |x| x[\date] };
+        events = set[\events].select { |e|
+            (e[\ev] != "state") and: { from.isNil or: { (e[\t] ? 0) >= from } } and: { to.isNil or: { (e[\t] ? 0) <= to } } };
         ^this.success(this.obj([
             \about, "A recorded set, in time: at is the clock, seconds the time into the set. takeAtStart: "
                 "the take a set begun with a loop playing was made of, played on the reading at its start. A take: the "
@@ -1331,7 +1372,12 @@ MegaRemote {
                 "on that reading's bar grid in sixteenths (X strong, x a hit, . none). readingArmed: the "
                 "players asked for another reading (via next, or hand: bars they gave), landing at lands; "
                 "readingLanded: it came in; readingCancelled: it did not. threshold: the onset "
-                "threshold moved (higher hears fewer hits).",
+                "threshold moved (higher hears fewer hits). act (in a set recorded with every action, "
+                "everyAction): a change, its part (looper, sa: the effects and the mixer, drums: the drums and "
+                "the note sequence, wave: the Wave synth, window: its views and preset bars), what changed, "
+                "args (which one and its new value) and by: player or ai. A knob turned is at most ten a "
+                "second. get_set_state says how everything was set at a second of the set.",
+            \everyAction, (h !? { |x| x[\actions] }) == true,
             \id, this.setIdOf(path), \day, this.dayOf(date), \started, this.clockAt(date, 0),
             \build, h !? { |x| x[\build] }, \fallback, h !? { |x| x[\fallback] },
             \readingAtStart, h !? { |x| this.readingWords(x[\loop]) },
@@ -1341,7 +1387,7 @@ MegaRemote {
                 this.obj([\reading, this.readingWords(t[\result]),
                     \alternatives, (t[\candidates] ? []).drop(1).keep(3).collect { |c| this.readingWords(c) },
                     \played, if(grids) { this.gridOf(h[\loop] ? t[\result], t[\onsets], t[\pitches], nil) }]) },
-            \events, set[\events].collect { |e| this.eventOf(e, date, grids) }.reject(_.isNil),
+            \events, events.collect { |e| this.eventOf(e, date, grids) }.reject(_.isNil),
             \drumHits, this.obj([\total, set[\hits][\total], \main, set[\hits][\main],
                 \break, set[\hits][\break], \onsetKit, set[\hits][\onset]])
         ]))
@@ -1364,8 +1410,64 @@ MegaRemote {
             "readingArmed", { this.obj(base ++ [\index, e[\index], \of, e[\of], \via, e[\via],
                 \lands, this.clockAt(date, e[\landsAt]), \reading, this.readingWords(e[\reading])]) },
             "readingLanded", { this.obj(base ++ [\index, e[\index], \reading, this.readingWords(e[\reading])]) },
+            "act", { this.obj(base ++ [\part, e[\part], \what, e[\what], \args, e[\args] ? [],
+                \by, e[\by] ? "player"]) },
+            "state", { nil },
             { this.obj(base ++ scalars.value) }
         )
+    }
+
+    // The set `args` names by its id (list_sets) or stamp, under the session
+    // folder: (path:) or (error:).
+    *setPathFor { |src, args|
+        var id = args !? { |a| a.at("id") }, path;
+        if(id.isNil) { ^(error: "id is needed: list_sets gives the sets' ids") };
+        id = id.asString;
+        if(id.isEmpty or: { id.any { |c| (c.isAlphaNum or: { "-_.".includes(c) }).not } }) {
+            ^(error: "no set " ++ id.quote) };
+        path = this.setFiles(src !? { |s| s[\sessionDir] }).detect { |p|
+            var i = this.setIdOf(p); (i == id) or: { i.beginsWith(id ++ "-") } };
+        if(path.isNil) { ^(error: "no set " ++ id.quote ++ "; list_sets gives the ids") };
+        ^(path: path)
+    }
+
+    // How a set recorded with every action was set `at` seconds in: each
+    // `state` line up to `at` (the set's first lines hold every part's), a
+    // later one replacing what it holds (drums, synth, chains, mixer, grains,
+    // cutter, looper), and the changes after the last state of their part up
+    // to `at`, which it does not hold yet (a part's state is written once it
+    // has been left alone for two seconds).
+    *getSetState { |src, args|
+        var found = this.setPathFor(src, args), set, h, at, merged = (), when = (), lastOf = (), since;
+        var order = #[\drums, \synth, \chains, \mixer, \grains, \cutter, \looper];
+        found[\error] !? { |why| ^this.failure(why) };
+        at = args.at("at");
+        if(at.isNumber.not) { ^this.failure("at is needed: seconds into the set") };
+        set = this.readSet(found[\path]);
+        h = set[\header];
+        if(h.isNil or: { h[\actions] != true }) {
+            ^this.failure("this set was recorded without Log every action, so how it was set was not kept")
+        };
+        set[\events].do { |e|
+            if((e[\ev] == "state") and: { (e[\t] ? 0) <= at } and: { e[\state].isKindOf(Dictionary) }) {
+                lastOf.put(e[\part].asSymbol, e[\t]);
+                e[\state].keysValuesDo { |k, v| merged.put(k, v); when.put(k, e[\t]) };
+            };
+        };
+        since = set[\events].select { |e|
+            (e[\ev] == "act") and: { (e[\t] ? 0) <= at }
+                and: { (e[\t] ? 0) > (lastOf[(e[\part] ? "").asSymbol] ? 0) } };
+        ^this.success(this.obj([
+            \about, "How the set was set at a second of it, in the shapes get_context gives (drums, synth, "
+                "chains, grains, cutter; mixer: each strip's level and mute; looper: its switches and the arc). "
+                "asOf: the second each was written at (the set's first lines hold how it began). changedSince: "
+                "changes after that, up to at, which those do not hold yet. set_drum_pattern, set_synth, set_chain, set_grains and "
+                "set_cutter can bring it back, and the save tools keep it.",
+            \id, this.setIdOf(found[\path]), \at, at
+        ] ++ order.select { |k| merged.includesKey(k) }.collect { |k| [k, merged[k]] }.flatten(1) ++ [
+            \asOf, this.obj(order.select { |k| when.includesKey(k) }.collect { |k| [k, when[k]] }.flatten(1)),
+            \changedSince, since.collect { |e| this.eventOf(e, h[\date], false) }
+        ]))
     }
 
     // The pitch heard at a hit at `t` (seconds from the press): the median of
