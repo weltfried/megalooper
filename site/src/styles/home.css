@@ -83,13 +83,6 @@
 .sband__bars { display: grid; grid-template-columns: 7fr 7fr 7fr 8fr; font: 500 11px var(--mono); color: var(--mute); }
 .sband figcaption, .figcap { padding: 12px 24px; border-top: 1px solid var(--line); font-size: 14px; color: var(--mute); line-height: 1.45; }
 
-/* ---------------------------------------------------- two ways to run */
-.ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
-.ways > div { padding: clamp(32px, 5vw, 56px) 24px; display: flex; flex-direction: column; gap: 14px; }
-.ways > div:first-child { border-right: 1px solid var(--line); }
-.ways h2 { margin: 0; font-weight: 500; font-size: clamp(28px, 3vw, 38px); line-height: 1.05; }
-.ways p { max-width: 520px; }
-
 /* ----------------------------------------------------------- features */
 .stack { display: flex; flex-direction: column; }
 .stack--36 { gap: 36px; }

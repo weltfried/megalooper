@@ -60,8 +60,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
       <div class="wrap hero">
         <div class="hero__top">
           <div class="hero__text">
-            <div class="eyebrow">A LIVE LOOPER FOR SUPERCOLLIDER · GPL-3.0</div>
-            <h1>Play in 7/8.<br />It counts along.</h1>
+            <h1>Play in 7/8.<br />A LIVE LOOPER FOR SUPERCOLLIDER</h1>
             <p class="hero__lead">Record a phrase in free time. megalooper works out its tempo and its meter from the onsets in the audio, odd meters and uneven bars included, then cuts, granulates and drums along with it.</p>
           </div>
           <div class="hero__cta">
@@ -108,25 +107,10 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
       </div>
     </section>
 
-    <section class="band">
-      <div class="wrap ways">
-        <div>
-          <div class="eyebrow">RUN IT · 01</div>
-          <h2>On its own: Megalooper SA</h2>
-          <p class="body">megalooper also hosts effect chains for your instrument, a bass, the loop and the drums, your VST2 and VST3 plugins, the drums themselves and a step synth. This is how it starts out of the box.</p>
-        </div>
-        <div>
-          <div class="eyebrow">RUN IT · 02</div>
-          <h2>On your own interface</h2>
-          <p class="body">Out of the box it plays on the computer's own input and output. Your interface, the input your instrument is on, a bass on an input of its own and the buffer are menus in the launcher and on the Setup view: <a href={manual('routing')}>Audio settings</a>.</p>
-        </div>
-      </div>
-    </section>
-
     <section id="features" class="band">
       <div class="wrap pad stack stack--36">
         <div class="split" style="gap:16px 48px">
-          <h2 class="h2" style="max-width:720px">One colour per layer, on stage and in this manual.</h2>
+          <h2 class="h2" style="max-width:720px">Colour Scheme</h2>
           <p class="body" style="font-size:16px;color:var(--mute);max-width:420px">Each layer has its own colour, on its controls, its tab and its chapter. State colours (recording, playing, overdub) only ever fill the state block.</p>
         </div>
         <div class="cards">
@@ -134,7 +118,7 @@ const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
             ['Loop', 'var(--loop)', 'R · S · M · U · V', 'Overdub with undo, reverse, multiply and loop chaining. Overdubs are shifted by your measured round-trip latency, so they land where you played them.'],
             ['Cutter', 'var(--cut)', 'B', 'A BBCut layer that re-splices the loop on its own grid, with a Break/Repeat procedure made for played loops, several voices and presets.'],
             ['Grains', 'var(--grain)', 'G', 'A granular layer over the loop. One morph control moves between a frozen drone and a pulsed scan locked to the detected beat.'],
-            ['Effects', 'var(--fx)', 'SA', 'Seven built-in effects and your plugins, in chains you rearrange while the loop plays. Random throws new settings at an effect; a variation keeps the ones you like.'],
+            ['Effects', 'var(--fx)', 'SA', 'Sixteen built-in effects and your plugins, in chains you rearrange while the loop plays. Random throws new settings at an effect; a variation keeps the ones you like.'],
             ['Drums', 'var(--drum)', 'SA', "Step patterns locked to the loop's meter, and a kit played by the loop's own onsets. Uneven bars restart the lanes on every bar line."],
             ['Synth', 'var(--ink)', 'SA · 7', 'An 8- or 16-step sequencer with seven lanes running at lengths of their own, playing a built-in wavetable synth or one of your VST instruments.'],
           ].map(([name, colour, keys, text]) => (
