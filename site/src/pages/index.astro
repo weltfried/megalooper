@@ -43,6 +43,7 @@ const FEATURES: [string, string, string?][] = [
   ['Views at a key or a footswitch', 'Keys 1–5 and 7 switch between Perform, Sound, FX, Drums, Synth and Setup. Map the views to footswitches or pads, and any control on screen to a knob: press MIDI MAP, click it, move the knob.'],
   ['One view for the stage', 'Perform shows the loop, the meter it heard, a column per layer and the actions with their footswitches, all in one view, and in type you can read from where you stand with your instrument.'],
   ['It hears the meter', 'Tempo and time signature from the onsets you played: even and odd meters from 2/4 to 12/8, and phrases that mix bars of different lengths, such as three bars of 7/8 and one of 8/8. Another reading lands in time, on a loop boundary, counted down.', '#meter'],
+  ['It hears the harmony', "A pitch tracker names the take's key and its chords. The notes help find uneven bars, the Grains can follow the chords so a frozen drone moves with the loop's changes, and AI apps write synth lines over the chords you played."],
   ['Sixteen built-in effects', 'Delays, filters, drive, pitch, a compressor with a side chain, reverb and more, in chains for the instrument, the bass, the loop, the drums and the synth. Rearrange them while the loop plays.'],
   ['Your VST plugins', "VST2 and VST3 effects in any chain, and a VST instrument to play the synth's note sequence.", '#plugins'],
   ['New ways to sequence', "Drum lanes whose chance, velocity and rolls each run at a length of their own, dice that make every start a variation you can keep, and a kit played by the loop's own hits. Synth lanes with lengths and directions of their own, and steps that play only every second or third time round."],
@@ -76,7 +77,7 @@ const FEATURES: [string, string, string?][] = [
       <div class="wrap hero">
         <div class="hero__top">
           <div class="hero__text">
-            <h1>Play in 7/8.<br />A LIVE LOOPER FOR SUPERCOLLIDER</h1>
+            <h1>A LIVE LOOPER FOR SUPERCOLLIDER</h1>
             <p class="hero__lead">Record a phrase in free time. megalooper works out its tempo and its meter from the onsets in the audio, odd meters and uneven bars included, then cuts, granulates and drums along with it.</p>
           </div>
           <div class="hero__cta">
@@ -170,6 +171,7 @@ const FEATURES: [string, string, string?][] = [
         <div class="why__text">
           <p class="body">I have used Ableton Live for years, and I still love it. Its Live Looper is a great tool. But Live couldn't recognise the meter of the loops I recorded with it: the set stayed in the time signature it had been given before I played a note. That stood in the way of how I wanted to perform. I wanted to play a phrase in whatever meter it came out in, and have the drums, the sequencers and the effects follow it.</p>
           <p class="body">That's why I started megalooper. At first it was an add-on to Live, with the audio going from Live to megalooper and back again. It worked, but it was never a beautiful solution. So I rebuilt the sequencers and effects I cared about in SuperCollider, and megalooper became an instrument of its own.</p>
+          <p class="body"><a href="https://supercollider.github.io/">SuperCollider</a> is great software, and I am thankful that it exists. megalooper's sound, its analysis and its window all run in it.</p>
           <p class="body">As a side effect, I could design the screen as well. In Live I had to switch between views and tracks, and an effect's display was too small to read while playing on stage. megalooper's Perform view shows what is going on in one view: the loop, the meter it heard, every layer and the actions, laid out to be read from where you stand with your instrument.</p>
           <p class="body">megalooper is free and open software. Everyone is welcome to use it to make great and interesting music, and everyone is welcome to <a href={GITHUB}>help me improve it</a>.</p>
         </div>
