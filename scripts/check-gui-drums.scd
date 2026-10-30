@@ -38,7 +38,7 @@ var section = { |label, f|
 // their real files' headers, and nothing reaches a server.
 var reader = { |srv, path, done|
     done.((bufnum: 100, path: path, numChannels: 2, sampleRate: 48000, numFrames: 48000)) };
-var isNote = { |view| view.children.any { |c| c.isKindOf(StaticText) and: { c.string.contains("SA profile") } } };
+var isNote = { |view| view.children.any { |c| c.isKindOf(StaticText) and: { c.string.contains("sa: true") } } };
 var findButton = { |view, label|
     var found;
     var walk = { |v| v.children.do { |c|

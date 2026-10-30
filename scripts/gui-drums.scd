@@ -1565,8 +1565,8 @@
     if(d.isNil) {
         pane.layout_(VLayout(
             ~guiBand.(\drum),
-            HLayout(View().fixedWidth_(14), ~guiHint.("The drums are Megalooper SA's: start the megalooper "
-                "with the SA profile to play them.")).margins_(8),
+            HLayout(View().fixedWidth_(14), ~guiHint.("This rig has no drums: start megalooper on saSystem, "
+                "or on a rig of yours with sa: true, to play them.")).margins_(8),
             nil).margins_(0).spacing_(0));
     } { if(shown.not) {
         pane.layout_(VLayout(

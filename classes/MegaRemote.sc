@@ -232,7 +232,7 @@ MegaRemote {
 
     prDrums { |src| ^src !? { |s| s[\sa] } !? { |m| m.drums } }
 
-    prNoDrums { ^this.class.failure("there are no drums: this megalooper runs without Megalooper SA") }
+    prNoDrums { ^this.class.failure("there are no drums: this megalooper runs on a rig without them") }
 
     // `src` given, the preset the part's view shows is kept with it.
     prSnapshot { |part, label, data, src|
@@ -470,7 +470,7 @@ MegaRemote {
 
     // ---- the synth ---------------------------------------------------------------------
 
-    prNoSynth { ^this.class.failure("there is no synth: this megalooper runs without Megalooper SA") }
+    prNoSynth { ^this.class.failure("there is no synth: this megalooper runs on a rig without it") }
 
     // The note sequencer's pattern (notes) and/or the Wave synth's settings
     // (wave), merged over what plays as the drums' are, then checked as a
@@ -536,7 +536,7 @@ MegaRemote {
 
     // ---- the chains --------------------------------------------------------------------
 
-    prNoChains { ^this.class.failure("there are no chains: this megalooper runs without Megalooper SA") }
+    prNoChains { ^this.class.failure("there are no chains: this megalooper runs on a rig without them") }
 
     // Built-in effects taken out (remove: [id ...]), put in (insert: [(track:,
     // type:, index:, on:, settings:) ...]), moved (move: [(id:, track:,

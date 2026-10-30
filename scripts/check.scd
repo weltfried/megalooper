@@ -384,7 +384,7 @@ MegaSASteps.pages.do { |pg|
 };
 ~calibrator = nil;
 
-"== Megalooper SA ==".postln;
+"== The chains, the drums and the synth ==".postln;
 // The kits a boot starts the drums with are named by key, and a typo (or a
 // kit the importer renamed) would leave that slot silent at every boot with
 // only a warning to say so. Their JSON files are committed, so this holds on
@@ -544,7 +544,7 @@ rigs.do { |p|
         // input or the tap: that would play the guitar twice, once through
         // each chain.
         { rp[\bassChannel].notNil and: { rp[\sa] != true } } {
-            ("  BASS WITHOUT SA " ++ p ++ ": bassChannel is set, but only SA plays a bass").postln;
+            ("  BASS WITHOUT CHAINS " ++ p ++ ": bassChannel is set, but only a rig with sa: true plays a bass").postln;
             bad = bad + 1 }
         { rp[\bassChannel].notNil
             and: { rp[\bassChannel] >= (rp[\numInChans] ? rp[\numChans]) } } {

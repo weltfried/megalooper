@@ -650,7 +650,7 @@ protect {
         [~midiTargetLabel.(tid.("sa.fx.", ".delayMix")), ~midiTargetLabel.(tid.("sa.fxOn.")), ~midiTargetLabel.('looper.trigger')],
         [before ++ " › " ++ t['sa.fx.delayMix'][\label], before, t['looper.trigger'][\label]]);
     ~megaSA = nil;
-    ~tEq.("with no Megalooper SA the reason is that", ~midiTargetWhy.('sa.fxOn.delay'), "Megalooper SA is not running");
+    ~tEq.("with no Megalooper SA the reason is that", ~midiTargetWhy.('sa.fxOn.delay'), "This rig has no effect chains");
     ~tEq.("...and the family is every type's first device's, from the table", ~midiTargetsBuild.(\effects).size, 176);
     ~megaSA = sa;
     sa.undo;

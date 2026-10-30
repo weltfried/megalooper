@@ -150,7 +150,7 @@
 ~saKeepSound = { |action|
     var m = ~megaSA, stopped = ~saLoopStopped.();
     case
-    { m.isNil } { action.value(false, "Megalooper SA is not running", stopped) }
+    { m.isNil } { action.value(false, "This rig has no effect chains", stopped) }
     { ~saKeptRefused.notNil } {
         ("megalooper: the kept sound is not written: the one on disk " ++ ~saKeptRefused ++ ".").warn;
         action.value(false, "the kept sound on disk is from a newer megalooper", stopped);

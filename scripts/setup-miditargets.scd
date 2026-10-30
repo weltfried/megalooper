@@ -123,7 +123,7 @@
     };
     // Why a device's controls do nothing now, asked when the list is drawn.
     var fxWhy = { |id, name|
-        { if(~megaSA.isNil) { "Megalooper SA is not running" } { name ++ " is not in the chains now" } }
+        { if(~megaSA.isNil) { "This rig has no effect chains" } { name ++ " is not in the chains now" } }
     };
     // A device's switch: its footswitch.
     var addSwitch = { |id, name|
@@ -434,7 +434,7 @@
     // reads it. Until gui-sa.scd is loaded it is not there, and its law
     // stands still rather than throwing.
     addLevel = { |k|
-        add.(("sa.level." ++ k).asSymbol, stripLabel.(k) ++ " level", "Rig", \continuous, (group: "Megalooper SA",
+        add.(("sa.level." ++ k).asSymbol, stripLabel.(k) ++ " level", "Rig", \continuous, (group: "Levels",
             get: { ~megaSA !? { |m| m.level(k) !? { |a| a.ampdb.max(-60) } } },
             set: { |db| ~megaSA !? { |m| m.setLevel(k, db.dbamp) } },
             fromPos: { |c| (~saLevelSpec !? { |s| s.map(c) }) ? c },
@@ -443,7 +443,7 @@
             available: { ~saLevelSpec.notNil and: { (~megaSA !? { |m| m.level(k) }).notNil } }));
     };
     addMute = { |k|
-        add.(("sa.mute." ++ k).asSymbol, stripLabel.(k) ++ " mute", "Rig", \toggle, (group: "Megalooper SA",
+        add.(("sa.mute." ++ k).asSymbol, stripLabel.(k) ++ " mute", "Rig", \toggle, (group: "Levels",
             // What the strip gets, holds included (MegaSA.muted): a held
             // strip shows muted, and a flip unmutes it.
             flip: { ~megaSA !? { |m| m.setMute(k, ((m.muted(k) ? m.mute(k)) == true).not) } },

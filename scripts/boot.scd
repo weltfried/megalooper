@@ -265,7 +265,7 @@ s.waitForBoot {
     if(~rp[\sa] == true) {
         // ~inChannel is the Looper's (the guitar chain's bus) by now; the
         // guitar's own input is the profile's.
-        ("Megalooper SA on " ++ ~audioDeviceLabel.(~rp) ++ " at " ++ s.sampleRate.round ++ " Hz, "
+        ("megalooper on " ++ ~audioDeviceLabel.(~rp) ++ " at " ++ s.sampleRate.round ++ " Hz, "
             ++ ~audioBufferRunningLabel.(~audioBuffer) ++ ": instrument on input "
             ++ (~rp[\inChannel] + 1) ++ " through "
             ++ (~megaSA.guitarPlugin !? { |p| p.name } ? "nothing (dry)")

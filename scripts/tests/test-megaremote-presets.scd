@@ -178,7 +178,7 @@ protect {
 
     ~tEq.("with no synth, or no folder, a synth preset is refused",
         [MegaRemote({ () }).handle("{\"command\": \"load_synth_preset\", \"args\": {\"name\": \"x\"}}").at(\error)
-            .contains("runs without Megalooper SA"),
+            .contains("runs on a rig without"),
             MegaRemote({ (sa: sa) }).handle("{\"command\": \"load_synth_preset\", \"args\": {\"name\": \"x\"}}").at(\error)],
         [true, "there is no folder for synth presets"]);
     sa.free;

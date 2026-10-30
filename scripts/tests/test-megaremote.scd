@@ -312,7 +312,7 @@ if(sa.notNil) {
     ~tEq.("with no drums every change is refused",
         ["set_drum_pattern", "set_synth", "revert", "save_drum_preset", "save_synth_preset"].collect { |c|
             MegaFiles.json(MegaRemote({ () }).handle("{\"command\": \"" ++ c ++ "\", \"args\": {\"name\": \"x\", \"kit\": \"y\"}}"))
-                .contains("runs without Megalooper SA") },
+                .contains("runs on a rig without") },
         [true, true, true, true, true]);
     ~tRemoveTree.(presets);
     sa.free;
@@ -472,7 +472,7 @@ protect {
 ~tEq.("with no SA the chains are refused",
     ["set_chain", "save_sound"].collect { |c|
         MegaRemote({ () }).handle("{\"command\": \"" ++ c ++ "\", \"args\": {\"name\": \"x\", \"on\": {}}}").at(\error)
-            .contains("without Megalooper SA") },
+            .contains("on a rig without") },
     [true, true]);
 ~tRemoveTree.(sounds);
 sa.free;

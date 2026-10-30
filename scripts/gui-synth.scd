@@ -599,8 +599,8 @@
     if(d.isNil or: { d.respondsTo(\notes).not }) {
         pane.layout_(VLayout(
             ~guiBand.(\synth),
-            HLayout(View().fixedWidth_(14), ~guiHint.("The synth is Megalooper SA's: start the megalooper "
-                "with the SA profile to play it.")).margins_(8),
+            HLayout(View().fixedWidth_(14), ~guiHint.("This rig has no synth: start megalooper on saSystem, "
+                "or on a rig of yours with sa: true, to play it.")).margins_(8),
             nil).margins_(0).spacing_(0));
     } {
         pane.layout_(VLayout(

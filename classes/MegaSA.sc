@@ -564,7 +564,7 @@ MegaSA {
             drums.build(drumGroup, stepsBus, stepsOutBus, onsetBus, onsetOutBus, synthBus);
         } { |err|
             ("MegaSA: the drums were not built (" ++ err.errorString
-                ++ "); SA plays on without them.").warn;
+                ++ "); megalooper plays on without them.").warn;
         };
     }
 
@@ -685,7 +685,7 @@ MegaSA {
     cmdPeriod {
         if(alive and: { ready }) {
             ready = false;
-            "MegaSA: Cmd-period freed every node, so SA is silent; run boot.scd again to rebuild it.".warn;
+            "MegaSA: Cmd-period freed every node, so megalooper is silent; run boot.scd again to rebuild it.".warn;
         };
     }
 

@@ -172,7 +172,7 @@
     var rp = ~routingProfiles[key];
     case
     { rp.isNil } { "" }
-    { rp[\sa] == true } { "Megalooper SA: the looper with its effect chains (FX), its drums and its synth." }
+    { rp[\sa] == true } { "The looper with its effect chains (FX), its drums and its synth." }
     { rp[\live] == false } { "The looper alone: no effect chains, no drums, no Live." }
     { true } { "The looper beside Ableton Live." }
 };
@@ -349,7 +349,7 @@
         facts !? { |f|
             case
             { f[\installed].not } {
-                notes.add("VSTPlugin is not installed: SA plays its built-in effects, and the instrument has no amp "
+                notes.add("VSTPlugin is not installed: megalooper plays only its built-in effects, and the instrument has no amp "
                     ++ "plugin. ./tools/install.sh fetches it (or by hand: docs/standalone.md, Plugins).");
             }
             { true } {

@@ -1246,7 +1246,7 @@ MegaSADrums {
     // line.
     presetString { |data|
         var field = { |k, v| "    " ++ k ++ ": " ++ v };
-        ^"// megalooper SA drums preset — a SuperCollider literal, safe to hand-edit.\n"
+        ^"// megalooper drums preset — a SuperCollider literal, safe to hand-edit.\n"
             ++ "// Out-of-range values are corrected on load (see the post window). The kits\n"
             ++ "// are named by key (presets/sa/drums/kits/<key>.json); trims are in dB, per kit.\n"
             ++ "(\n"
@@ -3509,7 +3509,7 @@ MegaSADrums {
         } { |err|
             this.prFreeServerSide;
             ("MegaSADrums: the drums could not be built (" ++ err.errorString
-                ++ "); SA plays on without them.").warn;
+                ++ "); megalooper plays on without them.").warn;
         };
     }
 

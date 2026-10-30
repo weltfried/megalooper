@@ -399,7 +399,7 @@
                 ++ (p.bank !? { |b| " · sound " ++ PathName(b).fileNameWithoutExtension } ? "")
                 ++ (p.loadSec !? { |t| " · opened in " ++ t.round(0.1) ++ " s" } ? "")
         } ? "No plugin: the instrument plays dry."
-    } ? "Megalooper SA is not running."
+    } ? "This rig has no effect chains."
 };
 
 // A plugin's sends: eight tiles, each sending the plugin its MIDI controller
@@ -680,7 +680,7 @@
     lines.add("megalooper diagnostics, " ++ Date.getDate.stamp);
     lines.add("build: " ++ ((try { ~saBuild.() }) ? "unknown") ++ " · SuperCollider " ++ Main.version
         ++ " · VSTPlugin " ++ if(MegaSAPlugins.available) { "installed" } { "not installed" });
-    if(m.isNil) { lines.add("Megalooper SA is not running.") } {
+    if(m.isNil) { lines.add("This rig has no effect chains, drums or synth.") } {
         lines.add("server: " ++ ((try { m.server.sampleRate }) ? "?") ++ " Hz, CPU "
             ++ ((try { m.server.avgCPU.round(0.1) }) ? "?") ++ " % (peak " ++ ((try { m.server.peakCPU.round(0.1) }) ? "?") ++ " %)"
             ++ " · drum hits dropped: " ++ ((try { m.drums.dropped }) ? "?"));
@@ -1036,8 +1036,8 @@
     if(m.isNil) {
         pane.layout_(VLayout(
             ~guiBand.(\fx),
-            HLayout(View().fixedWidth_(14), ~guiHint.("The effects are Megalooper SA's: start the megalooper "
-                "with the SA profile to play them.")).margins_(8),
+            HLayout(View().fixedWidth_(14), ~guiHint.("This rig has no effect chains: start megalooper on saSystem, "
+                "or on a rig of yours with sa: true, to play them.")).margins_(8),
             nil).margins_(0).spacing_(0));
     } {
         // The selection may have come from a rig, or a chain, that had it.

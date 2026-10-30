@@ -159,7 +159,7 @@
         // only on a MegaSA that has them, the bass's on a rig with its input.
         keys = [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].select { |k| m.level(k).notNil };
         view.layout_(VLayout(*(
-            [~guiCaption.("MEGALOOPER SA · LEVELS", 11)]
+            [~guiCaption.("LEVELS", 11)]
             ++ keys.collect { |k| ~saLevelRow.(m, k, ~saStripLabels[k], ~saRigLevels, ~rigLabelWidth ? 130) }
             ++ (m.drums !? { |d| [~saNewLoopRow.(d)] } ? [])
             ++ [~guiHint.(if(keys.includes(\drums)) {

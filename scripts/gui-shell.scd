@@ -265,7 +265,7 @@
     if(i.isNil) {
         if(key == \fx) { ~guiSay.("No FX on this rig" ++ (if(live) { ": Live has them" } { "" }), \info) };
         if(key == \drums) { ~guiSay.("No Drums on this rig" ++ (if(live) { ": Live has them" } { "" }), \info) };
-        if(key == \synth) { ~guiSay.("No Synth on this rig: it is Megalooper SA's", \info) };
+        if(key == \synth) { ~guiSay.("No Synth on this rig", \info) };
     } {
         ~guiView = key;
         ~guiStack !? { |st| st.index = i };

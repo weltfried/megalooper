@@ -72,7 +72,7 @@ Routine {
         g[\greyed].asString);
     ok.("...the effects' rows saying why, and a setting's row naming its device",
         { var rows = ~midiGuiRows.select { |b| b[\target].asString.beginsWith("sa.fxOn.") };
-          rows.notEmpty and: { rows.every { |b| ~midiGuiRow.(b)[1].contains("(Megalooper SA is not running)") } }
+          rows.notEmpty and: { rows.every { |b| ~midiGuiRow.(b)[1].contains("(This rig has no effect chains)") } }
               and: { ~midiGuiRow.(rows.first.copy.put(\target, 'sa.fx.delayMix'))[1].beginsWith("Dual Delay › ") } }.value,
         ~midiGuiRows.select { |b| b[\target].asString.beginsWith("sa.fx") }.collect { |b| ~midiGuiRow.(b)[1] }.asString);
     ok.("the map menu shows the shipped maps, this one chosen",

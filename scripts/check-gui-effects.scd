@@ -817,7 +817,7 @@ Routine {
     ~megaSA = nil;
     pane = ~buildEffectsPane.();
     ok.("without SA the pane is a note", pane.children.any { |c|
-        c.isKindOf(StaticText) and: { c.string.contains("SA profile") } });
+        c.isKindOf(StaticText) and: { c.string.contains("sa: true") } });
 
     "== a rig with a bass ==".postln;
     {

@@ -424,7 +424,7 @@
                 ]]);
                 b.enabled_(running.not and: { runs });
                 b.toolTip_(if(runs) { "" } { "This step measures Live, and this rig has none: skip it. "
-                    "On SA its value is the SA profile's own." });
+                    "Here its value is the profile's own." });
             };
         };
         ~calListenView !? { |v| if(open.(v)) { v.visible_(step[\listens] == true) } };
