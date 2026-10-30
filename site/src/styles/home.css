@@ -100,10 +100,8 @@
 .card__keys { font: 500 11px var(--mono); color: var(--mute); }
 .card p { margin: 0; font-size: 15px; line-height: 1.5; }
 .points { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); border-top: 1px solid var(--line); }
-.points--300 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 .points > div { padding: 22px 22px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .points h3 { margin: 0; font-weight: 500; font-size: 19px; }
-.points h3 a { text-decoration: none; }
 .points p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--soft); }
 
 /* ---------------------------------------------------------------- why */
@@ -126,6 +124,16 @@
 .numlist li > div { display: flex; flex-direction: column; gap: 4px; }
 .numlist b { font-weight: 500; font-size: 18px; }
 .numlist div span { font-size: 15px; line-height: 1.5; color: var(--soft); }
+.numlist b a { text-decoration: none; }
+/* The feature list: two columns on a wide screen, read down, each column
+   with its own rules. --rows is half the list, rounded up; .col2 starts the
+   second column. */
+.numlist--two { display: grid; column-gap: 64px; border-top: 0; }
+.numlist--two li:first-child { border-top: 1px solid var(--line); }
+@media (min-width: 900px) {
+  .numlist--two { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(var(--rows), auto); grid-auto-flow: column; }
+  .numlist--two li.col2 { border-top: 1px solid var(--line); }
+}
 
 /* ------------------------------------------------------------ plugins */
 .chain { margin: 0; border: 1px solid var(--line); background: var(--panel); }
