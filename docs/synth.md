@@ -1,6 +1,6 @@
 # The synth
 
-Megalooper SA has a synth beside the drums: a **note sequencer** that plays
+megalooper has a synth beside the drums: a **note sequencer** that plays
 one note a step, and the **Wave synth** it plays, a monophonic wavetable
 synth. One of your VST instruments can play the notes instead. It all lives
 on the **Synth** view (key **7**), with a column of its own on Perform.

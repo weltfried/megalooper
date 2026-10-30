@@ -34,10 +34,10 @@ what the menus do not offer.
   there are no device menus ([Linux](linux.md)).
 
 Behind the menus is megalooper's own routing profile, `saSystem` (in
-[`scripts/setup-routing.scd`](../scripts/setup-routing.scd)): Megalooper SA,
-the instrument recorded through both sides of its chain, the memory the
-effects need. The menus fill in its devices and inputs. With nothing chosen it
-is the system's default input and output.
+[`scripts/setup-routing.scd`](../scripts/setup-routing.scd)): the effect
+chains, the drums and the synth, the instrument recorded through both sides
+of its chain, the memory the effects need. The menus fill in its devices and
+inputs. With nothing chosen it is the system's default input and output.
 
 ## The analysis tap
 
@@ -61,7 +61,7 @@ chain. What you hear and what gets looped do not change.
 
 ## A bass
 
-**Bass: Input 2** says a bass is on the input device's input 2. Megalooper SA
+**Bass: Input 2** says a bass is on the input device's input 2. megalooper
 plays it through the bass chain (the **BASS** row on the FX view) onto a strip
 of its own, **Bass** under Levels on Setup's Rig page and on Perform, and
 **Record set** writes it as a stem of its own. The looper does not record it.
@@ -87,7 +87,7 @@ A value dialled by ear on Setup is not kept that way.
 
 A setup with nothing kept yet starts from:
 
-1. a rig of yours (below) on the same device, both ways, one with Megalooper SA
+1. a rig of yours (below) on the same device, both ways, one with `sa: true`
    first: the numbers kept for it, else its profile's;
 2. else what `saSystem` kept before there were setups;
 3. else `saSystem`'s own numbers.
@@ -168,7 +168,7 @@ Some interfaces come up at 44.1 kHz when plugged in on their own.
 
 `./tools/run-checks.sh quick` checks your rigs with megalooper's own: a
 channel outside the inputs the profile opens, a bass on the instrument's input
-or the tap, a bass on a rig without SA, a timing value outside its control.
+or the tap, a bass on a rig without `sa: true`, a timing value outside its control.
 The analysis tap and the bass must each be an input the profile opens. Past
 the inputs, a channel reads one of megalooper's own busses, so a tap out of
 range would feed the looper's output back into the onset detection.
@@ -186,7 +186,7 @@ Channels are counted from 0: input 1 of the interface is channel 0.
 | `inChannelCount` | `2` records both sides of the instrument chain, so its stereo effects reach the loop |
 | `analysisChannel` | Optional: the one input the onset and pitch detection listens to ([The analysis tap](#the-analysis-tap)). Left out, it listens to what the looper records |
 | `bassChannel` | Optional: a bass on an input of its own ([A bass](#a-bass)) |
-| `sa`, `live` | `sa: true, live: false`, both: Megalooper SA, with its mixer, chains, drums and synth. Leave `live: false` out and the Rig page shows controls meant for another setup, and the start runs checks it does not need |
+| `sa`, `live` | `sa: true, live: false`, both: megalooper's mixer, chains, drums and synth. Leave `live: false` out and the Rig page shows controls meant for another setup, and the start runs checks it does not need |
 | `memSize` | `65536`: the memory the effects' delay lines need |
 | `sampleRate`, `setSampleRate` | Optional: the rate the rig is wired for. With `setSampleRate: true` the device is switched to it before the start |
 | `hardwareBufferSize` | Optional: the block size to start with, in frames. The launcher's **Buffer** wins over it |

@@ -44,11 +44,9 @@ analyser get wrong on Monday, and what did we play there?", "write drums for
 the 7+7+7+8 we played at 10:02". They are the logs of **Record set** in the
 `sessions` folder; a set not recorded is not there.
 
-The drums, the synth and the effects need Megalooper SA (`sa: true`, as
-`saSystem` has), where megalooper hosts them
-([Megalooper SA](standalone.md)). The Grains and the Cutter work on the loop
-and need only a take: the Grains switch on over a recorded loop, the Cutter
-over an analysed one, and the Cutter comes in at the loop's next downbeat.
+The Grains and the Cutter work on the loop and need a take: the Grains
+switch on over a recorded loop, the Cutter over an analysed one, and the
+Cutter comes in at the loop's next downbeat.
 
 **Plugins stay yours.** The AI may move a plugin in its chain and switch it
 on or off. It cannot add one, remove one, or touch the plugin's own

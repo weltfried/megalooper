@@ -4,9 +4,9 @@ A live looper for SuperCollider that works out the meter from what you played.
 Record a phrase in free time and megalooper finds its tempo and its meter,
 odd ones like 7/8 included, from the onsets in the audio.
 
-It is a whole instrument on its own, **Megalooper SA**: beside the looper it
-hosts effect chains for your instrument and the loop, your VST plugins, the
-drums and a synth.
+It is a whole instrument on its own: beside the looper it hosts effect
+chains for your instrument and the loop, your VST plugins, the drums and a
+synth.
 
 It was built for a guitar and bass duo and is used on stage, on macOS. A
 Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
@@ -21,22 +21,22 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   overdubs shifted by your measured round-trip latency so they land in time.
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
   with presets.
-- **Effect chains (SA).** Chains for your instrument, the loop, the drums and
+- **Effect chains.** Chains for your instrument, the loop, the drums and
   the synth, and for a bass on a second input, with sixteen built-in effects and your VST2
   and VST3 plugins. Add, drag and remove effects while a loop plays. Random
   throws new settings at an effect, and a variation keeps the ones you like.
   A sound is one file: the chains, every setting and each plugin's state.
   See [The effects](docs/effects.md).
-- **Drums (SA).** Step patterns and a kit triggered by the loop's own onsets.
+- **Drums.** Step patterns and a kit triggered by the loop's own onsets.
   They start with a new loop, or wait until you switch them on.
-- **A synth (SA).** A note sequencer of 8 or 16 steps, its seven lanes
+- **A synth.** A note sequencer of 8 or 16 steps, its seven lanes
   (pitch, octave, velocity, length, time shift, ratchet, condition) free to
   run at lengths of their own, with scales and swing, playing a built-in
   wavetable synth (on your own wavetables too) or one of your VST
   instruments. It keeps time with the loop and starts again on its bar
   lines, uneven ones too. The Synth view (7), and a column on Perform. See
   [The synth](docs/synth.md).
-- **AI apps (SA, optional).** Ask an AI app such as Claude Desktop for a
+- **AI apps (optional).** Ask an AI app such as Claude Desktop for a
   groove that fits your 7/8, a synth line over the chords you played, a
   dubbier echo or a granular drone, and hear it at once; one click reverts it. Off until you
   switch it on. See [AI apps](docs/ai.md).
@@ -158,7 +158,7 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 
 | Guide | For |
 |---|---|
-| [Megalooper SA](docs/standalone.md) | The effect chains, sounds and plugins |
+| [Effect chains and sounds](docs/standalone.md) | The effect chains, sounds and plugins |
 | [The effects](docs/effects.md) | The sixteen built-in effects, and every setting they have |
 | [megalooper on Linux](docs/linux.md) | Installing and starting it there, and what differs |
 | [Drums](docs/drums.md) | Getting a kit, and making one from your own samples |

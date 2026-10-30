@@ -173,7 +173,7 @@ version="$("$SCLANG" -v 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -
 if [ -n "$version" ]; then
     oldest="$(printf '%s\n%s\n' "$MIN_VERSION" "$version" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)"
     if [ "$oldest" != "$MIN_VERSION" ]; then
-        say "warning: this is SuperCollider $version. megalooper is built and tested on $MIN_VERSION; older ones may work, and Megalooper SA was never tried on them. docs/linux.md says which distributions ship which."
+        say "warning: this is SuperCollider $version. megalooper is built and tested on $MIN_VERSION; older ones may work, but its effects, drums and synth were never tried on them. docs/linux.md says which distributions ship which."
     fi
 else
     say "warning: could not read SuperCollider's version (megalooper wants $MIN_VERSION or later)."

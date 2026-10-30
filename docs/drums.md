@@ -1,6 +1,6 @@
 # The drums
 
-Megalooper SA has two drum parts, on the **Drums** view (key **4**):
+megalooper has two drum parts, on the **Drums** view (key **4**):
 
 - **The steps**: two step patterns, a main one and a break, locked to the
   loop's tempo and meter.
@@ -10,7 +10,7 @@ Megalooper SA has two drum parts, on the **Drums** view (key **4**):
 Each part plays a **kit**: a set of samples on pads.
 
 The steps start with every new loop you record. To have them wait instead,
-set **New loop** to **Drums off** on the Setup view's Rig page, under Megalooper SA's
+set **New loop** to **Drums off** on the Setup view's Rig page, under the
 levels. A new loop then keeps the drums in time but silent, until you switch
 them on: the switch on the Drums view, or a footswitch mapped to it. Overdubs leave
 them as they are. megalooper keeps the choice for the next start. Whether

@@ -1,8 +1,9 @@
 # megalooper: the manual
 
 Installing megalooper and the first run are in the [README](../README.md).
-Megalooper SA's effect chains, sounds and plugins are in
-[Megalooper SA](standalone.md), and the drums' kits in [Drums](drums.md).
+The effect chains, sounds and plugins are in
+[Effect chains and sounds](standalone.md), and the drums' kits in
+[Drums](drums.md).
 
 This manual is the reference for everything else: the rigs, every control,
 the MIDI map, the onset notes, the grains, the cutter, calibration, how the
@@ -31,7 +32,7 @@ the device of a rig of yours starts from that rig's numbers and MIDI map
 ([The calibrated values](routing.md#the-calibrated-values)).
 
 Behind the menus is megalooper's one **routing profile**, **`saSystem`**:
-Megalooper SA, with its effect chains, drums and synth. With nothing chosen
+the looper with its effect chains, drums and synth. With nothing chosen
 it names no device, and SuperCollider opens whatever CoreAudio is currently
 defaulting to, so it is right on any Mac with nothing to set up. From the
 editor it is one line in `scripts/setup-routing.scd`, and the choice made in
@@ -391,8 +392,8 @@ touched and never before.
 
 Press **Half-time** (Perform's Loop column, key `L`, or a switch mapped to
 `looper.halfTime`) and on the next loop boundary the loop drops into half
-time: half speed, an octave down, each pass twice as long. On Megalooper SA
-the drums slow down with it, to half tempo, and so do the synth's notes, which
+time: half speed, an octave down, each pass twice as long. The
+drums slow down with it, to half tempo, and so do the synth's notes, which
 run on the drums' clock; their sounds keep their pitch. Every loop event still
 lands on the drums' grid. Press again and it ends with the half-speed pass,
 back at full speed, the drums with it, on the boundary after it.
@@ -529,7 +530,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, and the onset notes' switch and Chance; on a rig without Megalooper SA's drums, a column of their own) and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, and the **macros**: Master, Arc, Onset |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, and the **macros**: Master, Arc, Onset |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
@@ -573,7 +574,7 @@ at the same sizes.
 
 ![Setup's Rig page](images/setup-rig.png)
 
-*Fig: Setup's Rig page on the saSystem rig: the audio, the analysis input, the timing values and Megalooper SA's levels, with Calibrate beside them.*
+*Fig: Setup's Rig page on the saSystem rig: the audio, the analysis input, the timing values and the levels, with Calibrate beside them.*
 
 The controls, by view:
 
@@ -891,8 +892,7 @@ part — they are exactly where the attacks were. Turn on **Onset notes** on
 Perform, under the Drums, or on Setup's Analysis page, and they play the
 **onset kit** (its kit is chosen on the Drums view), once per loop pass: a drum
 part from the rhythm you played. Perform has their **Chance** too; the rest of
-their settings are on the Analysis page. On a rig without Megalooper SA's drums
-they are sent as MIDI notes, and Perform gives them a column of their own.
+their settings are on the Analysis page.
 
 ### It replays the loop, it does not track your hands
 
@@ -1798,9 +1798,9 @@ say so.
 `boot.scd` calls exists, and checks every routing profile. The failure it
 exists to prevent is a typo that only surfaces halfway through a boot which
 has already freed the previous Looper. `run-tests.scd` runs over three thousand
-assertions on the language-side logic: the looper, Megalooper SA's chains,
-drums and synth, the MIDI map, and the files. Both exit non-zero on failure,
-so either works as a pre-commit hook:
+assertions on the language-side logic: the looper, the effect chains,
+the drums and the synth, the MIDI map, and the files. Both exit non-zero on
+failure, so either works as a pre-commit hook:
 
 ```sh
 sclang scripts/check.scd            # do the scripts still hold together?
@@ -1849,7 +1849,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-megafiles.scd` | the file kit: your folder, JSON read and written whole, the format and version rules |
 | `test-megaremote.scd` | megalooper as a tool for an AI app: who may ask, what is answered, the changes it may make and take back |
 | `test-audio-settings.scd` | the audio settings: the profile they make against a device list, what gives way when a device or an input is missing, `settings.json`, the server's options, the sample-rate check, Apply and restart |
-| `test-megasa.scd` | Megalooper SA's frame: its routing, server options, the mixer's levels and mutes, its SynthDefs, the drums it owns, the stems |
+| `test-megasa.scd` | The frame around the looper: its routing, server options, the mixer's levels and mutes, its SynthDefs, the drums it owns, the stems |
 | `test-megasa-chains.scd`, `-edits`, `-drumchain`, `-bass` | the device chains: types, devices and chains as models and as built; insert, copy, remove, move, rename, undo and redo; the drums' chain; the bass's chain |
 | `test-megasa-sound.scd`, `-keep`, `test-sa-sounds.scd` | sounds: the document and its JSON, Keep and recall onto running chains, what a boot does with the kept sound, variations |
 | `test-megasa-plugins.scd` | the plugin catalog: what the browser offers, which entry a sound names, the scan's rules |

@@ -11,7 +11,7 @@
     "The first unwrapped source's intro becomes the chapter's opening text; its first paragraph is the lead unless 'lead' is set.",
     "omit lists what is left out on purpose, so the build's coverage check stays quiet about it."
   ],
-  "groups": ["START", "PLAYING", "SOUND", "MEGALOOPER SA", "CONNECT", "REFERENCE"],
+  "groups": ["START", "PLAYING", "SOUND", "BAND", "CONNECT", "REFERENCE"],
   "fileHomes": {
     "README.md": "welcome",
     "docs/manual.md": "looping"
@@ -102,7 +102,7 @@
       ]
     },
     {
-      "n": 12, "slug": "chains", "title": "Effect chains and sounds", "group": "MEGALOOPER SA", "layer": "fx", "rig": "every",
+      "n": 12, "slug": "chains", "title": "Effect chains and sounds", "group": "SOUND", "layer": "fx", "rig": "every",
       "sources": [
         { "file": "docs/standalone.md", "part": "intro", "unwrap": true },
         { "file": "docs/standalone.md", "heading": "## Starting it" },
@@ -114,20 +114,20 @@
       ]
     },
     {
-      "n": 13, "slug": "plugins", "title": "Plugins", "group": "MEGALOOPER SA", "layer": "fx", "rig": "every",
+      "n": 13, "slug": "plugins", "title": "Plugins", "group": "SOUND", "layer": "fx", "rig": "every",
       "sources": [
         { "file": "docs/standalone.md", "heading": "## Plugins", "unwrap": true },
         { "file": "docs/standalone.md", "heading": "### A footswitch for something inside a plugin" }
       ]
     },
     {
-      "n": 14, "slug": "drums", "title": "Drums", "group": "MEGALOOPER SA", "layer": "drum", "rig": "every",
+      "n": 14, "slug": "drums", "title": "Drums", "group": "BAND", "layer": "drum", "rig": "every",
       "sources": [
         { "file": "docs/drums.md", "unwrap": true }
       ]
     },
     {
-      "n": 15, "slug": "synth", "title": "The synth", "group": "MEGALOOPER SA", "rig": "every",
+      "n": 15, "slug": "synth", "title": "The synth", "group": "BAND", "rig": "every",
       "sources": [
         { "file": "docs/synth.md", "unwrap": true }
       ]

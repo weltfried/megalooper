@@ -1,13 +1,13 @@
-# Megalooper SA
+# Effect chains and sounds
 
-Megalooper SA plays the instrument's effects, the bass's, the loop's effects,
-the drums and the synth itself. This guide covers the effect chains, sounds and
-plugins. The looper, the cutter, the grains and the MIDI map work as [the
-manual](manual.md) says.
+megalooper plays the effects for your instrument, a bass, the loop, the drums
+and the synth, in chains you build and rearrange while the loop plays. This
+guide covers the effect chains, sounds and plugins. The looper, the cutter,
+the grains and the MIDI map work as [the manual](manual.md) says.
 
 ## Starting it
 
-Megalooper SA plays on these rigs:
+megalooper plays on these rigs:
 
 - **saSystem**, the one the launcher offers first, plays your instrument from
   the input device and input you choose there, the system's input 1 until you

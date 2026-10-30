@@ -1,6 +1,6 @@
 # The effects
 
-Megalooper SA has sixteen effects of its own: **Pitch Shift**, **Dual
+megalooper has sixteen effects of its own: **Pitch Shift**, **Dual
 Delay**, **Envelope Filter** and **Pitch Loops**, made for the instrument,
 **Tape Echo**, **Drive** and **Crusher**, made for the loop, three utilities for
 any chain, **EQ**, **Compressor** and **Noise Gate**, five textures,
@@ -8,8 +8,8 @@ any chain, **EQ**, **Compressor** and **Noise Gate**, five textures,
 **Reverb**.
 
 How to add, move, switch and save them is in
-[The chains](standalone.md#the-chains), in the Megalooper SA guide. Here is
-what each one does, and every setting it has.
+[The chains](standalone.md#the-chains). Here is what each one does, and every
+setting it has.
 
 ## What they have in common
 
