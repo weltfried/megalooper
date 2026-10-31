@@ -43,7 +43,8 @@
 };
 
 // The parts, as MegaActionLog takes them. What is skipped is not an action
-// (the onset lamp, a dissolve's position, the drums' own transport), says one
+// (the onset lamp, a dissolve's position, the onset notes rebuilt after a
+// take, the drums' own transport), says one
 // already heard (\speed beside \halfTime), or is the log's own business; what
 // is `logged` the set's log already has from its own writer (Looper's
 // halfTime, the drums' drumsOn, SA's fx and fxChain: setup-sa.scd). A state is
@@ -53,7 +54,7 @@
     l !? {
         parts.put(\looper, (model: l,
             skip: #[\liveOnset, \dissolvePos, \analysisMonitor, \sessionRecording, \sessionChannel, \reading,
-                \readingIndex, \speed, \breakEndsAt, \overdubDetected, \bbcutState],
+                \readingIndex, \speed, \breakEndsAt, \overdubDetected, \bbcutState, \onsetNotePattern],
             logged: #[\halfTime],
             bare: #[\bbcutVoices],
             state: { (grains: MegaRemote.grainsOf(l), cutter: MegaRemote.cutterOf(l),
