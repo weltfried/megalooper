@@ -89,16 +89,6 @@
 .stack--48 { gap: clamp(32px, 4vw, 48px); }
 .split { display: flex; flex-wrap: wrap; gap: 20px 64px; justify-content: space-between; align-items: flex-end; }
 .split__main { flex: 1 1 520px; display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
-/* Each card draws its own rule (an outline over the 1 px gap), so a row the
-   cards do not fill stays page-coloured instead of showing the rule's grey. */
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 1px; padding: 1px; }
-.card { background: var(--panel); display: flex; flex-direction: column; outline: 1px solid var(--line); }
-.card__bar { height: 8px; }
-.card__in { padding: 22px 22px 26px; display: flex; flex-direction: column; gap: 10px; }
-.card__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.card h3 { margin: 0; font-weight: 500; font-size: 24px; }
-.card__keys { font: 500 11px var(--mono); color: var(--mute); }
-.card p { margin: 0; font-size: 15px; line-height: 1.5; }
 .points { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); border-top: 1px solid var(--line); }
 .points > div { padding: 22px 22px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .points h3 { margin: 0; font-weight: 500; font-size: 19px; }
@@ -114,10 +104,7 @@
 .shot__cap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--mute); }
 .shot__cap span + span { font: 500 12px var(--mono); }
 
-/* -------------------------------------------------------- how it counts */
-.counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 40px 64px; }
-.counts__text { display: flex; flex-direction: column; gap: 18px; }
-.counts__text .btn { align-self: flex-start; padding: 14px 20px; font-size: 16px; }
+/* ------------------------------------------------------------ features */
 .numlist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .numlist li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); }
 .numlist li > span { font: 500 14px var(--mono); color: var(--mute); }
