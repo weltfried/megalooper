@@ -182,12 +182,17 @@
 );
 
 // What a slot plays, in a line: its state, and once it plays, how many pads,
-// and for the onset kit the pad the Looper's onset notes land on.
+// how far the kit was levelled (MegaSADrums.levelKits) if at all, and for the
+// onset kit the pad the Looper's onset notes land on.
 ~drumsKitLine = { |d, slot|
     var state = d.kitState(slot), kit = d.kitFor(slot);
     var text = ~drumsKitStates[state] ? state.asString;
     if(#[\ready, \partial].includes(state) and: { kit.notNil }) {
         text = text ++ " · " ++ kit.notes.size ++ " pads";
+        if(kit.levelDb.abs >= 0.05) {
+            text = text ++ " · levelled " ++ (if(kit.levelDb > 0) { "+" } { "" })
+                ++ kit.levelDb.round(0.1).asString ++ " dB";
+        };
         if(slot == \onset) {
             text = text ++ " · onset notes play "
                 ++ ~drumsNoteText.(d, (~looper !? { |l| l.onsetNote }) ? 36, \onset);
@@ -214,6 +219,10 @@
     }) ? "") ++ "\n— none —: no kit, so this part is silent; presets and Keep keep it that way."
         ++ "\nKits are presets/sa/drums/kits/*.json, made by python3 tools/export-live-set.py kits,"
         ++ "\nor from a folder of your own samples by Import samples… at the top."
+        ++ "\n\nEvery kit is levelled as it loads: measured from its samples and brought to "
+        ++ (if(slot == \steps) { "Kit-Carbon + layer's" } { "the One Hit Kit's" })
+        ++ "\nloudness, but never so far that its loudest hit peaks above theirs. The line"
+        ++ "\nbeside the menu says by how much; the fader and the trims work on top of it."
 };
 
 // ---- Importing a kit ---------------------------------------------------------
@@ -1526,6 +1535,7 @@
             .put(\kitState, { |obj, what, slot, state|
                 { ~drumsPaint.(~drumsKitKey.(slot)); ~drumsPaint.(~drumsKitLineKey.(slot));
                     if(state != \loading) { ~drumsKitChanged.(slot, state) } }.defer })
+            .put(\kitLevel, { |obj, what, slot| { ~drumsPaint.(~drumsKitLineKey.(slot)) }.defer })
             // Trims are kept per kit, so with one kit in both slots both
             // cells show one value.
             .put(\padTrim, { |obj, what, slot, note|

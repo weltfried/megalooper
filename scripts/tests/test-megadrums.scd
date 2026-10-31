@@ -630,6 +630,100 @@ kit !? {
     MegaSAKit.loadState(5, 2, 3), MegaSAKit.loadState(5, 0, 5), MegaSAKit.loadState(0, 0, 0), MegaSAKit.loadState(5, 1, 1)],
     [\ready, \partial, \missing, \failed, \failed, \missing, \partial]);
 
+// A kit's level, from its samples: files of known levels in a folder of
+// their own. tail.wav is 0.8 for 0.125 s, then silence to 0.5 s. Signal's
+// sums run in 32-bit floats, so a measurement is good to about 1e-4 (0.001
+// dB), far finer than the tenth of a dB a correction is rounded to.
+{
+var dir = ~tTempPath.("megadrums-level");
+var write = { |name, chans, frames, fill|
+    var sf = SoundFile.new.headerFormat_("WAV").sampleFormat_("float").numChannels_(chans).sampleRate_(48000);
+    sf.openWrite(dir +/+ name);
+    sf.writeData(Signal.fill(frames * chans, fill));
+    sf.close;
+};
+var layer = { |file, extra| (file: file, vel: (law: "none")).putAll(extra ? ()) };
+var measure = { |pads| MegaSAKit.fromData((key: "k", pads: pads), List.new) !? { |k| k.measureLevel(dir) } };
+var lv, m, solo, pk, ref = (rms: -10, peak: 5), kitAmp;
+File.mkdir(dir);
+write.("loud.wav", 1, 24000, { 0.5 });
+write.("mid.wav", 2, 24000, { 0.25 });
+write.("soft.wav", 1, 24000, { 0.1 });
+write.("tail.wav", 1, 24000, { |i| if(i < 6000) { 0.8 } { 0 } });
+write.("spike.wav", 1, 24000, { |i| if(i == 100) { 0.9 } { 0.05 } });
+File.use(dir +/+ "text.wav", "w", { |f| f.write("not audio") });
+
+~tEqArray.("meterFile: a file's first 250 ms as [peak, rms]", MegaSAKit.meterFile(dir +/+ "loud.wav"), [0.5, 0.5], 1e-4);
+~tEqArray.("...over both channels of a stereo one", MegaSAKit.meterFile(dir +/+ "mid.wav"), [0.25, 0.25], 1e-4);
+~tEqArray.("...the window's silence counts: 0.125 s of 0.8 in 0.25 s",
+    MegaSAKit.meterFile(dir +/+ "tail.wav"), [0.8, 0.8 * 0.5.sqrt], 1e-4);
+~tEqArray.("...a shorter window, the sound alone", MegaSAKit.meterFile(dir +/+ "tail.wav", 0, 0.125), [0.8, 0.8], 1e-4);
+~tEqArray.("...from a sample start, after it", MegaSAKit.meterFile(dir +/+ "tail.wav", 6000), [0, 0], 1e-4);
+~tEq.("...nil for a start past the end, a missing file or one that is not audio",
+    [MegaSAKit.meterFile(dir +/+ "loud.wav", 24000), MegaSAKit.meterFile(dir +/+ "nope.wav"),
+        MegaSAKit.meterFile(dir +/+ "text.wav"), MegaSAKit.meterFile(nil)], [nil, nil, nil, nil]);
+~tEqArray.("...and the same the second time, from what it kept", MegaSAKit.meterFile(dir +/+ "loud.wav"), [0.5, 0.5], 1e-4);
+
+lv = MegaSAKit.fromData((key: "lv", pads: (
+    36: (gainDb: -2, layers: [layer.("loud.wav", (gainDb: -4))]),
+    38: (layers: [layer.("mid.wav")]),
+    42: (layers: [layer.("soft.wav"), layer.("soft.wav")]),
+    46: (layers: [layer.("loud.wav", (velLo: 110))]),
+    49: (layers: [layer.("nope.wav")]),
+    51: (layers: [layer.("tail.wav", (lenSecs: 0.125))]))), List.new);
+m = lv.measureLevel(dir);
+~tEq.("measureLevel: the pads heard at velocity 100 (one plays only from 110, one has no file)", m !? { |x| x[\pads] }, 4);
+// Pads: 36 at 0.5 * -6 dB, 38 at 0.25, 42 two layers of 0.1, 51 the tail
+// in its 0.125 s length at 0.8. The louder half: 51 and 36.
+~tNear.("...rms: the power mean of the louder half of the pads, in dB", m !? { |x| x[\rms] },
+    (((0.8.squared) + (0.5 * (-6).dbamp).squared) / 2).sqrt.ampdb, 1e-3);
+~tNear.("...peak: the loudest pad's peak, in dB", m !? { |x| x[\peak] }, 0.8.ampdb, 1e-3);
+solo = measure.((42: (layers: [layer.("soft.wav"), layer.("soft.wav")])));
+~tNear.("...a pad's layers add their power for rms", solo !? { |x| x[\rms] }, (0.1 * 2.sqrt).ampdb, 1e-3);
+~tNear.("...and their peaks as if they lined up", solo !? { |x| x[\peak] }, 0.2.ampdb, 1e-3);
+pk = measure.((36: (layers: [layer.("spike.wav")])));
+~tNear.("...a click's peak, beside its rms", pk !? { |x| x[\peak] - x[\rms] }, 0.9.ampdb - 0.05.ampdb, 0.2);
+kitAmp = measure.((36: (layers: [layer.("loud.wav", (vel: (law: "operator", amount: 1)))])));
+~tNear.("...each hit at velocity 100, through the layer's law", kitAmp !? { |x| x[\rms] }, (0.5 * 100 / 127).ampdb, 1e-3);
+~tEq.("...nil for a kit whose samples are not here", lv.measureLevel(dir +/+ "elsewhere"), nil);
+~tEq.("...and neither trims nor its own correction count", { lv.levelDb = 6; lv.measureLevel(dir) == m }.value, true);
+lv.levelDb = 0;
+
+~tNear.("levelCorrection: up to the reference's loudness", MegaSAKit.levelCorrection((rms: -20, peak: -10), ref), 10, 1e-9);
+~tNear.("...but no further than its loudest peak at the reference's",
+    MegaSAKit.levelCorrection((rms: -25, peak: -2), ref), 7, 1e-9);
+~tNear.("...a louder kit goes down", MegaSAKit.levelCorrection((rms: -4, peak: 8), ref), -6, 1e-9);
+~tEq.("...within -12..+18 dB", [MegaSAKit.levelCorrection((rms: -60, peak: -40), ref),
+    MegaSAKit.levelCorrection((rms: 20, peak: 30), ref)], [18, -12]);
+~tNear.("...to a tenth of a dB", MegaSAKit.levelCorrection((rms: -16.239, peak: -10), ref), 6.2, 1e-9);
+~tEq.("...the reference itself, or a hair louder, is 0, never -0.0",
+    [MegaSAKit.levelCorrection(ref, ref), MegaSAKit.levelCorrection((rms: -9.996, peak: 5), ref)].collect(_.asString),
+    ["0.0", "0.0"]);
+~tEq.("...and a kit with no level, 0", [MegaSAKit.levelCorrection(nil, ref), MegaSAKit.levelCorrection(m, nil)], [0, 0]);
+
+lv.levelDb = -3;
+~tNear.("a kit plays its correction on top of every gain", lv.ampFor(lv.pad(36)[\layers][0], lv.pad(36), 100, 1, 2),
+    (-6 + 1 + 2 - 3).dbamp, 1e-12);
+~tNear.("...which the class's arithmetic leaves out", MegaSAKit.ampFor(lv.pad(36)[\layers][0], lv.pad(36), 100, 1, 2),
+    (-6 + 1 + 2).dbamp, 1e-12);
+~tEq.("...and a kit starts with none", MegaSAKit.fromData((key: "x", pads: (36: (layers: [layer.("loud.wav")]))), List.new)
+    !? { |k| k.levelDb }, 0);
+
+// The two references are the kits the slots start on, measured: when their
+// samples are here, each one's correction in its own slot is 0.
+[[\steps, 'carbon-layer'], [\onset, 'one-hit']].do { |pair|
+    var kdir = MegaSADrums.defaultKitDir, kit = kdir !? { |k| MegaSAKit.read(MegaSAKit.fileFor(k, pair[1])) };
+    var level = kit !? { |k| k.measureLevel(kdir) };
+    if(level.isNil) {
+        ~tSkip.("the " ++ pair[0] ++ " reference is " ++ pair[1] ++ "'s level", "its samples are not on this Mac")
+    } {
+        ~tEq.("the " ++ pair[0] ++ " reference is " ++ pair[1] ++ "'s level: its correction there is 0",
+            MegaSAKit.levelCorrection(level, MegaSADrums.levelReference[pair[0]]), 0);
+    };
+};
+~tRemoveTree.(dir);
+}.value;
+
 // Loading, with a reader standing in for Buffer.read.
 kit !? {
     stub = ~tStubServer.();

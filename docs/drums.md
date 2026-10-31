@@ -88,7 +88,18 @@ and import or run it again.
 ## Choosing a kit
 
 Each part has a kit menu on the Drums pane. A kit's line says whether it is
-ready, and how many pads it plays. **— none —** silences a part.
+ready, how many pads it plays and how far it was levelled. **— none —**
+silences a part.
+
+Kits come at the levels their makers gave them, and those differ a lot: most
+of the kits megalooper builds play 5 to 10 dB below Kit-Carbon + layer, and
+Live's Dry Session Kit about 15 dB below. So every kit is levelled as it
+loads. It is measured from its samples, each pad at velocity 100, and
+brought to the loudness of the kit its part starts on: Kit-Carbon + layer
+for the steps, the One Hit Kit for the onset notes. It is never brought so
+far that its loudest hit peaks above theirs, so the Dry Session Kit comes up
+10.1 dB, not 15. The faders and the trims work on top of the levelling, and
+mean the same with every kit.
 
 ![The kits on the Drums view](images/drum-kits.png)
 

@@ -53,9 +53,18 @@
 // them. Per file the channel count, rate and length are kept (infoFor), for
 // the mono or stereo voice and for how long a voice can ring (soundingDur).
 //
+// Kits come at the levels their makers gave them, and those differ by up to
+// 16 dB (Live's acoustic kits are far quieter than Kit-Carbon). measureLevel
+// measures a kit from its samples, and MegaSADrums sets levelDb from that, a
+// correction every hit of the kit plays with (the instance's ampFor), so a
+// kit switch keeps the drums' level (see Its level, below).
+//
 // Its buffers outlive Cmd-period (they are not nodes) but not a server
 // reboot, after which nothing reads them again: re-run boot.scd, as for MegaSA.
 MegaSAKit {
+    // What meterFile has read: a file's measurement by path, modification
+    // time, start and length (\none for one it could not read).
+    classvar meterCache;
     var <key, <name, <description, <source, <remarks, <version, <groups, <pads, <warnings;
     // \unloaded until load; then \loading, \ready, \partial, \missing, \failed.
     var <state = \unloaded;
@@ -65,6 +74,10 @@ MegaSAKit {
     // not read (failed).
     var <root, <buffers, <fileInfo, <missing, <failed;
     var loadSerial = 0, syncRoutine;
+    // The correction its hits play with, in dB, on top of every gain ampFor
+    // adds: what MegaSADrums sets as it loads the kit into a slot. 0: the
+    // levels as the kit file has them.
+    var <>levelDb = 0;
 
     // The kit file format this build reads.
     *kitVersion { ^1 }
@@ -528,11 +541,85 @@ MegaSAKit {
         ^if(len > 0) { len / this.rateFor(layer) } { 0 }
     }
 
+    // A hit as this kit plays it: the class's arithmetic, then levelDb.
     ampFor { |layer, pad, vel, groupTrimDb, padTrimDb|
-        ^this.class.ampFor(layer, pad, vel, groupTrimDb, padTrimDb)
+        ^this.class.ampFor(layer, pad, vel, groupTrimDb, padTrimDb) * levelDb.dbamp
     }
     rateFor { |layer| ^this.class.rateFor(layer) }
     durFor { |layer| ^this.class.durFor(layer) }
+
+    // ---- Its level --------------------------------------------------------
+
+    // A kit's level is its pads hit at levelVelocity: each sounding layer's
+    // first levelWindow seconds (from its sample start, no longer than its
+    // length), times its gains at that velocity (the class's ampFor, so
+    // neither trims nor levelDb), as peak and RMS. A pad's layers add up:
+    // their peaks as they would if they lined up, their power as unrelated
+    // sounds' does.
+    *levelVelocity { ^100 }
+    *levelWindow { ^0.25 }
+
+    // A file's first `secs` from `startFrames`, as [peak, rms], linear, over
+    // every channel; nil if it cannot be read or has no frames there. Kept
+    // by file, start, length and the file's modification time, so a kit
+    // loaded again is not read again, and a file exported anew is. Signal's
+    // primitives do the sums: a kit takes about 10 ms the first time.
+    *meterFile { |path, startFrames = 0, secs = 0.25|
+        var id, have, sf, n, sig, result;
+        if(path.isNil or: { File.exists(path).not }) { ^nil };
+        id = [path, File.mtime(path), startFrames, secs].join("|");
+        meterCache = meterCache ?? { Dictionary.new };
+        have = meterCache[id];
+        if(have.notNil) { ^if(have == \none) { nil } { have } };
+        sf = try { SoundFile.openRead(path) } { nil };
+        if(sf.notNil) {
+            n = (secs * sf.sampleRate).asInteger.min(sf.numFrames - startFrames).max(0) * sf.numChannels;
+            if(n > 0) {
+                sig = Signal.newClear(n);
+                sf.seek(startFrames);
+                sf.readData(sig);
+                if(sig.size > 0) { result = [sig.peak, (sig.squared.integral / sig.size).sqrt] };
+            };
+            sf.close;
+        };
+        meterCache.put(id, result ? \none);
+        ^result
+    }
+
+    // The kit's level, as (rms:, peak:, pads:): rms the power mean of its
+    // louder half of pads (so effect pads and quiet ones do not pull it
+    // down), peak its loudest pad's, both in dB; pads how many were heard.
+    // nil if no pad's file could be read: Ableton's encrypted samples, or a
+    // kit whose samples are not here. rootDir as for load (the last load's
+    // if nil).
+    measureLevel { |rootDir|
+        var vel = this.class.levelVelocity, secs = this.class.levelWindow;
+        var powers = List.new, peak = 0, loud;
+        this.notes.do { |note|
+            var pad = pads[note], p = 0, power = 0;
+            this.layersFor(note, vel).do { |layer|
+                var len = layer[\lenSecs] ? 0;
+                var m = this.class.meterFile(this.class.absolutePath(rootDir ? root, layer[\file]),
+                    layer[\startFrames] ? 0, if(len > 0) { len.min(secs) } { secs });
+                var amp = this.class.ampFor(layer, pad, vel);
+                m !? { p = p + (m[0] * amp); power = power + (m[1] * amp).squared };
+            };
+            if(power > 0) { powers.add(power); peak = max(peak, p) };
+        };
+        if(powers.isEmpty) { ^nil };
+        loud = powers.asArray.sort.reverse.keep((powers.size + 1).div(2));
+        ^(rms: (loud.sum / loud.size).sqrt.ampdb, peak: peak.ampdb, pads: powers.size)
+    }
+
+    // What brings a kit measured as `level` (measureLevel) to `reference`
+    // (rms:, peak:, in dB): as loud, but never so far up that its loudest
+    // pad peaks above the reference's, within -12..+18 dB, to a tenth of a
+    // dB (and + 0, so the reference kit's own is 0, not -0.0). 0 for a kit
+    // with no level.
+    *levelCorrection { |level, reference|
+        if(level.isNil or: { reference.isNil }) { ^0 };
+        ^min(reference[\rms] - level[\rms], reference[\peak] - level[\peak]).clip(-12, 18).round(0.1) + 0
+    }
 
     // ---- Loading ----------------------------------------------------------
 

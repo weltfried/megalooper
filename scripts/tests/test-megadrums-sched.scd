@@ -1429,6 +1429,53 @@ rep = v.detect { |x| x[\group] == 1002 };
 ~tEq.("every voice, steps, onset and repeat, added to the tail of its group (addAction 1)",
     [v.collect(_[\addAction]).asSet.asArray, v.collect(_[\group]).asSet.asArray.sort], [[1], [1001, 1002, 1003]]);
 }.value;
+
+// ------------------------------------------------------- levelled kits --
+// Levelling (MegaSAKit's Its level) on the gap kit: every file 0.1 for
+// 0.5 s, through Operator's law at 1, so each pad at velocity 100 is
+// 0.1 * 100/127, -22.08 dB, peak and rms: 11.8 dB up to Kit-Carbon + layer's
+// in the steps, 2.5 dB up to the One Hit Kit's for the onset notes. Off on
+// a stub until switched on; then in the voices' amp on top of the trims, and
+// in a kit loaded later before it plays.
+{
+var fx = ~dsMakeGap.(), d = fx[\drums], l = fx[\looper], v, steps, onset, rep, said = List.new, ctl;
+~tEq.("a stub's drums play the kits' own levels", [d.levelKits, d.kitLevel(\steps), d.kitLevel(\onset)], [false, 0, 0]);
+ctl = SimpleController(d).put(\kitLevel, { |obj, what, slot, db| said.add([slot, db]) });
+d.levelKits = true;
+~tEqArray.("switched on, each slot's kit is levelled to its reference", [d.kitLevel(\steps), d.kitLevel(\onset)],
+    [11.8, 2.5], 1e-9);
+~tEq.("...each said, slot and dB", said.collect(_[0]).asArray, [\steps, \onset]);
+~tEqArray.("...the dB", said.collect(_[1]).asArray, [11.8, 2.5], 1e-9);
+~dsPlain.(d, \main, (3: [0], 0: [6]));
+d.setLaneParam(\main, 0, \note, 42);
+d.setPadTrim(\steps, 36, -6);
+d.setGroupTrim(\steps, \carbon, 3);
+l.onsetNote = 38;
+d.setPadTrim(\onset, 38, -12);
+d.repeatChance = 1;
+d.setRepeats(true, 91.0);
+~tPut.(l, \onsetNoteRolls, [0.0]);
+~dsStart.(fx, 92.0);
+d.startOnsets(l, [[0.25, 1.0]], 2.0, 91.9);
+~dsRun.(fx, 93.6);
+v = ~dsVoicesSounding.(fx[\log]);
+steps = v.detect { |x| (x[\note] == 36) and: { x[\group] == 1001 } };
+onset = v.detect { |x| x[\group] == 1003 };
+rep = v.detect { |x| x[\group] == 1002 };
+~tAssert.("bundles were sent", steps.notNil and: { onset.notNil } and: { rep.notNil });
+~tNear.("a steps hit's amp: its trims, then the steps kit's level", steps !? { |x| x[\amp] }, (-6 + 3 + 11.8).dbamp, 1e-9);
+~tNear.("...an onset hit's: its trims, then the onset kit's", onset !? { |x| x[\amp] }, (3 - 12 + 2.5).dbamp, 1e-9);
+~tNear.("...a repeat's: as its hit's", rep !? { |x| x[\amp] }, MegaSADrumsFx.beatRepeatLevel(1) * (3 + 11.8).dbamp, 1e-9);
+said.clear;
+d.setKit(\steps, \gkit);
+~tNear.("a kit loaded with levelling on is levelled before it plays", d.kitLevel(\steps) ? 0, 11.8, 1e-9);
+~tEq.("...and says so", [said.size, said.first !? { |x| x[0] }], [1, \steps]);
+d.levelKits = false;
+~tEq.("switched off, the kits' own levels again", [d.kitLevel(\steps), d.kitLevel(\onset)], [0, 0]);
+d.setKit(\onset, nil);
+~tEq.("...and no kit, no level", d.kitLevel(\onset), nil);
+ctl.remove;
+}.value;
 {
 var fx = ~dsMakeGap.(), d = fx[\drums], l = fx[\looper], v, sn, steps, onset;
 ~dsPlain.(d, \main, (1: [0], 3: [0]));

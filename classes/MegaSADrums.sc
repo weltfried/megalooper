@@ -137,6 +137,12 @@ MegaSADrums {
     var <padTrims, <groupTrims;
     // reader.(server, path, done) for MegaSAKit.load; nil: Buffer.read.
     var <>kitReader;
+    // Whether a kit is levelled as it loads: measured from its samples
+    // (MegaSAKit.measureLevel) and its levelDb set to bring it to its slot's
+    // reference (levelReference). On for a real server; on a stub (the
+    // tests, the renders) the kits play their files' own levels unless it is
+    // switched on (levelKits_).
+    var <levelKits;
     var <lead = 0.1, <margin = 0.006, <pumpPeriod = 0.01;
     var <>wallClock, <>sender, <>randSeed, <>autoProbe = false;
     // The dice (keepDice): a seed every Start plays, or nil for new dice at
@@ -260,6 +266,7 @@ MegaSADrums {
         // server to read the impulse responses.
         autoProbe = server.isKindOf(Server);
         autoIR = server.isKindOf(Server);
+        levelKits = server.isKindOf(Server);
     }
 
     // presets/sa/drums/kits/ in the repository, or nil if it cannot be found.
@@ -898,8 +905,35 @@ MegaSADrums {
 
     kitState { |slot| ^if(this.prSlotOk(slot, false)) { kitStates[slot] } }
 
+    // Each slot's reference level (MegaSAKit.measureLevel, measured on the kit
+    // the slot starts on): Kit-Carbon + layer for the steps, the One Hit Kit
+    // for the onset notes. The strips' levels were set for those two in
+    // Live's set, so they play as they always have, and every other kit is
+    // brought to them.
+    *levelReference {
+        ^(steps: (rms: -10.283, peak: 5.007), onset: (rms: -19.577, peak: -2.775))
+    }
+
+    levelKits_ { |on|
+        levelKits = on == true;
+        [\steps, \onset].do { |slot|
+            [loadingKits[slot], kitObjects[slot]].do { |k| k !? { k.levelDb = this.prLevelFor(slot, k) } };
+            kitObjects[slot] !? { |k| this.prNotify(\kitLevel, slot, k.levelDb) };
+        };
+    }
+
+    // The correction the slot's kit plays with, in dB (MegaSAKit.levelDb): 0
+    // with levelKits off, or for a kit whose samples could not be measured;
+    // nil with no kit in the slot.
+    kitLevel { |slot| ^this.kitFor(slot) !? { |k| k.levelDb } }
+
+    prLevelFor { |slot, kit|
+        ^if(levelKits) { MegaSAKit.levelCorrection(kit.measureLevel(kitDir), this.class.levelReference[slot]) } { 0 }
+    }
+
     // Load a kit by key and swap it in when its buffers are in: notifies \kit,
-    // slot, key at once and \kitState, slot, state as it goes (\loading, then
+    // slot, key at once, \kitLevel, slot, dB once it is measured (with
+    // levelKits on), and \kitState, slot, state as it goes (\loading, then
     // \ready \partial \missing or \failed). action.(drums, state) hears the
     // final state. Each request has a serial: one overtaken by a later request
     // is dropped when it completes, its buffers freed if nothing else uses
@@ -931,6 +965,10 @@ MegaSADrums {
             this.prReleaseBuffers;
             action.value(this, \missing);
             ^this
+        };
+        if(levelKits) {
+            kit.levelDb = this.prLevelFor(slot, kit);
+            this.prNotify(\kitLevel, slot, kit.levelDb);
         };
         loadingKits[slot] = kit;
         this.prKitState(slot, \loading);

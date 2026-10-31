@@ -1482,7 +1482,8 @@ MegaRemote {
     // "E2" for MIDI 40, nil for nil.
     *noteName { |midi| ^midi !? { |m| MegaSANoteSeq.rootNames[m % 12] ++ ((m div: 12) - 1) } }
 
-    // Both step patterns, which is in force, the kits and their pads.
+    // Both step patterns, which is in force, the kits (with how far each was
+    // levelled, in dB) and their pads.
     *drumsOf { |d|
         var pads = { |slot|
             var o = MegaJsonObject.new;
@@ -1493,6 +1494,7 @@ MegaRemote {
             \on, d.on, \playing, d.playing, \breakActive, d.breakActive,
             \stepsKit, d.kit(\steps) !? { |k| k.asString },
             \onsetKit, d.kit(\onset) !? { |k| k.asString },
+            \kitLevels, this.obj([\steps, d.kitLevel(\steps), \onset, d.kitLevel(\onset)]),
             \kits, d.kitKeys.collect(_.asString),
             \pads, this.obj([\steps, pads.(\steps), \onset, pads.(\onset)]),
             \repeats, d.repeats, \reverbMix, d.reverbMix, \offsetMs, d.offsetMs,
