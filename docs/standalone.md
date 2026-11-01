@@ -1,6 +1,6 @@
 # Effect chains and sounds
 
-megalooper plays the effects for your instrument, a bass, the loop, the drums
+megalooper plays the effects for your instrument, a second one, the loop, the drums
 and the synth, in chains you build and rearrange while the loop plays. This
 guide covers the effect chains, sounds and plugins. The looper, the cutter,
 the grains and the MIDI map work as [the manual](manual.md) says.
@@ -16,9 +16,9 @@ megalooper plays on these rigs:
   sample rate switched before the start, or several fixed setups ([Rigs of
   your own](routing.md#rigs-of-your-own)).
 
-A bass can come in on an input of its own, **Bass** in the launcher ([A
-bass](routing.md#a-bass)): it plays through its own chain, the **BASS** row on
-the FX view.
+A second instrument can come in on an input of its own, **Instrument 2** in the
+launcher ([Instrument 2](routing.md#instrument-2)): it plays through its own
+chain, the **INSTRUMENT 2** row on the FX view.
 
 Then open the **FX** view (key **3**) for the effects. The drums have a view
 of their own, **Drums** (key **4**), and the synth, **Synth** (key **7**).
@@ -31,8 +31,8 @@ land late or early.
 ## The chains
 
 - **The instrument chain** (the **INSTRUMENT** row) is what you play through. The loop records its output.
-- **The bass chain** is what the bass plays through, on a rig with a bass
-  input. It goes to the mix only: the loop does not record it.
+- **The instrument 2 chain** (the **INSTRUMENT 2** row) is what a second
+  instrument plays through, on a rig with its input. It goes to the mix only: the loop does not record it.
 - **The loop chain** plays the recorded loop.
 - **The drums chain** plays the drums' steps, before their reverb. It starts
   empty. The onset kit does not pass through it.

@@ -174,7 +174,7 @@
     ~rigOutDevMenu = ~rigAudioMenu.(300).toolTip_("The device the mix plays on, on its outputs 1 and 2.");
     ~rigInstMenu = ~rigAudioMenu.(120).toolTip_("The input your instrument is plugged into. The looper records it through the\n"
         "Instrument chain, and listens to it dry for the meter.");
-    ~rigBassMenu = ~rigAudioMenu.(120).toolTip_("A bass on an input of its own, with a chain and a strip of its own.");
+    ~rigBassMenu = ~rigAudioMenu.(120).toolTip_("A second instrument on an input of its own, with a chain and a strip of its own.");
     ~rigBufferMenu = ~rigAudioMenu.(170).items_(~audioBuffers.collect { |n| ~audioBufferLabel.(n) })
         .toolTip_("The audio buffer. Bigger stops dropouts on a slower computer, and adds delay: run\n"
             "the Calibrate view's latency step after a change.");
@@ -212,7 +212,7 @@
         ~guiCaption.("AUDIO", 11),
         ~rigRow.("Input device", ~rigInDevMenu),
         ~rigRow.("Output device", ~rigOutDevMenu),
-        ~rigRow.("Instrument on", View().layout_(HLayout(~rigInstMenu, ~guiLabel.("Bass on", 14), ~rigBassMenu)
+        ~rigRow.("Instrument on", View().layout_(HLayout(~rigInstMenu, ~guiLabel.("Instrument 2 on", 14), ~rigBassMenu)
             .margins_(0).spacing_(10))),
         ~rigRow.("Buffer", ~rigBufferMenu),
         noteText,

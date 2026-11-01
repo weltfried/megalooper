@@ -834,13 +834,22 @@ Routine {
         ~effectsSelected = nil;
         paneB = ~buildEffectsPane.();
         tick.();
-        ok.("with a bass input there is a BASS row, under the guitar's",
+        ok.("with instrument 2's input there is an INSTRUMENT 2 row, under the instrument's",
             (~effectsTracks.() == [\guitar, \bass, \loop, \drums, \synth]) and: { ~effectsRowHolders[\bass].notNil }
                 and: { ~effectsRowHolders[\bass].isClosed.not }
                 and: { ~effectsRowHolders[\bass].absoluteBounds.top > ~effectsRowHolders[\guitar].absoluteBounds.top }
                 and: { ~effectsRowHolders[\bass].absoluteBounds.top < ~effectsRowHolders[\loop].absoluteBounds.top },
             ~effectsTracks.().asString);
-        ok.("...ending in a + tile that adds to the bass chain", (~effectsPlusTiles ? ())[\bass].notNil
+        {
+            var caption = ~effectsRowHolders[\bass].parent.children.detect { |v|
+                v.isKindOf(StaticText) and: { v.string == "INSTRUMENT 2" } };
+            // Its fixed width, as the pane is never laid out in a window here.
+            var room = { |c| c.getProperty(\maximumSize).width };
+            ok.("...captioned INSTRUMENT 2 on one line", caption.notNil
+                and: { caption.string.bounds(caption.font).width <= room.(caption) },
+                (caption !? { |c| c.string.bounds(c.font).width.asString ++ " in " ++ room.(c) }).asString);
+        }.value;
+        ok.("...ending in a + tile that adds to instrument 2's chain", (~effectsPlusTiles ? ())[\bass].notNil
             and: { ~effectsAddItems.(\bass).any { |it| it[\section] == \builtin } });
         d = mb.insertDevice(\bass, nil, \saturator);
         tick.();
@@ -849,7 +858,7 @@ Routine {
                 and: { ~effectsRowHolders[\bass].canvas.children.any { |v| v === ~effectsTiles[d.id][\select] } },
             (d !? { |x| x.id }).asString);
         items = ~effectsDeviceItems.(\delay).collect { |it| it[\label] };
-        ok.("a guitar effect's menu offers the bass chain", items.any { |x| x == "Move to the bass chain" }, items.asString);
+        ok.("an instrument effect's menu offers instrument 2's chain", items.any { |x| x == "Move to the instrument 2 chain" }, items.asString);
         h1 = paneB.minSizeHint.height;
         ("  the pane wants " ++ h1 ++ " px high with the bass's row, " ++ h0 ++ " without").postln;
         ok.("...and the pane still fits 1440 px wide", paneB.minSizeHint.width <= 1440, paneB.minSizeHint.width.asString);

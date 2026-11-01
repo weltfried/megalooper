@@ -105,7 +105,7 @@ chords), `granularResetTweaks`.
 | `sa.fxSend.<plugin>.<1-8>` | One of a plugin's eight sends, for the plugin's own MIDI learn |
 
 **The mixer:** `sa.level.<strip>` and `sa.mute.<strip>`. The strips are
-`guitar` (shown as **Instrument**), `bass`, `loop`, `drums`, `onsetKit`,
+`guitar` (shown as **Instrument**), `bass` (**Instrument 2**), `loop`, `drums`, `onsetKit`,
 `synth` and `master`; the master has no mute.
 
 **The drums:** `sa.drums.on`, `sa.drums.breakPattern`, `sa.drums.repeats`,

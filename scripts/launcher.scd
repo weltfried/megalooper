@@ -224,10 +224,10 @@ win.layout_(VLayout(
                 .toolTip_("The input your instrument is plugged into. The looper records it\n"
                     "through the Instrument chain, and listens to it dry for the meter.")
                 .action_({ audio = audioNow.(); refresh.() }),
-            StaticText().string_("Bass:").align_(\right).fixedWidth_(50),
+            StaticText().string_("Instrument 2:").align_(\right).fixedWidth_(90),
             bassMenu = PopUpMenu()
                 .canFocus_(false)
-                .toolTip_("A bass on an input of its own, with a chain and a strip of its own.\n"
+                .toolTip_("A second instrument on an input of its own, with a chain and a strip of its own.\n"
                     "None on a laptop, whose second input is its microphone.")
                 .action_({ audio = audioNow.(); refresh.() })
         )

@@ -635,7 +635,7 @@
     [\guitar, \bass, \loop, \drums, \synth].select { |t|
         MegaSASound.trackNames.includes(t) and: { (t != \bass) or: { (~megaSA !? { |m| m.bassIn }).notNil } } }
 };
-~effectsRowCaptions = (guitar: "INSTRUMENT", bass: "BASS", loop: "LOOP", drums: "DRUMS", synth: "SYNTH");
+~effectsRowCaptions = (guitar: "INSTRUMENT", bass: "INSTRUMENT 2", loop: "LOOP", drums: "DRUMS", synth: "SYNTH");
 
 // ---- The status line ------------------------------------------------------------
 // Under the rows: the drum hits the language had to drop, and every plugin
@@ -1048,7 +1048,7 @@
         rowOf = { |track, caption|
             ~effectsRowHolders[track] = ScrollView().hasBorder_(false).hasVerticalScroller_(false)
                 .background_(~gt[\bg]).fixedHeight_(58 + 14);
-            HLayout(~guiCaption.(caption).fixedWidth_(84), ~effectsRowHolders[track]).spacing_(6).margins_(0)
+            HLayout(~guiCaption.(caption).fixedWidth_(92), ~effectsRowHolders[track]).spacing_(6).margins_(0)
         };
         preset = ~guiPresetParts.(\saFx, (
             menu: "Saved sounds: every chain, every setting and each plugin's sound.\n"

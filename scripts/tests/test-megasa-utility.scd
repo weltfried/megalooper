@@ -85,7 +85,7 @@ var keyArgs = { |srv, node|
         ++ [key[\spec].default, MegaSAFx.param(\compressorKeyFilter)[\spec].default],
     [\compressorKey, \compressorKeyFilter, 0, 20000]);
 ~tEq.("...the Key a menu: itself, then each chain in the order the server runs them",
-    key[\choices].collect(_[1]), ["Itself", "Instrument", "Bass", "Loop", "Drums", "Synth"]);
+    key[\choices].collect(_[1]), ["Itself", "Instrument", "Instrument 2", "Loop", "Drums", "Synth"]);
 ~tEq.("...one choice per key track, 1 on", key[\choices].drop(1).collect(_[0]), (1 .. MegaSAFx.keyTracks.size));
 ~tEq.("only the Compressor is keyed", MegaSAFx.typeKeys.select { |k| MegaSAFx.type(k)[\keyed] == true }, [\compressor]);
 

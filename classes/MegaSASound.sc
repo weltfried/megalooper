@@ -50,9 +50,12 @@ MegaSASound {
     // empty.
     *firstTrackNames { ^[\guitar, \loop] }
     // What a chain is called where the player reads it. The first chain's key
-    // is \guitar in files, MIDI maps and the AI tool; on screen it is the
-    // instrument, whatever is plugged in.
-    *trackLabel { |track| ^if(track.asString == "guitar") { "instrument" } { track.asString } }
+    // is \guitar in files, MIDI maps and the AI tool, the second input's
+    // \bass; on screen they are instrument and instrument 2, whatever is
+    // plugged in.
+    *trackLabel { |track|
+        ^switch(track.asSymbol, \guitar, { "instrument" }, \bass, { "instrument 2" }, { track.asString })
+    }
 
     // tracks: [(track: a Symbol, devices: [device, …], extras: […]), …]; a
     // track this build has not is (track:, raw:).

@@ -1,7 +1,7 @@
 # Audio settings
 
-Which audio devices megalooper plays on, and where your instrument and a bass
-come in, you choose from menus: in the launcher before the start, and on
+Which audio devices megalooper plays on, and where your instrument and a
+second one come in, you choose from menus: in the launcher before the start, and on
 Setup's Rig page while it runs (the manual's
 [Configuration](manual.md#configuration) lists them). The rest of this page
 is what happens behind those menus, and, at its end, rigs of your own for
@@ -18,7 +18,7 @@ what the menus do not offer.
   one rate in Audio MIDI Setup.
 - **A device that is not there** when megalooper starts gives way to the
   system's default for that side, and an input the device does not have to
-  input 1 (the bass's to none). The launcher says so before you press Start,
+  input 1 (instrument 2's to none). The launcher says so before you press Start,
   the Rig page says it in red, and your choice stays, so the next start with
   the device plugged in is as you left it.
 - **Changing the audio means starting again.** The device is fixed when the
@@ -59,15 +59,20 @@ chain. What you hear and what gets looped do not change.
   loop as recorded, through the effects, so an exported WAV is not what the
   detector heard. The JSON beside it has the onsets the detector did hear.
 
-## A bass
+## Instrument 2
 
-**Bass: Input 2** says a bass is on the input device's input 2. megalooper
-plays it through the bass chain (the **BASS** row on the FX view) onto a strip
-of its own, **Bass** under Levels on Setup's Rig page and on Perform, and
-**Record set** writes it as a stem of its own. The looper does not record it.
-**None** is the start: on a laptop input 2 is the microphone. The bass's input
-is never the instrument's: that would play the instrument twice, and
-megalooper starts without the bass then, saying why.
+**Instrument 2: Input 2** says a second instrument, a bass, say, is on the
+input device's input 2. megalooper plays it through a chain of its own (the
+**INSTRUMENT 2** row on the FX view) onto a strip of its own, **Instrument 2**
+under Levels on Setup's Rig page and on Perform, and **Record set** writes it
+as a stem of its own. The looper does not record it. **None** is the start: on
+a laptop input 2 is the microphone. Instrument 2's input is never the
+instrument's: that would play the instrument twice, and megalooper starts
+without instrument 2 then, saying why.
+
+Files, MIDI maps and AI apps know this chain by its old name, `bass`
+(`bassChannel`, `sa.level.bass`, the `-bass.wav` stem), whatever is plugged
+in, as they know the instrument's as `guitar`.
 
 ## The calibrated values
 
@@ -116,7 +121,7 @@ silent otherwise:
 
 ## Rigs of your own
 
-The menus cover one device in, one out, the instrument's and a bass's inputs
+The menus cover one device in, one out, the instrument's and instrument 2's inputs
 and the buffer. A **routing profile** of your own covers the rest:
 
 - an **aggregate device** (several joined in Audio MIDI Setup), with its
@@ -135,7 +140,7 @@ Write it into **`profiles.scd` in your megalooper folder**
 (`~/Library/Application Support/SuperCollider/megalooper/` on macOS,
 `~/.local/share/SuperCollider/megalooper/` on Linux). The file holds one
 Event, a profile per key. An interface with your instrument on input 1 and a
-bass on input 2, switched to 48 kHz:
+second one on input 2, switched to 48 kHz:
 
 ```supercollider
 // My rigs.
@@ -167,9 +172,9 @@ Some interfaces come up at 44.1 kHz when plugged in on their own.
 64 frames, a round trip of about 9 ms on a good interface.
 
 `./tools/run-checks.sh quick` checks your rigs with megalooper's own: a
-channel outside the inputs the profile opens, a bass on the instrument's input
-or the tap, a bass on a rig without `sa: true`, a timing value outside its control.
-The analysis tap and the bass must each be an input the profile opens. Past
+channel outside the inputs the profile opens, instrument 2 on the instrument's
+input or the tap, instrument 2 on a rig without `sa: true`, a timing value outside
+its control. The analysis tap and instrument 2 must each be an input the profile opens. Past
 the inputs, a channel reads one of megalooper's own busses, so a tap out of
 range would feed the looper's output back into the onset detection.
 
@@ -185,7 +190,7 @@ Channels are counted from 0: input 1 of the interface is channel 0.
 | `inChannel` | Your instrument's input. The instrument chain starts here, and the looper records what comes out of the chain |
 | `inChannelCount` | `2` records both sides of the instrument chain, so its stereo effects reach the loop |
 | `analysisChannel` | Optional: the one input the onset and pitch detection listens to ([The analysis tap](#the-analysis-tap)). Left out, it listens to what the looper records |
-| `bassChannel` | Optional: a bass on an input of its own ([A bass](#a-bass)) |
+| `bassChannel` | Optional: instrument 2 on an input of its own ([Instrument 2](#instrument-2)) |
 | `sa`, `live` | `sa: true, live: false`, both: megalooper's mixer, chains, drums and synth. Leave `live: false` out and the Rig page shows controls meant for another setup, and the start runs checks it does not need |
 | `memSize` | `65536`: the memory the effects' delay lines need |
 | `sampleRate`, `setSampleRate` | Optional: the rate the rig is wired for. With `setSampleRate: true` the device is switched to it before the start |
@@ -213,7 +218,7 @@ install). Run it again at any time:
 | Finding | What it means | Result |
 | --- | --- | --- |
 | Fewer channels than `numChans` | A member has dropped out, and the rig's inputs and outputs cannot all exist | **Stops**, listing which expected members CoreAudio can still see |
-| Fewer channels than `numInChans` | Only the input above `numChans` is gone | **Goes on**: the tap is switched off and onset detection listens to the recorded input, and says so; the bass too, if its input is gone |
+| Fewer channels than `numInChans` | Only the input above `numChans` is gone | **Goes on**: the tap is switched off and onset detection listens to the recorded input, and says so; instrument 2 too, if its input is gone |
 | Device rate ≠ profile rate | The aggregate trap, caught before the start instead of after | Warns |
 | A `members` entry not present | The channel count still fits, so the other members have **shifted down**: every channel above the gap is now something else | Warns |
 | A member at a different rate from the aggregate | CoreAudio is resampling it, the usual cause of an aggregate that works until it doesn't | Warns |

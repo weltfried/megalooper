@@ -518,9 +518,9 @@
     };
     bass = a[\bassChannel] !? { |b| b.asInteger };
     if(bass.notNil and: { (bass < 0) or: { bass == inCh } or: { inCount.notNil and: { bass >= inCount } } }) {
-        notes.add(if(bass == inCh) { "The bass's input is the instrument's: no bass this time." } {
-            "The bass's input " ++ (bass + 1) ++ " is not on " ++ (inDev !? { |x| x[\name].quote } ? "the input")
-                ++ ": no bass this time." });
+        notes.add(if(bass == inCh) { "Instrument 2's input is the instrument's: no instrument 2 this time." } {
+            "Instrument 2's input " ++ (bass + 1) ++ " is not on " ++ (inDev !? { |x| x[\name].quote } ? "the input")
+                ++ ": no instrument 2 this time." });
         bass = nil;
     };
     rp[\inChannel] = inCh;
@@ -878,10 +878,10 @@
                 s.options.numInputBusChannels = dev[\in].min(wantIn);
                 notes.add("analysis tap disabled");
                 if(~bassChannel.notNil and: { ~bassChannel >= dev[\in] }) {
-                    ("!!! The bass's input (" ++ (~bassChannel + 1) ++ ") is not there either: "
-                        ++ "the bass has no strip this time.").postln;
+                    ("!!! Instrument 2's input (" ++ (~bassChannel + 1) ++ ") is not there either: "
+                        ++ "instrument 2 has no strip this time.").postln;
                     ~bassChannel = nil;
-                    notes.add("bass input disabled");
+                    notes.add("instrument 2 input disabled");
                 };
             };
 
@@ -962,7 +962,7 @@
     "".postln;
     ("megalooper: '" ++ profileName ++ "' on the devices chosen in the audio settings.").postln;
     ("    in  : " ++ rp[\inDevice] ++ says.(inDev, \in) ++ ", the instrument on input " ++ (rp[\inChannel] + 1)
-        ++ (rp[\bassChannel] !? { |b| ", the bass on input " ++ (b + 1) } ? "")).postln;
+        ++ (rp[\bassChannel] !? { |b| ", instrument 2 on input " ++ (b + 1) } ? "")).postln;
     ("    out : " ++ rp[\outDevice] ++ says.(outDev, \out) ++ ", the mix on outputs 1 and 2").postln;
     if(inDev.notNil and: { outDev.notNil } and: { inDev[\rate] > 0 } and: { outDev[\rate] > 0 }
         and: { inDev[\rate] != outDev[\rate] }) {

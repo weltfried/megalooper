@@ -20,7 +20,7 @@ Choose the audio in the Desktop launcher, before you start:
 | **Input** | The device your instrument comes in on. **System default** follows the Mac's Sound settings |
 | **Output** | The device the mix plays on, on its outputs 1 and 2 |
 | **Instrument** | The input your instrument is plugged into. The looper records it through the Instrument chain and listens to it dry for the meter |
-| **Bass** | **None**, or the input a bass is plugged into: it gets a chain and a strip of its own ([A bass](routing.md#a-bass)) |
+| **Instrument 2** | **None**, or the input a second instrument is plugged into: it gets a chain and a strip of its own ([Instrument 2](routing.md#instrument-2)) |
 | **Buffer** | The audio buffer. Bigger stops dropouts on a slower computer, and adds delay |
 
 megalooper keeps your choice in `settings.json` for the next start. A device
@@ -279,8 +279,8 @@ views themselves (Show Perform, Show Sound, …, to put them on footswitches):
   into the backups); both ask for a second click. **Load from…** opens a map
   file, a backup or one someone sent you.
 - **The list**: every binding, with its range where it has one. A row is grey
-  when its control isn't on this rig: the bass's level on a rig without a
-  bass, say. Select a
+  when its control isn't on this rig: instrument 2's level on a rig without
+  its input, say. Select a
   row to change it:
   - **Learn** arms its control again;
   - **×** removes the binding;
@@ -494,7 +494,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 │      │        │        │         │       │       │ Rec next loop  Undo  Clear  │
 │      │        │        │         │       │       │ MACROS · Master  Arc  Onset │
 ├──────┴────────┴────────┴─────────┴───────┴───────┤                             │
-│ LEVELS · Instrument Bass Loop Drums Onset kit Synth Master (as on Setup)       │
+│ LEVELS · Instrument Instrument 2 Loop Drums Onset kit Synth Master (as Setup)  │
 ├──────────────────────────────────────────────────┴─────────────────────────────┤
 │ keys 1–5 7 views · 6 calibrate · T theme · H help     Refused: nothing playing │  the footer
 └────────────────────────────────────────────────────────────────────────────────┘
@@ -579,7 +579,7 @@ at the same sizes.
 The controls, by view:
 
 - **Audio** *(Setup › Rig)* — the input and output devices, the input your
-  instrument and a bass are on, and the buffer, as in the launcher
+  instrument and instrument 2 are on, and the buffer, as in the launcher
   ([Configuration](#configuration)). A change wakes **Apply and restart**;
   click it twice and megalooper starts again on the new audio, because the
   device is fixed when the audio server starts. The loop goes, and the
@@ -873,7 +873,7 @@ What it changes and what it leaves alone:
 - The **drums** take the new tempo and meter the way an analysis delivers them.
 
 **It lands on a loop boundary, never on the press**, and the reading chip counts
-down to it, so the bass player hears it coming the way a break is heard. Which
+down to it, so whoever plays along hears it coming the way a break is heard. Which
 boundary: a reading that changes how many quarter notes a loop holds makes the
 drums' bar line meet the loop boundary only every so many loops, so the looper
 takes the next boundary or the one after, whichever the drums' bar line falls
@@ -1289,7 +1289,7 @@ turns the recordings into something that can be analysed afterwards.
 | File | What it is |
 | --- | --- |
 | `<stamp>-<tempo>-<meter>-master.wav` | what the room heard — stereo, the mix as it leaves for the interface |
-| `-guitar`, `-loop`, `-drums`, `-onset`, `-synth.wav` (and `-bass.wav` on a rig with a bass) | the parts of the mix as heard: your instrument, the loop, the drums, the onset kit and the synth, after their faders, so they sum to the master |
+| `-guitar`, `-loop`, `-drums`, `-onset`, `-synth.wav` (and `-bass.wav` for instrument 2) | the parts of the mix as heard: your instrument, the loop, the drums, the onset kit and the synth, after their faders, so they sum to the master |
 | `<stamp>-<tempo>-<meter>-drums.mid` | every drum hit, steps and onset kit, to play other sounds with afterwards |
 | `<stamp>-<tempo>-<meter>-tap.wav` | the dry instrument, mono, straight off the analysis tap |
 | `<stamp>-<tempo>-<meter>-events.jsonl` | what happened: every record press, every take with the onsets it was analysed from and the readings it was offered, every next-reading press and where it landed, every threshold change, every transport action (play, stop, overdub, multiply, undo, clear), and every drum hit that sounded — one JSON object per line, times in seconds from the stomp. With **Log every action**, every change too ([Every action](#every-action)) |
@@ -1887,7 +1887,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-megaremote.scd` | megalooper as a tool for an AI app: who may ask, what is answered, the changes it may make and take back |
 | `test-audio-settings.scd` | the audio settings: the profile they make against a device list, what gives way when a device or an input is missing, `settings.json`, the server's options, the sample-rate check, Apply and restart |
 | `test-megasa.scd` | The frame around the looper: its routing, server options, the mixer's levels and mutes, its SynthDefs, the drums it owns, the stems |
-| `test-megasa-chains.scd`, `-edits`, `-drumchain`, `-bass` | the device chains: types, devices and chains as models and as built; insert, copy, remove, move, rename, undo and redo; the drums' chain; the bass's chain |
+| `test-megasa-chains.scd`, `-edits`, `-drumchain`, `-bass` | the device chains: types, devices and chains as models and as built; insert, copy, remove, move, rename, undo and redo; the drums' chain; instrument 2's chain |
 | `test-megasa-sound.scd`, `-keep`, `test-sa-sounds.scd` | sounds: the document and its JSON, Keep and recall onto running chains, what a boot does with the kept sound, variations |
 | `test-megasa-plugins.scd` | the plugin catalog: what the browser offers, which entry a sound names, the scan's rules |
 | `test-megasa-random.scd` | an effect's Random: every setting inside its range, along its knob's curve |

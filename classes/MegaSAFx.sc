@@ -1232,9 +1232,9 @@ MegaSAFx {
                     "default. Lower is parallel compression."),
             (fx: \compressor, name: \compressorKey, label: "Key",
                 spec: ControlSpec(0, this.keyTracks.size, \lin, 1, 0),
-                choices: [[0, "Itself"], [1, "Instrument"], [2, "Bass"], [3, "Loop"], [4, "Drums"], [5, "Synth"]],
+                choices: [[0, "Itself"], [1, "Instrument"], [2, "Instrument 2"], [3, "Loop"], [4, "Drums"], [5, "Synth"]],
                 tip: "What turns it down: itself by default, or another chain as it leaves\n"
-                    "its effects, before its fader. On the bass or the loop keyed by the\n"
+                    "its effects, before its fader. On instrument 2 or the loop keyed by the\n"
                     "drums, it pumps on the kick; on the loop keyed by the instrument, the\n"
                     "loop makes room while you play. Its own chain's name is itself."),
             (fx: \compressor, name: \compressorKeyFilter, label: "Key Filter", units: " Hz",

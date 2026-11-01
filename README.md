@@ -22,7 +22,7 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
   with presets.
 - **Effect chains.** Chains for your instrument, the loop, the drums and
-  the synth, and for a bass on a second input, with sixteen built-in effects and your VST2
+  the synth, and for a second instrument on an input of its own, with sixteen built-in effects and your VST2
   and VST3 plugins. Add, drag and remove effects while a loop plays. Random
   throws new settings at an effect, and a variation keeps the ones you like.
   A sound is one file: the chains, every setting and each plugin's state.
@@ -112,8 +112,8 @@ and the looper plays while it records.
 1. Double-click **megalooper** on the Desktop (or run `./tools/megalooper`).
 2. In the launcher, choose where your instrument comes in and where the mix
    goes: the **Input** and **Output** devices (System default follows the
-   Mac's Sound settings), the input your **Instrument** is plugged into, and a
-   **Bass** on an input of its own if you have one. The mix plays on the
+   Mac's Sound settings), the input your **Instrument** is plugged into, and
+   **Instrument 2** on an input of its own if you have a second one. The mix plays on the
    output's 1 and 2. megalooper keeps your choice for the next start.
    ([Audio settings](docs/routing.md))
 3. Press **Start megalooper** and wait for the window. On a slower computer
@@ -163,7 +163,7 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 | [megalooper on Linux](docs/linux.md) | Installing and starting it there, and what differs |
 | [Drums](docs/drums.md) | Getting a kit, and making one from your own samples |
 | [The synth](docs/synth.md) | The note sequencer, the Wave synth, your wavetables and VST instruments |
-| [Audio settings](docs/routing.md) | The input and output, a bass, calibration per setup, and rigs of your own |
+| [Audio settings](docs/routing.md) | The input and output, a second instrument, calibration per setup, and rigs of your own |
 | [The manual](docs/manual.md) | Every control, the MIDI map, the cutter, the grains, calibration, how the meter is found |
 | [MIDI map files](docs/midi-maps.md) | The JSON a map is kept in, to write or share one |
 | [AI apps](docs/ai.md) | Letting an AI app such as Claude Desktop read the set and change the drums, the synth, the effects, the Grains and the Cutter |
