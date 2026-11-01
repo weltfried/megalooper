@@ -767,13 +767,21 @@
                 { "COUNT · " ++ c[\groups].collect(_.asString).join("+")
                     ++ (if(c[\barOdd]) { " · THE " ++ c[\beatsPerBar] } { "" })
                     ++ (if((s[\speed] ? 1) != 1) { " · ½" } { "" }) };
+            // A bar of many one-beat groups (15/16 counts 1+1+…) says its
+            // beats rather than run its groups off the block.
+            f = ~guiMono.(12, true);
+            if((cap.bounds(f).width > (w - 44)) and: { c[\groups].every { |g| g == 1 } } and: { counting.not } and: { near.isNil }) {
+                cap = "COUNT · " ++ c[\groups].size ++ " BEATS" ++ cap.copyToEnd(("COUNT · " ++ c[\groups].collect(_.asString).join("+")).size)
+            };
             Pen.stringInRect(cap, Rect(22, 12, w - 44 - (if(c[\nextOdd] and: { counting.not }) { tw ? 0 } { 0 }), 18),
-                ~guiMono.(12, true), fade.(if(near.notNil and: { counting.not }) { ~gt[\armed] } { ink }, 0.9),
+                f, fade.(if(near.notNil and: { counting.not }) { ~gt[\armed] } { ink }, 0.9),
                 QAlignment(\left));
             // The number: the count-in, or the group (in 4/4, where every
-            // group is one beat, that is the beat).
+            // group is one beat, that is the beat). Two digits (the tenth
+            // group of 15/16) get smaller rather than run into the beats.
             num = if(counting) { c[\countdown] } { c[\group] };
-            Pen.stringInRect(num.asString, Rect(14, 26, right - 14, h - 30), ~guiSans.(big, true), ink, QAlignment(\left));
+            Pen.stringInRect(num.asString, Rect(14, 26, right - 14, h - 30),
+                ~statusFitFont.(num.asString, big, right - 44), ink, QAlignment(\left));
             // The group's beats, or the bar's when every group is one beat.
             if(counting.not) {
                 cells = if(c[\groups].every { |g| g == 1 }) {
@@ -906,8 +914,9 @@
         .action_({ ~looper !? { |l| l.revertReading } }),
         'looper.revertReading', "Back to what the analyser heard, on the next loop boundary.");
     // Overdub meter detection, beside Revert because what it changes is the
-    // reading this line shows; Setup › Analysis has it too, with what it found.
-    // Written to the model and painted back (~statusPaintDubMeter).
+    // reading this line shows; here alone, on every view, and the footer says
+    // what a detection found (gui-wiring.scd). Written to the model and
+    // painted back (~statusPaintDubMeter).
     ~statusDubMeterButton = ~mapTag.(LooperTile().cycles_(false)
         .states_([["○ Overdub meter", ~gt[\ink], nil], ["● Overdub meter", ~gt[\onacc], ~gt[\ink]]])
         .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(140, 28)).pad_(6)
@@ -934,8 +943,12 @@
     ~guiOnsetThrLabel = ~guiMonoText.("thr —", 12, ~gt[\mute]);
     ~midiWatch.(~guiOnsetThrLabel, { ~statusPaintThreshold.() });
     ~statusPosShown = IdentityDictionary.new;
+    // On one line each: wrapping, a bar of ten beats or more ("BEAT 10/11")
+    // broke the line in two over the grid instead of asking for the room.
     ~guiPosBig = ~guiMonoText.("NO LOOP", 22, ~gt[\ink]);
+    ~guiPosBig.setProperty(\wordWrap, false);
     ~guiPosSmall = ~guiMonoText.("", 15, ~gt[\mute], true).align_(\right);
+    ~guiPosSmall.setProperty(\wordWrap, false);
     ~guiPositionView = UserView().canFocus_(false).minHeight_(60)
         .drawFunc_({ |v| ~statusDrawGrid.(v, false) });
     ~statusCountView = UserView().canFocus_(false).fixedWidth_(330)
