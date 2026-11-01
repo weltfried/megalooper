@@ -934,6 +934,8 @@ MegaSA {
         } {
             d.setOn(flag == true);
             this.changed(\fx, key, d.on);
+            // Off, a built-in adds no delay (the Shifter's goes).
+            this.prLatencyCheck;
         };
     }
 

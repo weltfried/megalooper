@@ -42,6 +42,7 @@ var files = [
     "test-reading.scd",
     "test-gesture-fuzz.scd",
     "test-calibrator.scd",
+    "test-overdub-latency.scd",
     "test-meter-analyzer.scd",
     "test-meter-corpus.scd",
     "test-uneven-bars.scd",

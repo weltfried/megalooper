@@ -619,7 +619,8 @@ The controls, by view:
   locked to the detected pulse (1). Mirrors the Grains' Morph on Sound (CC 118 in the
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.
 - **Overdub latency** *(Setup › Rig)* — round-trip latency compensation (0–100 ms).
-  See "Calibrating overdub latency" below.
+  On a Mac it starts from the round trip the audio device reports, which the
+  line under it shows. See "Calibrating overdub latency" below.
 - **Declick at the loop seam** *(Setup › Rig)* — the fade at the loop seam,
   0–20 ms, default 3. Higher hides clicks but softens the seam.
 - **Feedback** *(Perform's Loop column)* — how much of the existing buffer content is preserved
@@ -1448,11 +1449,13 @@ has to be true in the room, and what to do. The right column shows this rig's
 3. **Onset threshold.** Set it on Setup's Analysis page while you play: raise
    it until the lamp lights only on real hits, lower it until none are
    missing. Then press **Done**.
-4. **Overdub round trip.** Stop the loop. With an interface, patch a cable
-   from output 1 into the instrument input; on a computer's own speakers and
-   microphone there is nothing to patch. Press **Measure**, then **Apply**. If
-   it cannot be measured, set **Overdub latency** by ear on Setup's Rig page
-   and press **Start with this**.
+4. **Overdub round trip.** Optional on a Mac, where megalooper starts from
+   the round trip the audio device reports (below): measuring checks that
+   number. Stop the loop. With an interface, patch a cable from output 1 into
+   the instrument input; on a computer's own speakers and microphone there is
+   nothing to patch. Press **Measure**, then **Apply**. If it cannot be
+   measured, set **Overdub latency** by ear on Setup's Rig page and press
+   **Start with this**.
 
 **← Back**, **Skip**, **Next →** and **Start over** move through the steps.
 
@@ -1480,15 +1483,29 @@ A value is kept for the rig when you press **Apply**, **Done** or **Start with
 this**. It goes into `calibration.json` in your megalooper folder, and every
 start begins with it. **Forget** goes back to the rig's own numbers.
 
+**The round trip reported.** On a Mac every start sets the overdub latency
+from what the audio device reports for the way in and the way out at your
+buffer: its latency, its safety offset, its stream's and the buffer, added up
+the way Live's Preferences add them. On top comes the delay of the effects on
+the instrument and the loop chains (a plugin's reported latency, the Shifter's
+window), and when that changes, the latency moves with it. Setup's Rig page
+shows the number under **Overdub latency**, and the wizard in its right-hand
+column.
+Drivers are not always right, which is why the step is still there: what you
+apply or keep is kept as its difference to the reported round trip, like
+Live's Driver Error Compensation, so it still holds when the effects change.
+On Linux nothing reports the round trip: measure it, or set it by ear.
+
 ## Calibrating overdub latency
 
 1. Record a clear pulse (e.g., 4 hits on the beat).
 2. Start overdubbing (trigger while playing) and play *on the beat* of what
    you hear.
 3. Listen back. If your overdub lands *late*, raise **Overdub latency** on
-   Setup's Rig page; if it lands *early*, lower it. Expect about 30 ms: the
-   master limiter's 20 ms, plus about 10 ms for an interface at 64 to 128
-   frames; more on a computer's built-in audio.
+   Setup's Rig page; if it lands *early*, lower it. On a Mac it starts at the
+   round trip the audio device reports: about 5 to 15 ms for an interface at
+   64 to 128 frames, 50 ms and more for a computer's own microphone and
+   speakers.
 4. Once dialed in, the value sticks across loops, undo/redo, granular toggle,
    and reverse mode (the shift direction follows the playback rate). Press
    **Start with this** on the Calibrate view to keep it for the rig.

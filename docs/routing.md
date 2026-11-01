@@ -78,7 +78,7 @@ in, as they know the instrument's as `guitar`.
 
 | Value | What it corrects | How you get it |
 | --- | --- | --- |
-| Overdub latency (`latencyMs`) | How far back an overdub is written, so it lands where you played it. 0 to 100 ms | Measured by the Calibrate view's round-trip step, or by ear ("Overdub latency" on Setup's Rig page) |
+| Overdub latency (`latencyMs`) | How far back an overdub is written, so it lands where you played it. 0 to 100 ms | On a Mac, the round trip the audio device reports, plus the effects' delay. Checked by the Calibrate view's round-trip step, or by ear ("Overdub latency" on Setup's Rig page) |
 | Onset threshold (`onsetThreshold`) | How loud an attack must be to count as an onset. Defaults to 0.5 | The Calibrate view's threshold step, on Setup's Analysis page |
 | Onset notes' offset (`onsetNoteOffsetMs`) | When the onset notes are played, so they sit on the loop. Defaults to 0 | By ear ("Offset" under onset notes on Setup's Analysis page) |
 | Chain offset (`chainRecOffsetMs`) | Where **Rec next loop** starts recording, so a chained loop is not rotated in its buffer. `saSystem` has 20 ms | Measured with `scripts/check-chain-align.scd`; the Calibrate view does not measure it |
@@ -90,7 +90,16 @@ per **setup**, the input and output devices and the buffer
 folder, and every start on that setup begins with it. **Forget** lets it go.
 A value dialled by ear on Setup is not kept that way.
 
-A setup with nothing kept yet starts from:
+The overdub latency needs no measuring on a Mac: every start takes the round
+trip the devices report at your buffer, and the delay of the effects on the
+instrument and the loop, and follows the effects as they change. A
+measurement is kept as its difference to that report
+(`latencyCorrectionMs`), since a driver that reports wrongly is wrong by
+about the same amount whatever the effects do. A latency kept from an older
+megalooper, with no difference beside it, starts as it was.
+
+A setup with nothing kept yet starts from the following (the overdub latency
+from the round trip reported, where there is one):
 
 1. a rig of yours (below) on the same device, both ways, one with `sa: true`
    first: the numbers kept for it, else its profile's;
@@ -196,7 +205,7 @@ Channels are counted from 0: input 1 of the interface is channel 0.
 | `sampleRate`, `setSampleRate` | Optional: the rate the rig is wired for. With `setSampleRate: true` the device is switched to it before the start |
 | `hardwareBufferSize` | Optional: the block size to start with, in frames. The launcher's **Buffer** wins over it |
 | `midiMap` | Optional: the MIDI map the rig starts with, by name |
-| `latencyMs`, `onsetThreshold`, `onsetNoteOffsetMs`, `chainRecOffsetMs` | The rig's starting values ([The calibrated values](#the-calibrated-values)). What the Calibrate view keeps for the rig wins over them |
+| `latencyMs`, `onsetThreshold`, `onsetNoteOffsetMs`, `chainRecOffsetMs` | The rig's starting values ([The calibrated values](#the-calibrated-values)). What the Calibrate view keeps for the rig wins over them. On a Mac the overdub latency starts from the round trip reported instead, so `latencyMs` counts where nothing reports one |
 | `members` | Optional, for an aggregate device: the devices it should hold, so the preflight can name one that is missing |
 
 ### The device preflight

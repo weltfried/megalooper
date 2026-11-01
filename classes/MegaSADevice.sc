@@ -200,13 +200,15 @@ MegaSADevice {
         }
     }
 
-    // Its delay in frames at `sampleRate`: the type's (MegaSAFx.types), or
-    // for a plugin the delay its dry path follows (MegaSAPlugin.dryDelay):
+    // Its delay in frames at `sampleRate`: the type's (MegaSAFx.types) while
+    // it is on (off, a built-in passes the dry signal as it came), or for a
+    // plugin the delay its dry path follows, on or off (MegaSAPlugin.dryDelay):
     // what it reports, unless that held it off, when its device adds none.
     latency { |sampleRate = 48000|
-        ^if(this.isPlugin) { (plugin !? { |p| p.dryDelay }) ? 0 } {
-            (this.typeRow !? { |t| t[\latency].value(settings, sampleRate) }) ? 0
-        }
+        ^case
+        { this.isPlugin } { (plugin !? { |p| p.dryDelay }) ? 0 }
+        { on.not } { 0 }
+        { (this.typeRow !? { |t| t[\latency].value(settings, sampleRate) }) ? 0 }
     }
 
     // What its synth takes from the real-time pool (an estimate). A plugin

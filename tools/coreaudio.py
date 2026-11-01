@@ -296,6 +296,31 @@ def latency(device, buffer=None):
     return result
 
 
+def round_trip(input_spec=None, output_spec=None, buffer=None):
+    """What a host opening one device's input and another's output (the
+    system's defaults where None) pays for the way out and back in, each side
+    totalled as `latency` does. `buffer` defaults to the output device's own,
+    which is what scsynth gets when it asks for none: a size another program
+    chose is that program's alone (CoreAudio keeps one per process)."""
+    din = find(input_spec) if input_spec else defaults()[0]
+    dout = find(output_spec) if output_spec else defaults()[1]
+    if din is None or dout is None:
+        raise CoreAudioError("could not read the default input and output")
+    out_lat = latency(dout["id"], buffer)
+    in_lat = latency(din["id"], out_lat["buffer"])
+    rate = out_lat["rate"] or in_lat["rate"] or 48000.0
+    frames = in_lat["input"]["total"] + out_lat["output"]["total"]
+    return {
+        "input": dict(in_lat["input"], name=din["name"]),
+        "output": dict(out_lat["output"], name=dout["name"]),
+        "buffer": out_lat["buffer"],
+        "buffer_own": buffer is None,
+        "rate": rate,
+        "round_trip": frames,
+        "ms": frames * 1000.0 / rate,
+    }
+
+
 def _default_device(selector):
     raw = _get_raw(SYSTEM_OBJECT, selector)
     if not raw or len(raw) < 4:
@@ -453,6 +478,20 @@ def cmd_latency(args):
             name, p["device"], p["safety"], p["stream"], lat["buffer"], p["total"], ms(p["total"])))
     print("\nround trip at a %d-frame buffer: %d frames = %.2f ms, before any plugin"
           % (lat["buffer"], lat["round_trip"], ms(lat["round_trip"])))
+    return 0
+
+
+def cmd_round_trip(args):
+    rt = round_trip(args.input, args.output, args.buffer)
+    if args.json:
+        print(json.dumps(rt, indent=2))
+        return 0
+    ms = lambda frames: frames * 1000.0 / rt["rate"]  # noqa: E731
+    for side in ("input", "output"):
+        p = rt[side]
+        print("%-7s %-34.34s %6d frames = %.2f ms" % (side, p["name"], p["total"], ms(p["total"])))
+    print("\nround trip at a %d-frame buffer%s: %d frames = %.2f ms, before any plugin"
+          % (rt["buffer"], " (the device's own)" if rt["buffer_own"] else "", rt["round_trip"], rt["ms"]))
     return 0
 
 
@@ -620,6 +659,15 @@ def main(argv=None):
                    help="host buffer in frames (default: what the device runs at now)")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_latency)
+
+    p = sub.add_parser("round-trip",
+                       help="one device's input and another's output: the way out and back")
+    p.add_argument("--input", help="the input device (default: the system's default input)")
+    p.add_argument("--output", help="the output device (default: the system's default output)")
+    p.add_argument("--buffer", type=int,
+                   help="host buffer in frames (default: the output device's own)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_round_trip)
 
     p = sub.add_parser("defaults",
                        help="report the default input/output; exit 1 if their rates differ")

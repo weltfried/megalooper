@@ -22,6 +22,11 @@ LooperCalibrator {
     // (SA, standalone) it is noLiveSteps, and what it finds is kept per rig
     // in your megalooper folder (keptPath, rig) instead of written down.
     var <live = true, <>keptPath, <>rig;
+    // A Function answering the round trip the devices and the chains report
+    // (ms), or nil where nothing reports one: setup-model.scd's
+    // ~latencyReportedMs. With one, the round trip is kept as its difference
+    // to it, and measuring it is optional.
+    var <>reported;
     var <stepIndex = 0;
     var <results;        // step key -> the Event a measurement returned
     var <status;         // step key -> \pending | \running | \done | \skipped | \failed
@@ -302,8 +307,10 @@ LooperCalibrator {
                 why: "How far back an overdub is written, so it lands where you "
                     "played it. The round trip is everything between the loop "
                     "leaving megalooper and your instrument coming back into it: the "
-                    "interface both ways, and the instrument chain's effects and plugin. "
-                    "Measure it with the chain as you will play it.",
+                    "interface both ways, and the effects on the loop and the instrument. "
+                    "megalooper starts from the round trip the audio device reports, "
+                    "with the effects' own delay; measuring checks it, because a "
+                    "driver can be wrong.",
                 todo: [
                     "Stop the loop: its sound travels the same path as the "
                     "measurement's click.",
@@ -314,7 +321,9 @@ LooperCalibrator {
                     "patch: turn the volume up, keep the room quiet, keep the "
                     "microphone free.",
                     "Press Measure. It sends a short click eight times and times its "
-                    "return. Press Apply: the number is used and kept for this rig.",
+                    "return. Press Apply: the number is used, and kept for this setup as "
+                    "its difference to the reported round trip, so it holds when the "
+                    "effects change.",
                     "If it cannot be measured, set it by ear: Overdub latency on the "
                     "Setup view, until overdubs land where you played them. Then "
                     "press Start with this here."
@@ -339,7 +348,13 @@ LooperCalibrator {
 
     *keptPathIn { |root| ^root +/+ "calibration.json" }
 
-    *keptFields { ^[\onsetThreshold, \latencyMs, \abletonSyncMs, \onsetNoteOffsetMs, \chainRecOffsetMs] }
+    // The looper's own values a rig keeps, and the overdub latency's
+    // difference to the round trip reported (latencyCorrectionMs), kept beside
+    // it: a start on a device that reports adds it to the report
+    // (startLatency); one that does not, or an older megalooper, uses
+    // latencyMs.
+    *looperFields { ^[\onsetThreshold, \latencyMs, \abletonSyncMs, \onsetNoteOffsetMs, \chainRecOffsetMs] }
+    *keptFields { ^this.looperFields ++ [\latencyCorrectionMs] }
 
     // Every rig's kept numbers: rig -> (field: value, ..., savedAt:). Empty with
     // no file, or one that does not read (prReadKept says why).
@@ -402,7 +417,7 @@ LooperCalibrator {
     *applyKept { |looper, path, rig|
         var e = rig !? { this.readKept(path)[rig.asSymbol] };
         if(looper.isNil or: { e.isNil }) { ^nil };
-        this.keptFields.do { |f| e[f] !? { |v| looper.perform((f ++ "_").asSymbol, v) } };
+        this.looperFields.do { |f| e[f] !? { |v| looper.perform((f ++ "_").asSymbol, v) } };
         ^e
     }
 
@@ -419,8 +434,23 @@ LooperCalibrator {
         e = from !? { |k| this.applyKept(looper, this.keptPathIn(root), k) };
         ^e !? {
             "megalooper: the calibration kept for " ++ from ++ (e[\savedAt] !? { |t| " on " ++ t } ? "") ++ ": "
-                ++ this.keptFields.select { |f| e[f].notNil }.collect { |f| f ++ " " ++ e[f].round(0.01) }.join(", ") ++ "."
+                ++ this.looperFields.select { |f| e[f].notNil }.collect { |f| f ++ " " ++ e[f].round(0.01) }.join(", ") ++ "."
         }
+    }
+
+    // The overdub latency a start begins with on a device that reports its
+    // round trip (`reportedMs`: the devices' and the chains'), from what this
+    // setup keeps (`own`, or nil). A correction kept is added to the report.
+    // A latency kept with none (a measurement from before corrections were
+    // kept) stays what it was, its correction the difference. With neither
+    // it is the report. (latencyMs:, correctionMs:, from: \correction |
+    // \kept | \reported)
+    *startLatency { |reportedMs, own|
+        var c = own !? { |e| e[\latencyCorrectionMs] }, k = own !? { |e| e[\latencyMs] };
+        ^case
+        { c.notNil } { (latencyMs: (reportedMs + c).max(0), correctionMs: c, from: \correction) }
+        { k.notNil } { (latencyMs: k, correctionMs: k - reportedMs, from: \kept) }
+        { (latencyMs: reportedMs.max(0), correctionMs: 0, from: \reported) }
     }
 
     // Of `rig` (a name, or names in order), the first one `path` keeps
@@ -498,7 +528,17 @@ LooperCalibrator {
     // ===================================================================
     // Where the wizard is
     // ===================================================================
-    steps { ^LooperCalibrator.stepsFor(live) }
+    // With a round trip reported, measuring it is optional: the start has a
+    // number that needs no cable.
+    steps {
+        var all = LooperCalibrator.stepsFor(live);
+        ^if(live.not and: { this.reportedMs.notNil }) {
+            all.collect { |s| if(s[\key] == \latency) { s.copy.put(\optional, true) } { s } }
+        } { all }
+    }
+
+    // The round trip reported now, in ms, or nil.
+    reportedMs { ^reported !? { |f| f.value } }
 
     stepCount { ^this.steps.size }
 
@@ -670,10 +710,16 @@ LooperCalibrator {
     // What this rig keeps: (field: value, ..., savedAt:), or nil.
     kept { ^if(this.keeps) { LooperCalibrator.readKept(keptPath)[rig.asSymbol] } }
 
+    // The overdub latency is kept with its difference to the round trip
+    // reported, where one is.
     prKeep { |field, value|
-        var why;
+        var why, now;
         if(this.keeps.not or: { field.isNil } or: { value.isNil }) { ^this };
         why = LooperCalibrator.keep(keptPath, rig, field, value);
+        now = this.reportedMs;
+        if(why.isNil and: { field == \latencyMs } and: { now.notNil }) {
+            why = LooperCalibrator.keep(keptPath, rig, \latencyCorrectionMs, value - now);
+        };
         if(why.notNil) { ("LooperCalibrator: " ++ field ++ " was not kept for " ++ rig ++ " (" ++ why ++ ").").warn };
         this.changed(\kept, field);
     }

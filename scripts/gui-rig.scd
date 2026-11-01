@@ -60,6 +60,15 @@
     ).spacing_(5).margins_(0)
 };
 
+// Under the overdub latency: the round trip reported and how far the
+// latency is from it (setup-model.scd), hidden where nothing reports one.
+~rigPaintLatencyNote = {
+    ~latencyReportedHint !? { |t|
+        var line = ~latencyReportedLine !? { |f| f.value(~looper !? { |l| l.latencyMs }) };
+        if(t.isClosed.not) { t.string_(line ? "").visible_(line.notNil) };
+    };
+};
+
 // AI apps let in or not (setup-remote.scd): the switch, kept in
 // settings.json, and what it does. Off until switched on.
 ~rigAiSection = {
@@ -284,7 +293,12 @@
             ~latencyLabel = ~guiMonoText.(ms.(l !? { |lp| lp.latencyMs } ? 0), 14, ~gt[\ink]),
             "Round-trip audio latency. Shifts the overdub write head back by this much, so a note\n"
                 "played in time with what you hear lands at the matching loop position. Too low and\n"
-                "overdubs drag; too high and they rush."),
+                "overdubs drag; too high and they rush. On a Mac it starts from the round trip the audio\n"
+                "device reports, with the effects' delay, and follows the effects as they change."),
+        // What the devices report, and how far the slider is from it.
+        ~latencyReportedHint = ~guiText.("", 13, ~gt[\mute]).toolTip_("What the audio device says its way in and out\n"
+            "take, as a host like Live adds them up, plus the delay of the effects on the instrument and\n"
+            "the loop. Calibrate measures the real round trip, and keeps how far it is from this."),
         // Bipolar — centre = 0 ms, left pulls Live earlier (negative), full
         // scale ±~syncMax. Applied to the Start on the next play, and slewed
         // into the running clock live, so sweep it by ear against Live's
@@ -325,6 +339,7 @@
     // The menus the old pane had, for the code and checks that ask for them.
     ~inChannelMenu = ~inChannelSeg[\view];
     ~transportModeMenu = ~transportModeSeg !? { |s| s[\view] };
+    ~rigPaintLatencyNote.();
     ~rigPane = pane;
     ~guiSwapPane.(\rig, pane);
     pane

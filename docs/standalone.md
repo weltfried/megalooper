@@ -23,10 +23,12 @@ chain, the **INSTRUMENT 2** row on the FX view.
 Then open the **FX** view (key **3**) for the effects. The drums have a view
 of their own, **Drums** (key **4**), and the synth, **Synth** (key **7**).
 
-**Set the latency once.** saSystem assumes 30 ms for the way out and back in.
-Run the round-trip step on the Calibrate view
-([Calibrate](manual.md#calibrating-the-rig--the-wizard)), or overdubs will
-land late or early.
+**The latency is set for you.** On a Mac megalooper starts the overdub latency
+from the round trip your audio device reports, plus the effects' delay, and
+Setup's Rig page shows the number. If overdubs land late or early anyway, check
+it with the round-trip step on the Calibrate view
+([Calibrate](manual.md#calibrating-the-rig--the-wizard)): some drivers report
+wrongly. On Linux nothing reports it, so run that step there.
 
 ## The chains
 
@@ -233,8 +235,9 @@ controllers, because megalooper does. So megalooper sends:
 - **No room, no new effect.** Past 85 % CPU at its peak, or with the
   effects' memory full, megalooper refuses to add an effect and says why.
 - **A bigger buffer.** If you hear clicks or gaps, pick 256 frames under
-  **Buffer** in the launcher. At 48 kHz that adds about 5 ms each way, so run
-  the round-trip step on the Calibrate view again afterwards.
+  **Buffer** in the launcher. At 48 kHz that adds about 5 ms each way, which
+  the overdub latency follows on a Mac; on Linux run the round-trip step on
+  the Calibrate view again afterwards.
 - The **CPU** figure in the top bar is the audio server's load. It turns red
   past 60 %. It depends on the buffer as much as on the effects: on a MacBook
   Pro the same set read 19 % at the device's own 512 frames and 4 % at 64.

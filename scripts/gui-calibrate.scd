@@ -77,6 +77,9 @@
             ~calibrator.keptPath = LooperCalibrator.keptPathIn(~userRoot ?? { MegaFiles.userRoot });
             // Under the audio settings, the setup (its devices and buffer).
             ~calibrator.rig = ~rp !? { |r| r[\calibrationKey] } ?? { ~routingProfile };
+            // The round trip the devices and the chains report, where they do
+            // (setup-model.scd): the latency is kept as its difference to it.
+            ~calibrator.reported = { ~latencyReportedMs !? { |f| f.value } };
         };
     };
     if(~calRegisterAll.isNil) { (scripts +/+ "calibrate-measure.scd").load };
@@ -90,31 +93,45 @@
 
 // What this rig keeps, as a line: the values and when they were kept. Under
 // the audio settings it is the setup's (its devices and buffer), and with
-// nothing kept for it, what it starts from instead.
+// nothing kept for it, what it starts from instead. Where the round trip is
+// reported, the overdub latency is the report plus what is kept for it.
 ~calKeptLine = { |c|
     var e = c !? { c.kept }, stamp, setup = ~rp !? { |r| r[\calibrationKey] }, from;
+    var reported = c !? { c.reportedMs };
+    var signed = { |v| (if(v >= 0) { "+" } { "−" }) ++ v.abs.round(0.1) ++ " ms" };
     if(e.isNil) {
-        if(setup.isNil) { "Nothing kept yet: this rig starts with its profile's numbers." } {
+        if(setup.isNil) {
+            "Nothing kept yet: this rig starts with its profile's numbers"
+                ++ (if(reported.notNil) { ", its overdub latency with the round trip reported." } { "." })
+        } {
             from = c !? { |x| x.keptPath } !? { |p| LooperCalibrator.keptKeyOf(p, (~rp[\calibrationKeys] ? []).drop(1)) };
             "Nothing kept yet for " ++ setup ++ ": it starts with " ++ (case
                 { from.notNil } { "the numbers kept for " ++ from }
                 { ~rp[\inheritRig].notNil } { "your rig " ++ ~rp[\inheritRig] ++ "'s numbers" }
-                { "saSystem's numbers" }) ++ "."
+                { "saSystem's numbers" })
+                ++ (if(reported.notNil) { ", its overdub latency with the round trip reported." } { "." })
         }
     } {
         stamp = e[\savedAt] !? { |t| if(t.size >= 11) { "20" ++ t[0..1] ++ "-" ++ t[2..3] ++ "-" ++ t[4..5] ++ " " ++ t[7..8] ++ ":" ++ t[9..10] } { t } };
         (if(setup.notNil) { "Every start on " ++ setup ++ " begins with: " } { "Every start begins with: " }) ++ [
             e[\onsetThreshold] !? { |v| "onset threshold " ++ v.round(0.01) },
-            e[\latencyMs] !? { |v| "overdub latency " ++ v.round(0.1) ++ " ms" }
+            case
+            { reported.notNil and: { e[\latencyCorrectionMs].notNil } } {
+                "overdub latency the round trip reported " ++ signed.(e[\latencyCorrectionMs]) }
+            { e[\latencyMs].notNil } { "overdub latency " ++ e[\latencyMs].round(0.1) ++ " ms" }
+            { reported.notNil } { "overdub latency the round trip reported" }
         ].reject(_.isNil).join(", ") ++ (stamp !? { |t| ". Kept " ++ t ++ "." } ? ".")
     }
 };
+// The round trip reported, as a line (setup-model.scd), or nil where there
+// is none.
+~calReportedLine = { |c| if(c.notNil and: { c.reportedMs.notNil }) { ~latencyReportedLine.(~looper !? { |l| l.latencyMs }) } };
 // Forget what this rig keeps: back to its profile's numbers, now and at the
-// next start.
+// next start, and the overdub latency to the round trip reported, where one is.
 ~calForget = {
     ~calibrator !? { |c| c.forget };
     ~looper !? { |l| ~rp !? { |r|
-        l.latencyMs = r[\latencyMs] ? 0;
+        l.latencyMs = (~calibrator !? { |c| c.reportedMs }) ?? { r[\latencyMs] ? 0 };
         l.onsetThreshold = r[\onsetThreshold] ? 0.5;
     } };
     ~calibrateRefresh.();
@@ -274,7 +291,7 @@
         ~guiCaption.("THIS RIG · " ++ (~routingProfile ? "—").asString)
     ] ++ ~calValueRows.collect { |r|
         View().layout_(VLayout(HLayout(r[\key], nil, r[\value]).margins_(0), ~guiRule.()).margins_(0).spacing_(10))
-    } ++ if(cal.live) { [
+    } ++ [~calReportedText = ~guiText.("", 13, ~gt[\mute])] ++ if(cal.live) { [
         ~guiText.("Measured values apply when you press Apply. Blue means it was measured this session "
             "and still needs writing back into the profile.", 13, ~gt[\mute]),
         nil,
@@ -290,7 +307,8 @@
             ~calKeptText = ~guiText.("", 14, ~gt[\ink]),
             LooperTile().states_([["Forget", ~gt[\ink], nil]]).border_(~gt[\line]).cycles_(false)
                 .font_(~guiSans.(14)).fixedSize_(Size(110, 32))
-                .toolTip_("Forget what this rig keeps: it goes back to its profile's numbers, now and at the next start.")
+                .toolTip_("Forget what this rig keeps: it goes back to its profile's numbers, and the overdub latency to\n"
+                    "the round trip reported where there is one, now and at the next start.")
                 .action_({ ~calForget.() })
         ]
     })).margins_([22, 24, 22, 24]).spacing_(14));
@@ -514,6 +532,10 @@
         };
         ~calProfileView !? { |v| if(open.(v)) { v.string_(c.profileLine) } };
         ~calKeptText !? { |v| if(open.(v)) { v.string_(~calKeptLine.(c)) } };
+        ~calReportedText !? { |v| if(open.(v)) {
+            var line = ~calReportedLine.(c);
+            v.string_(line ? "").visible_(line.notNil);
+        } };
     };
 };
 )

@@ -108,9 +108,11 @@
     // No MIDI map is named, so none is assumed: map your own controller on the Setup
     // view.
     //
-    // latencyMs 30 is a placeholder for the overdub round trip: the loop's
-    // master limiter's 20 ms plus about 10 ms for a direct interface at 64 to
-    // 128 frames. Run the Calibrate view's latency step, or dial it by ear.
+    // latencyMs 30 is a placeholder for the overdub round trip, where nothing
+    // reports one (Linux): about right for an interface at 64 to 128 frames.
+    // On a Mac the start takes the round trip the devices report instead
+    // (setup-model.scd's ~latencyStart). The Calibrate view's latency step
+    // measures it, or dial it by ear.
     // memSize: the effects' delay lines and PitchLoop's memory need the 64 MB
     // pool, as on \sa. Both sides of the guitar chain are recorded, as on \sa.
     // No bassChannel: on a laptop the system's input 2 is its microphone. A
@@ -671,6 +673,35 @@
         (frames: frames, own: true)
     }
 };
+// The round trip the audio devices report for what scsynth opened, as a
+// host like Live totals it: the input device's way in and the output's way
+// out, each its latency, safety offset, stream latency and one buffer
+// (tools/coreaudio.py round-trip). The buffer is the one scsynth asked for,
+// else the output device's own, which is what it got. nil where nothing
+// answers: not a Mac, or the tool failed. (interfaceMs:, inMs:, outMs:,
+// buffer:, own:, inName:, outName:)
+~audioRoundTripReported = { |srv|
+    var o = srv.options, d, rate, args;
+    var tool = (~megalooperRoot ?? { Looper.repoRoot }) +/+ "tools" +/+ "coreaudio.py";
+    if(MegaFiles.isMac) {
+        args = "round-trip --json"
+            ++ ((o.inDevice ? o.device) !? { |n| " --input " ++ n.asString.quote } ? "")
+            ++ ((o.outDevice ? o.device) !? { |n| " --output " ++ n.asString.quote } ? "")
+            ++ (o.hardwareBufferSize !? { |n| " --buffer " ++ n } ? "");
+        d = try { ("python3 " ++ tool.quote ++ " " ++ args ++ " 2>/dev/null").unixCmdGetStdOut.parseJSON };
+        if(d.isKindOf(Dictionary) and: { d["ms"].notNil } and: { d["input"].isKindOf(Dictionary) }
+            and: { d["output"].isKindOf(Dictionary) }) {
+            rate = d["rate"].asFloat;
+            if(rate > 0) {
+                (interfaceMs: d["ms"].asFloat, inMs: d["input"]["total"].asFloat * 1000 / rate,
+                    outMs: d["output"]["total"].asFloat * 1000 / rate, buffer: d["buffer"].asInteger,
+                    own: d["buffer_own"] == true or: { d["buffer_own"] == "true" },
+                    inName: d["input"]["name"].asString, outName: d["output"]["name"].asString)
+            }
+        }
+    }
+};
+
 // "64 frames", "512 frames (the device's own)", or "the device's own" when
 // the device did not say; the rig block's short form, "BUF 512".
 ~audioBufferRunningLabel = { |b|

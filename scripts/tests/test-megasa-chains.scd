@@ -310,8 +310,11 @@ c = MegaSAChain(\guitar, Bus(\audio, 40, 2, (options: ServerOptions.new)), \mega
 c.add(p);
 ~tEq.("a chain holds its devices in order", c.ids, [\shifter, \delay, \plugin1]);
 ~tAssert.("...by id", (c.device(\delay).type == \delay) and: { c.device(\echo).isNil });
-~tEq.("...its delay and its memory their sums", [c.latency(48000), c.memBytes(48000)],
-    [2 + 0, (MegaSAFx.type(\shifter)[\memBytes].value(48000) + MegaSAFx.type(\delay)[\memBytes].value(48000)) + p.memBytes(48000)]);
+~tEq.("...its delay and its memory their sums: no delay from a Shifter that is off, which passes the dry signal",
+    [c.latency(48000), c.memBytes(48000)],
+    [0, (MegaSAFx.type(\shifter)[\memBytes].value(48000) + MegaSAFx.type(\delay)[\memBytes].value(48000)) + p.memBytes(48000)]);
+c.device(\shifter).setOn(true);
+~tEq.("...its 2 samples once it is on", c.latency(48000), 2 + 0);
 ~tEq.("...and it is not on the server until built", [c.built, c.group, c.source], [false, nil, nil]);
 
 // -------------------------------------------- the chains, as MegaSA builds them --
@@ -504,12 +507,21 @@ if(vst.isNil) { ~tSkip.("the plugin's switches", "VSTPlugin is not installed her
     Routine { m.attachLooper(~tLooper.()) }.next;
     said = heard.({ plug[\latency] = 32; plug[\dryDelay] = 32; plug.changed(\latency, 32); plug.changed(\latency, 32) }, m);
     ~tEq.("a plugin's latency changes the guitar chain's delay: \\latency (track, seconds), once",
-        said, [[\latency, \guitar, (2 + 32) / 48000]]);
+        said, [[\latency, \guitar, 32 / 48000]]);
     said = heard.({ plug[\latency] = 512; plug[\held] = "it adds 10.7 ms"; plug.changed(\latency, 512) }, m);
     ~tEq.("...one that holds it off changes nothing: the chain is delayed as before",
         [said, m.device(\plugin1).status], [[], \held]);
     plug[\latency] = 32;
     plug[\held] = nil;
+    said = heard.({ m.setFxParam(\shifterCoarse, 7) }, m);
+    ~tEq.("...an off Shifter's pitch moves no delay", said.select { |x| x[0] == \latency }, []);
+    m.resetFx(\shifter);
+    said = heard.({ m.setFx(\shifter, true) }, m);
+    ~tEq.("...switching it on adds its delay, and says so", said.select { |x| x[0] == \latency },
+        [[\latency, \guitar, (2 + 32) / 48000]]);
+    said = heard.({ m.setFx(\shifter, false); m.setFx(\shifter, true) }, m);
+    ~tEq.("...off and on again, each said", said.select { |x| x[0] == \latency }.collect { |x| (x[2] * 48000).round(1) },
+        [32, 34]);
     said = heard.({ m.setFxParam(\shifterCoarse, 7) }, m);
     ~tEq.("...a Shifter's pitch moves its delay, and says so with its setting",
         said.collect(_.first), [\fxParam, \fxSetting, \latency]);

@@ -56,6 +56,11 @@ File.mkdir(~saDrumsPresetDir);
 ~rp = ~audioProfile.(~routingProfiles[\saSystem], (), ~audioDevicesNow.());
 // The buffer the top bar shows under the rig: a MacBook's own, none chosen.
 ~audioBuffer = (frames: 512, own: true);
+// The round trip a MacBook's microphone and speakers report at that buffer
+// (tools/coreaudio.py round-trip, 2026-11-01), which the overdub latency
+// starts from: set below, once the chains are there.
+~latencyReport = (interfaceMs: (2025 + 1346) * 1000 / 48000, inMs: 2025 * 1000 / 48000, outMs: 1346 * 1000 / 48000,
+    buffer: 512, own: true, inName: "MacBook Pro Microphone", outName: "MacBook Pro Speakers");
 ~liveRecordToggle = { };
 
 // The take: three bars of 7/8 and one of 8/8 at 103.2, playing, as on the
@@ -105,6 +110,7 @@ m.instVarPut(\drums, d);
 ~looper.returnChannel = ~returnChannel;
 // A sound to look at: two effects on in each chain.
 [\delay, \filter, \echo, \saturator].do { |k| m.setFx(k, true) };
+~looper.latencyMs = ~latencyReportedMs.();
 
 ~midiSources = IdentityDictionary[1001 -> ["USB MIDI Controller", "USB MIDI Controller"]];
 ~midiTargets = ~midiTargetsBuild.();

@@ -196,6 +196,9 @@ s.waitForBoot {
     ~checkSampleRate.();
     // The buffer it runs at, for the boot line and the top bar's rig block.
     ~audioBuffer = ~audioBufferRunning.(s);
+    // The round trip the devices report, which a rig without Live starts its
+    // overdub latency from (setup-model.scd's ~latencyStart).
+    ~latencyReport = if(~rp[\live] == false) { ~audioRoundTripReported.(s) };
 
     // MIDI I/O first: the Looper is constructed with ~midiOut and sends its
     // MIDI clock through it.

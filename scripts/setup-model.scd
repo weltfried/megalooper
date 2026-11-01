@@ -62,6 +62,77 @@
 
 ~liveRecordToggle = { ~liveRecordSet.(~liveRecording.not) };
 
+// ---- The overdub latency: reported, corrected, followed ------------------
+//
+// On a rig without Live the overdub latency starts from the round trip the
+// audio devices report (~latencyReport, read after the boot by
+// setup-routing.scd's ~audioRoundTripReported), plus the delay of the two
+// chains on that round trip: the loop's, which you hear it through, and the
+// instrument's, which the looper records. A measurement, or the ear, on this
+// setup is kept as its difference to that (latencyCorrectionMs, in
+// calibration.json), the way Live keeps a Driver Error Compensation, so it
+// still holds when the effects change. A chain whose delay changes (a plugin
+// reporting one, the Shifter switched to FFT) moves the latency with it,
+// whatever it started from. With no report (not a Mac, a Live rig) the
+// start is the profile's or the kept one, as before.
+~latencyChainTracks = #[\guitar, \loop];
+// One chain's delay in ms, 0 without it.
+~latencyChainMs = { |m, track|
+    (m !? { |sa| sa.chainFor(track) !? { |c| c.latency(sa.sampleRate) * 1000 / sa.sampleRate } }) ? 0
+};
+~latencyChainsMs = { |m| ~latencyChainTracks.sum { |t| ~latencyChainMs.(m ?? { ~megaSA }, t) } };
+// The round trip reported: the devices' and the chains', or nil.
+~latencyReportedMs = { ~latencyReport !? { |r| r[\interfaceMs] + ~latencyChainsMs.() } };
+
+// What is reported, in words, and how far `latencyMs` (the overdub latency
+// set, or nil) is from it: "Reported 59.6 ms: the audio device 59.6, the
+// effects 0.0. Overdub latency is set 2.4 ms below it." nil with no report.
+~latencyReportedLine = { |latencyMs|
+    var device = ~latencyReport !? { |r| r[\interfaceMs] };
+    ~latencyReportedMs.() !? { |r|
+        var off = latencyMs !? { |l| l - r };
+        "Reported " ++ r.round(0.1) ++ " ms: the audio device " ++ device.round(0.1)
+            ++ ", the effects " ++ (r - device).round(0.1) ++ "."
+            ++ (off !? { |o| if(o.abs >= 0.05) { " Overdub latency is set "
+                ++ o.abs.round(0.1) ++ " ms " ++ (if(o > 0) { "above" } { "below" }) ++ " it." } { "" } } ? "")
+    }
+};
+
+// At a start, after the kept numbers: answers the line saying what it set,
+// or nil. The correction is the one kept for this setup alone (the audio
+// settings' devices and buffer, or a profile's rig): one kept for another
+// setup or a rig the setup only inherits from was measured elsewhere.
+~latencyStart = { |looper, rp, root|
+    var reported = ~latencyReportedMs.(), own, start;
+    ~latencyFollow.(looper, ~megaSA);
+    if(reported.notNil and: { rp[\live] == false } and: { root.notNil }) {
+        own = LooperCalibrator.readKept(LooperCalibrator.keptPathIn(root))[(rp[\calibrationKey] ?? { ~routingProfile }).asSymbol];
+        start = LooperCalibrator.startLatency(reported, own);
+        looper.latencyMs = start[\latencyMs];
+        "megalooper: overdub latency " ++ start[\latencyMs].round(0.1) ++ " ms: the round trip reported, "
+            ++ reported.round(0.1) ++ " ms" ++ (if(start[\correctionMs] != 0) {
+                ", " ++ (if(start[\correctionMs] > 0) { "+" } { "" }) ++ start[\correctionMs].round(0.1)
+                    ++ " ms as kept for this setup" } { "" }) ++ "."
+    }
+};
+
+// A chain's delay moved: the latency moves with it. The last delay of each
+// chain is kept here, so only a change counts.
+~latencyFollow = { |looper, m|
+    var last = IdentityDictionary.new;
+    ~latencyFollower !? { |c| c.remove };
+    ~latencyFollower = m !? { |sa|
+        ~latencyChainTracks.do { |t| last.put(t, ~latencyChainMs.(sa, t)) };
+        SimpleController(sa).put(\latency, { |who, what, track, secs|
+            var was = last[track], now = secs * 1000;
+            if(was.notNil and: { looper.notNil }) {
+                last.put(track, now);
+                looper.latencyMs = looper.latencyMs + (now - was);
+            };
+        })
+    };
+};
+
 ~setupLooper = {
     ~looper !? { |l| l.free };
     ~looper = Looper(s, ~midiOut);
@@ -112,6 +183,9 @@
     // saSystem's (~rp[\calibrationKeys], setup-routing.scd).
     LooperCalibrator.applyKeptAtStart(~looper, ~rp, ~rp[\calibrationKeys] ?? { ~routingProfile },
         ~userRoot ?? { MegaFiles.userRoot }) !? { |said| said.postln };
+    // Then, where the devices report their round trip, the overdub latency
+    // starts from it, and it follows the chains' delay from here on.
+    ~latencyStart.(~looper, ~rp, ~userRoot ?? { MegaFiles.userRoot }) !? { |said| said.postln };
 
     // Fallback meter for short / percussive / rubato loops whose expressive
     // timing fits no pulse grid: the loop is treated as whole bars of this

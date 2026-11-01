@@ -119,7 +119,8 @@
                 (if(val > 0) { "+" } { "" }) ++ val.round(0.1).asString ++ " ms") }.defer;
         })
         .put(\latencyMs, { |looper, what, val|
-            { ~wireBar.(~latencySlider, ~latencyLabel, val / ~latencyMax, val.round(0.1).asString ++ " ms") }.defer;
+            { ~wireBar.(~latencySlider, ~latencyLabel, val / ~latencyMax, val.round(0.1).asString ++ " ms");
+                ~rigPaintLatencyNote !? { |f| f.value } }.defer;
         })
         // nil, or the recorded input itself, both mean "no clean tap" — item 0.
         .put(\analysisChannel, { |looper, what, val|
