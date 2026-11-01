@@ -64,9 +64,9 @@ chain. What you hear and what gets looped do not change.
 **Instrument 2: Input 2** says a second instrument, a bass, say, is on the
 input device's input 2. megalooper plays it through a chain of its own (the
 **INSTRUMENT 2** row on the FX view) onto a strip of its own, **Instrument 2**
-under Levels on Setup's Rig page and on Perform, and **Record set** writes it
-as a stem of its own. The looper does not record it. **None** is the start: on
-a laptop input 2 is the microphone. Instrument 2's input is never the
+under Levels on Perform, and **Record set** writes it as a stem of its own.
+The looper does not record it. **None** is the start: on a laptop input 2 is
+the microphone. Instrument 2's input is never the
 instrument's: that would play the instrument twice, and megalooper starts
 without instrument 2 then, saying why.
 

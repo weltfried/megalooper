@@ -314,8 +314,10 @@
             ~performSynthPos = ~performSynthBar.(\waveAPos,
                 "Oscillator A's place in its table: the sound's colour. Each note takes it as it starts.");
             ~performSynthPosLabel = ~performValue.("—");
-            ~performSynthRandom = ~midiTip.(LooperTile().states_([["Random", ~gt[\ink], nil]]).cycles_(false)
-                .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
+            // "Random sound", as on the Synth view, in the narrowest column:
+            // a size smaller than its neighbours' words, and less margin.
+            ~performSynthRandom = ~midiTip.(LooperTile().states_([["Random sound", ~gt[\ink], nil]]).cycles_(false)
+                .border_(~gt[\line]).font_(~guiSans.(12, true)).pad_(4).fixedHeight_(32).minWidth_(60)
                 .action_({ ~megaSA !? { |m| m.wave.randomize; ~performPaintSynth.() } }),
                 'sa.synth.random', "Every setting of the Wave synth at random but its level and glide.");
             synthCol = ~performColumn.((key: \synth, name: "Synth", view: \synth,
@@ -401,7 +403,9 @@
     ~masterAmpSlider = ~mapTag.(~guiBar.(\ink, 16)
         .value_(l !? { |lp| lp.masterAmp } ? 0.7)
         .action_({ |sl| ~looper !? { |lp| lp.masterAmp = sl.value } }),
-        'looper.masterAmp');
+        'looper.masterAmp',
+        "The looper's own level: the loop, the cutter and the grains together, before the\n"
+            "Loop strip. The whole mix's last fader is Master under Levels.");
     ~masterAmpLabel = ~performValue.((l !? { |lp| lp.masterAmp } ? 0.7).round(0.01).asString);
     // The control the whole piece is shaped with.
     ~intensitySlider = ~midiTip.(~guiBar.(\ink, 16)
@@ -413,10 +417,10 @@
             "granular layer at its set level. It only SCALES — the stored controls keep\n"
             "meaning what they say, and the cutter's own level never moves with it.");
     ~intensityLabel = ~performValue.((l !? { |lp| lp.intensity } ? 1).round(0.01).asString);
-    // Here and not on Setup, because tuning detection is not a between-takes
-    // activity: the threshold is the ceiling on meter detection AND on the
-    // onset-note drum part, and the only way to set it is to watch the lamp in
-    // the band while playing.
+    // Here as well as on Setup › Analysis, because tuning detection is not a
+    // between-takes activity: the threshold is the ceiling on meter detection
+    // AND on the onset-note drum part, and the only way to set it is to watch
+    // the lamp in the band while playing.
     ~onsetThresholdSlider = ~midiTip.(~guiBar.(\ink, 16)
         .value_(~onsetThresholdSpec.unmap(l !? { |lp| lp.onsetThreshold } ? 0.5))
         .action_({ |sl| ~looper !? { |lp| lp.onsetThreshold = ~onsetThresholdSpec.map(sl.value) } }),
@@ -437,7 +441,7 @@
         ).hSpacing_(8).vSpacing_(8),
         steppers,
         ~guiCaption.("MACROS · DRAG"),
-        ~performMacro.("Master", ~masterAmpSlider, ~masterAmpLabel),
+        ~performMacro.("Looper", ~masterAmpSlider, ~masterAmpLabel),
         ~performMacro.("Arc", ~intensitySlider, ~intensityLabel),
         ~performMacro.("Onset", ~onsetThresholdSlider, ~onsetThresholdLabel),
         nil

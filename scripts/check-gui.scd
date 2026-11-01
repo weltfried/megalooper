@@ -576,19 +576,19 @@ s.waitForBoot {
                 d.step(~drumsPattern, ~drumsPage, 0, 0).asString);
             ~ok.("and repaints it", ~drumsPaints > paints);
             d.setStep(~drumsPattern, ~drumsPage, 0, 0, before);
-            // One fader on two tabs (gui-sa.scd): a drag on the Drums tab's
-            // Drums strip moves the Rig's as it goes, and both stay where it
+            // One fader on two views (gui-sa.scd): a drag on the Drums view's
+            // Drums strip moves Perform's as it goes, and both stay where it
             // ended. The level is put back after.
             ds = ~drumsLevels[\drums] !? { |w| w[\slider] };
-            rs = ~saRigLevels[\drums] !? { |w| w[\slider] };
+            rs = ~saPerformLevels[\drums] !? { |w| w[\slider] };
             if(ds.isNil or: { rs.isNil }) {
-                "  (the Drums strip is not on both tabs: the fader check is skipped)".postln;
+                "  (the Drums strip is not on both views: the fader check is skipped)".postln;
             } {
                 level = ~megaSA.level(\drums);
                 ds.mouseDownAction.value(ds, 10, 5, 0, 0, 1);
                 ds.valueAction_(~saLevelSpec.unmap(-25));
                 0.3.wait;
-                ~ok.("a drag on the Drums tab's fader moves the Rig's as it goes",
+                ~ok.("a drag on the Drums view's fader moves Perform's as it goes",
                     (rs.value - ~saLevelSpec.unmap(-25)).abs < 1e-3, ~saLevelSpec.map(rs.value).asString);
                 ds.mouseUpAction.value(ds, 10, 5, 0, 0);
                 0.3.wait;

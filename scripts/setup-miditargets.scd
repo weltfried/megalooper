@@ -275,8 +275,8 @@
             get: { ~looper !? { |l| l.analyzeOverdubs } },
             set: { |on| ~looper !? { |l| l.analyzeOverdubs = (on == true) } },
             available: looper));
-        // The header's Master slider, straight 0..1, read as its label reads.
-        add.('looper.masterAmp', "Master", "Perform", \continuous, (group: "Macros",
+        // Perform's Looper macro, straight 0..1, read as its label reads.
+        add.('looper.masterAmp', "Looper", "Perform", \continuous, (group: "Macros",
             get: { ~looper !? { |l| l.masterAmp } }, set: { |v| ~looper !? { |l| l.masterAmp = v } },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
         // The onset notes' Chance slider, straight 0..1, read as a percentage

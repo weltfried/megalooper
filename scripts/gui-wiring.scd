@@ -214,17 +214,17 @@
             { ~analysisPaintMonitor !? { |f| f.() } }.defer;
         })
         .put(\analyzeOverdubs, { |looper, what, val|
-            { ~overdubDetectButton !? { |b| if(b.isClosed.not) { b.value = if(val) { 1 } { 0 } } };
-              ~statusPaintDubMeter !? { |f| f.() } }.defer;
+            { ~statusPaintDubMeter !? { |f| f.() } }.defer;
         })
-        // A successful overdub detection: report it where the tuning happens.
-        // onAnalysis already handles Live and the export fields, and the
-        // status band's take picks the new result up on its next poll.
+        // A successful overdub detection: the footer says what it found, on
+        // whichever view is up. onAnalysis already handles Live and the
+        // export fields, and the status band's take picks the new result up
+        // on its next poll.
         .put(\overdubDetected, { |looper, what, r|
-            var txt = MeterAnalyzer.sigString(r)
+            var txt = "Meter from the overdub: " ++ MeterAnalyzer.sigString(r)
                 ++ " @ " ++ r[\bpm].round(0.1) ++ " BPM · " ++ r[\k] ++ " bars · "
                 ++ r[\onsetCount] ++ " onsets";
-            { ~overdubDetectLabel !? { |t| if(t.isClosed.not) { t.string_(txt) } } }.defer;
+            { ~guiSay !? { |f| f.value(txt) } }.defer;
         })
         .put(\transportMode, { |looper, what, val|
             { ~transportModeSeg !? { |s| ~guiSegSet.(s, ~transportModes.indexOf(val) ? 0) };

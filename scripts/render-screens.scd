@@ -335,7 +335,7 @@ Routine {
         band.(~renderParts[\buildSynthPane], "Key", "Key", "synth-key");
         band.(~renderParts[\buildSynthPane], "STEPS AND LANES", "Condition", "synth-lanes");
         goto.(\setup, \analysis);
-        band.(~renderParts[\buildAnalysisPane], "Analysis", "Overdub meter detection", "onsets", false);
+        band.(~renderParts[\buildAnalysisPane], "Analysis", "Onset notes → onset kit", "onsets", false);
         band.(~renderParts[\buildAnalysisPane], "Onset notes → onset kit", "Pitch range · Hz", "onset-notes", false);
         goto.(\setup, \midi);
         part.(~renderParts[\rigAiSection], "ai-apps");

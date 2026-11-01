@@ -735,36 +735,44 @@ Routine {
         ok.("the model unmutes it", lw[\mute].value == 0);
         ~drumsLevels[\onsetKit][\slider].valueAction_(~saLevelSpec.unmap(-15.5));
         ok.("the onset kit's slider sets its strip", (levels[\onsetKit] - (-15.5).dbamp).abs < 1e-6);
-        rig = ~buildSARigSection.();
+        {
+            var section, bars = List.new, walk;
+            ~saNewLoopSeg = nil;
+            section = ~buildSARigSection.();
+            walk = { |v| if(v.isKindOf(LooperBar)) { bars.add(v) }; v.children.do(walk) };
+            walk.(section);
+            ok.("Setup's Rig has no levels: they are Perform's", bars.isEmpty and: { ~saNewLoopSeg.notNil }, bars.size.asString);
+        }.value;
+        rig = ~buildSAPerformLevels.();
         tick.();
-        ok.("the Rig has the drums' strips too", [\guitar, \loop, \drums, \onsetKit, \master].every { |k|
-            ~saRigLevels[k].notNil }, ~saRigLevels.keys.asArray.asString);
-        ok.("in mixer order, the master last, the master with no Mute", (~saRigLevels[\master][\mute].isNil)
-            and: { ~saRigLevels[\drums][\mute].notNil });
+        ok.("Perform has the drums' strips too", [\guitar, \loop, \drums, \onsetKit, \master].every { |k|
+            ~saPerformLevels[k].notNil }, ~saPerformLevels.keys.asArray.asString);
+        ok.("in mixer order, the master last, the master with no Mute", (~saPerformLevels[\master][\mute].isNil)
+            and: { ~saPerformLevels[\drums][\mute].notNil });
         m.setLevel(\drums, (-12).dbamp);
         tick.();
-        ok.("one level, both tabs", ((~saRigLevels[\drums][\slider].value - ~saLevelSpec.unmap(-12)).abs < 1e-3)
+        ok.("one level, both views", ((~saPerformLevels[\drums][\slider].value - ~saLevelSpec.unmap(-12)).abs < 1e-3)
             and: { (lw[\slider].value - ~saLevelSpec.unmap(-12)).abs < 1e-3 });
 
         // A drag as the mouse makes it: press, moves (each \level painted
         // while the slider is held), release.
-        "-- a drag on one tab, the other tab's slider".postln;
+        "-- a drag on one view, the other view's slider".postln;
         ds = lw[\slider];
-        rs = ~saRigLevels[\drums][\slider];
+        rs = ~saPerformLevels[\drums][\slider];
         ds.mouseDownAction.value(ds, 10, 5, 0, 0, 1);
         ds.valueAction_(~saLevelSpec.unmap(-20));
         tick.();
-        ok.("a drag on the Drums tab moves the Rig's slider as it goes", at.(rs, -20), dbs.());
+        ok.("a drag on the Drums view moves Perform's slider as it goes", at.(rs, -20), dbs.());
         ds.valueAction_(~saLevelSpec.unmap(-25));
         tick.();
         ds.mouseUpAction.value(ds, 10, 5, 0, 0);
         tick.();
-        ok.("let go, both tabs show where it ended", at.(ds, -25) and: { at.(rs, -25) }
-            and: { ~saRigLevels[\drums][\readout].string == "-25.0 dB" }, dbs.());
+        ok.("let go, both views show where it ended", at.(ds, -25) and: { at.(rs, -25) }
+            and: { ~saPerformLevels[\drums][\readout].string == "-25.0 dB" }, dbs.());
         rs.mouseDownAction.value(rs, 10, 5, 0, 0, 1);
         rs.valueAction_(~saLevelSpec.unmap(-3));
         tick.();
-        ok.("and a drag on the Rig moves the Drums tab's", at.(ds, -3), dbs.());
+        ok.("and a drag on Perform moves the Drums view's", at.(ds, -3), dbs.());
         m.setLevel(\drums, (-40).dbamp);
         tick.();
         ok.("the model moves every slider of the strip but the one under the hand",
@@ -772,11 +780,11 @@ Routine {
         rs.mouseUpAction.value(rs, 10, 5, 0, 0);
         tick.();
         ok.("let go, that one shows the level too", at.(rs, -40) and: { ~saLevelHeld.isNil }, dbs.());
-        ~saRigLevels[\loop][\slider].valueAction_(~saLevelSpec.unmap(-3));
+        ~saPerformLevels[\loop][\slider].valueAction_(~saLevelSpec.unmap(-3));
         tick.();
-        ok.("the Rig's own rows still set their strips", ((levels[\loop] - (-3).dbamp).abs < 1e-6)
-            and: { ~saRigLevels[\loop][\readout].string == "-3.0 dB" });
-        ~guiTeardowns[\sa].value;
+        ok.("Perform's own strips still set them", ((levels[\loop] - (-3).dbamp).abs < 1e-6)
+            and: { ~saPerformLevels[\loop][\readout].string == "-3.0 dB" });
+        ~guiTeardowns[\saPerform].value;
         rv[\view].valueAction_(0.5);
         tick.();
         ok.("the reverb slider sets the mix", d.reverbMix == 0.5);

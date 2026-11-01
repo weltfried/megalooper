@@ -283,10 +283,10 @@ Routine {
             [~bbcutButton, 'looper.bbcut'], [~bbcutPaneButton, 'looper.bbcut'],
             [~granularPerformButton, 'looper.granular'], [~granularOnButton, 'looper.granular'],
             [~granularSlider, 'looper.granularMorph'], [~feedbackSlider, 'looper.feedback'],
-            [~saRigLevels[\drums][\slider], 'sa.level.drums'], [~drumsLevels[\drums][\slider], 'sa.level.drums'],
-            [~saRigLevels[\drums][\mute], 'sa.mute.drums'], [~drumsLevels[\drums][\mute], 'sa.mute.drums'],
-            [~saRigLevels[\onsetKit][\slider], 'sa.level.onsetKit'], [~drumsLevels[\onsetKit][\slider], 'sa.level.onsetKit'],
-            [~statusDubMeterButton, 'looper.analyzeOverdubs'], [~overdubDetectButton, 'looper.analyzeOverdubs'],
+            [~saPerformLevels[\drums][\slider], 'sa.level.drums'], [~drumsLevels[\drums][\slider], 'sa.level.drums'],
+            [~saPerformLevels[\drums][\mute], 'sa.mute.drums'], [~drumsLevels[\drums][\mute], 'sa.mute.drums'],
+            [~saPerformLevels[\onsetKit][\slider], 'sa.level.onsetKit'], [~drumsLevels[\onsetKit][\slider], 'sa.level.onsetKit'],
+            [~statusDubMeterButton, 'looper.analyzeOverdubs'],
             [~statusDetectNowButton, 'looper.detectMeterFromOverdub'],
             [~performOnsetNotesTile, 'looper.onsetNotes'], [~onsetNotesButton, 'looper.onsetNotes'],
             [~performOnsetChance, 'looper.onsetNoteChance'], [~onsetNoteChanceSlider, 'looper.onsetNoteChance']
@@ -294,9 +294,10 @@ Routine {
     });
 
     // On Perform since 2026-10-28, for quick access: the overdub meter's switch
-    // and Detect now in the band's take line, the onset notes' switch and
-    // Chance under the Drums. Each writes the model and is painted back, here
-    // and on Setup › Analysis, and the Drums column grew no taller than Loop's.
+    // and Detect now in the band's take line (and since 2026-11-01 only
+    // there), the onset notes' switch and Chance under the Drums. Each writes
+    // the model and is painted back, the onset notes' here and on Setup ›
+    // Analysis, and the Drums column grew no taller than Loop's.
     section.("Perform's overdub meter and onset notes", {
         var l = ~looper, cols = ~performColumns;
         // The model to the views, as boot does (it is wired again further down).
@@ -309,11 +310,14 @@ Routine {
         ~statusDubMeterButton.valueAction_(0);
         tick.();
         ok.("the band's Overdub meter switches it on",
-            [l.analyzeOverdubs, ~statusDubMeterButton.value, ~overdubDetectButton.value] == [true, 1, 1],
-            [l.analyzeOverdubs, ~statusDubMeterButton.value, ~overdubDetectButton.value].asString);
-        ~overdubDetectButton.valueAction_(0);
+            [l.analyzeOverdubs, ~statusDubMeterButton.value] == [true, 1],
+            [l.analyzeOverdubs, ~statusDubMeterButton.value].asString);
+        l.analyzeOverdubs = false;
         tick.();
-        ok.("...and Setup's switch, off, paints it off", ~statusDubMeterButton.value == 0);
+        ok.("...and the model, off, paints it off", ~statusDubMeterButton.value == 0);
+        ok.("Setup › Analysis has no second switch nor Detect now: the band's are on every view",
+            ~overdubDetectButton.isNil and: { ~mapTags.select { |tg| tg[0].isClosed.not
+                and: { #['looper.analyzeOverdubs', 'looper.detectMeterFromOverdub'].includes(tg[1]) } }.size == 2 });
         ok.("Detect now sits beside Revert", ~statusDetectNowButton.parent === ~revertReadingButton.parent);
         ~statusDetectNowButton.valueAction_(0);
         tick.();
@@ -602,15 +606,14 @@ Routine {
 
     section.("the review's design changes", {
         var key = MegaSAFx.guitarKeys.first, tile = ~effectsTiles[key][\select], m = ~megaSA, was, shown, field;
-        ok.("Perform has the mixer's strips too, in a table of their own",
+        ok.("Perform has the mixer's strips, and only Perform: no copy on Setup",
             [\guitar, \loop, \master].every { |k| ~saPerformLevels[k].notNil }
-                and: { ~saPerformLevels[\guitar][\slider] !== ~saRigLevels[\guitar][\slider] },
+                and: { ~mapTags.select { |tg| tg[0].isClosed.not and: { tg[1] == 'sa.level.guitar' } }.size == 1 },
             ~saPerformLevels.keys.asArray.asString);
         m.setLevel(\loop, -12.dbamp);
         tick.();
-        ok.("...and a level set anywhere shows on both", (~saPerformLevels[\loop][\readout].string == "-12.0 dB")
-            and: { ~saRigLevels[\loop][\readout].string == "-12.0 dB" },
-            [~saPerformLevels[\loop][\readout].string, ~saRigLevels[\loop][\readout].string].asString);
+        ok.("...and a level set anywhere shows there", ~saPerformLevels[\loop][\readout].string == "-12.0 dB",
+            ~saPerformLevels[\loop][\readout].string);
         m.setLevel(\loop, 1);
         ok.("Perform's Effects column counts the drums' chain as well", ~performFxDrumsLabel.string.contains(" of "),
             ~performFxDrumsLabel.string);

@@ -94,18 +94,11 @@
     }
 };
 
-// The controllers this section hangs on the model, removed with the window
-// (the shell fires every teardown from onClose) and before a rebuild.
-~saRigLevels = IdentityDictionary.new;
+// The mixer's strips on Perform, side by side under the layers, with a table
+// and controllers of their own, removed with the window (the shell fires
+// every teardown from onClose) and before a rebuild. Setup has none: the
+// Drums and Synth views have their own parts' strips.
 ~guiTeardowns = ~guiTeardowns ? ();
-~guiTeardowns[\sa] = {
-    (~saGuiControllers ? []).do(_.remove);
-    ~saGuiControllers = [];
-    ~saRigLevels = IdentityDictionary.new;
-};
-
-// The same strips on Perform, side by side under the layers, with a table and
-// controllers of their own (the Setup section's teardown runs at its build).
 ~saPerformLevels = IdentityDictionary.new;
 ~guiTeardowns[\saPerform] = {
     (~saPerformControllers ? []).do(_.remove);
@@ -124,7 +117,7 @@
                 .put(\hold, { |obj, what, key| { ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) }.defer })
         ];
         View().background_(~gt[\panel]).layout_(VLayout(
-            ~guiCaption.("LEVELS · ALSO ON SETUP", 11),
+            ~guiCaption.("LEVELS", 11),
             HLayout(*keys.collect { |k|
                 [~saLevelRow.(m, k, ~saStripLabels[k], ~saPerformLevels, nil, nil, true), stretch: 1] }).spacing_(28)
         ).margins_([16, 10, 16, 12]).spacing_(8))
@@ -149,41 +142,20 @@
     ).spacing_(10)
 };
 
+// Setup's Rig page, Megalooper SA's part: what a new loop does to the drums,
+// and where the rest is. The levels are Perform's.
 ~buildSARigSection = {
     var view = View();
     var m = ~megaSA;
-    var keys;
-    ~guiTeardowns[\sa].value;
     if(~rp.notNil and: { ~rp[\sa] == true } and: { m.notNil }) {
-        // In mixer order, the master last. The drums' two strips are there
-        // only on a MegaSA that has them, the bass's on a rig with its input.
-        keys = [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].select { |k| m.level(k).notNil };
         view.layout_(VLayout(*(
-            [~guiCaption.("LEVELS", 11)]
-            ++ keys.collect { |k| ~saLevelRow.(m, k, ~saStripLabels[k], ~saRigLevels, ~rigLabelWidth ? 130) }
-            ++ (m.drums !? { |d| [~saNewLoopRow.(d)] } ? [])
-            ++ [~guiHint.(if(keys.includes(\drums)) {
-                "The effects and their sounds are on the FX view (3), the drums on the Drums view (4)."
+            (m.drums !? { |d| [~guiCaption.("DRUMS", 11), ~saNewLoopRow.(d)] } ? [])
+            ++ [~guiHint.(if(m.drums.notNil) {
+                "The levels are on Perform (1), the effects and their sounds on the FX view (3), the drums on the Drums view (4)."
             } {
-                "The effects and their sounds are on the FX view (3)."
+                "The levels are on Perform (1), the effects and their sounds on the FX view (3)."
             })]
         )).margins_(0).spacing_(8));
-        // A level moved on another tab (the Drums tab's strips) moves it here.
-        // MegaSA unmutes the guitar once Bias FX is open (the window may
-        // already be up by then), and mutes it while a preset loads its bank:
-        // both have to show here.
-        ~saGuiControllers = [
-            SimpleController(m)
-                .put(\level, { |obj, what, key, amp|
-                    { ~saPaintLevel.(~saRigLevels, key, amp) }.defer
-                })
-                .put(\mute, { |obj, what, key, flag|
-                    { ~saPaintMute.(~saRigLevels, key, ~saMutedOf.(m, key)) }.defer
-                })
-                .put(\hold, { |obj, what, key|
-                    { ~saPaintMute.(~saRigLevels, key, ~saMutedOf.(m, key)) }.defer
-                })
-        ];
     } {
         view.visible_(false);
     };

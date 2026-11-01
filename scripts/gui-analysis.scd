@@ -171,7 +171,6 @@
         ~analysisThresholdBar !? { |sl| sl.value = ~onsetThresholdSpec.unmap(l.onsetThreshold) };
         ~analysisThresholdLabel !? { |t| t.string_(l.onsetThreshold.round(0.01).asString) };
         ~analysisPaintMonitor.();
-        ~overdubDetectButton !? { |b| b.value = if(l.analyzeOverdubs) { 1 } { 0 } };
     };
     ~onsetNotesRefresh.();
 };
@@ -259,19 +258,8 @@
         t.string_("Onset threshold" ++ (~midiWords.('looper.onsetThreshold') !? { |w| " · " ++ w.split($,).first } ? "")
             ++ " · exponential") });
 
-    // ---- Overdub meter detection -----------------------------------------
-    // For loops that open atmospheric: take one has no beat, so no meter is
-    // found and Live is never started. Overdub a rhythmic pattern and the
-    // meter is derived from THAT, against the loop's fixed length.
-    ~overdubDetectButton = ~mapTag.(~analysisSwitch.("OFF", "ON", \ink)
-        .value_(if(~looper.notNil and: { ~looper.analyzeOverdubs }) { 1 } { 0 })
-        .action_({ |b| ~looper !? { |l| l.analyzeOverdubs = (b.value == 1) } }),
-        'looper.analyzeOverdubs',
-        "Derive the meter from a rhythmic OVERDUB when the first take had no beat.\n"
-            "Runs when you end an overdub, but only while the loop still has no meter — so it\n"
-            "cannot change the tempo under you mid-performance. Detect now runs it at once, on the\n"
-            "last overdub, even when the loop has a meter.");
-    ~overdubDetectLabel = ~guiMonoText.("", 12, ~gt[\mute]);
+    // Overdub meter detection (its switch and Detect now) is the status
+    // band's, on every view: gui-status.scd.
 
     // ---- Onset notes ----------------------------------------------------------------
     // The other thing to do with detected onsets: send them to Live as a drum
@@ -467,17 +455,7 @@
         ).margins_(1).spacing_(1)),
         VLayout(HLayout(~analysisThresholdCaption, nil, ~analysisThresholdLabel).margins_(0),
             ~analysisThresholdBar).spacing_(5).margins_(0),
-        View().layout_(VLayout(
-            HLayout(~guiLabel.("Overdub meter detection", 15, ~gt[\ink]), nil,
-                ~mapTag.(LooperTile().states_([["Detect now", ~gt[\ink], nil]]).border_(~gt[\line]).cycles_(false)
-                    .font_(~guiSans.(13)).fixedSize_(Size(96, 28))
-                    .action_({ ~looper !? { |l| l.detectMeterFromOverdub(true) } }),
-                    'looper.detectMeterFromOverdub',
-                    "Re-run detection on the last overdub's onsets now, even if the loop already has a meter."),
-                ~overdubDetectButton).margins_(0).spacing_(8),
-            ~overdubDetectLabel,
-            ~guiRule.()
-        ).margins_(0).spacing_(6)),
+        ~guiRule.(),
         HLayout(~guiLabel.(case { (~rp !? { |r| r[\live] }) != false } { "Onset notes → Live" }
             { (~rp !? { |r| r[\sa] }) == true } { "Onset notes → onset kit" } { "Onset notes" }, 16, ~gt[\ink], true), nil, ~onsetNotesLabel, ~onsetNotesButton)
             .margins_(0).spacing_(10),

@@ -492,9 +492,9 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 │[FWD] │ [ON]   │ [OFF]  │ [2 ON]  │[MAIN] │ [OFF] │ Trigger  Stop  Break        │  Perform
 │ ...  │ ...    │ ...    │ ...     │ ...   │ ...   │ Next reading  Dissolve      │
 │      │        │        │         │       │       │ Rec next loop  Undo  Clear  │
-│      │        │        │         │       │       │ MACROS · Master  Arc  Onset │
+│      │        │        │         │       │       │ MACROS · Looper  Arc  Onset │
 ├──────┴────────┴────────┴─────────┴───────┴───────┤                             │
-│ LEVELS · Instrument Instrument 2 Loop Drums Onset kit Synth Master (as Setup)  │
+│ LEVELS · Instrument Instrument 2 Loop Drums Onset kit Synth Master             │
 ├──────────────────────────────────────────────────┴─────────────────────────────┤
 │ keys 1–5 7 views · 6 calibrate · T theme · H help     Refused: nothing playing │  the footer
 └────────────────────────────────────────────────────────────────────────────────┘
@@ -530,12 +530,12 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, and the **macros**: Master, Arc, Onset |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **macros** (Looper, Arc, Onset) and, under the layers, the **levels** of every strip |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
 | **Synth** | 7 | The note sequencer, the Wave synth or a VST instrument, and their presets ([The synth](synth.md)) |
-| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars, the levels and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, overdub detection, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, **AI apps** ([AI apps](ai.md)) and Record set's **Log every action** ([Every action](#every-action)) |
+| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, **AI apps** ([AI apps](ai.md)) and Record set's **Log every action** ([Every action](#every-action)) |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
 ![The Sound view](images/sound.png)
@@ -574,7 +574,7 @@ at the same sizes.
 
 ![Setup's Rig page](images/setup-rig.png)
 
-*Fig: Setup's Rig page on the saSystem rig: the audio, the analysis input, the timing values and the levels, with Calibrate beside them.*
+*Fig: Setup's Rig page on the saSystem rig: the audio, the analysis input and the timing values, with Calibrate beside them.*
 
 The controls, by view:
 
@@ -612,9 +612,9 @@ The controls, by view:
   sits 30 dB or more below it: a tap that quiet still yields a few onsets at a
   low threshold, and the meter fitted to them is noise — fix the gain, not the
   threshold. See [docs/routing.md](routing.md).
-- **Master** *(Perform's macros)* — the looper's own level: the loop, the
+- **Looper** *(Perform's macros)* — the looper's own level: the loop, the
   cutter and the grains together, after their limiter (0–1, starts at 0.7).
-  The whole mix's last fader is **Master** under Levels.
+  The whole mix's last fader is **Master** under Levels, on Perform.
 - **Morph** *(Perform's Grains column)* — between frozen drone (0) and pulsed scan
   locked to the detected pulse (1). Mirrors the Grains' Morph on Sound (CC 118 in the
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.
@@ -741,7 +741,7 @@ Setup's Analysis page (`scripts/gui-analysis.scd`).
 
 ![Setup's Analysis page](images/setup-analysis.png)
 
-*Fig: Setup's Analysis page: the onset threshold, overdub detection, the onset notes, the pitch range, the fallback meter, Bars by hand and the export.*
+*Fig: Setup's Analysis page: the onset threshold, the onset notes, the pitch range, the fallback meter, Bars by hand and the export.*
 
 On **Perform**:
 
@@ -813,8 +813,7 @@ shares.
 
 For loops that open atmospheric. Take one has no attacks, so no meter is found
 and the drums never start — correct, there is no beat to follow. Turn on
-**Overdub meter** in the take line of Perform's status band (or **Overdub meter
-detection** on Setup's Analysis page: the same switch), overdub a rhythmic
+**Overdub meter** in the take line of the status band, overdub a rhythmic
 pattern, and the meter is derived from *that* instead, then the drums start.
 
 - **Runs on `endOverdub`**, and only while the loop still has **no valid meter**
@@ -825,7 +824,8 @@ pattern, and the meter is derived from *that* instead, then the drums start.
 - **Detect now**, beside it, forces a re-analysis of the last overdub's onsets
   past that gate. The quality guards below still apply; when they find no
   beat, the footer says why (`Refused: no beat in the last overdub: 5 onsets,
-  8 needed`), and Setup's Analysis page shows what a detection found.
+  8 needed`), and when it finds one, what it found (`Meter from the overdub:
+  7/8 @ 103.2 BPM · 4 bars · 22 onsets`).
 - Onsets arrive already in **loop coordinates**: the engine publishes its read
   position on a control bus and the analyser latches it at each onset, so
   several loop passes fold onto one grid with no clock arithmetic — and playing
@@ -1569,7 +1569,7 @@ megalooper/
     gui-synth.scd        -- Synth: the note sequencer and the Wave synth
     gui-analysis.scd     -- Analysis (Setup): monitor feed, counts, onset notes, export
     gui-rig.scd          -- Rig (Setup): routing, timing, the MIDI map
-    gui-sa.scd           -- Rig (Setup): the mixer's levels and New loop
+    gui-sa.scd           -- the mixer's levels (Perform) and New loop (Setup › Rig)
     gui-midimap.scd      -- the MIDI map section: inputs, maps, bindings, learning
     gui-mapmode.scd      -- MIDI Map mode: the MIDI MAP button, masks, the map bar
     gui-calibrate.scd    -- the Calibrate wizard, and its summary on Setup
