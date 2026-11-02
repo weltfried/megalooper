@@ -736,12 +736,15 @@ Routine {
         ~drumsLevels[\onsetKit][\slider].valueAction_(~saLevelSpec.unmap(-15.5));
         ok.("the onset kit's slider sets its strip", (levels[\onsetKit] - (-15.5).dbamp).abs < 1e-6);
         {
-            var section, bars = List.new, walk;
-            ~saNewLoopSeg = nil;
+            var section, bars = List.new, segs = List.new, walk;
             section = ~buildSARigSection.();
-            walk = { |v| if(v.isKindOf(LooperBar)) { bars.add(v) }; v.children.do(walk) };
+            walk = { |v|
+                if(v.isKindOf(LooperBar)) { bars.add(v) };
+                if(v.isKindOf(LooperSeg)) { segs.add(v) };
+                v.children.do(walk) };
             walk.(section);
-            ok.("Setup's Rig has no levels: they are Perform's", bars.isEmpty and: { ~saNewLoopSeg.notNil }, bars.size.asString);
+            ok.("Setup's Rig has no levels and no New loop: they are Perform's", bars.isEmpty and: { segs.isEmpty },
+                [bars.size, segs.size].asString);
         }.value;
         rig = ~buildSAPerformLevels.();
         tick.();

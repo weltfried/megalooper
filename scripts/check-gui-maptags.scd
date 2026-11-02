@@ -482,7 +482,7 @@ Routine {
         var tabSub = { |i| ~bbcutVoiceTabsHolder.children.select { |c| c.isKindOf(LooperTile) }[i] !? { |t| t.sub } ? "" };
         var procTile, procName, was = [~looper.inChannelCount, ~looper.bbcutMode];
         // (The New loop switch keeps its choice in settings.json: caught here, never written.)
-        var wasPrefSave = ~guiPrefSave, kept;
+        var wasPrefSave = ~guiPrefSave, kept, col;
         ~wireLooperController.();
         click.(~inChannelSeg, 1);
         tick.();
@@ -493,15 +493,23 @@ Routine {
         ok.("...Mono clicked, one channel, and the switch says Mono",
             [~looper.inChannelCount, ~inChannelSeg[\view].value] == [1, 0], [~looper.inChannelCount, ~inChannelSeg[\view].value].asString);
         ~guiPrefSave = { |key, value| kept = [key, value] };
-        ok.("New loop: the switch is on the Setup view, at Drums play", ~saNewLoopSeg.notNil and: { ~saNewLoopSeg[\view].value == 0 });
-        click.(~saNewLoopSeg, 1);
+        col = ~performNewLoopSeg !? { |sg| sg[\view] };
+        while { col.notNil and: { col !== ~performColumns[\drum][\band].parent } } { col = col.parent };
+        ok.("New loop: the switch is in Perform's Drums column, at Play",
+            col.notNil and: { ~performNewLoopSeg[\view].value == 0 });
+        click.(~performNewLoopSeg, 1);
         tick.();
-        ok.("...Drums off clicked, a new loop starts with the drums off, and that is kept",
+        ok.("...Off clicked, a new loop starts with the drums off, and that is kept",
             (~megaSA.drums.newLoopOff == true) and: { kept == ["drumsNewLoop", "off"] }, [~megaSA.drums.newLoopOff, kept].asString);
-        click.(~saNewLoopSeg, 0);
+        click.(~performNewLoopSeg, 0);
         tick.();
-        ok.("...Drums play clicked, they play again", (~megaSA.drums.newLoopOff == false) and: { kept == ["drumsNewLoop", "play"] },
+        ok.("...Play clicked, they play again", (~megaSA.drums.newLoopOff == false) and: { kept == ["drumsNewLoop", "play"] },
             [~megaSA.drums.newLoopOff, kept].asString);
+        ~megaSA.drums.newLoopOff = true;
+        ~performPaintDrums.();
+        ok.("...and it shows the drums' own setting when Perform is painted", ~performNewLoopSeg[\view].value == 1);
+        ~megaSA.drums.newLoopOff = false;
+        ~performPaintDrums.();
         ~guiPrefSave = wasPrefSave;
         click.(~bbcutModeSegSound, 0);
         tick.();

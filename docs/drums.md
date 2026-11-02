@@ -10,11 +10,12 @@ megalooper has two drum parts, on the **Drums** view (key **4**):
 Each part plays a **kit**: a set of samples on pads.
 
 The steps start with every new loop you record. To have them wait instead,
-set **New loop** to **Drums off** on the Setup view's Rig page, under
-**Drums**. A new loop then keeps the drums in time but silent, until you switch
-them on: the switch on the Drums view, or a footswitch mapped to it. Overdubs leave
-them as they are. megalooper keeps the choice for the next start. Whether
-they also stop with the loop is **Drums follow the loop**, on the same page.
+set **New loop** to **Off** in the Drums column on Perform. A new loop then
+keeps the drums in time but silent, until you switch them on: the tile at the
+top of that column, the switch on the Drums view, or a footswitch mapped to it.
+Overdubs leave them as they are. megalooper keeps the choice for the next
+start. Whether they also stop with the loop is **Drums follow the loop**, on
+the Setup view's Rig page.
 
 ## Why the drums are hidden at first
 

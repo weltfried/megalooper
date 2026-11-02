@@ -23,7 +23,8 @@
 //   gui-granular.scd   ~buildGranularPane: the Grains, Sound's right half
 //   gui-analysis.scd   ~buildAnalysisPane: the monitor feed, counts, onset
 //                      notes, export (Setup)
-//   gui-sa.scd         ~buildSARigSection: Megalooper SA's mixer (Setup)
+//   gui-sa.scd         the mixer's levels (Perform) and ~buildSARigSection's
+//                      pointer to them (Setup)
 //   gui-midimap.scd    ~buildMidiMapSection: the MIDI map (Setup)
 //   gui-mapmode.scd    MIDI Map mode: the MIDI MAP button, masks, the map bar
 //   gui-effects.scd    ~buildEffectsPane: SA's effects, Bias FX and presets

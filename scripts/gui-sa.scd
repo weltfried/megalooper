@@ -1,7 +1,8 @@
-// megalooper — Megalooper SA's section of the Rig pane: the mixer's levels and
-// mutes. The effects, Bias FX's window and the presets moved to the Effects
-// pane (gui-effects.scd), the drums to the Drums pane (gui-drums.scd); what
-// stays here is set once per rig, like the rest of the Rig pane.
+// megalooper — Megalooper SA's mixer as Perform shows it: its levels and
+// mutes (~buildSAPerformLevels). The effects, Bias FX's window and the presets
+// are on the Effects pane (gui-effects.scd), the drums on the Drums pane
+// (gui-drums.scd) and their New loop switch on Perform; Setup's Rig page keeps
+// only a line saying where they are.
 //
 // Loaded by boot.scd; defines only, runs nothing. ~buildRigPane calls
 // ~buildSARigSection, which answers an empty, hidden view on a rig that is not
@@ -124,38 +125,20 @@
     }
 };
 
-// Whether a new loop starts with the drums playing or off (PC 17 switched
-// off as the take starts: the transport still runs, PC 17 brings them in on
-// the grid). Kept in settings.json (~saDrumsNewLoopSet).
-~saNewLoopRow = { |d|
-    var tip = "What the drums do when you record a new loop.\n"
-        "Drums play: they start with the loop.\n"
-        "Drums off: they keep time but stay silent until you switch them on\n"
-        "(the switch on the Drums view, or a footswitch mapped to it). Overdubs leave them as they are.";
-    ~saNewLoopSeg = ~guiSeg.(["Drums play", "Drums off"], (height: 28, font: ~guiSans.(13),
-        action: { |i| ~saDrumsNewLoopSet.(i == 1) }));
-    ~guiSegSet.(~saNewLoopSeg, (d.newLoopOff == true).binaryValue);
-    HLayout(
-        ~guiLabel.("New loop", 14).fixedWidth_(~rigLabelWidth ? 130).toolTip_(tip),
-        ~saNewLoopSeg[\view].fixedWidth_(220).toolTip_(tip),
-        nil
-    ).spacing_(10)
-};
-
-// Setup's Rig page, Megalooper SA's part: what a new loop does to the drums,
-// and where the rest is. The levels are Perform's.
+// Setup's Rig page, Megalooper SA's part: where things are. The levels and
+// the drums' New loop switch are Perform's.
 ~buildSARigSection = {
     var view = View();
     var m = ~megaSA;
     if(~rp.notNil and: { ~rp[\sa] == true } and: { m.notNil }) {
-        view.layout_(VLayout(*(
-            (m.drums !? { |d| [~guiCaption.("DRUMS", 11), ~saNewLoopRow.(d)] } ? [])
-            ++ [~guiHint.(if(m.drums.notNil) {
-                "The levels are on Perform (1), the effects and their sounds on the FX view (3), the drums on the Drums view (4)."
+        view.layout_(VLayout(
+            ~guiHint.(if(m.drums.notNil) {
+                "The levels and the drums' New loop are on Perform (1), the effects and their sounds on the FX view (3), "
+                    "the rest of the drums on the Drums view (4)."
             } {
                 "The levels are on Perform (1), the effects and their sounds on the FX view (3)."
-            })]
-        )).margins_(0).spacing_(8));
+            })
+        ).margins_(0).spacing_(8));
     } {
         view.visible_(false);
     };

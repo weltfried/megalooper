@@ -614,7 +614,7 @@
 // Whether a new loop starts with the drums off (MegaSADrums.newLoopOff), as
 // settings.json keeps it: "gui": {"drumsNewLoop": "off"}, or "play", the
 // default. Read once the settings are (boot.scd, after ~setupMidiBindings);
-// set from the Setup view.
+// set from Perform's Drums column.
 ~saDrumsNewLoopKey = "drumsNewLoop";
 ~saDrumsNewLoopApply = {
     ~megaSA !? { |m| m.drums !? { |d|
@@ -622,8 +622,8 @@
 };
 ~saDrumsNewLoopSet = { |off|
     ~megaSA !? { |m| m.drums !? { |d| d.newLoopOff = off == true } };
-    // The Setup view's switch shows what was set (it does not move itself).
-    ~saNewLoopSeg !? { |sg| ~guiSegSet !? { |f| f.value(sg, (off == true).binaryValue) } };
+    // Perform's switch shows what was set (it does not move itself).
+    ~performNewLoopSeg !? { |sg| ~guiSegSet !? { |f| f.value(sg, (off == true).binaryValue) } };
     ~guiPrefSave !? { |f| f.value(~saDrumsNewLoopKey, if(off == true) { "off" } { "play" }, "the drums' new-loop switch") };
 };
 

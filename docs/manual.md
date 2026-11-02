@@ -530,12 +530,12 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **macros** (Looper, Arc, Onset) and, under the layers, the **levels** of every strip |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, the kit, **New loop**, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **macros** (Looper, Arc, Onset) and, under the layers, the **levels** of every strip |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
 | **Synth** | 7 | The note sequencer, the Wave synth or a VST instrument, and their presets ([The synth](synth.md)) |
-| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the timing bars and New loop, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, **AI apps** ([AI apps](ai.md)) and Record set's **Log every action** ([Every action](#every-action)) |
+| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop and the timing bars, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, **AI apps** ([AI apps](ai.md)) and Record set's **Log every action** ([Every action](#every-action)) |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
 ![The Sound view](images/sound.png)
@@ -595,6 +595,11 @@ The controls, by view:
     stops.
   - *Start only*: they start with the loop and play on after a stop.
   - *Off*: they do not start with the loop; switch them on yourself.
+- **New loop** *(Perform's Drums column)* — what the drums do when you record
+  a new loop. *Play* (default): they start with it. *Off*: they keep time but
+  stay silent until you switch them on, with the tile above it or their
+  footswitch. Overdubs leave them as they are. megalooper keeps the choice for
+  the next start.
 - **Input** *(Setup › Rig)* — *Mono* or *Stereo*; the profile's
   `inChannelCount` sets it at boot (saSystem: Stereo). Stereo records both
   sides of the instrument chain, so its stereo effects reach the loop. Mono
@@ -1569,7 +1574,7 @@ megalooper/
     gui-synth.scd        -- Synth: the note sequencer and the Wave synth
     gui-analysis.scd     -- Analysis (Setup): monitor feed, counts, onset notes, export
     gui-rig.scd          -- Rig (Setup): routing, timing, the MIDI map
-    gui-sa.scd           -- the mixer's levels (Perform) and New loop (Setup › Rig)
+    gui-sa.scd           -- the mixer's levels (Perform)
     gui-midimap.scd      -- the MIDI map section: inputs, maps, bindings, learning
     gui-mapmode.scd      -- MIDI Map mode: the MIDI MAP button, masks, the map bar
     gui-calibrate.scd    -- the Calibrate wizard, and its summary on Setup

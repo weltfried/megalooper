@@ -1,5 +1,5 @@
-// A new loop with the drums off (MegaSADrums.newLoopOff, the Setup view's
-// "New loop" switch): a first take starting to record switches PC 17 off, so
+// A new loop with the drums off (MegaSADrums.newLoopOff, the "New loop" switch
+// in Perform's Drums column): a first take starting to record switches PC 17 off, so
 // the loop's Start runs the transport with the steps silent; overdubs and the
 // other states leave the switch as it is, and with the option off nothing
 // changes at all. The setting is kept in settings.json's "gui" part.
@@ -56,7 +56,7 @@ saved = ();
 (Looper.repoRoot +/+ "scripts" +/+ "setup-sa.scd").load;
 ~megaSA = sa;
 ~saDrumsNewLoopSet.(false);
-~tEq.("the Setup view's switch sets the drums and keeps the choice", [d.newLoopOff, saved[\drumsNewLoop]], [false, "play"]);
+~tEq.("Perform's switch sets the drums and keeps the choice", [d.newLoopOff, saved[\drumsNewLoop]], [false, "play"]);
 ~saDrumsNewLoopSet.(true);
 ~tEq.("...either way", [d.newLoopOff, saved[\drumsNewLoop]], [true, "off"]);
 d.newLoopOff = false;

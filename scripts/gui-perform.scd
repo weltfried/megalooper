@@ -16,7 +16,8 @@
 // values worth grabbing, and a line saying what it is doing. A layer that is
 // off loses its colour (the switch goes dark and dashed, the bar and the
 // values fade), so a glance across the five says what is sounding. A name
-// opens the view where the rest of that layer is. The onset notes' switch and
+// opens the view where the rest of that layer is. The Drums column also says
+// what a new loop does to them (New loop: Play or Off). The onset notes' switch and
 // Chance are under the Drums on SA, and a column of their own elsewhere; the
 // overdub meter's switch is in the band's take line (gui-status.scd).
 //
@@ -147,7 +148,7 @@
     var l = ~looper;
     var sa = ~rp.notNil and: { ~rp[\sa] == true } and: { ~megaSA.notNil };
     var columns, loopCol, cutCol, grainCol, fxCol, drumCol, synthCol, right, steppers;
-    var stepper, levels;
+    var stepper, levels, newLoopTip;
     ~performColumns = IdentityDictionary.new;
     ~performActions = IdentityDictionary.new;
 
@@ -287,16 +288,27 @@
         ~performDrumsTile = ~midiTip.(~guiLayerTile.(\drum)
             .action_({ ~drumsModel !? { |f| f.value !? { |d| d.setOn(d.on.not) } } }),
             'sa.drums.on', "The steps on or off, as their footswitch does.");
-        ~performDrumsPattern = ~performReadBar.(\drum);
-        ~performDrumsPatternLabel = ~performValue.("—");
         ~performDrumsKit = ~performReadBar.(\drum);
         ~performDrumsKitLabel = ~performValue.("—");
+        // What a new loop does to them (~saDrumsNewLoopSet, setup-sa.scd), on
+        // one line: the column is as tall as the Loop's. The pattern playing
+        // is on the tile above (MAIN or BREAK).
+        ~performNewLoopSeg = ~guiSeg.(["Play", "Off"], (height: 26, base: \panel, font: ~guiSans.(13),
+            action: { |i| ~saDrumsNewLoopSet.(i == 1) }));
+        ~guiSegSet.(~performNewLoopSeg, ((~drumsModel !? { |f| f.value !? { |d| d.newLoopOff } }) == true).binaryValue);
+        newLoopTip = "What the drums do when you record a new loop.\n"
+            "Play: they start with the loop.\n"
+            "Off: they keep time but stay silent until you switch them on (the tile above,\n"
+            "or their footswitch). Overdubs leave them as they are. Kept for the next start.";
         drumCol = ~performColumn.((key: \drum, name: "Drums", view: \drums,
             sw: { ~performSw.(nil, 'sa.drums.on') },
             toggle: ~performDrumsTile,
             rows: [
-                ~performParam.("Pattern", ~performDrumsPatternLabel, ~performDrumsPattern),
-                ~performParam.("Kit", ~performDrumsKitLabel, ~performDrumsKit)
+                ~performParam.("Kit", ~performDrumsKitLabel, ~performDrumsKit),
+                HLayout(
+                    ~guiLabel.("New loop", 14).toolTip_(newLoopTip), nil,
+                    ~performNewLoopSeg[\view].fixedWidth_(84).toolTip_(newLoopTip)
+                ).margins_(0).spacing_(6)
             ],
             extra: [~performOnsetNotesTile,
                 ~performParam.("Chance", ~performOnsetChanceLabel, ~performOnsetChance)]));
@@ -332,6 +344,7 @@
     } {
         ~performFxTile = nil;
         ~performDrumsTile = nil;
+        ~performNewLoopSeg = nil;
         ~performSynthTile = nil;
         // In the Drums' colour: they are a drum part, and no Drums column
         // shares this rig's Perform.
@@ -448,7 +461,7 @@
     ).margins_([18, 14, 18, 12]).spacing_(10));
 
     // On SA the mixer's strips sit under the layers: levels are played, not
-    // set up (they are on Setup as well, and both follow the model).
+    // set up (Setup has none; the Drums view's two strips follow the model too).
     levels = if(sa) { ~buildSAPerformLevels !? { |f| f.value } };
     pane.layout_(HLayout(
         [View().layout_(VLayout(*(
@@ -592,8 +605,7 @@
             if((d !? { |dd| dd.breakActive }) == true) { "BREAK" } { "MAIN" }, "OFF"));
         ~guiLayerPaint.(~performDrumsTile, on, \drum);
         ~performPaintBand.(\drum, on);
-        ~performDrumsPattern.value_(if((d !? { |dd| dd.breakActive }) == true) { 1 } { 0.5 }).dim_(if(on) { 1 } { 0.3 });
-        ~performDrumsPatternLabel.string_(if((d !? { |dd| dd.breakActive }) == true) { "Break" } { "Main" });
+        ~guiSegSet.(~performNewLoopSeg, ((d !? { |dd| dd.newLoopOff }) == true).binaryValue);
         kit = d !? { |dd| dd.kit(\steps) !? { |k| (~drumsKitName !? { |f| f.(dd, k) }) ? k.asString } };
         ~performDrumsKit.value_(if(kit.notNil) { 1 } { 0 }).dim_(if(on) { 1 } { 0.3 });
         ~performDrumsKitLabel.string_(kit ? "none");
