@@ -475,31 +475,6 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 *Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3, which the count under the state block shows as group 2 of 2+2+3. Under the status band, a column per layer, then the actions and the macros.*
 
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│ ∞ MEGALOOPER │ 1 Perform │ 2 Sound ■□ │ 3 FX │ 4 Drums │ 7 Synth │ 5 Setup ▾   │  the top bar
-│ CPU 14% peak 21% │ ◐ │ ? │ RIG SASYSTEM MIDI ● │ ■ MIDI MAP ⌘M │ ○ Record set  │
-├────────────────┬──────────────────────────────────────────┬────────────────────┤
-│ LOOPER STATE   │ TAKE · DETECTED                          │ INPUT              │
-│ ▶ PLAYING      │ 7/8   103.2   2   Dm                     │ ▇▇▇▇▇▇▇▇▇░░ -9 dB  │  the status band
-│ R → overdub    │ [or 7/4 @ 206.4?] close call: press A    │ ■ Onset thr 0.50   │  (Perform only)
-├────────────────┼──────────────────────────────────────────┴────────────────────┤
-│ COUNT · 2+2+3  │ BAR 2/2 · BEAT 3/7                            2.44 / 8.14 s   │
-│ 2  ■□  BAR 2/2 │ │1 2┊3 4┊5 6 7│1 2┊▓ 4┊5 6 7│ ← the beat that plays           │
-│ ▬▬ ██ ▭▭▭      │    ┊ a group's head; every other group shaded                 │
-├──────┬────────┬┴───────┬─────────┬───────┬───────┬─────────────────────────────┤
-│ Loop │ Cutter │ Grains │ Effects │ Drums │ Synth │ ACTIONS · FOOTSWITCH        │
-│[FWD] │ [ON]   │ [OFF]  │ [2 ON]  │[MAIN] │ [OFF] │ Trigger  Stop  Break        │  Perform
-│ ...  │ ...    │ ...    │ ...     │ ...   │ ...   │ Next reading  Dissolve      │
-│      │        │        │         │       │       │ Rec next loop  Undo  Clear  │
-│      │        │        │         │       │       │ MACROS · Looper  Arc  Onset │
-├──────┴────────┴────────┴─────────┴───────┴───────┤                             │
-│ LEVELS · Instrument Instrument 2 Loop Drums Onset kit Synth Master             │
-├──────────────────────────────────────────────────┴─────────────────────────────┤
-│ keys 1–5 7 views · 6 calibrate · T theme · H help     Refused: nothing playing │  the footer
-└────────────────────────────────────────────────────────────────────────────────┘
-```
-
 - **The top bar**, on every view: the logo, a Möbius loop whose twist
   travels round once a pass while the loop plays (and stands when it
   stops), the views' tabs (keys **1–5** and **7**, and **6**
