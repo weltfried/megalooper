@@ -157,7 +157,7 @@ s.waitForBoot {
      [\granularSlider, ~granularSlider], [\keyHintText, ~keyHintText], [\guiFooterStatus, ~guiFooterStatus],
      [\nextLoopButton, ~nextLoopButton], [\bbcutButton, ~bbcutButton],
      [\bbcutPaneButton, ~bbcutPaneButton], [\bbcutVoiceMenu, ~bbcutVoiceMenu],
-     [\onsetThresholdSlider, ~onsetThresholdSlider],
+     [\analysisThresholdBar, ~analysisThresholdBar],
      [\guiOnsetLampView, ~guiOnsetLampView], [\exportNameField, ~exportNameField],
      [\latencySlider, ~latencySlider], [\syncSlider, ~syncSlider],
      [\declickSlider, ~declickSlider], [\midiMonitorView, ~midiMonitorView],

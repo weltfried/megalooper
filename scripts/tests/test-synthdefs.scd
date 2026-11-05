@@ -30,10 +30,20 @@ var baseline = (
     // recorder now tracks the tap's and the input's peak over the take and
     // reports them on /looperLevels, for the starved-tap warning. Deliberate —
     // see the graph's comment and roadmap item 6.
-    'looperRec':             [ 1844, 347506692 ],
-    'looperRecMono':         [ 1784, 322503125 ],
-    'looperAnalysisMonitor': [ 1059, 897460795 ],
-    'looperOverdubAnalysis': [  864, 693388309 ],
+    // Moved 2026-11-05 from [ 1844, 347506692 ] / [ 1784, 322503125 ], and
+    // the monitor from [ 1059, 897460795 ] and the overdub analyser from
+    // [ 864, 693388309 ]: the onsets hear the tap at the automatic level
+    // (tapGainBus, prTapGain), the strength is the RMS around the hit
+    // (prOnsetStrength) and an onset is reported 30 ms after its trigger
+    // (prOnsetReport); the recorder's tap peak reads the raw tap through the
+    // input's envelope and /looperLevels carries the gain. Deliberate — see
+    // prOnsetStrength and prTapLevelGraph; measured in NRT before the change.
+    'looperRec':             [ 2525, 661081953 ],
+    'looperRecMono':         [ 2465, 330919120 ],
+    'looperAnalysisMonitor': [ 1648, 528786739 ],
+    'looperOverdubAnalysis': [ 1453, 916394117 ],
+    // New 2026-11-05: the tap-level tracker (prTapLevelGraph).
+    'looperTapLevel':        [ 1762, 669184845 ],
     'looperRecPlain':        [  605, 125864998 ],
     'looperRecPlainMono':    [  545, 466595377 ],
     // Moved 2026-10-27 from [ 2074, 209975019 ] and [ 2014, 953598608 ]: the

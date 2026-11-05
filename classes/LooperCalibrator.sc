@@ -84,20 +84,21 @@ LooperCalibrator {
             (
                 key: \threshold,
                 title: "Onset threshold",
-                why: "Meter detection sees onset times and nothing else. A "
-                    "threshold that admits ghosts or misses real hits is the "
-                    "documented reason a straight 4/4 take comes out 7/8.",
+                why: "Meter detection sees onset times and nothing else. The tap's "
+                    "level is followed automatically, so the default 0.5 is meant to "
+                    "be left alone; change it only if the lamp misses your hits or "
+                    "flashes between them at the default.",
                 todo: [
                     "Plug your instrument in. Ableton Live is not in this path at all.",
                     "Open the Analysis tab and play the way you are going to play.",
-                    "Raise the threshold until the red marks fall only on real "
-                    "hits; lower it until none of your hits are missing.",
-                    "Come back here and press Done."
+                    "If the lamp flashes between notes, raise the threshold; if a hit "
+                    "leaves it dark, lower it. Otherwise leave it at 0.5.",
+                    "Come back here and press Done, or Skip."
                 ],
                 needs: [\guitar],
                 field: \onsetThreshold,
                 manual: true,
-                optional: false
+                optional: true
             ),
             (
                 key: \latency,
@@ -266,10 +267,12 @@ LooperCalibrator {
             (
                 key: \level,
                 title: "Input level",
-                why: "Meter detection listens to the dry instrument. Too quiet, and soft "
-                    "notes never rise above the onset threshold; clipped, and every "
-                    "hit looks the same. The level is set on the interface's input "
-                    "gain (or the computer's input level), not in megalooper.",
+                why: "Meter detection listens to the dry instrument. Its level is "
+                    "followed automatically (the auto level on Setup › Analysis), so "
+                    "this is about the signal itself: clipped, and every hit looks the "
+                    "same; very quiet, and the hiss is turned up with it. The level is "
+                    "set on the interface's input gain (or the computer's input "
+                    "level), not in megalooper.",
                 todo: [
                     "Plug your instrument in, its volume where you play it.",
                     "Press Measure and play hard for eight seconds: the loudest you "
@@ -285,21 +288,23 @@ LooperCalibrator {
             (
                 key: \threshold,
                 title: "Onset threshold",
-                why: "Meter detection sees onset times and nothing else. A "
-                    "threshold that admits ghosts or misses real hits is the "
-                    "documented reason a straight 4/4 take comes out 7/8.",
+                why: "Meter detection sees onset times and nothing else. The tap's "
+                    "level is followed automatically, so the default 0.5 is meant to "
+                    "be left alone; change it only if the lamp misses your hits or "
+                    "flashes between them at the default.",
                 todo: [
                     "Plug your instrument in.",
                     "On the Setup view, under Analysis, play the way you are going "
                     "to play.",
-                    "Raise the threshold until the red marks fall only on real "
-                    "hits; lower it until none of your hits are missing.",
-                    "Come back here and press Done: the threshold is kept for this rig."
+                    "If the lamp flashes between notes, raise the threshold; if a hit "
+                    "leaves it dark, lower it. Otherwise leave it at 0.5.",
+                    "Come back here and press Done (the threshold is kept for this "
+                    "rig), or Skip."
                 ],
                 needs: [\guitar],
                 field: \onsetThreshold,
                 manual: true,
-                optional: false
+                optional: true
             ),
             (
                 key: \latency,

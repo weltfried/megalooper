@@ -67,12 +67,30 @@ bare = flat.(stripComments.(src));
 
 // ---- 2. one onset-salience measure --------------------------------------
 
-// The same envelope feeds MeterAnalyzer's accent test and the analysis
-// window's readout, so the number on screen is only honest while there is one.
-~tEq.("the salience envelope is defined once",
-    countOf.(bare, "0.001, 0.1"), 1);
+// The same measure feeds MeterAnalyzer's accent test, the onset notes'
+// velocities and the analysis window's readout, so the number on screen is
+// only honest while there is one. Since 2026-11-05 it is the RMS around the
+// hit, read 30 ms after the trigger (prOnsetStrength, prOnsetReport).
+~tEq.("the salience measure is defined once",
+    countOf.(bare, "RunningSum.rms("), 1);
 ~tEq.("two call sites share it (recorder, monitor) plus the overdub analyser",
     countOf.(bare, "Looper.prOnsetStrength("), 3);
+~tEq.("...and all three report on the delayed trigger",
+    countOf.(bare, "Looper.prOnsetReport(trig)"), 3);
+~tAssert.("the old envelope at the trigger is gone",
+    bare.contains("0.001, 0.1)").not,
+    "Amplitude.kr(sig, 0.001, 0.1) read the waveform's phase — see prOnsetStrength");
+
+// ---- 2b. one automatic level --------------------------------------------
+
+// Every detector hears the tap at the same level, or the lamp lies about
+// what a take will detect and an overdub detection disagrees with a take.
+~tEq.("the tap gain is read in one way",
+    countOf.(bare, "In.kr(bus.max(0))"), 1);
+~tEq.("...by all three detectors (rec graph, monitor, overdub analysis)",
+    countOf.(bare, "Looper.prTapGain(tapGainBus)"), 3);
+~tEq.("...and every spawn of them passes the bus",
+    countOf.(bare, "\\tapGainBus, this.prTapGainIndex"), 3);
 
 // ---- 3. one way to read the loop input ----------------------------------
 

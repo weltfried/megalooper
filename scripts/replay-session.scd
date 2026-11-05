@@ -243,13 +243,18 @@ selfTest = {
 // event carried `pitches` has it only this way. Returns [takeIndex,
 // thresholdIndex] -> result file, and [takeIndex, \pitch] -> the pitch's.
 render = { |tap, takeList, thrs, audioT, rate|
-    var def = SynthDef(\replayOnsets, { |bufnum = 0, threshold = 0.5, resultBuf = 1|
-        var sig = PlayBuf.ar(1, bufnum, 1, 1, 0, 0);
+    // At the automatic level the take logged (tapGainDb; unity for a set
+    // from before it), and the strength read where the recorder reads it,
+    // onsetReportDelay after the trigger: the slot keeps being written until
+    // the next onset, so it ends up holding the late reading.
+    var def = SynthDef(\replayOnsets, { |bufnum = 0, threshold = 0.5, resultBuf = 1, gain = 1|
+        var sig = PlayBuf.ar(1, bufnum, 1, 1, 0, 0) * gain;
         var trig = Looper.prOnsetTrig(sig, threshold);
         var time = Sweep.kr(1, 1);
         var strength = Looper.prOnsetStrength(sig);
         var count = Stepper.kr(trig, 0, 0, maxOnsets, 1, 0);
-        BufWr.kr([Latch.kr(time, trig), Latch.kr(strength, trig), 1], resultBuf, count, 0);
+        BufWr.kr([Latch.kr(time, trig), Latch.kr(A2K.kr(strength), Looper.prOnsetReport(trig)), 1],
+            resultBuf, count, 0);
     });
     var pitchDef = SynthDef(\replayPitch, { |bufnum = 0, resultBuf = 1, slots = 100|
         var sig = PlayBuf.ar(1, bufnum, 1, 1, 0, 0);
@@ -291,7 +296,7 @@ render = { |tap, takeList, thrs, audioT, rate|
             bufnum = bufnum + 1;
             score.add([t + 0.002, [\b_alloc, res, maxOnsets + 1, 3]]);
             score.add([t + 0.01, [\s_new, \replayOnsets, node, 0, 0,
-                \bufnum, tapBuf, \threshold, thr, \resultBuf, res]]);
+                \bufnum, tapBuf, \threshold, thr, \resultBuf, res, \gain, (tk[\tapGainDb] ? 0).dbamp]]);
             score.add([t + 0.01 + tk[\dur], [\n_free, node]]);
             score.add([t + 0.02 + tk[\dur], [\b_write, res, path, "wav", "float", -1, 0, 0]]);
             score.add([t + 0.03 + tk[\dur], [\b_free, res]]);

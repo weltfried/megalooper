@@ -105,7 +105,10 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
         cal = LooperCalibrator(looper, false).keptPath_(path).rig_('Mic → Speakers @ 64 frames');
         ~tEq.("with nothing reported the round trip step is not optional", cal.stepAt(\latency)[\optional], false);
         cal.reported = { 51.5 };
-        ~tEq.("with a report it is", [cal.stepAt(\latency)[\optional], cal.steps.select { |s| s[\optional] == true }.size], [true, 1]);
+        // The threshold step is optional too since the automatic level
+        // (2026-11-05): the default 0.5 is meant to be left alone.
+        ~tEq.("with a report it is, beside the threshold", [cal.stepAt(\latency)[\optional],
+            cal.steps.select { |s| s[\optional] == true }.collect { |s| s[\key] }], [true, [\threshold, \latency]]);
         ~tAssert.("...which completes the wizard without it", { 3.do { cal.skip }; cal.isComplete }.value);
         ~tEq.("...and the class's steps are as they were", LooperCalibrator.stepAt(\latency)[\optional], false);
         cal.reset;

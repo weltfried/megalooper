@@ -162,6 +162,16 @@
     };
 };
 
+// The automatic level (Looper's tap-level tracker): the gain the onsets are
+// heard at, "+6", "0" before anything has been played. Painted on the
+// Looper's \tapGain (gui-wiring.scd), at most twice a second.
+~analysisPaintTapGain = {
+    ~analysisTapGainLabel !? { |t|
+        var db = (~looper !? { |l| l.tapGainDb } ? 0).round.asInteger;
+        if(t.isClosed.not) { t.string_((if(db > 0) { "+" } { "" }) ++ db) };
+    };
+};
+
 // Push model state into the widgets. Needed because the builder starts the
 // monitor before ~wireLooperController has subscribed, so the notification that
 // would paint the switch fires into the void and the view would open claiming
@@ -171,6 +181,7 @@
         ~analysisThresholdBar !? { |sl| sl.value = ~onsetThresholdSpec.unmap(l.onsetThreshold) };
         ~analysisThresholdLabel !? { |t| t.string_(l.onsetThreshold.round(0.01).asString) };
         ~analysisPaintMonitor.();
+        ~analysisPaintTapGain.();
     };
     ~onsetNotesRefresh.();
 };
@@ -246,6 +257,12 @@
     ~analysisPeakLabel = ~guiMonoText.("—", 26, ~gt[\ink]);
     ~analysisCountLabel = ~guiMonoText.("0", 26, ~gt[\ink]);
     ~analysisStrengthLabel = ~guiMonoText.("—", 26, ~gt[\ink]);
+    ~analysisTapGainLabel = ~guiMonoText.("—", 26, ~gt[\ink]).toolTip_(
+        "The automatic level: how far the analysis turns the tap up (+) or down (-) so\n"
+            "every take is heard at one level, which a fixed threshold needs. It follows\n"
+            "your playing (louder at once, quieter within about ten seconds) and holds in\n"
+            "silence. 0 until something has been played. The input gain on the interface\n"
+            "still matters for clipping and hiss, not for detection.");
     // What the old readout line said, for the checks and the tooltip.
     ~analysisStatsLabel = ~analysisPeakLabel;
     ~analysisThresholdBar = ~mapTag.(~guiBar.(\ink, 16)
@@ -451,7 +468,8 @@
         View().background_(~gt[\line]).layout_(HLayout(
             View().background_(~gt[\bg]).layout_(VLayout(stat.(~analysisPeakLabel, "peak dB")).margins_(0)),
             View().background_(~gt[\bg]).layout_(VLayout(stat.(~analysisCountLabel, "onsets since reset")).margins_(0)),
-            View().background_(~gt[\bg]).layout_(VLayout(stat.(~analysisStrengthLabel, "last strength")).margins_(0))
+            View().background_(~gt[\bg]).layout_(VLayout(stat.(~analysisStrengthLabel, "last strength")).margins_(0)),
+            View().background_(~gt[\bg]).layout_(VLayout(stat.(~analysisTapGainLabel, "auto level dB")).margins_(0))
         ).margins_(1).spacing_(1)),
         VLayout(HLayout(~analysisThresholdCaption, nil, ~analysisThresholdLabel).margins_(0),
             ~analysisThresholdBar).spacing_(5).margins_(0),

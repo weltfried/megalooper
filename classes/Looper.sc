@@ -10,10 +10,16 @@ Looper {
     var <state, onsets, <recStartTime, loopDur;
     var onsetResp, pitchResp;
     var pitchSamples;
-    // [tap peak, input peak], linear, over the take so far — the recorder's
-    // /looperLevels, four times a second. nil until the first report. A tap far
-    // under the input is a starved analyser; see tapStarvedDb.
+    // [tap peak, input peak, tap gain], linear, over the take so far — the
+    // recorder's /looperLevels, four times a second. nil until the first
+    // report. A tap far under the input is a starved analyser; see
+    // tapStarvedDb. The gain is the automatic level the take was analysed at.
     var takeLevels, levelsResp;
+    // The automatic level in front of the onset detector (prTapLevelGraph):
+    // the tracker synth, the control bus it writes the gain to, which every
+    // analysis synth reads, and the gain and held peak it last reported (2 Hz),
+    // linear. tapLevelAna is the input the tracker is listening to.
+    var <tapGainBus, tapLevelSynth, tapLevelResp, tapLevelAna, <tapGain = 1, <tapLevel;
     var <>onAnalysis;
     var <>metronome = true;
     var <>inChannel = 0, <outChannel = 0;
@@ -32,9 +38,11 @@ Looper {
     // what the lamp shows is what a take would actually detect. Higher rejects
     // more (noisy input / ghost onsets), lower admits more (quiet or soft
     // playing). 0.5 with mingap 20 was validated offline against the training
-    // loops; it is the single most load-bearing number in meter detection, which
-    // is why it is a live control rather than a constant. Verified modulatable
-    // on a running synth — Onsets reads it per block.
+    // loops. Verified modulatable on a running synth — Onsets reads it per block.
+    // Since 2026-11-05 it is a Setup setting, not a stage control: at a fixed
+    // threshold Onsets hears the same take differently at another level (10 dB
+    // changed half the readings, measured), so the knob had been compensating
+    // for the tap's level. The automatic level (prTapLevelGraph) does that now.
     var <onsetThreshold = 0.5;
     // Free-running analysis monitor: the same detection chain as the recorder,
     // but recording nothing, so the threshold can be tuned against live playing
@@ -451,6 +459,10 @@ Looper {
             // strict OR — fine for the usual single-voice case.
             insertBus = Bus.control(server, 1);
             phaseBus  = Bus.control(server, 1);
+            // The analysis gain, written by the tap-level tracker. Unwritten
+            // (0) reads as unity in prTapGain, so a tracker that never started
+            // leaves detection as it was rather than silencing it.
+            tapGainBus = Bus.control(server, 1);
             // Grain windows for the granular layer, one buffer per shape.
             // Allocated empty here and FILLED AFTER the sync: Buffer.sendCollection
             // would send its data from a language-side /done callback that can
@@ -464,6 +476,12 @@ Looper {
                 \inBus, outBus.index,
                 \out, outChannel,
                 \amp, masterAmp
+            ]);
+            // At the head, so the analysis synths read this block's gain.
+            tapLevelAna = this.analysisIn;
+            tapLevelSynth = Synth.head(server, \looperTapLevel, [
+                \ana, tapLevelAna,
+                \out, tapGainBus.index
             ]);
             ready = true;
             "Looper ready.".postln;
@@ -485,8 +503,19 @@ Looper {
         }, '/looperPitch');
 
         levelsResp = OSCdef(\looperLevels, { |msg|
-            if(state == \recording) { takeLevels = [msg[3], msg[4]] };
+            if(state == \recording) { takeLevels = [msg[3], msg[4], msg[5]] };
         }, '/looperLevels');
+
+        // Said only when the gain moves by half a dB, so a window showing it
+        // repaints twice a second at most and mostly not at all.
+        tapLevelResp = OSCdef(\looperTapLevel, { |msg|
+            var moved = (msg[3].max(1e-6).ampdb - tapGain.max(1e-6).ampdb).abs >= 0.5;
+            tapLevel = msg[4];
+            if(moved) {
+                tapGain = msg[3];
+                this.changed(\tapGain, tapGain);
+            };
+        }, '/looperTapLevel');
     }
 
     // ---- SynthDef graph pieces ------------------------------------------
@@ -515,11 +544,86 @@ Looper {
         ^Onsets.kr(FFT(LocalBuf(512), sig), threshold, \rcomplex, mingap: 20)
     }
 
-    // Onset salience: fast-attack amplitude, read when an onset fires. Feeds
-    // MeterAnalyzer's accent test so loud (downbeat) hits can be told apart
-    // from weak ones — and it is also what the analysis window displays, so
-    // the number on screen is only honest while this is the same everywhere.
-    *prOnsetStrength { |sig| ^Amplitude.kr(sig, 0.001, 0.1) }
+    // Onset salience: the RMS of the 70 ms that end onsetReportDelay after the
+    // trigger, so of the hit from 40 ms before the detector fired (it fires
+    // 10–40 ms after the attack) to 30 ms after. Read at prOnsetReport's
+    // trigger. Feeds MeterAnalyzer's accent test, the onset notes' velocities
+    // and the analysis window's readout, so the number on screen is only
+    // honest while this is the same everywhere.
+    //
+    // Until 2026-11-05 this was Amplitude.kr(sig, 0.001, 0.1) at the trigger,
+    // which runs 64 times too fast on an audio input: a 1.6 ms release, so it
+    // read the waveform's phase. Measured (scripts/strength-check.scd): equal
+    // synthetic hits spread 3–5 dB under it and 0.3–1.2 dB under this; on the
+    // duo's riffs the same note in two bars correlated 0.02 under it and 0.26
+    // under this; and gerade-3, a 4/4 read as 12/8, reads right. A window
+    // that ends at the trigger needs no wait, but on sharp attacks it measures
+    // the previous note. RunningSum keeps no drift: a quiet sine after an hour
+    // of loud noise read within 0.3 % of its RMS.
+    *prOnsetStrength { |sig| ^RunningSum.rms(sig, (SampleRate.ir * 0.07).round) }
+
+    // How long after the trigger an onset is reported, seconds: the end of
+    // prOnsetStrength's window. Every reply stamps the trigger's own time
+    // (or loop position) latched AT the trigger, so only the message is late.
+    *onsetReportDelay { ^0.03 }
+    *prOnsetReport { |trig| ^TDelay.kr(trig, Looper.onsetReportDelay) }
+
+    // The automatic level, as an analysis synth reads it: the tracker's gain
+    // from `bus`, or unity with no bus (-1) or before the tracker has written
+    // one (a control bus starts at 0).
+    *prTapGain { |bus|
+        var raw = In.kr(bus.max(0));
+        ^Select.kr((bus >= 0) * (raw > 0), [1, raw])
+    }
+
+    // The tap-level tracker (\looperTapLevel): one synth from boot, listening
+    // to the analysis input and writing to a control bus the gain that brings
+    // its recent peak to `target`. Why: at a fixed threshold Onsets.kr hears
+    // the same take differently at another level (its whitening floor sits at
+    // a fixed level), and 10 dB changed half of 20 labelled readings; scaled to
+    // one peak first, a take reads the same at any level (measured 2026-11-05).
+    //
+    //   - A peak above the one held is taken at once: playing louder turns the
+    //     gain down within a block.
+    //   - The held peak is kept for `hold` seconds after the last one that
+    //     reached it (longer than a bar, so a riff's accents keep it flat), then
+    //     eases down at `decayDb` per second: playing quieter is followed
+    //     within about ten seconds.
+    //   - It eases only while someone plays: `body` (a 0.5 s envelope, so the
+    //     gaps between notes count) over `gate` and within `window` of the
+    //     held peak. Silence and hum hold it, so the gain cannot creep up to
+    //     meet the noise between songs.
+    //   - Nothing played yet: unity, which is detection as it was.
+    //   - The gain stays within lo..hi (-12 to +40 dB): +30 left the
+    //     quietest set heard (-31 dBFS peaks) a dB short, and one reading moved.
+    // Analysis synths follow it live rather than latching it per take: the
+    // first loud hit of a take corrects a gain left high by quiet playing.
+    // Measured in NRT on a scripted input: -20 dBFS plucks +20 dB; a hit at
+    // -6 drops it to +6 and 30 s of hum at -46 leave it there; back at -20 it
+    // is +20 again within 7 s; 10 dB quieter is followed within 10 s. And
+    // the 20 labelled takes, with the tracker warm (it heard the take once)
+    // and the detector built from these helpers, read the same from -20 to
+    // +6 dB: 207-208 onsets, no reading moved (the old chain: 87-222, 10-13
+    // readings moved).
+    // t_reset forgets the held peak (a new analysis input).
+    *prTapLevelGraph {
+        ^{ |ana = 0, out = 0, target = 0.891, gate = 0.00316, window = 0.0316, hold = 4, decayDb = 2,
+            lo = 0.25, hi = 100, replyRate = 2, t_reset = 0|
+            var sig = SoundIn.ar(ana);
+            var env = A2K.kr(Amplitude.ar(sig, 0.0005, 0.02));
+            var body = A2K.kr(Amplitude.ar(sig, 0.0005, 0.5));
+            var held = LocalIn.kr(1) * (t_reset <= 0);
+            var playing = (body > gate) * (body > (held * window));
+            var refresh = playing * (env >= held);
+            var since = Sweep.kr(refresh, 1);
+            var decayed = held * (decayDb.neg / ControlRate.ir).dbamp;
+            var next = Select.kr(refresh, [Select.kr(playing * (since > hold), [held, decayed]), env]);
+            var gain = Select.kr(next > 0, [1, (target / next.max(1e-6)).clip(lo, hi)]);
+            LocalOut.kr(next);
+            Out.kr(out, gain);
+            SendReply.kr(Impulse.kr(replyRate), '/looperTapLevel', [gain, next]);
+        }
+    }
 
     // One hardware channel doubled, or a stereo pair.
     //
@@ -543,30 +647,35 @@ Looper {
     // left channel rather than the old L+R sum; for a centred guitar that is
     // the same signal, and for a stereo-reverbed one it is if anything cleaner.
     *prRecGraph { |mono|
-        ^{ |bufnum, in=0, ana=0, onsetThreshold=0.5|
+        ^{ |bufnum, in=0, ana=0, onsetThreshold=0.5, tapGainBus = -1|
             var sig = Looper.prInput(mono, in);
-            var anaSig = SoundIn.ar(ana);
+            var anaRaw = SoundIn.ar(ana);
+            // The onsets and their strengths hear the tap at the automatic
+            // level; the pitch and the levels below hear it as it arrives.
+            var gain = Looper.prTapGain(tapGainBus);
+            var anaSig = anaRaw * gain;
             var trig = Looper.prOnsetTrig(anaSig, onsetThreshold);
             var time = Sweep.kr(1, 1);
             // Tartini emits [freq, hasFreq]; we tick a 25 Hz pulse gated by
             // hasFreq so SendReply only fires while a stable pitch is detected.
-            var tartini = Tartini.kr(anaSig);
+            var tartini = Tartini.kr(anaRaw);
             var pitchTrig = Impulse.kr(25) * tartini[1];
-            var amp = Amplitude.kr(anaSig);
+            var amp = Amplitude.kr(anaRaw);
             var onsetStrength = Looper.prOnsetStrength(anaSig);
             // Peak of the tap and of the recorded input over the take so far.
             // A tap 30 dB under the input is a starved analyser, and the "0
             // onsets" warning does not catch it once the threshold has been
             // lowered to chase it — four sets were analysed from 4 to 6 onsets
             // that way (roadmap item 6). Reported four times a second so the
-            // language has the figure when the take ends. The input envelope
-            // has its own release on purpose: the salience envelope is defined
-            // once (see test-source-guards).
-            var tapPeak = RunningMax.kr(onsetStrength, 0);
+            // language has the figure when the take ends, with the gain the
+            // take is analysed at. Both peaks are the raw signals' through the
+            // same envelope, so the comparison is like for like.
+            var tapPeak = RunningMax.kr(Amplitude.kr(anaRaw, 0.001, 0.2), 0);
             var inPeak  = RunningMax.kr(Amplitude.kr(Mix(sig) * 0.5, 0.001, 0.2), 0);
-            SendReply.kr(trig, '/looperOnset', [time, onsetStrength]);
+            SendReply.kr(Looper.prOnsetReport(trig), '/looperOnset',
+                [Latch.kr(time, trig), A2K.kr(onsetStrength)]);
             SendReply.kr(pitchTrig, '/looperPitch', [time, tartini[0], amp]);
-            SendReply.kr(Impulse.kr(4), '/looperLevels', [tapPeak, inPeak]);
+            SendReply.kr(Impulse.kr(4), '/looperLevels', [tapPeak, inPeak, gain]);
             RecordBuf.ar(sig, bufnum, loop: 0);
         }
     }
@@ -805,13 +914,18 @@ Looper {
         // to be fast enough to catch a single-frame event. It is also strictly
         // more accurate — no Trig1 stretch, no frame quantisation, and no way
         // for two onsets inside one frame to be reported as one.
-        SynthDef(\looperAnalysisMonitor, { |ana=0, onsetThreshold=0.5, replyRate=15|
-            var sig   = SoundIn.ar(ana);
+        // The level meter reads the input as it arrives; the onsets hear it
+        // at the automatic level, as a take would. An onset is reported
+        // onsetReportDelay after its trigger (the strength's window), which the
+        // responder takes off the time it heard it.
+        SynthDef(\looperAnalysisMonitor, { |ana=0, onsetThreshold=0.5, replyRate=15, tapGainBus = -1|
+            var raw   = SoundIn.ar(ana);
+            var sig   = raw * Looper.prTapGain(tapGainBus);
             var trig  = Looper.prOnsetTrig(sig, onsetThreshold);
-            var level = Amplitude.kr(sig, 0.005, 0.05);
+            var level = Amplitude.kr(raw, 0.005, 0.05);
             var strength = Looper.prOnsetStrength(sig);
             SendReply.kr(Impulse.kr(replyRate), '/looperMonitor', [level]);
-            SendReply.kr(trig, '/looperMonitorOnset', [strength, level]);
+            SendReply.kr(Looper.prOnsetReport(trig), '/looperMonitorOnset', [A2K.kr(strength), level]);
         }).add;
 
         // Overdub meter detection. Same chain again, but instead of a Sweep
@@ -820,13 +934,15 @@ Looper {
         // wall-clock arithmetic is needed to fold several passes onto one grid.
         // Must run AFTER the engine in the node order (Synth.tail) or In.kr
         // reads the previous block's phase.
-        SynthDef(\looperOverdubAnalysis, { |ana=0, onsetThreshold=0.5, phaseBus=0|
-            var sig  = SoundIn.ar(ana);
+        SynthDef(\looperOverdubAnalysis, { |ana=0, onsetThreshold=0.5, phaseBus=0, tapGainBus = -1|
+            var sig  = SoundIn.ar(ana) * Looper.prTapGain(tapGainBus);
             var trig = Looper.prOnsetTrig(sig, onsetThreshold);
             var strength = Looper.prOnsetStrength(sig);
             var loopPos  = Latch.kr(In.kr(phaseBus), trig);
-            SendReply.kr(trig, '/looperOverdubOnset', [loopPos, strength]);
+            SendReply.kr(Looper.prOnsetReport(trig), '/looperOverdubOnset', [loopPos, A2K.kr(strength)]);
         }).add;
+
+        SynthDef(\looperTapLevel, Looper.prTapLevelGraph).add;
 
         LooperSessionRecorder.loadSynthDefs;
 
@@ -905,11 +1021,13 @@ Looper {
         // previous loop's rhythm over this one.
         this.prClearOnsetPattern;
         recStartTime = SystemClock.seconds;
+        this.prTapLevelFollow;
         recSynth = Synth(defName, [
             \bufnum, buffer.bufnum,
             \in, inChannel,
             \ana, this.analysisIn,
-            \onsetThreshold, onsetThreshold
+            \onsetThreshold, onsetThreshold,
+            \tapGainBus, this.prTapGainIndex
         ]);
         this.prLogEvent(\recordStart,
             (threshold: onsetThreshold, ana: this.analysisIn, in: inChannel), recStartTime);
@@ -1519,7 +1637,30 @@ Looper {
         analysisChannel = val;
         recSynth !? { |s| s.set(\ana, this.analysisIn) };
         monitorSynth !? { |s| s.set(\ana, this.analysisIn) };
+        this.prTapLevelFollow;
         this.changed(\analysisChannel, analysisChannel);
+    }
+
+    // ===================================================================
+    // The automatic level in front of the onset detector
+    // ===================================================================
+    // See prTapLevelGraph. The gain in dB, for a window or the log.
+    tapGainDb { ^tapGain.max(1e-6).ampdb }
+
+    // The bus an analysis synth reads its gain from, or -1 (unity) before
+    // the Looper is ready.
+    prTapGainIndex { ^tapGainBus !? { |b| b.index } ? -1 }
+
+    // Point the tracker at the input the analysis reads, and forget the peak
+    // it held for another one. Called where an analysis synth starts, as
+    // well as by analysisChannel_: inChannel is a plain variable, so a rig
+    // that moves it after boot is caught at the next take or monitor start.
+    prTapLevelFollow {
+        var ana = this.analysisIn;
+        if(tapLevelSynth.notNil and: { ana != tapLevelAna }) {
+            tapLevelSynth.set(\ana, ana, \t_reset, 1);
+            tapLevelAna = ana;
+        };
     }
 
     // ===================================================================
@@ -1573,10 +1714,12 @@ Looper {
         overdubResp = OSCdef(\looperOverdubOnset, { |msg|
             if(state == \overdubbing) { overdubOnsets.add([msg[3], msg[4]]) };
         }, '/looperOverdubOnset');
+        this.prTapLevelFollow;
         overdubSynth = Synth.tail(server, \looperOverdubAnalysis, [
             \ana, this.analysisIn,
             \onsetThreshold, onsetThreshold,
-            \phaseBus, phaseBus.index
+            \phaseBus, phaseBus.index,
+            \tapGainBus, this.prTapGainIndex
         ]);
     }
 
@@ -1749,12 +1892,15 @@ Looper {
         }, '/looperMonitor');
         monitorOnsetResp = OSCdef(\looperMonitorOnset, { |msg|
             // [strength, level] — reversed relative to onMonitor's arguments
-            // because the strength is what this message exists to carry.
-            this.prMonitorOnset(msg[3], msg[4], SystemClock.seconds);
+            // because the strength is what this message exists to carry. It
+            // arrives onsetReportDelay after the hit (the strength's window).
+            this.prMonitorOnset(msg[3], msg[4], SystemClock.seconds - Looper.onsetReportDelay);
         }, '/looperMonitorOnset');
+        this.prTapLevelFollow;
         monitorSynth = Synth.tail(server, \looperAnalysisMonitor, [
             \ana, this.analysisIn,
-            \onsetThreshold, onsetThreshold
+            \onsetThreshold, onsetThreshold,
+            \tapGainBus, this.prTapGainIndex
         ]);
         this.changed(\analysisMonitor, true);
     }
@@ -2070,6 +2216,11 @@ Looper {
         if(levels.notNil and: { levels.size >= 2 }) {
             fields[\tapPeakDb] = Looper.prDb(levels[0]).round(0.1);
             fields[\inPeakDb]  = Looper.prDb(levels[1]).round(0.1);
+        };
+        // The automatic level the take's onsets were heard at (its last
+        // report), so the replay can render them at the same level.
+        if(levels.notNil and: { levels.size >= 3 } and: { levels[2].notNil }) {
+            fields[\tapGainDb] = levels[2].max(1e-6).ampdb.round(0.1);
         };
         this.prLogEvent(\take, fields, pressAt + dur);
     }
@@ -5198,6 +5349,7 @@ Looper {
         engineSynth !? { |s| s.free };
         granularSynth !? { |s| s.free };
         masterSynth !? { |s| s.free };
+        tapLevelSynth !? { |s| s.free };
         clickRoutine !? { |r| r.stop };
         midiClockRoutine !? { |r| r.stop };
         chordRoutine !? { |r| r.stop };
@@ -5210,11 +5362,13 @@ Looper {
         nextBuffer !? { |b| b.free };
         outBus !? { |b| b.free };
         phaseBus !? { |b| b.free };
+        tapGainBus !? { |b| b.free };
         granularEnvBufs !? { |bufs| bufs.do { |b| b.free } };
         this.stopOnsetNotes;
         onsetResp !? { |r| r.free };
         pitchResp !? { |r| r.free };
         levelsResp !? { |r| r.free };
+        tapLevelResp !? { |r| r.free };
         this.stopAnalysisMonitor;
         this.stopOverdubAnalysis;
         overdubSyncRoutine !? { |r| r.stop };

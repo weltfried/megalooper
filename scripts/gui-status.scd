@@ -877,12 +877,23 @@
         if(v.isClosed.not) { v.refresh } };
 };
 
-// "thr 0.50 · CC 7": the threshold, and what drives it in the map.
+// "auto +6 dB": the automatic level the onsets are heard at (Looper's
+// tap-level tracker), so a starved or hot tap shows without anything to set.
+// The threshold joins it only when it is off its default, with what drives it
+// in the map: "auto +6 dB · thr 0.42 · CC 7".
+~statusTapWords = { |l|
+    var db = (l !? { |lp| lp.tapGainDb } ? 0).round.asInteger;
+    "auto " ++ (if(db > 0) { "+" } { "" }) ++ db ++ " dB"
+};
 ~statusPaintThreshold = {
     ~guiOnsetThrLabel !? { |t|
+        var thr = (~looper !? { |l| l.onsetThreshold }) ? 0.5;
         if(t.isClosed.not) {
-            t.string_("thr " ++ ((~looper !? { |l| l.onsetThreshold }) ? 0.5).round(0.01)
-                ++ (~midiWords.('looper.onsetThreshold') !? { |w| " · " ++ w } ? ""));
+            t.string_(~statusTapWords.(~looper)
+                ++ (if((thr - 0.5).abs > 1e-6) {
+                    " · thr " ++ thr.round(0.01)
+                        ++ (~midiWords.('looper.onsetThreshold') !? { |w| " · " ++ w } ? "")
+                } { "" }));
         };
     };
 };
@@ -936,11 +947,14 @@
         .drawFunc_({ |v| ~statusDrawMeter.(v, true) });
     ~guiLevelDb = ~guiMonoText.("—", 12, ~gt[\mute]).align_(\center);
     ~guiOnsetLampView = UserView().canFocus_(false).fixedSize_(Size(30, 30))
-        .toolTip_("Flashes on every onset the detector fires at the current threshold.\n"
-            "Flashes between notes mean ghosts (raise it); a hit that leaves it\n"
-            "dark means it is too high. Live on the analysis monitor (Setup).")
+        .toolTip_("Flashes on every onset the detector hears. The tap's level is followed\n"
+            "automatically (the line under it: the gain the onsets are heard at), so\n"
+            "there is nothing to set while playing. Live on the analysis monitor (Setup).")
         .drawFunc_({ |v| ~statusDrawLamp.(v) });
-    ~guiOnsetThrLabel = ~guiMonoText.("thr —", 12, ~gt[\mute]);
+    ~guiOnsetThrLabel = ~guiMonoText.("auto —", 12, ~gt[\mute]).toolTip_(
+        "The automatic level: how far the analysis turns the tap up (+) or down (-)\n"
+            "to hear every take at one level. 0 dB until something has been played.\n"
+            "The onset threshold shows beside it only when it is off its default (Setup › Analysis).");
     ~midiWatch.(~guiOnsetThrLabel, { ~statusPaintThreshold.() });
     ~statusPosShown = IdentityDictionary.new;
     // On one line each: wrapping, a bar of ten beats or more ("BEAT 10/11")

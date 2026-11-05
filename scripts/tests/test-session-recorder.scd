@@ -433,11 +433,17 @@ rec.instVarPut(\startedAt, SystemClock.seconds - 10);
 rec.prOpenLog(path);
 l.prLogTake(take, 3.5, 0.1, [[0.1, 0.5]], true, SystemClock.seconds - 4, [-40.dbamp, -6.dbamp]);
 l.prLogTake(take, 3.5, 0.1, [[0.1, 0.5]], true, SystemClock.seconds - 4, nil);
+l.prLogTake(take, 3.5, 0.1, [[0.1, 0.5]], true, SystemClock.seconds - 4, [-30.dbamp, -6.dbamp, 29.dbamp]);
 rec.prCloseLog;
 ev = LooperSessionRecorder.readEvents(path);
 ~tNear.("the take logs the tap's peak in dB", ev[0][\tapPeakDb], -40, 0.11);
 ~tNear.("...and the input's", ev[0][\inPeakDb], -6, 0.11);
 ~tEq.("with no level report the fields are absent", ev[1][\tapPeakDb], nil);
+~tEq.("a report from before the automatic level logs no gain", ev[0][\tapGainDb], nil);
+~tNear.("the take logs the automatic level it was analysed at, in dB", ev[2][\tapGainDb], 29, 0.11);
+~tNear.("...and takesFrom hands it to the replay",
+    LooperSessionRecorder.takesFrom(ev).detect { |tk| tk[\kind] == \take and: { tk[\tapGainDb].notNil } }
+        !? { |tk| tk[\tapGainDb] } ? 0, 29, 0.11);
 File.delete(path);
 }.value;
 // ===========================================================================

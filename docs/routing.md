@@ -79,7 +79,7 @@ in, as they know the instrument's as `guitar`.
 | Value | What it corrects | How you get it |
 | --- | --- | --- |
 | Overdub latency (`latencyMs`) | How far back an overdub is written, so it lands where you played it. 0 to 100 ms | On a Mac, the round trip the audio device reports, plus the effects' delay. Checked by the Calibrate view's round-trip step, or by ear ("Overdub latency" on Setup's Rig page) |
-| Onset threshold (`onsetThreshold`) | How loud an attack must be to count as an onset. Defaults to 0.5 | The Calibrate view's threshold step, on Setup's Analysis page |
+| Onset threshold (`onsetThreshold`) | How sharp an attack must be to count as an onset. Defaults to 0.5, which is meant to be left alone: the analysis follows the tap's level on its own ([the automatic level](manual.md#the-automatic-level)) | The Calibrate view's threshold step (optional), on Setup's Analysis page |
 | Onset notes' offset (`onsetNoteOffsetMs`) | When the onset notes are played, so they sit on the loop. Defaults to 0 | By ear ("Offset" under onset notes on Setup's Analysis page) |
 | Chain offset (`chainRecOffsetMs`) | Where **Rec next loop** starts recording, so a chained loop is not rotated in its buffer. `saSystem` has 20 ms | Measured with `scripts/check-chain-align.scd`; the Calibrate view does not measure it |
 

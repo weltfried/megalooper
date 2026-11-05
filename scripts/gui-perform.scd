@@ -430,19 +430,11 @@
             "granular layer at its set level. It only SCALES — the stored controls keep\n"
             "meaning what they say, and the cutter's own level never moves with it.");
     ~intensityLabel = ~performValue.((l !? { |lp| lp.intensity } ? 1).round(0.01).asString);
-    // Here as well as on Setup › Analysis, because tuning detection is not a
-    // between-takes activity: the threshold is the ceiling on meter detection
-    // AND on the onset-note drum part, and the only way to set it is to watch
-    // the lamp in the band while playing.
-    ~onsetThresholdSlider = ~midiTip.(~guiBar.(\ink, 16)
-        .value_(~onsetThresholdSpec.unmap(l !? { |lp| lp.onsetThreshold } ? 0.5))
-        .action_({ |sl| ~looper !? { |lp| lp.onsetThreshold = ~onsetThresholdSpec.map(sl.value) } }),
-        'looper.onsetThreshold',
-        "Onset detection threshold. Higher rejects more (noisy input, ghost onsets), lower\n"
-            "admits more (quiet or soft playing). Live on the monitor AND a running recorder,\n"
-            "so the next take detects what you just saw. The travel is exponential: most of\n"
-            "it is the low end, where the decisions are.");
-    ~onsetThresholdLabel = ~performValue.((l !? { |lp| lp.onsetThreshold } ? 0.5).round(0.01).asString);
+    // The onset threshold used to be a macro here, because tuning it meant
+    // watching the lamp while playing. Since 2026-11-05 the tap's level is
+    // followed automatically (Looper.prTapLevelGraph) and the threshold stays
+    // at its default, so it lives on Setup › Analysis only: nothing to set on
+    // stage. The status band shows the automatic level under the lamp.
 
     right = ~performRight = View().background_(~gt[\bg]).fixedWidth_(400).layout_(VLayout(
         ~guiCaption.("ACTIONS · FOOTSWITCH"),
@@ -456,7 +448,6 @@
         ~guiCaption.("MACROS · DRAG"),
         ~performMacro.("Looper", ~masterAmpSlider, ~masterAmpLabel),
         ~performMacro.("Arc", ~intensitySlider, ~intensityLabel),
-        ~performMacro.("Onset", ~onsetThresholdSlider, ~onsetThresholdLabel),
         nil
     ).margins_([18, 14, 18, 12]).spacing_(10));
 

@@ -1541,6 +1541,7 @@ LooperSessionRecorder {
                         firstOnset: ev[\firstOnset], onsets: ev[\onsets] ? [], pitches: ev[\pitches],
                         result: ev[\result], candidates: ev[\candidates] ? [],
                         applied: ev[\applied], tapPeakDb: ev[\tapPeakDb], inPeakDb: ev[\inPeakDb],
+                        tapGainDb: ev[\tapGainDb],
                         presses: 0, settled: 0,
                         settledReading: ev[\result], readings: List.new);
                     takes.add(tk);

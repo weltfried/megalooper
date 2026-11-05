@@ -205,8 +205,11 @@
             get: { ~looper !? { |l| l.perform(key) } }, set: { |v| ~looper.perform(key.asSetter, v) },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
     };
-    // The threshold on the header slider's exponential law (gui-const.scd).
-    add.('looper.onsetThreshold', "Onset threshold", "Perform", \continuous, (group: "Macros",
+    // The threshold on the Analysis slider's exponential law (gui-const.scd).
+    // On the Analysis page since 2026-11-05: the tap's level is followed
+    // automatically, so it is a setting, not a stage control. A map that
+    // binds it (the TSMEGA's CC 7) still drives it.
+    add.('looper.onsetThreshold', "Onset threshold", "Analysis", \continuous, (group: "Detection",
         get: { ~looper !? { |l| l.onsetThreshold } }, set: { |v| ~looper.onsetThreshold = v },
         fromPos: { |c| ~onsetThresholdSpec.map(c) }, toPos: { |v| ~onsetThresholdSpec.unmap(v) },
         format: hundredths,

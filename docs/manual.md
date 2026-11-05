@@ -204,7 +204,7 @@ its own when nobody touches it (one at rest can read 68, 69, 68). So every
 knob or pedal on a CC has one step of hysteresis unless its mapping says
 otherwise: a move counts if it is two steps or more, or one step on in the
 direction of the last. The control stays within a step of the pedal, and a
-threshold set with the Onset macro is not taken back by the next hop. The
+level set with the Looper macro is not taken back by the next hop. The
 Knobs row of Setup's MIDI map sets the default.
 
 **keys-and-knobs**, for keyboards and knob boxes, on any input:
@@ -589,9 +589,10 @@ The controls, by view:
   exposes one. If a take reports 0 onsets while recording fine, the tap is on
   the wrong channel — the log says so. The recorder also compares the
   tap's peak with the recorded input's over every take and warns when the tap
-  sits 30 dB or more below it: a tap that quiet still yields a few onsets at a
-  low threshold, and the meter fitted to them is noise — fix the gain, not the
-  threshold. See [docs/routing.md](routing.md).
+  sits 30 dB or more below it. The analysis follows the tap's level on its own
+  (the [automatic level](#the-automatic-level)), but a tap that far under the
+  input is usually the wrong channel or a gain left down, and its hiss is turned
+  up with it: fix the channel or the gain. See [docs/routing.md](routing.md).
 - **Looper** *(Perform's macros)* — the looper's own level: the loop, the
   cutter and the grains together, after their limiter (0–1, starts at 0.7).
   The whole mix's last fader is **Master** under Levels, on Perform.
@@ -710,14 +711,15 @@ every message, whichever view shows.
 `MeterAnalyzer` never hears audio — only onset times. So when detection admits
 ghost onsets or misses real hits, meter detection fails and the loop drops to the
 anchored fallback meter. That is the documented root cause of straight 4/4 takes
-coming out 7/8, and the **onset threshold** is the lever. Tuning it is something
-you do *while playing*, so the two controls that matter are on Perform — the
-lamp in the status band, the threshold among the macros — and the rest is in
-Setup's Analysis page (`scripts/gui-analysis.scd`).
+coming out 7/8. There is nothing to tune while playing: the tap's level is
+followed automatically (below), the **onset threshold** stays at its default,
+and when a reading is still wrong, the next-reading switch and Bars by hand fix
+it. Perform shows the lamp in the status band; the rest is on Setup's Analysis
+page (`scripts/gui-analysis.scd`).
 
 ![Onset analysis on Setup's Analysis page](images/onsets.png)
 
-*Fig: The top of Setup's Analysis page: the input's peak, the onsets counted and the last one's strength, and the onset threshold.*
+*Fig: The top of Setup's Analysis page: the input's peak, the onsets counted and the last one's strength, and the onset threshold. (The automatic level's readout now sits beside the strength.)*
 
 ![Setup's Analysis page](images/setup-analysis.png)
 
@@ -726,18 +728,11 @@ Setup's Analysis page (`scripts/gui-analysis.scd`).
 On **Perform**:
 
 - **Onset lamp** — a light that flashes for ~200 ms every time the detector
-  fires at the current threshold. Flashes *between* notes mean ghosts (raise the
-  threshold); a hit that leaves the lamp dark means it's too high. If it never
-  flashes at all, check the input meter above it: a flat meter means the
-  analysis input is silent (wrong channel), not that the threshold is wrong.
-- **Onset** macro, the threshold (0.01–2.0, default **0.5**), also a MIDI target for a pedal —
-  live on both the monitor *and* a running recorder, so you tune against what
-  you're playing and the next take detects exactly what you just saw. The
-  travel is **exponential**: a nudge of 1% of the slider moves the threshold by
-  about 5% of wherever it currently is, so it feels the same at 0.05 as at 1.0.
-  On the old linear slider every setting worth telling apart was crammed into
-  the first tenth of the travel. The trade is a coarser top end, which is the
-  end nobody tunes in; the default 0.5 sits at about three quarters across.
+  fires. If it never flashes at all, check the input meter above it: a flat
+  meter means the analysis input is silent (wrong channel). Under it, the
+  **automatic level**: `auto +6 dB` is how far the analysis turns the tap up
+  (or down) to hear it at one level; `auto 0 dB` until something has been
+  played. The threshold joins it (`· thr 0.42`) only when it is off its default.
 
 In **Setup's Analysis page**:
 
@@ -746,9 +741,18 @@ In **Setup's Analysis page**:
   transport, so you can set the threshold *before* committing a take. It runs
   from the start on every view, because the status band's input meter and
   onset lamp read it: switch it off and both go dark.
-- **Readout** — input peak in dB, onsets counted since the last reset, and the
+- **Readout** — input peak in dB, onsets counted since the last reset, the
   strength of the most recent onset (the same salience value `MeterAnalyzer`'s
-  accent test sees). **Reset counts** starts the count again.
+  accent test and the onset notes' velocities see: the RMS of the hit, from
+  40 ms before the detector fired to 30 ms after), and the **auto level** in dB.
+  **Reset counts** starts the count again.
+- **Onset threshold** (0.01–2.0, default **0.5**), also a MIDI target — meant to
+  be left at its default: with the automatic level, 0.5 works at any tap level.
+  Change it only if the lamp flashes *between* notes at the default (raise it)
+  or a hit leaves it dark (lower it). Live on both the monitor and a running
+  recorder. The travel is **exponential**: a nudge of 1% of the slider moves the
+  threshold by about 5% of wherever it currently is, so it feels the same at 0.05
+  as at 1.0; the default 0.5 sits at about three quarters across.
 - **Onset notes** — plays the loop's onsets on the onset kit. See
   [Onset notes](#onset-notes) below.
 - **Pitch range · Hz** — 30–2000: the band the pitch tracker believes.
@@ -758,14 +762,37 @@ In **Setup's Analysis page**:
 - **Fallback meter / bars** — see [How meter detection
   works](#how-meter-detection-works).
 
-The threshold belongs to the rig: Calibrate's threshold step keeps it for this
-rig ([The calibrated values](routing.md#the-calibrated-values)). How noisy the
-instrument input is depends on the interface and the tap.
+A threshold changed from the default belongs to the rig: Calibrate's threshold
+step (optional) keeps it for this rig ([The calibrated
+values](routing.md#the-calibrated-values)).
 
 If the clean tap hears a take 30 dB or more under the input, the analyser was
 starved: the footer says so, and the hint under the take says it in red, with
-how many dB, until the next take. Check the tap's gain or channel (Analysis in)
-before lowering the threshold.
+how many dB, until the next take. Check the tap's gain or channel (Analysis in).
+
+#### The automatic level
+
+At a fixed threshold, the onset detector hears the same take differently at
+another level: `Onsets` normalises its spectrum against a fixed floor, so a
+quieter tap loses onsets and a hotter one gains them. Measured on twenty
+labelled takes, 10 dB either way changed half of the readings, which is why the
+threshold used to need setting on stage: it was making up for the tap's level.
+
+So the analysis hears the tap at one level. A tracker that runs from the start
+follows the tap's recent peak and turns the analysis up or down to bring it to
+−1 dBFS:
+
+- Playing louder turns it down at once.
+- The peak is held for 4 seconds (longer than a bar, so a riff's accents keep it
+  steady), then followed down at 2 dB a second: playing quieter is followed
+  within about ten seconds.
+- Silence and hum hold it, so the gain does not creep up between songs.
+- Before anything has been played it is 0 dB, and it stays within −12 to +40 dB.
+
+On the same takes, the readings came out the same from 20 dB under to 6 dB over
+the usual level. Only the analysis is turned up: what is recorded and heard is
+untouched. Each take's log keeps the gain it was analysed at (`tapGainDb`), and
+the replay renders the take at that level.
 
 `mingap` (20 frames, about 107 ms: the shortest gap between two onsets) is not
 a control. `Onsets` sizes its state from it, so it cannot change on a running
@@ -989,9 +1016,9 @@ Two things follow from the pattern being tied to an analysis:
   records without analysing. The captured audio contains the old loop, so the
   rhythm is still in there, but it describes the take underneath, not what you
   just played over it.
-- The **onset threshold is the ceiling on quality**. Ghost onsets become ghost
-  notes and missed hits become missing ones, so this is one more reason to tune
-  the threshold against the onset lamp in the status band.
+- **Onset detection is the ceiling on quality**. Ghost onsets become ghost
+  notes and missed hits become missing ones, and each hit's strength (the RMS
+  around it) sets its velocity, so the part plays your accents.
 
 ## Granular layer
 

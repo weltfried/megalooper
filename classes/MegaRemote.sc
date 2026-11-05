@@ -1372,7 +1372,9 @@ MegaRemote {
                 "on that reading's bar grid in sixteenths (X strong, x a hit, . none). readingArmed: the "
                 "players asked for another reading (via next, or hand: bars they gave), landing at lands; "
                 "readingLanded: it came in; readingCancelled: it did not. threshold: the onset "
-                "threshold moved (higher hears fewer hits). act (in a set recorded with every action, "
+                "threshold moved (higher hears fewer hits); a take's autoLevelDb is how far the analysis "
+                "turned the dry input up to hear it at one level (null before that existed). act (in a set "
+                "recorded with every action, "
                 "everyAction): a change, its part (looper, sa: the effects and the mixer, drums: the drums and "
                 "the note sequence, wave: the Wave synth, window: its views and preset bars), what changed, "
                 "args (which one and its new value) and by: player or ai. A knob turned is at most ten a "
@@ -1406,6 +1408,7 @@ MegaRemote {
             "take", { this.obj(base ++ [\reading, this.readingWords(e[\result]),
                 \alternatives, (e[\candidates] ? []).drop(1).keep(3).collect { |c| this.readingWords(c) },
                 \onsets, (e[\onsets] ? []).size, \threshold, e[\threshold] !? { |x| x.round(0.001) },
+                \autoLevelDb, e[\tapGainDb],
                 \played, if(grids) { e[\result] !? { |r| this.gridOf(r, e[\onsets], nil, nil) } }]) },
             "readingArmed", { this.obj(base ++ [\index, e[\index], \of, e[\of], \via, e[\via],
                 \lands, this.clockAt(date, e[\landsAt]), \reading, this.readingWords(e[\reading])]) },

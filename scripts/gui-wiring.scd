@@ -204,11 +204,17 @@
         })
         // ---- Setup: analysis (gui-analysis.scd) -----------------------------------------
         .put(\onsetThreshold, { |looper, what, val|
-            { ~wireBar.(~onsetThresholdSlider, ~onsetThresholdLabel,
+            { ~wireBar.(~analysisThresholdBar, ~analysisThresholdLabel,
                 ~onsetThresholdSpec.unmap(val), val.round(0.01).asString);
-              ~wireBar.(~analysisThresholdBar, ~analysisThresholdLabel,
-                ~onsetThresholdSpec.unmap(val), val.round(0.01).asString);
-              ~statusPaintThreshold !? { |f| f.() } }.defer;
+              ~statusPaintThreshold !? { |f| f.() };
+              ~analysisPaintTapGain !? { |f| f.() } }.defer;
+        })
+        // The automatic level moved by half a dB or more (Looper's tracker,
+        // twice a second at most): the status band's line under the lamp and
+        // the Analysis page's readout.
+        .put(\tapGain, { |looper, what, val|
+            { ~statusPaintThreshold !? { |f| f.() };
+              ~analysisPaintTapGain !? { |f| f.() } }.defer;
         })
         .put(\analysisMonitor, { |looper, what, val|
             { ~analysisPaintMonitor !? { |f| f.() } }.defer;
