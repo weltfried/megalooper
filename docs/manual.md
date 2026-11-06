@@ -1619,7 +1619,7 @@ megalooper/
     check-insert.scd         -- why Insert mode sounds like Gate: the duck's duty cycle
     check-chain-align.scd    -- measure a chained loop against the loop underneath
     check-loop-phase.scd     -- measure the engine's phase against loopStartTime
-    sa/                      -- offline renders (scsynth -N) of the chains, drums and synth
+    sa/                      -- offline renders (scsynth -N) of the chains, drums and synth; make-analog-kit.scd
     tests/
       run-tests.scd      -- headless test suite, exits non-zero on failure
       _harness.scd       -- assertions + the server-free Looper fixture
@@ -1654,7 +1654,7 @@ megalooper/
     bbcut/               -- the cutter setups megalooper ships; yours are in your megalooper folder
     granular/            -- empty; yours are in your megalooper folder
     midi/                -- the MIDI map megalooper ships (JSON): keys-and-knobs
-    sa/                  -- the effects' variations, the drum patterns, the kits' maps
+    sa/                  -- the effects' variations, the drum patterns, the kits' maps, the Analog Kit's sounds
   site/                  -- the website: the homepage and this manual (Astro)
   .github/workflows/     -- builds the website on GitHub Pages
   training-data/         -- exported labelled loops (WAV gitignored, JSON kept)

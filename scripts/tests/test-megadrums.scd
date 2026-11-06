@@ -724,6 +724,31 @@ lv.levelDb = -3;
 ~tRemoveTree.(dir);
 }.value;
 
+// megalooper's own kit (scripts/sa/make-analog-kit.scd) ships with its audio,
+// so a fresh install has drums: the drums start a slot whose kit has no
+// samples on the first kit that has (setup-sa.scd, ~saDrumsStartKit).
+{
+var kdir = MegaSADrums.defaultKitDir, warn = List.new, kit, files, level, scan;
+kit = kdir !? { |k| MegaSAKit.read(MegaSAKit.fileFor(k, 'analog'), warn) };
+~tEq.("the shipped kit, Analog Kit, is read with no warning", [kit.notNil, warn.size], [true, 0]);
+kit !? { |k|
+    ~tEq.("...its sixteen pads, notes 36 to 51", k.pads.keys.asArray.sort, (36..51));
+    files = k.pads.values.collect { |p| kdir +/+ p[\layers][0][\file] };
+    ~tAssert.("...every file in the repo, mono, 48 kHz", files.every { |f|
+        var sf = SoundFile.openRead(f), ok = sf.notNil and: { sf.numChannels == 1 } and: { sf.sampleRate == 48000 };
+        sf !? { |s| s.close };
+        ok
+    }, files.select { |f| File.exists(f).not }.asString);
+    ~tEq.("...the hats choking each other", [k.pads[42][\choke], k.pads[46][\choke]], [1, 1]);
+    scan = MegaSADrums.scanKits(kdir);
+    ~tEq.("...a kit with its audio to the drums", (scan[\analog] !? { |i| i[\audio] }), true);
+    level = k.measureLevel(kdir);
+    ~tAssert.("...within 6 dB of the steps' reference, so the levelling hardly moves it",
+        (level.notNil) and: { MegaSAKit.levelCorrection(level, MegaSADrums.levelReference[\steps]).abs < 6 },
+        level.asString);
+};
+}.value;
+
 // Loading, with a reader standing in for Buffer.read.
 kit !? {
     stub = ~tStubServer.();

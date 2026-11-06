@@ -104,8 +104,20 @@ where it matters:
     with Ableton Live and its packs, by name and path.
   - No audio of Ableton's is in this repository, and megalooper never copies
     any into it: tools/export-live-set.py kits copies samples from your own
-    Live installation into a folder git ignores. Without them the drums are
-    hidden.
+    Live installation into a folder git ignores. Without them the drums play
+    megalooper's own kit, below.
+
+--------------------------------------------------------------------------
+The Analog Kit: CC0
+--------------------------------------------------------------------------
+
+presets/sa/drums/kits/analog/ and presets/sa/drums/kits/analog.json are
+megalooper's own drum kit: sixteen sounds synthesized by
+scripts/sa/make-analog-kit.scd in the manner of the classic analog drum
+machines, no sample of any machine in them. The sounds and the map are
+dedicated to the public domain under CC0 1.0 Universal (the folder's
+LICENSE): use them for anything, with no conditions. The script that makes
+them is part of megalooper and GPL-3 like the rest.
 
 --------------------------------------------------------------------------
 Reusable without any of the above

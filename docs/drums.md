@@ -17,16 +17,21 @@ Overdubs leave them as they are. megalooper keeps the choice for the next
 start. Whether they also stop with the loop is **Drums follow the loop**, on
 the Setup view's Rig page.
 
-## Why the drums are hidden at first
+## The kits
 
-megalooper ships each kit's map and none of its audio. The kits it was built
-on play samples that come with Ableton Live, and those cannot be passed on.
-Until one kit has its samples on your machine, the Drums view shows a note
-and an **Import samples…** button, and nothing else.
+megalooper ships one kit with its sounds: **Analog Kit**, sixteen pads
+synthesized in the manner of the classic analog drum machines: a deep kick,
+snare, clap, rim, three toms, three congas, closed and open hi-hats that cut
+each other off, cymbal, maracas, cowbell and claves, on notes 36 to 51. It is
+megalooper's own, made by `scripts/sa/make-analog-kit.scd`, so a fresh install
+has drums from the first start. Its sounds are CC0: use them in your music,
+or anywhere else, with no conditions and no credit needed.
 
-There are two ways to get a kit. Both use `tools/export-live-set.py`, which
-needs Python 3 and nothing else. The button runs it for you on a folder of
-your own samples.
+The other kits come as maps only. The kits megalooper was built on play
+samples that come with Ableton Live, and those cannot be passed on. There are
+two ways to get more kits. Both use `tools/export-live-set.py`, which needs
+Python 3 and nothing else. **Import samples…**, at the top of the Drums view,
+runs it for you on a folder of your own samples.
 
 ## A kit from Ableton Live
 
@@ -41,7 +46,7 @@ Without `--only` it also builds the kits of the set megalooper was built
 after (`carbon`, `carbon-layer`, `one-hit`), which need Live's packs too.
 
 megalooper starts each part on its usual kit. If that kit has no samples
-here, it starts on the first kit that has.
+here, it starts on the first kit that has: on a fresh install, Analog Kit.
 
 ## A kit from your own samples
 
