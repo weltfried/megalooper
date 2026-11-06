@@ -518,13 +518,15 @@ MegaSA {
 
     // Open the guitar's plugin and load its bank (MegaSAPlugin.open), on a
     // routine of its own after the build. The guitar stays held until it
-    // answers: open, failed, or nothing within MegaSAPlugin's timeout.
+    // answers: open, failed, or nothing within MegaSAPlugin's timeout. One
+    // that answers after that comes in then (prPluginLate).
     prOpenPlugin { |device|
         var dev = device ? this.prPluginDevice, plug = dev !? { |d| d.plugin };
         if(plug.isNil or: { alive.not }) { ^this };
         this.prMark(dev, true);
         try {
-            plug.open(this.prOpenState(dev), { |p, ok| if(alive) { this.prPluginOpened(p, ok, dev) } });
+            plug.open(this.prOpenState(dev), { |p, ok| if(alive) { this.prPluginOpened(p, ok, dev) } }, nil,
+                { |p, ok| if(alive) { this.prPluginLate(p, ok, dev) } });
         } { |err|
             ("MegaSA: " ++ plug.name ++ " did not open (" ++ err.errorString
                 ++ "); its chain plays without it.").warn;
@@ -553,6 +555,26 @@ MegaSA {
             if(guitarChain.devices.includes(dev)) { this.hold(\guitar, \state) };
         };
         this.prOpenAnswered(dev);
+    }
+
+    // A plugin that answered after its timeout (MegaSAPlugin.open's
+    // whenLate). Its chain has played without it since, the guitar let go at
+    // the timeout, so nothing is held now. Open with its sound, it is heard
+    // from here on (if its device is still in a chain, not removed while it
+    // opened); one that did not make it has said so itself.
+    prPluginLate { |plug, ok, device|
+        var after = " opened after " ++ (plug.loadSec ? 0).round(0.1) ++ " s";
+        if(ok.not) { ^this };
+        tempo !? { |t| plug.setTempo(t) };
+        case
+        { plug.held.notNil } {
+            ("MegaSA: " ++ plug.name ++ after ++ ", but " ++ plug.held ++ "; its chain plays without it.").warn }
+        { this.devices.includes(device) } {
+            ("MegaSA: " ++ plug.name ++ after
+                ++ (plug.bank !? { |b| ", its sound from " ++ PathName(b).fileName } ? "")
+                ++ "; " ++ (if(guitarChain.devices.includes(device)) { "the instrument" } { "its chain" })
+                ++ " plays through it from now on.").postln }
+        { ("MegaSA: " ++ plug.name ++ after ++ ", removed meanwhile; Undo brings it back.").postln };
     }
 
     // The drums' server side in the drum group (MegaSADrums.build: their
@@ -780,7 +802,7 @@ MegaSA {
     instrumentEntries { ^(catalog ? []).select { |e| (e[\synth] == true) and: { e[\bridged] != true } } }
 
     setInstrument { |key, state|
-        var synthGroup = drums !? { |d| d.synthGroup };
+        var synthGroup = drums !? { |d| d.synthGroup }, answer;
         if(key.notNil and: { key.asString.isEmpty }) { key = nil };
         instrumentSynth !? { |x| x.free };
         instrumentSynth = nil;
@@ -802,7 +824,10 @@ MegaSA {
                     instrumentKey = nil;
                 } {
                     tempo !? { |t| instrument.setTempo(t) };
-                    instrument.open(state, { |p, ok| if(alive) { tempo !? { |t| p.setTempo(t) }; this.changed(\instrument, key, ok) } });
+                    // Answered again if it opens after its timeout, unless
+                    // another instrument has taken its place by then.
+                    answer = { |p, ok| if(alive and: { instrument === p }) { tempo !? { |t| p.setTempo(t) }; this.changed(\instrument, key, ok) } };
+                    instrument.open(state, answer, nil, answer);
                 };
             };
         };

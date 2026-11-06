@@ -20,8 +20,11 @@ MegaSAPlugin {
     var <state = \closed;
     // The bank file last loaded or saved, and how long the last open took.
     var <bank, <loadSec;
-    // The open under way: answered yet (prAnswerOpen), and whom to tell.
-    var openAnswered = true, openAction;
+    // The open under way: answered yet (prAnswerOpen), and whom to tell; whom
+    // to tell if it answers after its timeout has answered for it, and
+    // whether that is awaited (`late`: past its timeout, still opening). The
+    // opens are counted, so what an earlier one sends back finds nothing.
+    var openAnswered = true, openAction, lateAction, <late = false, openCount = 0;
     // Why the plugin is held off although open, or nil: it reports more
     // latency than latencyLimit, which nothing compensates before release
     // 1.2 (docs/dev/device-chains.md, section 7). Held, it stays bypassed and its
@@ -128,16 +131,28 @@ MegaSAPlugin {
     // or \bank, path:), or a bank's path alone. Bypassed until the state is
     // in, so the plugin's default sound is never heard in between. `action`
     // gets (this, ok), once: ok false when it did not open, or opened but its
-    // state did not load (then it is \open, playing its default patch). A
-    // plugin that has not answered in `timeout` seconds (a licence dialog in
-    // its probe, a hang) counts as failed, so nothing waits on it for ever; a
-    // late answer is ignored and it stays bypassed.
-    open { |state, action, timeout = 30|
-        var started = Main.elapsedTime;
+    // state did not load (then it is \open, playing its default patch).
+    //
+    // A plugin that has not answered in `timeout` seconds (30 if nil: a
+    // licence dialog in its probe, a hang, its own files coming back from
+    // iCloud one by one) is answered false then, so nothing waits on it: it
+    // stays \opening and bypassed, and its chain plays without it. If it
+    // answers after all, `whenLate` gets (this, ok), once: true when it is
+    // open with its state and heard from then on; false when it did not
+    // open, or opened but its state did not load. Then it is \failed and
+    // stays bypassed: its default patch would take over from the dry sound
+    // being played by then, which no one asked for.
+    open { |state, action, timeout, whenLate|
+        var started = Main.elapsedTime, count;
         var kind = if(state.isString) { \bank } { state !? { |x| x[\kind] } };
         var file = if(state.isString) { state } { state !? { |x| x[\path] } };
+        timeout = timeout ? 30;
+        openCount = openCount + 1;
+        count = openCount;
         openAnswered = false;
         openAction = action;
+        lateAction = whenLate;
+        late = false;
         if(controller.isNil) {
             this.prSetState(\failed);
             ("MegaSA: VSTPlugin is not installed, so " ++ this.name ++ " cannot open.").warn;
@@ -145,50 +160,68 @@ MegaSAPlugin {
         };
         this.prSetState(\opening);
         this.bypass(true);
-        SystemClock.sched(timeout, { this.prOpenTimedOut(timeout); nil });
-        controller.open(path, editor: true, action: { |c, ok|
-            if(openAnswered.not) {
-                loadSec = Main.elapsedTime - started;
-                case
-                { ok.not } {
-                    this.prSetState(\failed);
-                    ("MegaSA: could not open " ++ path ++ "; the instrument stays dry.").warn;
-                    this.prAnswerOpen(false);
-                }
-                { file.isNil } {
-                    this.prSetState(\open);
-                    this.prMakeReady;
-                    this.prAnswerOpen(true);
-                }
-                {
-                    this.loadState(kind, file, { |me, bankOk|
-                        if(openAnswered.not) {
-                            this.prSetState(\open);
-                            this.prMakeReady;
-                            this.prAnswerOpen(bankOk);
-                        };
-                    });
-                };
-            };
-        });
+        SystemClock.sched(timeout, { if(count == openCount) { this.prOpenTimedOut(timeout) }; nil });
+        controller.open(path, editor: true, action: { |c, ok| this.prOpenReplied(count, ok, kind, file, started) });
     }
 
-    // The open's answer, given once.
+    // The controller's answer to open number `count`: in time, or after its
+    // timeout. Its state is loaded next, if one was given.
+    prOpenReplied { |count, ok, kind, file, started|
+        if((count != openCount) or: { openAnswered and: { late.not } }) { ^this };
+        loadSec = Main.elapsedTime - started;
+        if(ok.not) {
+            this.prSetState(\failed);
+            ("MegaSA: could not open " ++ path ++ "; its chain plays without it.").warn;
+            ^this.prAnswerOpen(false)
+        };
+        if(file.isNil) { ^this.prOpenDone(true) };
+        this.loadState(kind, file, { |me, stateOk| if(count == openCount) { this.prOpenDone(stateOk) } });
+    }
+
+    // Open, its state loaded or not. In time it is heard either way (MegaSA
+    // holds the guitar when the state did not load, until the player lets
+    // go); after its timeout only with its state.
+    prOpenDone { |stateOk|
+        if(openAnswered and: { late.not }) { ^this };
+        if(late and: { stateOk.not }) {
+            this.prSetState(\failed);
+            ("MegaSA: " ++ this.name ++ " opened after " ++ (loadSec ? 0).round(0.1)
+                ++ " s, but its sound did not load, so it stays out; its chain plays without it.").warn;
+            ^this.prAnswerOpen(false)
+        };
+        this.prSetState(\open);
+        this.prMakeReady;
+        this.prAnswerOpen(stateOk);
+    }
+
+    // The open's answer: `action` once, in time or at the timeout; then
+    // `whenLate` once, if it answers after its timeout.
     prAnswerOpen { |ok|
-        var act = openAction;
-        if(openAnswered.not) {
+        var act;
+        case
+        { openAnswered.not } {
+            act = openAction;
             openAnswered = true;
             openAction = nil;
-            act.value(this, ok);
+            if(late.not) { lateAction = nil };
+        }
+        { late } {
+            act = lateAction;
+            lateAction = nil;
+            late = false;
         };
+        act.value(this, ok);
     }
 
-    // `timeout` seconds after an open, if it has not answered.
+    // `timeout` seconds after an open, if it has not answered: answered
+    // false, so nothing waits on it, but still \opening and bypassed, to be
+    // heard if it answers after all.
     prOpenTimedOut { |timeout|
         if(openAnswered.not and: { state == \opening }) {
-            this.prSetState(\failed);
+            late = true;
             this.bypass(true);
-            ("MegaSA: " ++ this.name ++ " did not open in " ++ timeout ++ " s; the instrument plays without it.").warn;
+            ("MegaSA: " ++ this.name ++ " has not opened in " ++ timeout
+                ++ " s; its chain plays without it until it does.").warn;
             this.prAnswerOpen(false);
         };
     }

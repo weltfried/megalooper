@@ -188,6 +188,12 @@ What to expect:
   save the sound again.
 - **A plugin that crashed megalooper is skipped once.** The next start leaves
   it closed and says so; the start after that tries it again.
+- **A plugin that is slow to open comes in late.** After 30 s its chain plays
+  without it and its tile says it is still opening. When it opens with its
+  sound, it is heard from then on; if its sound did not load, it stays out.
+  A plugin whose own files sit in an iCloud-synced Documents folder can take a
+  minute or more when macOS has moved them to iCloud to free disk space: in
+  Finder, choose **Keep Downloaded** on that folder.
 
 ### An amp for the guitar
 

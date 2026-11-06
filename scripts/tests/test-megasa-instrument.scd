@@ -77,6 +77,23 @@ d.setNotesOn(true, w);
 run.(93.0);
 ~tEq.("a plugin that did not open plays nothing", midiOf.(sent), []);
 
+// Past its timeout, then open after all: said again then; but not once
+// another instrument has taken its place.
+sa.pluginMaker = { |synth, id, path| var p = fake.(\open);
+    p[\open] = { |self, given, action, timeout, whenLate| self[\state] = \opening; self[\answers] = [action, whenLate] };
+    p };
+sa.setInstrument("Fake Synth");
+said.clear;
+made.last[\answers][0].value(made.last, false);
+made.last[\state] = \open;
+made.last[\answers][1].value(made.last, true);
+~tEq.("an instrument past its timeout says false, then true when it opens after all", said.asArray,
+    [["Fake Synth", false], ["Fake Synth", true]]);
+sa.setInstrument("Fake Synth");
+said.clear;
+made[made.size - 2][\answers][1].value(made[made.size - 2], true);
+~tEq.("...but a replaced one's late answer says nothing", said.asArray, []);
+
 // Back to the Wave synth.
 stub[\msgs].clear;
 sent.clear;

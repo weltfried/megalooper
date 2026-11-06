@@ -901,6 +901,21 @@ master = SynthDescLib.global[\megaSAMaster];
         ~tEq.("a plugin that failed lets the guitar play dry", [sa.held(\guitar), ~tLastSet.(sa, strip, \mute)], [[], 0]);
         sa.free;
 
+        // Past its timeout, then open after all: the guitar is let go at the
+        // timeout, and nothing holds it when the plugin comes in.
+        plug = ~tFakePlugin.(\open);
+        plug[\open] = { |self, given, action, timeout, whenLate| self[\state] = \opening; got = [action, whenLate] };
+        sa = ~tMegaSA.(nil, plug);
+        strip = sa.strips[\guitar];
+        got[0].value(plug, false);
+        ~tEq.("a plugin past its timeout lets the guitar play dry", [sa.held(\guitar), ~tLastSet.(sa, strip, \mute)], [[], 0]);
+        plug[\state] = \open;
+        ~tCheck.("...and when it opens after all, its late answer is taken", { got[1].value(plug, true) });
+        ~tEq.("...holding nothing: the guitar plays through it", [sa.held(\guitar), sa.muted(\guitar),
+            ~tLastSet.(sa, strip, \mute)], [[], false, 0]);
+        sa.free;
+        ~tCheck.("...and one that answers late after free throws nothing", { got[1].value(plug, true) });
+
         // Freed while it opens: the late answer finds nothing to act on.
         plug = ~tFakePlugin.(\open);
         plug[\open] = { |self, bankFile, action| self[\state] = \opening; late = action };
@@ -939,18 +954,61 @@ master = SynthDescLib.global[\megaSAMaster];
         plug = MegaSAPlugin.newCopyArgs(nil, \plugin, "/x/Bias.vst");
         plug.open(nil, { |p, ok| calls.add(ok) });
         ~tEq.("a plugin with no VSTPlugin controller answers failed at once", [calls.asArray, plug.state], [[false], \failed]);
+        // An open that has not answered in time, as open leaves it (open
+        // number 1, its two actions) with no controller to ask.
+        late = { |whenLate|
+            var p = MegaSAPlugin.newCopyArgs(nil, \plugin, "/x/Bias.vst");
+            calls = List.new;
+            p.instVarPut(\state, \opening);
+            p.instVarPut(\openAnswered, false);
+            p.instVarPut(\openCount, 1);
+            p.instVarPut(\openAction, { |pp, ok| calls.add(ok) });
+            p.instVarPut(\lateAction, whenLate ? { |pp, ok| calls.add([\late, ok]) });
+            p.prOpenTimedOut(30);
+            p
+        };
+        plug = late.();
+        ~tEq.("an open that does not answer in time is answered false, and still opening",
+            [calls.asArray, plug.state, plug.late], [[false], \opening, true]);
+        plug.prOpenTimedOut(30);
+        ~tEq.("...a second timeout changes nothing", calls.asArray, [false]);
+        // Its answer after all: open with no state to load, so heard.
+        plug.prOpenReplied(1, true, nil, nil, Main.elapsedTime - 92);
+        ~tEq.("...and if it opens after all, it is open and the late action hears true",
+            [calls.asArray, plug.state, plug.late], [[false, [\late, true]], \open, false]);
+        ~tAssert.("...with how long it took", (plug.loadSec ? 0) >= 92, plug.loadSec.asString);
+        plug.prOpenReplied(1, true, nil, nil, Main.elapsedTime);
+        plug.prOpenDone(true);
+        plug.prAnswerOpen(true);
+        ~tEq.("...once: a second answer tells no one", calls.asArray, [false, [\late, true]]);
+        // Opened after its timeout, but its state did not load.
+        plug = late.();
+        plug.prOpenDone(false);
+        ~tEq.("one that opens late without its sound is failed and stays out, and says so",
+            [calls.asArray, plug.state, plug.late], [[false, [\late, false]], \failed, false]);
+        // Its answer after all is that it could not open.
+        plug = late.();
+        plug.prOpenReplied(1, false, nil, nil, Main.elapsedTime);
+        ~tEq.("one that answers late that it could not open is failed",
+            [calls.asArray, plug.state], [[false, [\late, false]], \failed]);
+        // An earlier open's answer, arriving during a later open.
+        plug = late.();
+        plug.prOpenReplied(0, true, nil, nil, Main.elapsedTime);
+        ~tEq.("an earlier open's answer changes nothing", [calls.asArray, plug.state, plug.late],
+            [[false], \opening, true]);
+        // Answered in time: no late action is kept, so nothing after it tells.
+        plug = MegaSAPlugin.newCopyArgs(nil, \plugin, "/x/Bias.vst");
         calls = List.new;
         plug.instVarPut(\state, \opening);
         plug.instVarPut(\openAnswered, false);
-        plug.instVarPut(\openAction, { |p, ok| calls.add(ok) });
+        plug.instVarPut(\openCount, 1);
+        plug.instVarPut(\openAction, { |pp, ok| calls.add(ok) });
+        plug.instVarPut(\lateAction, { |pp, ok| calls.add([\late, ok]) });
+        plug.prOpenReplied(1, true, nil, nil, Main.elapsedTime);
         plug.prOpenTimedOut(30);
-        ~tEq.("an open that does not answer in time counts as failed", [calls.asArray, plug.state], [[false], \failed]);
-        // The open's own answer arriving after its timeout (the controller's
-        // callback, which still holds the action): nothing more is told.
-        plug.instVarPut(\openAction, { |p, ok| calls.add(\late) });
-        plug.prAnswerOpen(true);
-        plug.prOpenTimedOut(30);
-        ~tEq.("...and is answered once: a late answer or a second timeout changes nothing", calls.asArray, [false]);
+        plug.prOpenReplied(1, true, nil, nil, Main.elapsedTime);
+        ~tEq.("an open answered in time is answered once, the timeout and a stray answer after it tell no one",
+            [calls.asArray, plug.state, plug.late], [[true], \open, false]);
     };
 }.value;
 
