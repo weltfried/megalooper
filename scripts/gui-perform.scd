@@ -26,8 +26,10 @@
 // what it started is live (Trigger while recording or overdubbing, Break with
 // the hatch while the hole is open, Next reading while one is landing, Rec
 // next loop while it waits or records, Dissolve while the ending runs). Under
-// them the MACROS: master, the arc, and the onset threshold, which is tuned
-// while playing, watching the lamp in the band.
+// them two bars, each under a caption saying what it is: the ARC, the
+// expression pedal's, and the LOOPER LEVEL (the loop, the cutter and the
+// grains together). They were "MACROS · DRAG" with Looper, Arc and Onset
+// rows until 2026-11-06, which read as a riddle on stage.
 //
 // Every tile and bar writes to the model only, and is painted back from its
 // notifications (gui-wiring.scd), so a refused action leaves it dark and a
@@ -64,7 +66,8 @@
 // One layer's column. `p` holds the parts: key (its colour), name, sw (a
 // function painting its footswitch words), view (the view its name opens, or
 // nil), toggle (the switch tile), rows (value rows), extra (more under them)
-// and note (the line at the foot).
+// and note (false: no line at the foot, and no rule over it; the Effects
+// column's rows say everything, and it needs the room).
 ~performColumn = { |p|
     var band = View().background_(~gt[p[\key]]).fixedHeight_(8);
     var name = LooperTile().states_([[p[\name], ~gt[\ink], nil]]).cycles_(false).align_(\left)
@@ -72,7 +75,7 @@
         .toolTip_(p[\view] !? { |v| "Open " ++ ~guiViewLabels[v] ++ " · key " ++ ~guiViewNumbers[v] } ? "")
         .action_({ p[\view] !? { |v| ~guiSelectView.(v); p[\page] !? { |pg| ~guiSetupShow !? { |f| f.(pg) } } } });
     var sw = ~guiMonoText.("", 11, ~gt[\mute]).align_(\right);
-    var note = ~guiText.("", 13, ~gt[\mute]);
+    var note = if(p[\note] != false) { ~guiText.("", 13, ~gt[\mute]) };
     // One line, however narrow the column (six on SA): it keeps to its corner.
     sw.setProperty(\wordWrap, false);
     p[\sw] !? { |f| ~midiWatch.(sw, { |t| t.string_(f.value) }) };
@@ -81,10 +84,11 @@
         band,
         View().layout_(HLayout([name, stretch: 1], sw).margins_([16, 12, 16, 0]).spacing_(6)),
         View().layout_(VLayout(p[\toggle]).margins_([16, 12, 16, 12])),
-        View().layout_(VLayout(*(p[\rows] ++ (p[\extra] ? []) ++ [nil])).margins_([16, 0, 16, 12]).spacing_(14)),
+        View().layout_(VLayout(*(p[\rows] ++ (p[\extra] ? []) ++ [nil])).margins_([16, 0, 16, 12]).spacing_(14))
+    ] ++ (note !? { |n| [
         ~guiRule.(),
-        View().minHeight_(58).layout_(VLayout(note, nil).margins_([16, 10, 16, 12]))
-    ])).margins_(0).spacing_(0))
+        View().minHeight_(58).layout_(VLayout(n, nil).margins_([16, 10, 16, 12]))
+    ] } ? []))).margins_(0).spacing_(0))
 };
 
 // A layer's colour, full or faded with its switch.
@@ -97,7 +101,78 @@
     };
 };
 ~performNote = { |key, str|
-    ~performColumns[key] !? { |c| if(c[\note].isClosed.not) { c[\note].string_(str ? "") } };
+    ~performColumns[key] !? { |c| c[\note] !? { |n| if(n.isClosed.not) { n.string_(str ? "") } } };
+};
+
+// ---- The effects that are on, as chips ------------------------------------------------
+// Each chain's effects that are on, one chip each in the chain's order: the
+// Effects colour, the words on it as a lit tile's are (\onacc), so an effect
+// that is on looks like everything else that is on. A chain with none on has
+// one dashed slot, as a switch that is off has. Read from across a stage, so
+// 14 px and bold, smaller only for a name that would not fit.
+//
+// They replaced bars that said how many were on and a grey line at the foot
+// that said which (2026-11-06): the names are what a player needs to see.
+//
+// The column must not grow past the Loop column, which sets Perform's
+// height, so all the chains together show at most ~performFxChipsMax chips;
+// a chain with more than its share ends on "+N", the ones not shown.
+~performFxChipH = 22;
+~performFxChipGap = 3;
+~performFxChipsMax = 5;
+~performFxChipNames = IdentityDictionary.new;
+
+// How many chips each chain gets: its count of effects on, one for a chain
+// with none (its dashed slot), the biggest share given up first while there
+// are more than `max`, and of equal shares the later chain's (the
+// instrument's chips go last). Pure, for the check.
+~performFxSlots = { |counts, max|
+    var slots = counts.collect { |c| c.max(1) };
+    var i;
+    while { (slots.sum > max) and: { slots.any { |n| n > 1 } } } {
+        i = slots.size - 1 - slots.reverse.maxIndex;
+        slots[i] = slots[i] - 1;
+    };
+    slots
+};
+// What `n` chips say for these names: all of them while they fit, else the
+// first n and, on the last, how many more are on and not shown ("Drive +2").
+~performFxChipWords = { |names, n|
+    if(names.size <= n) { names } {
+        names.keep(n - 1) ++ [names[n - 1] ++ " +" ++ (names.size - n)]
+    }
+};
+~performFxChipsHeight = { |n| (n * ~performFxChipH) + ((n - 1).max(0) * ~performFxChipGap) };
+
+~performFxChipHeights = IdentityDictionary.new;
+~performFxChips = { |key, tip|
+    ~performFxChipNames[key] = [];
+    ~performFxChipHeights[key] = ~performFxChipH;
+    UserView().fixedHeight_(~performFxChipH).toolTip_(tip).drawFunc_({ |u|
+        var words = ~performFxChipNames[key] ? [], w = u.bounds.width, h = ~performFxChipH, room = w - 16;
+        if(words.isEmpty) {
+            Pen.push;
+            Pen.strokeColor = ~gt[\line];
+            Pen.width = 1;
+            Pen.lineDash_(FloatArray[4, 3]);
+            Pen.addRect(Rect(0.5, 0.5, w - 1, h - 1));
+            Pen.stroke;
+            Pen.pop;
+            Pen.stringInRect("—", Rect(8, 0, room, h), ~guiSans.(13), ~gt[\mute], QAlignment(\left));
+        } {
+            words.do { |word, i|
+                var top = i * (h + ~performFxChipGap), size = 14, font = ~guiSans.(size, true);
+                while { (word.bounds(font).width > room) and: { size > 11 } } {
+                    size = size - 1;
+                    font = ~guiSans.(size, true);
+                };
+                Pen.fillColor = ~gt[\fx];
+                Pen.addRect(Rect(0, top, w, h));
+                Pen.fill;
+                Pen.stringInRect(word, Rect(8, top, room, h), font, ~gt[\onacc], QAlignment(\left));
+            };
+        };
+    })
 };
 
 // An action tile: the label, its footswitch words top right, the line under it.
@@ -133,13 +208,14 @@
         ("sa.synth." ++ name).asSymbol, tip)
 };
 
-// A macro row: the name, the bar, the value.
-~performMacro = { |label, bar, value|
-    HLayout(
-        ~guiText.(label, 15).fixedWidth_(70),
-        [bar, stretch: 1],
-        value.fixedWidth_(52)
-    ).spacing_(10).margins_(0)
+// A bar under a caption of its own, the caption saying what it is and what
+// plays it ("ACTIONS · FOOTSWITCH" above it reads the same way); the value
+// right of the bar.
+~performMacro = { |caption, bar, value|
+    VLayout(
+        ~guiCaption.(caption),
+        HLayout([bar, stretch: 1], value.fixedWidth_(52)).spacing_(10).margins_(0)
+    ).spacing_(6).margins_(0)
 };
 
 // ---- The pane ----------------------------------------------------------------------------
@@ -271,19 +347,26 @@
             .states_(~guiLayerStates.(\fx, "ON", "OFF")).border_(~gt[\line]).dashed_(true)
             .toolTip_("The effects are switched on the FX view and by their footswitches. Key 3.")
             .action_({ ~guiSelectView.(\fx) });
-        ~performFxGuitar = ~performReadBar.(\fx);
+        ~performFxGuitarChips = ~performFxChips.(\guitar,
+            "The instrument's effects that are on, in the chain's order. Switch them on the FX view (key 3)\n"
+                "or with their footswitches.");
         ~performFxGuitarLabel = ~performValue.("—");
-        ~performFxLoop = ~performReadBar.(\fx);
+        ~performFxLoopChips = ~performFxChips.(\loop,
+            "The loop's effects that are on, in the chain's order. Switch them on the FX view (key 3)\n"
+                "or with their footswitches.");
         ~performFxLoopLabel = ~performValue.("—");
-        ~performFxDrums = ~performReadBar.(\fx);
+        ~performFxDrumsChips = ~performFxChips.(\drums,
+            "The drums' effects that are on, in the chain's order. Switch them on the FX view (key 3)\n"
+                "or with their footswitches.");
         ~performFxDrumsLabel = ~performValue.("—");
         // No footswitch words in its corner: each effect has its own (FX view).
+        // No line at the foot: the chips name what is on.
         fxCol = ~performColumn.((key: \fx, name: "Effects", view: \fx, sw: { "" },
-            toggle: ~performFxTile,
+            toggle: ~performFxTile, note: false,
             rows: [
-                ~performParam.("Instrument", ~performFxGuitarLabel, ~performFxGuitar),
-                ~performParam.("Loop", ~performFxLoopLabel, ~performFxLoop),
-                ~performParam.("Drums", ~performFxDrumsLabel, ~performFxDrums)
+                ~performParam.("Instrument", ~performFxGuitarLabel, ~performFxGuitarChips),
+                ~performParam.("Loop", ~performFxLoopLabel, ~performFxLoopChips),
+                ~performParam.("Drums", ~performFxDrumsLabel, ~performFxDrumsChips)
             ]));
         ~performDrumsTile = ~midiTip.(~guiLayerTile.(\drum)
             .action_({ ~drumsModel !? { |f| f.value !? { |d| d.setOn(d.on.not) } } }),
@@ -411,7 +494,7 @@
         ~guiCaption.("DISSOLVE LOOPS"), ~dissolveLoopsField
     ).margins_(0).spacing_(8);
 
-    // ---- Macros -------------------------------------------------------------------------------
+    // ---- The arc and the looper's level --------------------------------------------------------
     // Writes to the model only; the controller paints bar and label back.
     ~masterAmpSlider = ~mapTag.(~guiBar.(\ink, 16)
         .value_(l !? { |lp| lp.masterAmp } ? 0.7)
@@ -445,9 +528,8 @@
             [~performActions[\undo], ~performActions[\clear]]
         ).hSpacing_(8).vSpacing_(8),
         steppers,
-        ~guiCaption.("MACROS · DRAG"),
-        ~performMacro.("Looper", ~masterAmpSlider, ~masterAmpLabel),
-        ~performMacro.("Arc", ~intensitySlider, ~intensityLabel),
+        ~performMacro.("ARC · EXPRESSION PEDAL", ~intensitySlider, ~intensityLabel),
+        ~performMacro.("LOOPER LEVEL · LOOP, CUTTER, GRAINS", ~masterAmpSlider, ~masterAmpLabel),
         nil
     ).margins_([18, 14, 18, 12]).spacing_(10));
 
@@ -563,9 +645,9 @@
 
 // The effects that are on, from the chains as they stand: the built-ins of
 // each, in their order (the plugin, always on, is the amp, not an effect
-// here).
+// here), as chips under each chain's count.
 ~performPaintFx = {
-    var m = ~megaSA, on, guitar, loops, drums, names, allG, allL, allD;
+    var m = ~megaSA, on, guitar, loops, drums, allG, allL, allD, lists, slots;
     if(m.notNil and: { ~performFxTile.notNil } and: { ~performFxTile.isClosed.not }) {
         allG = (m.chainFor(\guitar) !? { |c| c.devices.reject(_.isPlugin) }) ? [];
         allL = (m.chainFor(\loop) !? { |c| c.devices.reject(_.isPlugin) }) ? [];
@@ -577,14 +659,25 @@
         ~performFxTile.states_(~guiLayerStates.(\fx, (guitar.size + loops.size + drums.size).asString ++ " ON", "OFF"))
             .value_(on.binaryValue).border_(if(on) { ~gt[\fx] } { ~gt[\line] }).dashed_(on.not);
         ~performPaintBand.(\fx, on);
-        ~performFxGuitar.value_(guitar.size / allG.size.max(1)).dim_(if(on) { 1 } { 0.3 });
         ~performFxGuitarLabel.string_(guitar.size.asString ++ " of " ++ allG.size);
-        ~performFxLoop.value_(loops.size / allL.size.max(1)).dim_(if(on) { 1 } { 0.3 });
         ~performFxLoopLabel.string_(loops.size.asString ++ " of " ++ allL.size);
-        ~performFxDrums.value_(drums.size / allD.size.max(1)).dim_(if(on) { 1 } { 0.3 });
         ~performFxDrumsLabel.string_(drums.size.asString ++ " of " ++ allD.size);
-        names = (guitar ++ loops ++ drums).collect { |d| d.name };
-        ~performNote.(\fx, if(names.isEmpty) { "All bypassed" } { names.join(" › ") });
+        lists = [guitar, loops, drums].collect { |ds| ds.collect { |d| d.name.asString } };
+        slots = ~performFxSlots.(lists.collect(_.size), ~performFxChipsMax);
+        [\guitar, \loop, \drums].do { |key, i|
+            var words = ~performFxChipWords.(lists[i], slots[i]);
+            var view = [~performFxGuitarChips, ~performFxLoopChips, ~performFxDrumsChips][i];
+            var height = ~performFxChipsHeight.(slots[i]);
+            ~performFxChipNames[key] = words;
+            if(view.notNil and: { view.isClosed.not }) {
+                // Set only when it moves: a new height lays the column out again.
+                if(~performFxChipHeights[key] != height) {
+                    ~performFxChipHeights[key] = height;
+                    view.fixedHeight_(height);
+                };
+                view.refresh;
+            };
+        };
     };
 };
 

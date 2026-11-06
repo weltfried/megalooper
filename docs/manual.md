@@ -204,7 +204,7 @@ its own when nobody touches it (one at rest can read 68, 69, 68). So every
 knob or pedal on a CC has one step of hysteresis unless its mapping says
 otherwise: a move counts if it is two steps or more, or one step on in the
 direction of the last. The control stays within a step of the pedal, and a
-level set with the Looper macro is not taken back by the next hop. The
+level set with Looper level is not taken back by the next hop. The
 Knobs row of Setup's MIDI map sets the default.
 
 **keys-and-knobs**, for keyboards and knob boxes, on any input:
@@ -257,7 +257,7 @@ MIDI goes on driving everything until you click a control.
 
 ![MIDI Map mode on Perform](images/map-mode.png)
 
-*Fig: MIDI Map mode with the shipped keys-and-knobs map: each control says what drives it, note 60 for Trigger, CC 11 for the Arc macro.*
+*Fig: MIDI Map mode with the shipped keys-and-knobs map: each control says what drives it, note 60 for Trigger, CC 11 for the Arc.*
 
 Everything else is in the **MIDI map** section of Setup's MIDI & AI page, including
 the controls that have no widget, such as the
@@ -350,7 +350,7 @@ Two axes over the same three levels (the dry loop, the cutter, the granular
 layer), for shaping a piece without taking a hand off the instrument.
 
 **Intensity** is the expression pedal's control (CC 11 in the keys-and-knobs map;
-map any pedal to it in MIDI Map mode), mirrored by the **Arc** macro on
+map any pedal to it in MIDI Map mode), mirrored by the **Arc** bar on
 Perform. Heel is the dry loop with a cutter that is running but barely
 chopping and no grains; toe is the cutter chopping as you dialled it in and the
 granular layer at its set level.
@@ -436,7 +436,7 @@ silent so the room can play into the hole, coming back **on a loop downbeat**.
 
 ![Perform's actions](images/perform-actions.png)
 
-*Fig: Perform's actions with their keys. Under them, how many loops a break lasts and how many bars a dissolve takes, then the macros.*
+*Fig: Perform's actions with their keys. Under them, how many loops a break lasts and how many bars a dissolve takes, then the Arc and the looper's level.*
 
 The hole opens the instant you stomp — the mute is not quantised, so it lands
 exactly where your foot did. Only the **resume** is on the grid: it waits out
@@ -473,7 +473,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 ![The Perform view](images/perform.png)
 
-*Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3, which the count under the state block shows as group 2 of 2+2+3. Under the status band, a column per layer, then the actions and the macros.*
+*Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3, which the count under the state block shows as group 2 of 2+2+3. Under the status band, a column per layer, then the actions, the Arc and the looper's level.*
 
 - **The top bar**, on every view: the logo, a Möbius loop whose twist
   travels round once a pass while the loop plays (and stands when it
@@ -505,7 +505,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects**, **Drums** (on/off, the kit, **New loop**, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **macros** (Looper, Arc, Onset) and, under the layers, the **levels** of every strip |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick), **Grains** (on/off, morph, level), **Effects** (each chain's effects that are on, by name, in the effects colour), **Drums** (on/off, the kit, **New loop**, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **Arc** (the expression pedal's bar) and **Looper level**, and, under the layers, the **levels** of every strip |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
@@ -593,7 +593,7 @@ The controls, by view:
   (the [automatic level](#the-automatic-level)), but a tap that far under the
   input is usually the wrong channel or a gain left down, and its hiss is turned
   up with it: fix the channel or the gain. See [docs/routing.md](routing.md).
-- **Looper** *(Perform's macros)* — the looper's own level: the loop, the
+- **Looper level** *(Perform, under the Arc)* — the looper's own level: the loop, the
   cutter and the grains together, after their limiter (0–1, starts at 0.7).
   The whole mix's last fader is **Master** under Levels, on Perform.
 - **Morph** *(Perform's Grains column)* — between frozen drone (0) and pulsed scan
@@ -1568,7 +1568,7 @@ megalooper/
     gui-theme.scd        -- the stage theme: palettes, type, tiles, bars, segmented rows
     gui-presets.scd      -- the preset bar's logic, shared by every preset family
     gui-status.scd       -- the status band and strip + the MIDI monitor panel
-    gui-perform.scd      -- Perform: the layers, the actions, the macros
+    gui-perform.scd      -- Perform: the layers, the actions, the arc and the level
     gui-bbcut.scd        -- the Cutter (Sound): voices, procedures, params, effects
     gui-granular.scd     -- the Grains (Sound): the Warp1 layer's full controls
     gui-effects.scd      -- FX: the chains, their devices and sounds

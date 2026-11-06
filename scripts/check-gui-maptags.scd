@@ -675,6 +675,56 @@ Routine {
         }.value);
     });
 
+    // Since 2026-11-06 Perform's Effects column names the effects that are
+    // on, a chip per effect under its chain, where it had a bar per chain and
+    // a grey line of names at its foot.
+    section.("Perform's effects as chips", {
+        var m = ~megaSA, chains = [\guitar, \loop, \drums];
+        var devs = chains.collect { |c| m.chainFor(c) !? { |ch| ch.devices.reject(_.isPlugin) } ? [] };
+        // Each device switched as setFx does, but by the device itself: an
+        // id names the first device that has it, in whichever chain.
+        var set = { |dv, on| dv.setOn(on); m.changed(\fx, dv.id, dv.on) };
+        var was = devs.flatten.collect { |dv| [dv, dv.on] };
+        var g = devs[0], l = devs[1];
+        ok.("a chain's share: its count, one slot for a chain with none",
+            [~performFxSlots.([1, 0, 0], 5), ~performFxSlots.([3, 1, 0], 5), ~performFxSlots.([0, 0, 0], 5)]
+                == [[1, 1, 1], [3, 1, 1], [1, 1, 1]]);
+        ok.("...never more than five chips in all, the instrument's given up last",
+            [~performFxSlots.([5, 5, 2], 5), ~performFxSlots.([4, 0, 1], 5), ~performFxSlots.([2, 2, 2], 5)]
+                == [[2, 2, 1], [3, 1, 1], [2, 2, 1]],
+            [~performFxSlots.([5, 5, 2], 5), ~performFxSlots.([4, 0, 1], 5), ~performFxSlots.([2, 2, 2], 5)].asString);
+        ok.("a chain cut short ends on how many more are on",
+            [~performFxChipWords.(["A", "B", "C", "D"], 2), ~performFxChipWords.(["A", "B"], 2), ~performFxChipWords.([], 1)]
+                == [["A", "B +2"], ["A", "B"], []]);
+        devs.flatten.do { |dv| set.(dv, false) };
+        tick.();
+        ok.("everything off: every chain an empty slot, and the Effects column has no line at its foot",
+            chains.every { |c| ~performFxChipNames[c] == [] } and: { ~performColumns[\fx][\note].isNil }
+                and: { ~performFxChipHeights[\guitar] == ~performFxChipH },
+            chains.collect { |c| ~performFxChipNames[c] }.asString);
+        set.(g[1], true);
+        set.(g[0], true);
+        set.(l[0], true);
+        tick.();
+        ok.("on: each chain names its own, in the chain's order, whichever was switched first",
+            [~performFxChipNames[\guitar], ~performFxChipNames[\loop], ~performFxChipNames[\drums]]
+                == [[g[0].name, g[1].name], [l[0].name], []],
+            chains.collect { |c| ~performFxChipNames[c] }.asString);
+        ok.("...two chips tall where two are on, one where one is", [~performFxChipHeights[\guitar], ~performFxChipHeights[\loop]]
+            == [(2 * ~performFxChipH) + ~performFxChipGap, ~performFxChipH], ~performFxChipHeights.asString);
+        ok.("...and the counts beside the chains as before", ~performFxGuitarLabel.string == ("2 of " ++ g.size),
+            ~performFxGuitarLabel.string);
+        devs.flatten.do { |dv| set.(dv, true) };
+        tick.();
+        // A chain with none has its one dashed slot, which counts as a chip.
+        ok.("every effect on: five chips in all, the instrument's cut short saying how many more",
+            (chains.collect { |c| ~performFxChipNames[c].size.max(1) }.sum == 5)
+                and: { ~performFxChipNames[\guitar].last.contains(" +") },
+            chains.collect { |c| ~performFxChipNames[c] }.asString);
+        was.do { |p| set.(p[0], p[1]) };
+        tick.();
+    });
+
     section.("the logo", {
         var g = ~guiLogoGeometry.(), wasL = ~looper, wasP = ~guiLoopPhase, near = { |a, b| (a - b).abs < 1e-3 };
         ok.("the top bar's first tile holds the Möbius loop", ~guiLogo.notNil and: { ~guiLogo.isClosed.not }

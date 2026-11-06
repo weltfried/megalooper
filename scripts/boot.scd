@@ -18,7 +18,7 @@
 //   gui-theme.scd      the stage theme: palettes, type, tiles, bars, segments
 //   gui-presets.scd    the preset bar's logic, shared by every preset family
 //   gui-status.scd     the status band and strip + ~buildMidiMonitorPanel
-//   gui-perform.scd    ~buildPerformPane: the layers, the actions, the macros
+//   gui-perform.scd    ~buildPerformPane: the layers, the actions, the arc, the level
 //   gui-bbcut.scd      ~buildBBCutPane: the Cutter, Sound's left half
 //   gui-granular.scd   ~buildGranularPane: the Grains, Sound's right half
 //   gui-analysis.scd   ~buildAnalysisPane: the monitor feed, counts, onset

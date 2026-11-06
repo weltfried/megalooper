@@ -201,7 +201,7 @@
     ].do { |e|
         var key = e[3];
         add.(e[0], e[1], e[2], \continuous, (group: granularGroups[key] ?? {
-                (feedback: "Loop", intensity: "Macros")[key] },
+                (feedback: "Loop", intensity: "Arc and level")[key] },
             get: { ~looper !? { |l| l.perform(key) } }, set: { |v| ~looper.perform(key.asSetter, v) },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
     };
@@ -278,8 +278,8 @@
             get: { ~looper !? { |l| l.analyzeOverdubs } },
             set: { |on| ~looper !? { |l| l.analyzeOverdubs = (on == true) } },
             available: looper));
-        // Perform's Looper macro, straight 0..1, read as its label reads.
-        add.('looper.masterAmp', "Looper", "Perform", \continuous, (group: "Macros",
+        // Perform's Looper level, straight 0..1, read as its label reads.
+        add.('looper.masterAmp', "Looper level", "Perform", \continuous, (group: "Arc and level",
             get: { ~looper !? { |l| l.masterAmp } }, set: { |v| ~looper !? { |l| l.masterAmp = v } },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
         // The onset notes' Chance slider, straight 0..1, read as a percentage

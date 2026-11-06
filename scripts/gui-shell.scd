@@ -24,7 +24,7 @@
 //     what it decided about the take, what the input is doing, and the bar
 //     grid with the playhead. On every other view it folds into a 56 px strip,
 //     so the state, the take and the position never leave the screen;
-//   - the views: Perform (the five layers, the actions, the macros), Sound
+//   - the views: Perform (the five layers, the actions, the arc and the looper level), Sound
 //     (the cutter and the grains), FX and Drums (Megalooper SA's), Setup
 //     (analysis, the rig, calibration, MIDI in) and the Calibrate wizard. Keys
 //     1-6 and the MIDI map's view controls switch them;
