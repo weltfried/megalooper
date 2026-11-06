@@ -81,8 +81,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key>        <string>megalooper</string>
     <key>CFBundleIconFile</key>          <string>megalooper</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.7</string>
-    <key>CFBundleVersion</key>           <string>8</string>
+    <key>CFBundleShortVersionString</key><string>1.8</string>
+    <key>CFBundleVersion</key>           <string>9</string>
     <key>NSHighResolutionCapable</key>   <true/>
     <!-- The looper records a guitar. Without a usage string macOS terminates a
          process that touches an input device rather than prompting for it. -->
