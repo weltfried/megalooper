@@ -259,3 +259,100 @@ takes.do { |bars|
     };
 };
 }.value;
+
+// ---- the whole loop's fit (MeterAnalyzer.wholeLoop, 2026-11-06) -------------
+// A first take's grids fitted a second way, over the whole loop from the
+// press with their phase free: the rescue where the fit from the first onset
+// finds nothing, after its readings on the ranked list. As the duo's rig, the
+// fallback is 7/8.
+{
+var origNum = MeterAnalyzer.fallbackNum, origDenom = MeterAnalyzer.fallbackDenom;
+var origBars = MeterAnalyzer.fallbackBars, origWhole = MeterAnalyzer.wholeLoop;
+var take = { |full, hits, strengths, whole = true|
+    var r;
+    MeterAnalyzer.wholeLoop = whole;
+    r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(full - hits[0], hits - hits[0], strengths,
+        leadIn: hits[0]), full);
+    MeterAnalyzer.wholeLoop = origWhole;
+    r
+};
+var beat = 60 / 107, full, hits, st, r, a, b, f, s;
+MeterAnalyzer.fallbackNum = 7;
+MeterAnalyzer.fallbackDenom = 8;
+MeterAnalyzer.fallbackBars = 0;
+
+// The training take gerade-5's shape: four even quarters at 107, the first
+// half a beat after the press. From the first onset the span is 3.5 beats,
+// whose only grid (7/8 on eighths) would move the loop by a beat; the snap
+// refuses it, and before the whole loop's readings were on the list the take
+// was length-anchored as 7/8.
+full = 4 * beat;
+hits = (0..3).collect { |i| (beat * 0.5) + (i * beat) };
+st = [0.13, 0.19, 0.18, 0.2];
+r = take.(full, hits, st);
+~tEq.("four even hits half a beat after the press read as one bar of 4/4", [r[\numerator], r[\denominator], r[\k], r[\error]], [4, 4, 1, nil]);
+~tNear.("...at their tempo", r[\bpm], 107, 0.5);
+~tNear.("...the loop as long as it was", r[\loopDur], full, 1e-6);
+~tEq.("...saying it came from the whole loop's fit, as the take's log does", [r[\wholeLoop], Looper.resultForLog(r)[\wholeLoop]], [true, true]);
+r = take.(full, hits, st, false);
+~tEq.("...where the first onset's fit alone length-anchors them", r[\error], \lengthAnchored);
+// Before the snap: the answer is still the first fit's, its readings first on
+// the list, the whole loop's after them, where the snap found 4/4.
+MeterAnalyzer.wholeLoop = true;
+a = MeterAnalyzer.analyze(full - hits[0], hits - hits[0], st, leadIn: hits[0]);
+MeterAnalyzer.wholeLoop = false;
+b = MeterAnalyzer.analyze(full - hits[0], hits - hits[0], st, leadIn: hits[0]);
+MeterAnalyzer.wholeLoop = origWhole;
+~tEq.("...the answer before the snap still the first fit's, its readings first",
+    [a[\numerator], a[\k]] ++ a[\candidates].keep(b[\candidates].size).collect { |c| [c[\numerator], c[\denominator], c[\k]] },
+    [b[\numerator], b[\k]] ++ b[\candidates].collect { |c| [c[\numerator], c[\denominator], c[\k]] });
+~tAssert.("...and one bar of 4/4 after them", a[\candidates].drop(b[\candidates].size).any { |c|
+    (c[\numerator] == 4) and: { c[\denominator] == 4 } and: { c[\k] == 1 } }, a[\candidates].collect { |c| c[\numerator] }.asString);
+
+// A take the first fit reads keeps its reading: the rescue only answers
+// where that fit found nothing.
+full = 2.1;
+hits = [0, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8] + 0.01;
+st = [1.0, 0.4, 0.7, 0.4, 0.7, 0.4, 0.4];
+a = take.(full, hits, st);
+b = take.(full, hits, st, false);
+~tEq.("a take the first fit reads keeps its reading", [a[\numerator], a[\denominator], a[\k], a[\bpm], a[\wholeLoop]],
+    [b[\numerator], b[\denominator], b[\k], b[\bpm], nil]);
+~tEq.("...and its ranked list starts as it did", (a[\candidates] ? []).keep(b[\candidates].size).collect { |c|
+    [c[\numerator], c[\denominator], c[\k]] }, b[\candidates].collect { |c| [c[\numerator], c[\denominator], c[\k]] });
+
+// Without a lead-in (the overdub detection) there is no whole loop to fit:
+// the switch changes nothing.
+MeterAnalyzer.wholeLoop = true;
+a = MeterAnalyzer.analyze(2.1, [0, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8], st);
+MeterAnalyzer.wholeLoop = false;
+b = MeterAnalyzer.analyze(2.1, [0, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8], st);
+MeterAnalyzer.wholeLoop = origWhole;
+~tEq.("without a lead-in the whole loop's fit changes nothing", a[\candidates].collect { |c| [c[\numerator], c[\k], c[\score]] },
+    b[\candidates].collect { |c| [c[\numerator], c[\k], c[\score]] });
+
+// The fallback is the meter the player plays: where it fits the loop itself
+// the rescue does not overrule it.
+s = 0.3;
+~tEq.("the 7/8 fallback fits hits on its own eighths over the whole loop",
+    MeterAnalyzer.prFallbackFits([0, 2, 4, 7, 9, 11].collect { |p| (p * s) + 0.05 }, 14 * s), true);
+~tEq.("...and not sixteen even pulses, two bars of 4/4", MeterAnalyzer.prFallbackFits((0..15).collect { |p| p * 0.28 }, 16 * 0.28), false);
+
+// fitPhase: the pulse is the loop over n, the phase where the hits are.
+f = MeterAnalyzer.fitPhase((0..7).collect { |i| 0.1 + (i * 0.25) }, 2.0, 8);
+~tNear.("fitPhase finds the phase", f[\origin], 0.1, 1e-6);
+~tEq.("...the pulse the loop over n, every hit on it", [f[\tau], f[\fit], f[\err].round(1e-9)], [0.25, 1.0, 0.0]);
+
+// A two-pulse bar's accent is the contrast of its pulses in the whole loop's
+// fit: a correlation of two values that differ at all is always 1.
+a = MeterAnalyzer.accentAlign(0.5, 2, 4, 1, [0, 0.5, 1.0, 1.5], [0.5, 1.0, 0.5, 1.0], true);
+~tEq.("a 2/4 bar's accent is its contrast, the stronger pulse the downbeat", [a[\score].round(1e-9), a[\phase]], [(1/3).round(1e-9), 1]);
+a = MeterAnalyzer.accentAlign(0.5, 2, 4, 1, [0, 0.5, 1.0, 1.5], [1.0, 1.0, 1.0, 1.0], true);
+~tEq.("...none for even hits", a[\score], 0);
+a = MeterAnalyzer.accentAlign(0.5, 2, 4, 1, [0, 0.5, 1.0, 1.5], [0.9, 1.0, 0.9, 1.0]);
+~tEq.("...where the first fit's correlation gives any difference it all", a[\score].round(1e-9), 1);
+
+MeterAnalyzer.fallbackNum = origNum;
+MeterAnalyzer.fallbackDenom = origDenom;
+MeterAnalyzer.fallbackBars = origBars;
+}.value;

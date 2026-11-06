@@ -79,6 +79,28 @@ MeterAnalyzer {
     //                   that fits the same grid to answer instead of it
     classvar <>unevenWinMargin = 0.1;
     classvar <accentWeight = 0.5;
+    // A first take's grids (analyze given a leadIn) are fitted a second way,
+    // over the WHOLE loop from the record press (fitPhase): a loop repeats, so
+    // its full length is whole pulses wherever beat one falls, and the pulse
+    // is the loop over their number, only the phase free. Fitted from the
+    // first onset over what follows it, a take that starts half a beat after
+    // the press has no grid: the span is 3.4 beats (the training take
+    // gerade-5, four even hits). With the length pinning the pulse, the gates
+    // can be looser than fitThreshold / errThreshold. These readings are the
+    // rescue: they answer only where the first fit and the uneven bars found
+    // nothing (the length-anchored fallback before) and the fallback meter
+    // does not fit the loop either (prFallbackFits), and they go after the
+    // first fit's readings on the ranked list. Measured 2026-11-06 on the
+    // labelled takes (training-data, the duo's uneven takes, their sets'
+    // takes): the training takes went from 1 of 7 read right to 5 of 7, and
+    // nothing read right moved; one sparse take the duo had played on as the
+    // 7/8 fallback, which no grid fits, came out 5/4.
+    //   wholeLoop         on (the overdub detection has no press, and has
+    //                     only the first fit)
+    //   wholeFitThreshold, wholeErrThreshold  its gates
+    classvar <>wholeLoop = true;
+    classvar <>wholeFitThreshold = 0.75;
+    classvar <>wholeErrThreshold = 0.15;
     // How many ranked readings analyze() returns beside its answer, best
     // first. See prRankCandidates. Settable so an offline sweep can ask for
     // the whole list; the app keeps the default.
@@ -136,20 +158,82 @@ MeterAnalyzer {
     // `pitches` (optional, with leadIn): the take's pitch readings, [time from
     // the press, Hz, amplitude] each, for the uneven bars' notes.
     *analyze { |loopDur, onsets, strengths, maxBars, minOnsetDensity = 0, leadIn, pitches|
-        var best, bestScore = -inf, uneven, meterScore;
+        var best, uneven, meterScore, fitted, rescue, extra;
         var kMax = (maxBars ? maxK).asInteger.max(1);
-        // Every reading that passes the fit, with its score. The perception map
-        // (docs/dev/meter-perception.md) found the wrong answers to be near-ties,
-        // so what came SECOND is worth returning: a correction can offer "the
-        // next reading" instead of asking the player to name one. Flat arrays
-        // in the loop; Events for the top few are built once at the end.
-        var passed = List.new;
 
         if(onsets.size < 2) {
             ^(numerator: nil, denominator: nil, bpm: nil,
                 error: \insufficientOnsets, onsetCount: onsets.size)
         };
 
+        // Every reading that passes the fit, with its score. The perception map
+        // (docs/dev/meter-perception.md) found the wrong answers to be near-ties,
+        // so what came SECOND is worth returning: a correction can offer "the
+        // next reading" instead of asking the player to name one.
+        fitted = this.prFitMeters(false, onsets, loopDur, strengths, kMax, minOnsetDensity);
+        best = fitted[0];
+        // A first take's readings over the whole loop (wholeLoop): the rescue
+        // when the fit above finds none, and after its own on the ranked list,
+        // where the snap looks when it refuses those (gerade-5: its only
+        // readings would have moved the loop by 217 ms) and where the
+        // next-reading switch reaches them.
+        rescue = if(wholeLoop and: { leadIn.notNil }) {
+            this.prFitMeters(true, onsets + leadIn, loopDur + leadIn, strengths, kMax, minOnsetDensity, leadIn)
+        } { [nil, []] };
+        // Each says it came from there (`wholeLoop`, logged with the take).
+        extra = this.prRankCandidates(rescue[1], onsets.size).collect { |c| c.put(\wholeLoop, true) };
+
+        // No pulse grid fit: the uneven bars, else the whole loop's best
+        // reading, else anchor the meter to the loop length instead of
+        // guessing a blind 4/4. analyze() only sees the post-first-onset span,
+        // so this is a best-effort estimate; a caller that knows the full
+        // recorded length (the Looper) re-anchors with anchorToLength to fold
+        // in any leading silence and stay exactly locked to the loop.
+        uneven = leadIn !? { |lead|
+            this.analyzeUneven(loopDur + lead, onsets + lead, strengths, pitches) };
+        if(best.isNil) {
+            case
+            { uneven.notNil } {
+                ^uneven.put(\candidates, this.prMergeCandidates(uneven[\candidates], extra)) }
+            { rescue[0].notNil and: { this.prFallbackFits(onsets + leadIn, loopDur + leadIn).not } } {
+                ^rescue[0].put(\candidates, extra).put(\wholeLoop, true) };
+            ^this.anchorToLength(loopDur, fallbackNum, fallbackDenom, onsets.size)
+        };
+
+        // The answer carries its own score and the ranked list it won; a
+        // length-anchored result carries neither, because nothing fit and there
+        // is no next reading to offer.
+        best[\candidates] = this.prMergeCandidates(this.prRankCandidates(fitted[1], onsets.size), extra);
+        if(uneven.isNil) { ^best };
+        // Both a meter and uneven bars: when they share a grid (7+7+7+6 is
+        // also three bars of 9/8), the meter's bars are scored on it as the
+        // uneven ones were, and the uneven bars answer when they win by
+        // unevenWinMargin, the meter second. Else the meter answers and the
+        // bars go second: one press of the switch either way.
+        meterScore = uneven[\grid] !? { |g| this.prMeterOnGrid(best, g) } !? { |x| x[\score] };
+        if(meterScore.notNil and: { (uneven[\barsScore] - meterScore) >= unevenWinMargin }) {
+            ^uneven.copy.put(\candidates, [uneven.copy.put(\candidates, nil)]
+                ++ best[\candidates] ++ uneven[\candidates].drop(1)).put(\meterScore, meterScore)
+        };
+        best[\candidates] = best[\candidates].insert(1, uneven.copy.put(\candidates, nil));
+        best[\meterScore] = meterScore;
+        best[\unevenBarsScore] = uneven[\barsScore];
+        ^best
+    }
+
+    // Every standard meter's grids up to kMax bars, fitted and scored, and
+    // the best and all that pass: [best (with its score), passed]. whole: a
+    // first take's, over the whole loop from the press (`times` from it,
+    // `span` its full length, `leadIn` where the first onset is), with the
+    // whole-loop gates and a two-pulse bar's accent as its contrast
+    // (accentAlign); else from the first onset over what follows it, as it
+    // always was. `passed` holds flat arrays; Events for the top few are
+    // built once, by prRankCandidates.
+    *prFitMeters { |whole, times, span, strengths, kMax, minOnsetDensity, leadIn|
+        var best, bestScore = -inf, passed = List.new;
+        var fitGate = if(whole) { wholeFitThreshold } { fitThreshold };
+        var errGate = if(whole) { wholeErrThreshold } { errThreshold };
+        var lead = if(whole) { leadIn ? 0 } { 0 };
         standardMeters.do { |meter|
             var num = meter[0];
             var denom = meter[1];
@@ -171,18 +255,22 @@ MeterAnalyzer {
                     // declarations was the one change that made it stop.
                     // test-meter-analyzer.scd pins that exact input with a
                     // detector that reads a marker sitting under the call.
-                    var refinedTau, refinedLoop, driftRel, bpm, fit, accent, score;
-                    if(n <= maxN and: { onsets.size >= (n * minOnsetDensity) }) {
-                        refinedTau = this.fitTau(loopDur, n, onsets);
+                    // `fit`: (tau:, origin:, fit:, err:), its origin in seconds
+                    // of `times`; `down`: the downbeat's offset from the first
+                    // onset, as the result has always given it.
+                    var refinedTau, refinedLoop, driftRel, bpm, fit, accent, score, down;
+                    if(n <= maxN and: { times.size >= (n * minOnsetDensity) }) {
+                        fit = this.prGridFor(whole, times, span, n);
+                        refinedTau = fit[\tau];
                         refinedLoop = refinedTau * n;
-                        driftRel = (refinedLoop - loopDur).abs / loopDur;
+                        driftRel = (refinedLoop - span).abs / span;
                         if(driftRel <= loopTolerance) {
                             bpm = 240 * k * num / (denom * refinedLoop);
                             if(bpm >= bpmRangeLo and: { bpm <= bpmRangeHi }) {
-                                fit = this.scorePulse(refinedTau, onsets);
-                                if(fit.fit >= fitThreshold and: { fit.err <= errThreshold }) {
-                                    accent = this.accentAlign(
-                                        refinedTau, num, denom, sub, onsets, strengths);
+                                if(fit.fit >= fitGate and: { fit.err <= errGate }) {
+                                    accent = this.accentAlign(refinedTau, num, denom, sub,
+                                        times - fit[\origin], strengths, whole);
+                                    down = (fit[\origin] + (accent.phase * refinedTau)) - lead;
                                     score = fit.fit
                                         + (accent.score * accentWeight)
                                         - (sub * 0.5)
@@ -190,7 +278,7 @@ MeterAnalyzer {
                                         - ((bpm.log - preferredBpm.log).abs * 0.2)
                                         - (driftRel * 0.5);
                                     passed.add([score, num, denom, k, sub, refinedTau,
-                                        refinedLoop, bpm, accent.phase, accent.score, n]);
+                                        refinedLoop, bpm, accent.phase, accent.score, n, down]);
                                     if(score > bestScore) {
                                         bestScore = score;
                                         best = (
@@ -198,9 +286,9 @@ MeterAnalyzer {
                                             n: n, tau: refinedTau, k: k, sub: sub,
                                             loopDur: refinedLoop,
                                             phase: accent.phase,
-                                            downbeatOffset: accent.phase * refinedTau,
+                                            downbeatOffset: down,
                                             accent: accent.score,
-                                            onsetCount: onsets.size
+                                            onsetCount: times.size
                                         );
                                     };
                                 };
@@ -210,38 +298,32 @@ MeterAnalyzer {
                 };
             };
         };
+        best !? { |b| b[\score] = bestScore };
+        ^[best, passed]
+    }
 
-        // No pulse grid fit: anchor the meter to the loop length instead of
-        // guessing a blind 4/4. analyze() only sees the post-first-onset span,
-        // so this is a best-effort estimate; a caller that knows the full
-        // recorded length (the Looper) re-anchors with anchorToLength to fold
-        // in any leading silence and stay exactly locked to the loop.
-        uneven = leadIn !? { |lead|
-            this.analyzeUneven(loopDur + lead, onsets + lead, strengths, pitches) };
-        if(best.isNil) {
-            ^uneven ?? { this.anchorToLength(loopDur, fallbackNum, fallbackDenom, onsets.size) }
-        };
+    // Whether the fallback meter itself fits a first take over the whole loop:
+    // as many bars of it as anchorToLength would make, on
+    // quarters or eighths of it, through the whole loop's gates. The fallback
+    // is the meter the player said they play; a rescue overrules it only when
+    // it does not fit (7/8 cannot make the sixteen pulses of two bars of 4/4),
+    // not when another meter merely scores better on a sparse take.
+    *prFallbackFits { |times, span|
+        var n = this.chooseBars(span, fallbackNum, fallbackDenom) * fallbackNum;
+        ^[1, 2].any { |sub|
+            var f = this.fitPhase(times, span, n * sub);
+            (f[\fit] >= wholeFitThreshold) and: { f[\err] <= wholeErrThreshold }
+        }
+    }
 
-        // The answer carries its own score and the ranked list it won; a
-        // length-anchored result carries neither, because nothing fit and there
-        // is no next reading to offer.
-        best[\score] = bestScore;
-        best[\candidates] = this.prRankCandidates(passed, onsets.size);
-        if(uneven.isNil) { ^best };
-        // Both a meter and uneven bars: when they share a grid (7+7+7+6 is
-        // also three bars of 9/8), the meter's bars are scored on it as the
-        // uneven ones were, and the uneven bars answer when they win by
-        // unevenWinMargin, the meter second. Else the meter answers and the
-        // bars go second: one press of the switch either way.
-        meterScore = uneven[\grid] !? { |g| this.prMeterOnGrid(best, g) } !? { |x| x[\score] };
-        if(meterScore.notNil and: { (uneven[\barsScore] - meterScore) >= unevenWinMargin }) {
-            ^uneven.copy.put(\candidates, [uneven.copy.put(\candidates, nil)]
-                ++ best[\candidates] ++ uneven[\candidates].drop(1)).put(\meterScore, meterScore)
-        };
-        best[\candidates] = best[\candidates].insert(1, uneven.copy.put(\candidates, nil));
-        best[\meterScore] = meterScore;
-        best[\unevenBarsScore] = uneven[\barsScore];
-        ^best
+    // A ranked list with another's readings after it, those it already has
+    // (the same meter and bars) left out.
+    *prMergeCandidates { |first, more|
+        var have = (first ? []).asArray;
+        ^have ++ (more ? []).asArray.reject { |c|
+            have.any { |x| (x[\numerator] == c[\numerator]) and: { x[\denominator] == c[\denominator] }
+                and: { (x[\k] ? 1) == (c[\k] ? 1) } and: { this.barsOf(x) == this.barsOf(c) } }
+        }
     }
 
     // The readings that passed the fit, best first, capped at maxCandidates,
@@ -253,7 +335,7 @@ MeterAnalyzer {
         ^passed.asArray.sort { |a, b| a[0] >= b[0] }.keep(maxCandidates).collect { |c|
             (score: c[0], numerator: c[1], denominator: c[2], k: c[3], sub: c[4],
                 tau: c[5], loopDur: c[6], bpm: c[7], n: c[10],
-                phase: c[8], downbeatOffset: c[8] * c[5], accent: c[9],
+                phase: c[8], downbeatOffset: c[11] ? (c[8] * c[5]), accent: c[9],
                 onsetCount: onsetCount)
         }
     }
@@ -757,6 +839,36 @@ MeterAnalyzer {
         ^(best ? 1)
     }
 
+    // One candidate's grid of n pulses: over the whole loop with its phase
+    // free (fitPhase), or from the first onset (fitTau), as analyze asks.
+    // (tau:, origin:, fit:, err:), origin in seconds of `times`.
+    *prGridFor { |whole, times, span, n|
+        var tau;
+        if(whole) { ^this.fitPhase(times, span, n) };
+        tau = this.fitTau(span, n, times);
+        ^this.scorePulse(tau, times).put(\tau, tau).put(\origin, 0)
+    }
+
+    // The grid of n pulses over a whole loop of `span` seconds that best
+    // places `times` (seconds from the loop's start): t = origin + p * tau,
+    // tau = span / n exactly (the stop press is no more than the snap lets it
+    // be), the origin from the circular mean of where the onsets fall on that
+    // pulse, then the mean of what is left with each on its nearest pulse,
+    // three times over. (tau:, origin:, fit:, err:), fit and err as
+    // scorePulse's. A refitted tau (least squares, as fitTau) read the
+    // straight training takes worse: 3 of 7 against 5.
+    *fitPhase { |times, span, n|
+        var tau = span / n, origin, xs, ys, errs;
+        xs = times.collect { |t| cos(2pi * t / tau) };
+        ys = times.collect { |t| sin(2pi * t / tau) };
+        origin = (atan2(ys.sum, xs.sum) / 2pi) * tau;
+        3.do {
+            origin = times.collect { |t| t - (((t - origin) / tau).round * tau) }.mean;
+        };
+        errs = times.collect { |t| var f = (t - origin) / tau; (f - f.round).abs };
+        ^(tau: tau, origin: origin, fit: errs.count(_ < onsetTolerance) / errs.size, err: errs.mean)
+    }
+
     // Iterative least-squares: find tau that best places onsets on a grid of n pulses.
     *fitTau { |loopDur, n, onsets|
         var tau = loopDur / n;
@@ -783,7 +895,7 @@ MeterAnalyzer {
     // and the best phase (the most likely downbeat position, in pulses) is
     // returned alongside the correlation. Returns score 0 when no strengths
     // are supplied so scoring falls back to the priors.
-    *accentAlign { |tau, num, denom, sub, onsets, strengths|
+    *accentAlign { |tau, num, denom, sub, onsets, strengths, twoContrast = false|
         var b = num * sub;
         var acc = Array.fill(b, 0.0);
         var template, best = -inf, bestPhase = 0;
@@ -792,6 +904,14 @@ MeterAnalyzer {
             var pulse = (t / tau).round.asInteger;
             var bin = pulse % b;
             acc[bin] = acc[bin] + (strengths[i] ? 0).max(0);
+        };
+        // Two pulses correlate perfectly with any template, so any 2/4 got
+        // the whole accent bonus: with twoContrast (the whole loop's fit), it
+        // is their contrast, the stronger as the downbeat. Without it, four
+        // even hits rescued as 2/4 x2 instead of 4/4 x1 (gerade-5).
+        if(twoContrast and: { b == 2 }) {
+            ^if(acc.sum <= 0) { (score: 0, phase: 0) } {
+                (score: (acc[0] - acc[1]).abs / acc.sum, phase: if(acc[1] > acc[0]) { 1 } { 0 }) }
         };
         template = this.metricalTemplate(num, denom, sub);
         b.do { |phase|

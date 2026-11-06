@@ -2233,7 +2233,7 @@ Looper {
         if(r.isNil) { ^nil };
         #[\numerator, \denominator, \k, \n, \sub, \tau, \bpm, \loopDur, \score,
             \error, \onsetCount, \phase, \downbeatOffset, \downbeatPhase, \accent,
-            \fromOverdub, \reading, \snapRefused, \bars, \from, \gridFit].do { |key|
+            \fromOverdub, \reading, \snapRefused, \bars, \from, \gridFit, \wholeLoop].do { |key|
             r[key] !? { |v| out[key] = v };
         };
         ^out

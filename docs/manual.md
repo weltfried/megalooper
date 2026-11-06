@@ -711,8 +711,10 @@ every message, whichever view shows.
 
 `MeterAnalyzer` never hears audio — only onset times. So when detection admits
 ghost onsets or misses real hits, meter detection fails and the loop drops to the
-anchored fallback meter. That is the documented root cause of straight 4/4 takes
-coming out 7/8. There is nothing to tune while playing: the tap's level is
+anchored fallback meter. Straight 4/4 takes used to come out 7/8 that way, and
+also when the first hit came well after the record press; a second fit over the
+whole loop now reads most of those ([How meter detection
+works](#how-meter-detection-works)). There is nothing to tune while playing: the tap's level is
 followed automatically (below), the **onset threshold** stays at its default,
 and when a reading is still wrong, the next-reading switch and Bars by hand fix
 it. Perform shows the lamp in the status band; the rest is on Setup's Analysis
@@ -1674,9 +1676,19 @@ be an argument inside a single def.
 - Pulse subdivisions (1, 2, 4) — to handle e.g. 8th-note triggering for a 4/4.
 
 For each candidate, an iterative least-squares fit picks the pulse period
-`tau` that best places onsets on a grid. The fit with the lowest residual
-*and* a BPM in `[50, 160]` wins, with a soft tiebreaker toward BPMs near 110.
-If no grid fits, the analyser tries uneven bars. If none fit either, the take
+`tau` that best places onsets on a grid counted from the first onset. The fit
+with the lowest residual *and* a BPM in `[50, 160]` wins, with a soft
+tiebreaker toward BPMs near 110. If no grid fits, the analyser tries uneven
+bars. If none fit either, it fits the grids a second way: over the whole loop
+from the record press, each grid's pulse the loop's length over its number of
+pulses, and only where beat one falls left free. A loop repeats, so its length
+is whole pulses even when the first hit came half a beat after the press,
+which the first fit cannot see. Its gates are a little looser, and it gives
+way to the **Fallback meter** whenever that fits the loop as well. Its
+readings also go to the end of the list the [next
+reading](#the-next-reading) offers. It took the seven training takes from one
+read right to five, and moved none of the duo's own takes that were read right.
+If nothing fits even so, the take
 is *length-anchored*: the loop is kept as whole bars of the **Fallback meter**
 (Setup's Analysis page, 4/4 by default), as many as put the tempo nearest
 110 BPM, or the number you set beside it. The status band says

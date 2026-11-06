@@ -7,10 +7,12 @@
 // snapping, or to the fallback shows up here as a named loop rather than as a
 // vague feeling that detection got worse.
 //
-// It is a LOCK, not an endorsement: three of the four loops currently disagree
-// with the ground truth in their filename. Onset-detection quality is the known
-// weak link, so those are recorded as known issues and this file's job is to
-// tell you when one of them MOVES.
+// It is a LOCK, not an endorsement: where a loop disagrees with the ground
+// truth in its filename, that is recorded as a known issue, and this file's job
+// is to tell you when one of them MOVES. Since 2026-11-06 the whole loop's fit
+// (MeterAnalyzer.wholeLoop) reads five of the seven right; gerade-3 is still
+// 12/8, and gerade-4, played as one bar of 8/4, comes out as two of 4/4, the
+// same beats: 8/4 is not a meter the analyser looks for.
 //
 // scripts/eval_meter_analyzer.scd is the tuning counterpart — same corpus,
 // prints accuracy for before/after comparison instead of asserting.
@@ -22,9 +24,12 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 // What the app decides today: name -> [numerator, denominator, bars, error].
 // To add a loop, export it, run this file, and paste the reported line in.
 var baseline = (
-    'gerade':      [7,  8, 2, \lengthAnchored],
-    'gerade-2':    [7,  8, 2, \lengthAnchored],
+    'gerade':      [4,  4, 2, nil],
+    'gerade-2':    [4,  4, 2, nil],
     'gerade-3':    [12, 8, 2, nil],
+    'gerade-4':    [4,  4, 2, nil],
+    'gerade-5':    [4,  4, 1, nil],
+    'gerade-6':    [4,  4, 4, nil],
     'ikebana2000': [5,  8, 4, nil]
 );
 // Ground truth is in the filename, and where the baseline disagrees with it the
@@ -87,19 +92,27 @@ files.do { |path|
         and: { r[\denominator] == truth["denominator"].asInteger }) {
         wantSig = wantSig + 1;
     };
-    if(r[\k] == truth["bars"].asInteger) { wantBars = wantBars + 1 };
+    // The bars, or the same beats in other bars (two of 4/4 for one of 8/4):
+    // the loop's length in the reading's beats is what must hold.
+    if((r[\k] == truth["bars"].asInteger) or: {
+        r[\numerator].notNil and: { ((r[\numerator] * r[\k] / r[\denominator])
+            - (truth["numerator"].asInteger * truth["bars"].asInteger / truth["denominator"].asInteger)).abs < 1e-9 } }) {
+        wantBars = wantBars + 1 };
 };
 
 // Bar count is the part that must not regress: it decides the loop's LENGTH, so
 // getting it wrong makes the loop the wrong duration, which is audible
-// immediately. It is currently perfect and should stay that way.
+// immediately. It is currently perfect and should stay that way (counting the
+// same beats in other bars as right: see above).
 ~tEq.("bar count is right for every loop in the corpus", wantBars, total);
 
 // Signature accuracy is the known-weak number. Locked so an improvement gets
 // noticed and a regression cannot hide behind "detection was always like that".
-~tXfail.("signature accuracy is still 1 of " ++ total,
-    wantSig == 1,
-    wantSig.asString ++ "/" ++ total ++ " — onset quality is the known limit here");
+// 1 of 4 until 2026-11-06; the whole loop's fit made it 5 of 7 (gerade-3's
+// 12/8 and gerade-4's 8/4 are the two).
+~tXfail.("signature accuracy is still 5 of " ++ total,
+    wantSig == 5,
+    wantSig.asString ++ "/" ++ total ++ " — gerade-3 reads 12/8; 8/4 (gerade-4) is no meter the analyser looks for");
 
 if(unlocked > 0) {
     ("  " ++ unlocked ++ " loop(s) not yet in the baseline").postln;
