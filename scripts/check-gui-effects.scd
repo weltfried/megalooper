@@ -295,6 +295,11 @@ Routine {
         id = m.loopChain.devices.last.id;
         ok.("picking one adds it at the end of that chain, with a tile of its own",
             (m.loopChain.devices.size == (n + 1)) and: { m.loopChain.devices.last.type == \filter } and: { ~effectsTiles[id].notNil }, id.asString);
+        // Shown at once (2026-11-06): it was added to be dialled in.
+        ok.("...and shown in the editor at once, its tile saying so",
+            (~effectsSelected == id) and: { ~effectsWidgets.size == MegaSAFx.paramsOf(\filter).size }
+                and: { ~effectsTiles[id][\select].sub.contains("editing") },
+            [~effectsSelected, ~effectsWidgets.size].asString);
         items = ~effectsDeviceItems.(id);
         ok.("⋯ for the last device of a chain: left, not right, each other chain, Remove, Random, Undo random (none drawn), Reset",
             shown.(items) == [["Move left", true], ["Move right", false], ["Move to the instrument chain", true],
@@ -411,8 +416,21 @@ Routine {
         // (No scan here: the catalog is handed in.)
         m.instVarPut(\catalog, [(key: "Verb", name: "Verb", vendor: "Wide", format: "vst3", ins: 2, outs: 2, synth: false,
             bridged: false, uid: "V3", version: "1", path: "/abs/x/Verb.vst3")]);
-        m.insertPlugin(\loop, nil, "Verb");
+        // Added from + (the menu lists ~saPlugins), as a player adds one.
+        {
+            var was = ~saPlugins;
+            ~saPlugins = m.instVarAt(\catalog);
+            ~effectsSelect.(~effectsFirstKey.());
+            ~effectsAddItems.(\loop).detect { |it| it[\label] == "Verb" }[\action].value;
+            ~saPlugins = was;
+        }.value;
         tick.();
+        ok.("a plugin added from + is shown in the editor at once, its page with the button for its own window",
+            (~effectsSelected == \plugin2) and: { ~effectsEditorHolder.children.any { |v|
+                v.children.any { |c| c.isKindOf(LooperTile) and: { c.states[0][0] == "Open its window" } } } },
+            ~effectsSelected.asString);
+        // Away from it again, for the click below to have something to do.
+        ~effectsSelect.(~effectsFirstKey.());
         ok.("a plugin added from the catalog has a tile of its own, named after it",
             (~effectsPluginTiles[\plugin2] !? { |t| t.states[0][0] }) == "Verb", ~effectsPluginTiles.keys.asArray.asString);
         ok.("...beside the first plugin's tile, which stays the amp's", ~effectsTiles[\bias].notNil and: { ~effectsTiles[\plugin2].isNil });

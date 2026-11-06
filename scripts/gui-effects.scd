@@ -124,7 +124,13 @@
 ~effectsDeviceOf = { |key|
     ~megaSA !? { |m| if(key == \bias) { m.devices.detect(_.isPlugin) } { m.device(key) } }
 };
-~effectsKeyOf = { |d| if(d.isPlugin) { \bias } { d.id } };
+// A device's tile key: \bias for the first plugin, its id for any other
+// device, a further plugin too (its tile and page go by its id). Every plugin
+// answered \bias until 2026-11-06, so selecting a further one by its device
+// showed the first's page.
+~effectsKeyOf = { |d|
+    if(d.isPlugin and: { d === (~megaSA !? { |m| m.devices.detect(_.isPlugin) }) }) { \bias } { d.id }
+};
 // A tile's switch in the MIDI map: its device's, sa.fxOn.<id> (the first
 // plugin's tile is \bias, its device \plugin1). nil for no device.
 ~effectsSwitchTarget = { |key| ~effectsDeviceOf.(key) !? { |d| ("sa.fxOn." ++ d.id).asSymbol } };
@@ -754,18 +760,24 @@
 // What the + of a chain offers: every built-in effect (the ones in no chain
 // to begin with in their groups' submenus), then this Mac's plugins by vendor
 // (one megalooper cannot host greyed, with the reason), then the scan.
+// What + offers on `track`'s chain. An effect or plugin added from it is
+// shown in the editor at once (2026-11-06): it is added to be dialled in.
+// ~effectsChainChanged selects it once the rows are rebuilt, as it does the
+// device Backspace leaves (~effectsSelectNext); a refused insert answers nil
+// and leaves the editor where it was.
 ~effectsAddItems = { |track|
     var plugins = MegaSAPlugins.offered(~saPlugins ? []);
+    var show = { |d| d !? { ~effectsSelectNext = ~effectsKeyOf.(d) } };
     var twice = { |e| plugins.count { |x| MegaSAPlugins.sameProduct(x, e) } > 1 };
     // The default chains' types as they always were; the others by group
     // ("Utility", "Texture"), each a submenu.
     MegaSAFx.typeKeys.collect { |type|
         (label: MegaSAFx.title(type), section: \builtin, enabled: true, group: MegaSAFx.type(type)[\group],
-            action: { ~megaSA !? { |m| m.insertDevice(track, nil, type) } })
+            action: { ~megaSA !? { |m| show.(m.insertDevice(track, nil, type)) } })
     } ++ plugins.collect { |e|
         (label: e[\name] ++ if(twice.(e)) { " (" ++ e[\format].toUpper ++ ")" } { "" }, section: \plugin,
             group: if(e[\vendor].isEmpty) { "Other" } { e[\vendor] }, enabled: e[\why].isNil, why: e[\why],
-            action: { ~megaSA !? { |m| m.insertPlugin(track, nil, e[\key]) } })
+            action: { ~megaSA !? { |m| show.(m.insertPlugin(track, nil, e[\key])) } })
     } ++ [
         (label: if((~saPlugins ? []).isEmpty) { "Scan for plugins…" } { "Scan for plugins again…" }, section: \scan,
             enabled: MegaSAPlugins.available, why: if(MegaSAPlugins.available.not) { "VSTPlugin is not installed" },
@@ -1050,8 +1062,8 @@
 // A chain edit (MegaSA's \chain): once per burst, at the next AppClock tick,
 // the MIDI list re-greyed, both rows rebuilt (a move names only the chain it
 // went to), the editor rebuilt if what it showed is gone or was renamed (in
-// ~effectsRenamed, every device renamed in the burst) or Backspace named the
-// next to show (~effectsSelectNext), and the plugin's line said again (an
+// ~effectsRenamed, every device renamed in the burst) or Backspace or + named
+// the next to show (~effectsSelectNext), and the plugin's line said again (an
 // edit may have taken it out or brought it back).
 ~effectsChainChanged = {
     var next = ~effectsSelectNext;
