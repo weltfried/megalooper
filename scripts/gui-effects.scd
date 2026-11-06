@@ -19,7 +19,8 @@
 // A tile's key is its device's id (\delay, \delay2), but the plugin's is
 // \bias, as it was before the chains: there is one plugin until the catalog
 // comes (phase 5). Only the default devices' controls are tagged for the MIDI
-// map: the targets of further ones come with phase 4.
+// map: the targets of further ones come with phase 4. Every tile, a plugin's
+// too (since 2026-11-06), has its switch: the square top right.
 //
 // As everywhere in this GUI, a widget writes to the model only, and the
 // model's notifications (MegaSA's \fx and \fxParam, the plugin's \state) paint
@@ -124,6 +125,9 @@
     ~megaSA !? { |m| if(key == \bias) { m.devices.detect(_.isPlugin) } { m.device(key) } }
 };
 ~effectsKeyOf = { |d| if(d.isPlugin) { \bias } { d.id } };
+// A tile's switch in the MIDI map: its device's, sa.fxOn.<id> (the first
+// plugin's tile is \bias, its device \plugin1). nil for no device.
+~effectsSwitchTarget = { |key| ~effectsDeviceOf.(key) !? { |d| ("sa.fxOn." ++ d.id).asSymbol } };
 // Every built-in device's controls are the MIDI map's targets: the default
 // ones' under today's ids (sa.fxOn.delay, sa.fx.delayMix), a further one's
 // under its own (sa.fxOn.delay2, sa.fx.delay2.delayMix). The plugin's tile
@@ -212,29 +216,38 @@
 // A tile: filled in the effects' colour while it is on, outlined in \ink while
 // the editor shows it, its name marked with a dot while any of its settings is
 // off the Live set's value; under the name whether it is on, whether it is
-// being edited, and its footswitch.
+// being edited, and its footswitch. A plugin's line says what the plugin is
+// doing too, unless it is simply open.
 ~effectsRefreshTile = { |key|
     var m = ~megaSA;
     ~effectsTiles[key] !? { |t|
         var tile = t[\select];
+        var dev = ~effectsDeviceOf.(key);
         var sel = (key == ~effectsSelected);
         var title = ~effectsTitle.(key);
         var edited = (key != \bias) and: { m.notNil } and: { m.fxEdited(key) };
-        var on = (key != \bias) and: { (m !? { |mm| mm.fx(key) }) == true };
+        var on = (dev !? { |d| d.on }) == true;
         var label = title ++ if(edited) { " •" } { "" };
         var pc = if(~effectsHasTargets.(key)) { ~effectsProgram.(key) };
-        var sub = if(key == \bias) { ~effectsBiasState.() } {
-            if(on) { "ON" } { "off" } };
+        var sub = ~effectsSwitchWords.(on, if(key == \bias) { ~effectsBiasState.() }, dev.notNil);
         if(tile.isClosed.not) {
             tile.states_([[label, ~gt[\ink], ~gt[\panel]], [label, ~gt[\onacc], ~gt[\fx]]]);
             tile.value_(on.binaryValue);
             tile.border_(case { sel } { ~gt[\ink] } { on } { ~gt[\fx] } { ~gt[\line] });
             tile.sub_(sub ++ if(sel) { " · editing" } { "" } ++ (pc !? { |n| " · PC " ++ n } ? ""));
-            // The switch: a square, filled when on (not the plugin's tile: its
-            // state is the line under it).
-            if(key != \bias) { tile.sw_(if(on) { "■" } { "□" }) };
+            // The switch: a square, filled when on; none on the plugin's tile
+            // while there is no plugin.
+            tile.sw_(if(dev.isNil) { nil } { if(on) { "■" } { "□" } });
         };
     };
+};
+// A tile's line: "ON" or "off", and for a plugin what it is doing when that
+// is anything but open ("off · failed"); just that with no device at all.
+~effectsSwitchWords = { |on, state, hasDevice = true|
+    case
+    { hasDevice.not } { state ? "—" }
+    { state.isNil or: { state == "open" } } { if(on) { "ON" } { "off" } }
+    { (if(on) { "ON" } { "off" }) ++ " · " ++ state }
 };
 
 ~effectsRefreshAll = {
@@ -306,20 +319,27 @@
     var p = ~effectsPress;
     p.notNil and: { p[\tile] === tile } and: { p[\x] >= (tile.bounds.width - ~effectsSwitchSize) } and: { p[\y] < 32 }
 };
+// What a click on the tile `key` does (\bias for the first plugin's): on its
+// square its device switched, anywhere else the tile selected. The device is
+// found at the click, by the tile's key.
+~effectsTileAction = { |key|
+    { |t, mods|
+        var id = ~effectsDeviceOf.(key) !? { |d| d.id };
+        case
+        { mods.isNil } { id !? { ~megaSA.setFx(id, t.value == 1) } }
+        { ~effectsOnSwitch.(t) } {
+            if((Main.elapsedTime - (~effectsSwitchedAt ? -1)) > 0.4) {
+                ~effectsSwitchedAt = Main.elapsedTime;
+                id !? { ~megaSA.fx(id) !? { |on| ~megaSA.setFx(id, on.not) } } };
+        }
+        { ~effectsSelect.(key) };
+    }
+};
 ~effectsTile = { |key|
     var tile = LooperTile().cycles_(false).align_(\left).pad_(12)
         .font_(~guiSans.(16, true)).subFont_(~guiMono.(11, true)).swFont_(~guiMono.(18, true))
         .fixedSize_(Size(182, 58)).borderWidth_(2)
-        .action_({ |t, mods|
-            case
-            { mods.isNil } { ~megaSA !? { |mm| mm.setFx(key, t.value == 1) } }
-            { ~effectsOnSwitch.(t) } {
-                if((Main.elapsedTime - (~effectsSwitchedAt ? -1)) > 0.4) {
-                    ~effectsSwitchedAt = Main.elapsedTime;
-                    ~megaSA !? { |mm| mm.fx(key) !? { |on| mm.setFx(key, on.not) } } };
-            }
-            { ~effectsSelect.(key) };
-        });
+        .action_(~effectsTileAction.(key));
     if(~effectsHasTargets.(key)) { ~mapTag.(tile, ("sa.fxOn." ++ key).asSymbol) };
     // Its tooltip says what drives it, and follows the map when it changes.
     ~midiWatch.(tile, { |t|
@@ -332,15 +352,19 @@
     tile
 };
 
+// The first plugin's tile: its square switches it as a built-in's does
+// (bypassed, the plugin stops running and its dry path keeps its timing:
+// MegaSAPlugin), and what the plugin is doing ("failed") joins its line.
 ~effectsBiasTile = {
+    var tip = (if(~effectsPluginWord.() == "Bias FX") { "The amp: Bias FX 2." } { ~effectsPluginWord.() ++ ", a plugin." })
+        ++ " Click to show its controls below; its square, top right, switches it on or off.";
     var tile = LooperTile().cycles_(false).align_(\left).pad_(12)
-        .font_(~guiSans.(16, true)).subFont_(~guiMono.(11, true)).fixedSize_(Size(182, 58)).borderWidth_(2)
-        .toolTip_(if(~effectsPluginWord.() == "Bias FX") { "The amp: Bias FX 2." } { ~effectsPluginWord.() ++ ", a plugin." }
-            ++ " Click to show its controls below.")
-        .action_({ ~effectsSelect.(\bias) });
-    // What the plugin is doing ("open", "failed") is the tile's line.
+        .font_(~guiSans.(16, true)).subFont_(~guiMono.(11, true)).swFont_(~guiMono.(18, true))
+        .fixedSize_(Size(182, 58)).borderWidth_(2)
+        .action_(~effectsTileAction.(\bias));
+    ~effectsSwitchTarget.(\bias) !? { |id| ~mapTag.(tile, id, tip) } ?? { tile.toolTip_(tip) };
     ~effectsBiasTileStatus = tile;
-    ~effectsTiles.put(\bias, (select: tile));
+    ~effectsTiles.put(\bias, (select: tile, on: tile));
     tile
 };
 
@@ -355,17 +379,21 @@
 };
 ~effectsPluginTile = { |d|
     var tile = LooperTile().cycles_(false).align_(\left).pad_(12)
-        .font_(~guiSans.(16, true)).subFont_(~guiMono.(11, true)).fixedSize_(Size(182, 58)).borderWidth_(2)
-        .toolTip_(d.name ++ ", a plugin. Click to show its page below.")
-        .action_({ ~effectsSelect.(d.id) });
+        .font_(~guiSans.(16, true)).subFont_(~guiMono.(11, true)).swFont_(~guiMono.(18, true))
+        .fixedSize_(Size(182, 58)).borderWidth_(2)
+        .action_(~effectsTileAction.(d.id));
     var paint = {
-        var sel = (~effectsSelected == d.id);
+        var sel = (~effectsSelected == d.id), on = d.on == true;
         if(tile.isClosed.not) {
-            tile.states_([[d.name, ~gt[\ink], ~gt[\panel]]]);
-            tile.border_(if(sel) { ~gt[\ink] } { ~gt[\line] });
-            tile.sub_(~effectsPluginState.(d) ++ if(sel) { " · editing" } { "" });
+            tile.states_([[d.name, ~gt[\ink], ~gt[\panel]], [d.name, ~gt[\onacc], ~gt[\fx]]]);
+            tile.value_(on.binaryValue);
+            tile.border_(case { sel } { ~gt[\ink] } { on } { ~gt[\fx] } { ~gt[\line] });
+            tile.sub_(~effectsSwitchWords.(on, ~effectsPluginState.(d)) ++ if(sel) { " · editing" } { "" });
+            tile.sw_(if(on) { "■" } { "□" });
         };
     };
+    ~mapTag.(tile, ("sa.fxOn." ++ d.id).asSymbol,
+        d.name ++ ", a plugin. Click to show its page below; its square, top right, switches it on or off.");
     paint.value;
     d.plugin !? { |p|
         ~effectsDeviceControllers = ~effectsDeviceControllers.add(SimpleController(p).put(\state, {
@@ -817,7 +845,7 @@
     var tile = LooperTile().states_([["+", ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line]).cycles_(false)
         .font_(~guiSans.(20, true)).fixedSize_(Size(44, 58))
         .toolTip_("Add an effect or a plugin at the end of the " ++ MegaSASound.trackLabel(track) ++ " chain.\n"
-            "⋯, above, moves or removes the one being edited. Cmd+Z undoes.")
+            "⋯, above, moves or removes the one being edited; Backspace removes it too. Cmd+Z undoes.")
         .action_({ ~effectsShowMenu.(~effectsAddItems.(track)) });
     ~effectsPlusTiles = (~effectsPlusTiles ?? { IdentityDictionary.new }).put(track, tile);
     tile
@@ -999,19 +1027,44 @@
     ~effectsTiles.keysDo { |k| ~effectsRefreshTile.(k) };
 };
 
+// Backspace or Delete on the FX view (~guiKeyDown, gui-shell.scd): the
+// selected device out of its chain, as ⋯ › Remove does, and Cmd+Z puts it
+// back. The selection goes to the device that took its place, else to the one
+// before it, as Live's does: ~effectsChainChanged selects it once the rows are
+// rebuilt. Answers whether a device went.
+~effectsRemoveSelected = {
+    var m = ~megaSA, d = ~effectsDeviceOf.(~effectsSelected), chain, at, next, gone = false;
+    chain = d !? { m.chainOf(d) };
+    if(chain.notNil) {
+        at = chain.devices.indexOf(d);
+        next = (chain.devices[at + 1] ?? { if(at > 0) { chain.devices[at - 1] } }) !? { |n| ~effectsKeyOf.(n) };
+        gone = m.removeDevice(d.id) == true;
+        if(gone) {
+            ~effectsSelectNext = next;
+            ~guiSay.("Removed " ++ d.name ++ " · Cmd+Z brings it back", \info);
+        };
+    };
+    gone
+};
+
 // A chain edit (MegaSA's \chain): once per burst, at the next AppClock tick,
 // the MIDI list re-greyed, both rows rebuilt (a move names only the chain it
 // went to), the editor rebuilt if what it showed is gone or was renamed (in
-// ~effectsRenamed, every device renamed in the burst), and the plugin's line
-// said again (an edit may have taken it out or brought it back).
+// ~effectsRenamed, every device renamed in the burst) or Backspace named the
+// next to show (~effectsSelectNext), and the plugin's line said again (an
+// edit may have taken it out or brought it back).
 ~effectsChainChanged = {
+    var next = ~effectsSelectNext;
     ~effectsChainPending = false;
+    ~effectsSelectNext = nil;
     ~megaSA !? {
         // The effects' controls first, so a new device has its own before
         // its switch is tagged.
         ~midiTargetsRefresh !? { |f| f.(\effects) };
         ~effectsBuildRows.();
-        if(~effectsSelectable.(~effectsSelected).not or: { (~effectsRenamed ? []).includes(~effectsSelected) }) {
+        case
+        { next.notNil and: { ~effectsSelectable.(next) } } { ~effectsSelect.(next) }
+        { ~effectsSelectable.(~effectsSelected).not or: { (~effectsRenamed ? []).includes(~effectsSelected) } } {
             ~effectsSelect.(if(~effectsSelectable.(~effectsSelected)) { ~effectsSelected } { ~effectsFirstKey.() });
         };
         ~effectsRenamed = nil;
@@ -1114,7 +1167,7 @@
                     ~effectsRecoverButton,
                     ~effectsMoreButton = LooperTile().states_([["⋯", ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line])
                         .cycles_(false).font_(~guiSans.(18, true)).fixedSize_(Size(44, 30))
-                        .toolTip_("The effect being edited: move it, remove it, reset it,\nor show a plugin's window. Cmd+Z undoes, Shift+Cmd+Z redoes.")
+                        .toolTip_("The effect being edited: move it, remove it (or press Backspace), reset it,\nor show a plugin's window. Cmd+Z undoes, Shift+Cmd+Z redoes.")
                         .action_({ ~effectsShowMenu.(~effectsDeviceItems.(~effectsSelected)) }),
                     ~effectsKeepButton
                 ).spacing_(16).margins_(0),
@@ -1147,8 +1200,15 @@
                 // is said where the eye is; it stays until the next message.
                 .put(\refused, { |obj, what, kind, why| { ~presetSetStatus.(\saFx, "Not done: " ++ why ++ ".", true) }.defer })
                 .put(\fx, { |obj, what, key, flag|
-                    { ~effectsRefreshTile.(key); ~guiRefreshTabs !? { |f| f.value };
-                        ~performPaintFx !? { |f| f.value } }.defer
+                    {
+                        ~effectsRefreshTile.(key);
+                        // A plugin's tile: the first's is \bias, a further one's paints itself.
+                        ~megaSA !? { |mm| mm.device(key) !? { |d| if(d.isPlugin) {
+                            ~effectsRefreshTile.(\bias);
+                            (~effectsPluginPaints ? ())[key] !? { |f| f.value } } } };
+                        ~guiRefreshTabs !? { |f| f.value };
+                        ~performPaintFx !? { |f| f.value }
+                    }.defer
                 })
                 .put(\fxParam, { |obj, what, name, val|
                     { ~effectsRefreshParam.(name, val); ~effectsKeepSoon.() }.defer

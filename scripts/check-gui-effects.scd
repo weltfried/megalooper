@@ -59,7 +59,9 @@ Routine {
         ~effectsTiles.size.asString);
     ok.("the editor shows the selected effect's settings",
         ~effectsWidgets.size == MegaSAFx.paramsOf(~effectsSelected).size, ~effectsWidgets.size.asString);
-    ok.("the Bias FX tile says it failed", ~effectsBiasTileStatus.sub.beginsWith("failed"),
+    // Its line: its switch, then what the plugin is doing when it is not
+    // simply open (2026-11-06, when the plugin got its square).
+    ok.("the Bias FX tile says it is on, and that it failed", ~effectsBiasTileStatus.sub.beginsWith("ON · failed"),
         ~effectsBiasTileStatus.sub);
 
     "== every effect's editor ==".postln;
@@ -275,7 +277,7 @@ Routine {
 
     "== chain edits by menu ==".postln;
     {
-        var items, n, id, k, keep = ~guiView, was = ~saPlugins;
+        var items, n, id, k, keep = ~guiView, was = ~saPlugins, all, sel, at, last;
         var find = { |list, label| list.detect { |it| it[\label] == label } };
         var shown = { |list| list.collect { |it| [it[\label], it[\enabled]] } };
         ok.("there are four rows: the guitar's, the loop's, the drums' and the synth's", ~effectsTracks.() == [\guitar, \loop, \drums, \synth]
@@ -322,6 +324,46 @@ Routine {
         find.(~effectsDeviceItems.(id), "Remove")[\action].value;
         tick.();
         ok.("Remove takes it out, and its tile with it", m.device(id).isNil and: { ~effectsTiles[id].isNil });
+        // Backspace or Delete (2026-11-06): the selected device out, as
+        // Remove does, the selection on the one that took its place. A
+        // copy: the chain's own list loses the device.
+        all = m.guitarChain.devices.copy;
+        sel = all.detect { |dv| dv.isPlugin.not };
+        at = all.indexOf(sel);
+        ~guiView = \fx;
+        ~effectsSelect.(sel.id);
+        ~guiKeyDown.(8.asAscii, 0, ~guiKeyBackspace);
+        tick.();
+        ok.("Backspace on the FX view removes the effect being edited, and shows the one that took its place",
+            m.device(sel.id).isNil and: { ~effectsTiles[sel.id].isNil } and: { ~effectsSelected == ~effectsKeyOf.(all[at + 1]) },
+            [m.device(sel.id).notNil, ~effectsSelected, all.collect(_.id)].asString);
+        ~guiKeyDown.($z, 1048576, 0);
+        tick.();
+        ok.("...and Cmd+Z puts it back where it was", m.guitarChain.devices.indexOf(m.device(sel.id)) == at,
+            m.guitarChain.devices.collect(_.id).asString);
+        // The last built-in, whose neighbour is the plugin (its page, \bias)
+        // if one follows it, else the effect before it.
+        all = m.guitarChain.devices.copy;
+        last = all.reject(_.isPlugin).last;
+        at = all.indexOf(last);
+        ~effectsSelect.(last.id);
+        ~guiKeyDown.(127.asAscii, 0, ~guiKeyDelete);
+        tick.();
+        ok.("Delete does it too, the next shown a plugin's page as well",
+            m.device(last.id).isNil and: { ~effectsSelected == ~effectsKeyOf.(all[at + 1] ?? { all[at - 1] }) },
+            [m.device(last.id).notNil, ~effectsSelected, all.collect(_.id)].asString);
+        ~guiKeyDown.($z, 1048576, 0);
+        tick.();
+        ok.("...and Cmd+Z puts that back too", m.guitarChain.devices.indexOf(m.device(last.id)) == at);
+        ~effectsSelect.(sel.id);
+        ~guiKeyDown.(8.asAscii, 1048576, ~guiKeyBackspace);
+        tick.();
+        ok.("...not with Cmd held", m.device(sel.id).notNil);
+        ~guiView = \perform;
+        ~guiKeyDown.(8.asAscii, 0, ~guiKeyBackspace);
+        tick.();
+        ok.("...and Backspace on another view removes nothing", m.device(sel.id).notNil);
+        ~guiView = keep;
         ok.("⋯ for the plugin's tile offers its window, not Reset",
             ~effectsDeviceItems.(\bias).any { |it| it[\label] == "Open its window" }
                 and: { ~effectsDeviceItems.(\bias).any { |it| it[\label] == "Reset" }.not },
@@ -374,7 +416,9 @@ Routine {
         ok.("a plugin added from the catalog has a tile of its own, named after it",
             (~effectsPluginTiles[\plugin2] !? { |t| t.states[0][0] }) == "Verb", ~effectsPluginTiles.keys.asArray.asString);
         ok.("...beside the first plugin's tile, which stays the amp's", ~effectsTiles[\bias].notNil and: { ~effectsTiles[\plugin2].isNil });
-        ~effectsPluginTiles[\plugin2].doAction;
+        // A click away from its square (no press recorded on it).
+        ~effectsPress = nil;
+        ~effectsPluginTiles[\plugin2].action.value(~effectsPluginTiles[\plugin2], 0);
         tick.();
         ok.("a click on it selects it: its page is shown, with the button for its own window, and its tile says so",
             (~effectsSelected == \plugin2) and: { ~effectsPluginTiles[\plugin2].sub.contains("editing") }
@@ -385,6 +429,32 @@ Routine {
                 == ["Move left", "Move right", "Move to the instrument chain", "Move to the drums chain", "Move to the synth chain", "Remove", "Open its window",
                     "Copy diagnostics"],
             ~effectsDeviceItems.(\plugin2).collect { |it| it[\label] }.asString);
+        // Its square (2026-11-06): the plugin bypassed and back, as a
+        // built-in's square switches it, and a footswitch for it in the map.
+        {
+            var t = ~effectsPluginTiles[\plugin2], b = ~effectsTiles[\bias][\select];
+            var square = { |tile| ~effectsSwitchedAt = nil; ~effectsPress = (tile: tile, x: tile.bounds.width - 12, y: 10);
+                tile.action.value(tile, 0); tick.() };
+            ok.("a plugin's tile has its square, filled while it is on", (t.sw == "■") and: { t.value == 1 }
+                and: { m.device(\plugin2).on == true }, [t.sw, t.value, m.device(\plugin2).on].asString);
+            square.(t);
+            ok.("...its square bypasses it: off, the tile empty and saying so, the selection where it was",
+                (m.device(\plugin2).on == false) and: { t.sw == "□" } and: { t.value == 0 } and: { t.sub.beginsWith("off") }
+                    and: { ~effectsSelected == \plugin2 },
+                [m.device(\plugin2).on, t.sw, t.sub, ~effectsSelected].asString);
+            square.(t);
+            ok.("...and on again", (m.device(\plugin2).on == true) and: { t.sw == "■" } and: { t.sub.beginsWith("ON") },
+                [m.device(\plugin2).on, t.sub].asString);
+            square.(b);
+            ok.("the first plugin's tile (the amp's) has its square too", (m.device(\plugin1).on == false) and: { b.sw == "□" }
+                and: { b.sub.beginsWith("off") }, [m.device(\plugin1).on, b.sw, b.sub].asString);
+            square.(b);
+            ok.("...on again", (m.device(\plugin1).on == true) and: { b.sw == "■" }, [m.device(\plugin1).on, b.sw].asString);
+            ok.("both squares are tagged for the MIDI map, as a footswitch's", ['sa.fxOn.plugin1', 'sa.fxOn.plugin2'].every { |id|
+                ~mapTags.any { |e| (e[1] == id) and: { e[0].isClosed.not } } },
+                ~mapTags.collect { |e| e[1] }.select { |id| id.asString.contains("plugin") }.asString);
+            ok.("...and the switches MegaSA lists hold them", m.fxOn.includesKey(\plugin1) and: { m.fxOn.includesKey(\plugin2) });
+        }.value;
         m.undo;
         tick.();
         ok.("...and gone when the plugin is", ~effectsPluginTiles[\plugin2].isNil, ~effectsPluginTiles.keys.asArray.asString);
@@ -673,7 +743,7 @@ Routine {
             tick.();
             ok.("...undo brings the plugin's tile back as it was, where it was",
                 (rowKeys.(\guitar) == keysOf.(m.guitarChain)) and: { rowKeys.(\guitar).includes(\bias) }
-                and: { ~effectsBiasTileStatus.notNil } and: { ~effectsBiasTileStatus.sub.beginsWith("failed") },
+                and: { ~effectsBiasTileStatus.notNil } and: { ~effectsBiasTileStatus.sub.contains("failed") },
                 (~effectsBiasTileStatus !? { |t| t.sub }).asString);
             // Open, but held off for its latency: the tile and the line say
             // so, and why, on the plugin's own \latency.
@@ -683,7 +753,7 @@ Routine {
             m.guitarPlugin.changed(\latency, 512);
             tick.();
             ok.("a plugin held off for its latency: its tile says held, its line why",
-                ~effectsBiasTileStatus.sub.beginsWith("held") and: { ~effectsBiasStatus.string.contains("10.7 ms") },
+                ~effectsBiasTileStatus.sub.contains("held") and: { ~effectsBiasStatus.string.contains("10.7 ms") },
                 [~effectsBiasTileStatus.sub, ~effectsBiasStatus.string].asString);
             m.guitarPlugin.put(\state, \failed).put(\held, nil);
             m.guitarPlugin.changed(\state, \failed);

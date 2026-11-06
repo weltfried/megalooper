@@ -680,7 +680,8 @@ Routine {
     // a grey line of names at its foot.
     section.("Perform's effects as chips", {
         var m = ~megaSA, chains = [\guitar, \loop, \drums];
-        var devs = chains.collect { |c| m.chainFor(c) !? { |ch| ch.devices.reject(_.isPlugin) } ? [] };
+        // Every device, a plugin too: it has its switch since 2026-11-06.
+        var devs = chains.collect { |c| m.chainFor(c) !? { |ch| ch.devices.copy } ? [] };
         // Each device switched as setFx does, but by the device itself: an
         // id names the first device that has it, in whichever chain.
         var set = { |dv, on| dv.setOn(on); m.changed(\fx, dv.id, dv.on) };

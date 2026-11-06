@@ -169,8 +169,9 @@ opens on the Perform view (see [GUI](#gui)).
 | `Cmd+M` | MIDI Map mode on and off — see *Mapping your own controller* |
 
 `1`–`7` show the views, `T` switches the theme and `H` the help lines (see
-[GUI](#gui)). On the FX view, Cmd+Z undoes a chain edit and Shift+Cmd+Z redoes
-it.
+[GUI](#gui)). On the FX view, Backspace (or Delete) removes the effect being
+edited, as ⋯ › Remove does; Cmd+Z undoes a chain edit, a removal too, and
+Shift+Cmd+Z redoes it. On every other view Backspace does nothing.
 
 A letter with Cmd or Ctrl held is no shortcut: Cmd+C doesn't clear. In MIDI
 Map mode the letters still work, and Esc, Delete and Cmd+Z join them.

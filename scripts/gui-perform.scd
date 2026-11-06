@@ -643,15 +643,15 @@
     ~performPaintGrains.();
 };
 
-// The effects that are on, from the chains as they stand: the built-ins of
-// each, in their order (the plugin, always on, is the amp, not an effect
-// here), as chips under each chain's count.
+// The effects that are on, from the chains as they stand: every device of
+// each, in their order, a plugin too since it has its switch (2026-11-06),
+// as chips under each chain's count.
 ~performPaintFx = {
     var m = ~megaSA, on, guitar, loops, drums, allG, allL, allD, lists, slots;
     if(m.notNil and: { ~performFxTile.notNil } and: { ~performFxTile.isClosed.not }) {
-        allG = (m.chainFor(\guitar) !? { |c| c.devices.reject(_.isPlugin) }) ? [];
-        allL = (m.chainFor(\loop) !? { |c| c.devices.reject(_.isPlugin) }) ? [];
-        allD = (m.chainFor(\drums) !? { |c| c.devices.reject(_.isPlugin) }) ? [];
+        allG = (m.chainFor(\guitar) !? { |c| c.devices }) ? [];
+        allL = (m.chainFor(\loop) !? { |c| c.devices }) ? [];
+        allD = (m.chainFor(\drums) !? { |c| c.devices }) ? [];
         guitar = allG.select { |d| d.on };
         loops = allL.select { |d| d.on };
         drums = allD.select { |d| d.on };

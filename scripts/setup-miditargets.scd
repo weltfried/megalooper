@@ -346,8 +346,8 @@
     //     shipped map and yours never name a control this megalooper has not;
     //   - every further device of MegaSA's chains under its own id
     //     (sa.fxOn.delay2, sa.fx.delay2.delayMix, sa.fxReset.delay2). A plugin
-    //     has no switch and no knobs yet: its switch comes with its tile, its
-    //     knobs after 1.0;
+    //     has its switch (sa.fxOn.plugin1, since 2026-11-06, with its tile's
+    //     square) and no knobs yet: those after 1.0;
     //   - every plugin device's eight sends (sa.fxSend.plugin1.1 ..8): each
     //     sends the plugin a MIDI controller, for the plugin's own MIDI learn
     //     (MegaSA.pluginSend). A footswitch on a send switches whatever the
@@ -363,6 +363,7 @@
             addRandom.(d[\id], d[\name]);
         };
         fxPlugins.value.do { |d|
+            addSwitch.(d[\id], d[\name]);
             (1..MegaSA.pluginSends).do { |n|
                 add.(("sa.fxSend." ++ d[\id] ++ "." ++ n).asSymbol, "Send " ++ n ++ " (CC " ++ MegaSA.pluginSendCC(n) ++ ")",
                     "Effects", \trigger, (group: d[\name],

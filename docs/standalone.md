@@ -50,10 +50,10 @@ Each chain is a row of tiles, played left to right.
 | To | Do this |
 |---|---|
 | Edit an effect | Click its tile: its settings appear below |
-| Switch it on or off | Click the square in its tile's corner (■ on, □ off), or press its footswitch. A click anywhere else on the tile never changes the sound |
+| Switch it on or off | Click the square in its tile's corner (■ on, □ off), or press its footswitch. A plugin has its square too: switched off it is bypassed and stops running, and the chain's timing stays as it was. A click anywhere else on the tile never changes the sound |
 | Add an effect or a plugin | Press **+** at the end of the chain. The EQ, Compressor and Noise Gate are under **Utility**; Freeze, Slicer, Tremolo, Octave Down and Ring Mod under **Texture**; the Reverb under **Space** |
 | Move an effect | Drag its tile along the chain, or onto another chain. Esc lets go |
-| Move or remove it by menu | Click its tile, then press **⋯** |
+| Move or remove it by menu | Click its tile, then press **⋯**. Backspace removes it too |
 | Put a setting back to its default | Double-click it, or **Reset** for the whole effect |
 | Keep an effect's settings | Type a name beside **Save variation**, under the effect's title, and press it. The variation holds every setting, and the menu beside it lists it for every effect of that type (both Delays, say). The same name again replaces it; **Delete:** in the menu removes it |
 | Try out a random sound | **Random** beside Reset: every setting at a random value. **Undo random** takes the draw back (again for the one before); **Reset** brings the starting values back |
@@ -204,8 +204,8 @@ These are free and come as VST3. None of them was tested with megalooper:
 
 In MIDI MAP mode every built-in effect's switch, its settings, **Random** and
 **Reset** can be mapped; a second Dual Delay gets entries of its own. A
-plugin's switch and knobs cannot: a footswitch reaches inside a plugin
-through its eight sends (below). [The manual](manual.md#midi) has the
+plugin's switch can be mapped too, its knobs cannot: a footswitch reaches
+inside a plugin through its eight sends (below). [The manual](manual.md#midi) has the
 details.
 
 ### A footswitch for something inside a plugin

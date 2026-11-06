@@ -362,8 +362,11 @@
 // Delete and Cmd+Z. A letter with Cmd or Ctrl held is no shortcut, so Cmd+M
 // can't multiply nor Cmd+C clear. `key` is Qt's key code; the letters go by the
 // character, as they always have. 1-7 show the views, T switches the theme,
-// and Esc on the wizard goes back to Setup.
+// Esc on the wizard goes back to Setup, and Backspace or Delete on the FX view
+// takes the selected effect out (Cmd+Z puts it back).
 ~guiKeyEscape = 16r1000000;
+~guiKeyBackspace = 16r1000003;
+~guiKeyDelete = 16r1000007;
 ~guiKeyDown = { |char, modifiers, key|
     var held = modifiers.notNil and: { modifiers.isCmd or: { modifiers.isCtrl } };
     var view = ~guiViewNumbers.keys.detect { |v| char.notNil and: { ~guiViewNumbers[v].asString == char.asString } };
@@ -375,6 +378,13 @@
     // only (map mode's keys came first).
     { held and: { char.notNil } and: { char.toLower == $z } and: { ~guiView == \fx } and: { ~megaSA.notNil } } {
         if(modifiers.isShift) { ~megaSA.redo } { ~megaSA.undo };
+        true
+    }
+    // Backspace or Delete takes the selected device out of its chain, on the
+    // effects' view only: a stray one on Perform does nothing. A name field
+    // being typed in has the key before the window does.
+    { ((key == ~guiKeyBackspace) or: { key == ~guiKeyDelete }) and: { held.not } and: { ~guiView == \fx } } {
+        ~effectsRemoveSelected !? { |f| f.value };
         true
     }
     { held } { nil }

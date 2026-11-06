@@ -388,7 +388,19 @@ if(vst.notNil) {
         [\plugin1, true, 1, 0, \failed, nil]);
     m.free;
 };
-~tEq.("the footswitches are the built-ins', the plugin not among them", sa.fxOn.keys.asArray.sort, MegaSAFx.keys.sort);
+// The plugin among them since 2026-11-06: its tile has its square, and a
+// footswitch can bypass it.
+~tEq.("the footswitches are every device's, the plugin's too", sa.fxOn.keys.asArray.sort, (MegaSAFx.keys ++ [\plugin1]).sort);
+if(vst.notNil) {
+    n = stub[\msgs].size;
+    sa.setFx(\plugin1, false);
+    sent = stub[\msgs].copyToEnd(n).asArray;
+    ~tEq.("the plugin switched off: its device off, and its synth's `on` set to 0, as a built-in's switch is",
+        [sa.fx(\plugin1), sent.any { |msg| (msg[0] == 15) and: { msg[1] == sa.fxNode(\plugin1).nodeID } and: { msg[2] == \on } and: { msg[3] == 0 } }],
+        [false, true]);
+    sa.setFx(\plugin1, true);
+    ~tEq.("...and on again", sa.fx(\plugin1), true);
+};
 ~tEq.("every setting of the default devices is there by its name", sa.fxParams.keys.asArray.sort,
     MegaSAFx.params.select { |p| MegaSAFx.keys.includes(p[\fx]) }.collect(_[\name]).sort);
 sa.fxParams.put(\filterFreq, 1);

@@ -942,11 +942,11 @@ MegaSA {
     // An unknown key goes on to setFx, which says so.
     toggleFx { |key| this.setFx(key, (this.fx(key) ? false).not) }
 
-    // Every built-in device's switch, id -> on, a fresh dictionary: the
-    // footswitches. The plugin's is not among them; it has none.
+    // Every device's switch, id -> on, a fresh dictionary: the footswitches.
+    // A plugin's among them since 2026-11-06, when its tile got its square.
     fxOn {
         var on = IdentityDictionary.new;
-        this.devices.do { |d| if(d.isPlugin.not) { on.put(d.id, d.on) } };
+        this.devices.do { |d| on.put(d.id, d.on) };
         ^on
     }
 
