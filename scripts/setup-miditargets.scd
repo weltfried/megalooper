@@ -159,8 +159,14 @@
     ].do { |e| add.(e[0], e[1], "Perform", \trigger, (group: e[3], fire: e[2], available: looper)) };
 
     // Switches: a press flips one through the model's own toggle.
+    // Reverse: lit for the direction it plays in once what is armed lands
+    // (backwards, or armed to be); set, it presses only where that is not
+    // already the one asked for.
     add.('looper.reverse', "Reverse", "Perform", \toggle, (group: "Transport",
-        flip: { ~looper.reverse }, get: { ~looper !? { |l| l.reverseFlag } }, available: looper));
+        flip: { ~looper.reverse },
+        get: { ~looper !? { |l| l.reverseFlag != l.reverseArmed } },
+        set: { |v| ~looper !? { |l| if((v == true) != (l.reverseFlag != l.reverseArmed)) { l.reverse } } },
+        available: looper));
     // Half-time (docs/dev/rc600-picks.md, 3a): lit while armed or on; set, it
     // presses only where the state is not already the one asked for.
     add.('looper.halfTime', "Half-time", "Perform", \toggle, (group: "Transport",

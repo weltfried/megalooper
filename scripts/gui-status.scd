@@ -487,7 +487,9 @@
     recordNextLoopEnds: (cap: "NEXT LOOP CLOSES IN", word: "LOOP", fill: \play),
     cutter: (cap: "CUTTER IN", word: "CUT", fill: \cut),
     halfTime: (cap: "HALF-TIME IN", word: "HALF", fill: \loop),
-    halfTimeEnds: (cap: "FULL TIME IN", word: "FULL", fill: \loop)
+    halfTimeEnds: (cap: "FULL TIME IN", word: "FULL", fill: \loop),
+    reverse: (cap: "REVERSE IN", word: "REV", fill: \loop),
+    forward: (cap: "FORWARD IN", word: "FWD", fill: \loop)
 );
 
 // Where the playhead is at `now`, in seconds into the loop, from the poll's

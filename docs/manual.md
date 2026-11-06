@@ -156,7 +156,7 @@ opens on the Perform view (see [GUI](#gui)).
 | `S` | Stop                                                              |
 | `M` | Multiply loop length (×2)                                         |
 | `U` | Undo (one level deep)                                             |
-| `V` | Reverse                                                           |
+| `V` | Reverse: the loop backwards from the next loop; again before then takes it back |
 | `L` | Half-time: the loop at half speed from the next loop; again ends it with the pass |
 | `G` | Grains on and off                                                 |
 | `B` | Cutter on and off                                                 |
@@ -429,6 +429,24 @@ back at full speed, the drums with it, on the boundary after it.
   the cutter on, half-time needs half a second before a boundary to land on it
   (the cutter is rebuilt for the new speed); a press later lands on the next.
 - Stop and clear end it; the next start plays at full speed.
+
+### Reverse
+
+Press **Reverse** (the Loop column's tile, key `V`, or a switch mapped to
+`looper.reverse`) and on the next loop boundary the loop plays backwards;
+press it again and it plays forwards from the boundary after. A pass starts
+on the loop's seam in either direction, so the loop's boundaries stay where
+they were, and the drums with them.
+
+- **Armed.** The tile says `REVERSE NEXT` (or `FORWARD NEXT`) until the
+  boundary, and the count counts in to it (`REVERSE IN`, `FORWARD IN`). A
+  press before then takes it back; within 50 ms of a boundary a press goes to
+  the boundary after. At half-time it lands on the end of the half-speed pass.
+- **On the sample**, as half-time: the loop turns on the sample it starts
+  again, however late the press reached it.
+- **With no loop playing** it switches at once: the tile says
+  `EMPTY · REVERSE`, and the next take plays backwards. Stop, clear and a
+  multiply drop a reverse that is armed.
 
 ### Breaks
 

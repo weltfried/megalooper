@@ -1167,8 +1167,9 @@ MegaRemote {
             \about, "Where the loop is as you read this (to about a beat) and what is on its way. bar and beat "
                 "count from 1; group is the beat group of the bar it is in (the bar's groups are in "
                 "loop.reading.groups), groupBeat the beat within it. halfTime: off, armed, on or releasing "
-                "(the loop at half speed, an octave down, with the drums and the synth's notes at half tempo). coming: "
-                "what lands on a coming loop boundary, in seconds.",
+                "(the loop at half speed, an octave down, with the drums and the synth's notes at half tempo). reversed: "
+                "the loop plays backwards; a reverse lands on the next loop boundary, as reverse or forward in coming. "
+                "coming: what lands on a coming loop boundary, in seconds.",
             \playing, moving,
             \bar, c !? { |x| x[\bar] }, \barCount, c !? { |x| x[\barCount] },
             \beat, c !? { |x| x[\beat] }, \beatsPerBar, c !? { |x| x[\beatsPerBar] },

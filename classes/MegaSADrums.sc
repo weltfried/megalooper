@@ -177,7 +177,7 @@ MegaSADrums {
     var ringBusses, chokeBusses, pumpRoutine, probeResp, <built = false;
     // The drift probe.
     var probes, probeSerial = 0, nextProbeAt, spawnCount = 0, reverseCount = 0, speedCount = 0;
-    var lastLam, lastSpawnAt, reversedSinceSpawn = false, bigErrors = 0;
+    var lastLam, lastSpawnAt, bigErrors = 0;
     // The drums' reverb: the four spectra once in (else nil), the zero spectrum
     // it starts on, a load's serial, the effects' busses [in, out], and
     // whether build loads it (a real server only) through which reader.
@@ -1570,7 +1570,6 @@ MegaSADrums {
         aLooper.startsRelocate = false;
         lastLam = aLooper.loopStartTime;
         lastSpawnAt = lastLam;
-        reversedSinceSpawn = aLooper.reverseFlag == true;
         logState = nil;
     }
 
@@ -3406,14 +3405,14 @@ MegaSADrums {
     // quarter of the way to it.
 
     // The loop's model holds: it plays forwards, at its own speed (not at
-    // half-time, rc600-picks.md 3a: its phase then runs at half the wall's),
-    // and has not been reversed since its engine started (a reverse shifts its
-    // phase for good; that is not drift). Half-time starts and ends on the
-    // loop's own boundaries, so the model holds again after it.
+    // half-time, rc600-picks.md 3a: its phase then runs at half the wall's).
+    // Half-time and a reverse start and end on the loop's own boundaries, so
+    // the model holds again after them (until 2026-11-06 a reverse flipped
+    // the playhead where it was, shifting its phase for good).
     prLoopValid {
         ^looper.notNil and: { #[\playing, \overdubbing].includes(looper.state) }
             and: { looper.speed == 1 }
-            and: { looper.reverseFlag != true } and: { reversedSinceSpawn.not }
+            and: { looper.reverseFlag != true }
             and: { looper.loopStartTime.notNil } and: { looper.loopDuration > 0 }
     }
 
@@ -3467,16 +3466,15 @@ MegaSADrums {
             lastLam = lam;
             lastSpawnAt = lam;
             spawnCount = spawnCount + 1;
-            reversedSinceSpawn = looper.reverseFlag == true;
             dHat = 0;
             bigErrors = 0;
             nextProbeAt = wall;
         };
     }
 
+    // A reverse landed: a probe sent across it is thrown away.
     prReversed { |flag|
         reverseCount = reverseCount + 1;
-        if(flag == true) { reversedSinceSpawn = true };
     }
 
     // Half-time landed or ended: a probe sent across it is thrown away. A

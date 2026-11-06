@@ -204,6 +204,9 @@ Looper {
     // (prEngineGraph), so the language only sends it in the right pass.
     var <speed = 1, <halfTime = \off, <halfTimeAt, <passOrigin, <speedChangedAt;
     var halfTimeRoutine, halfTimeSeq = 0, halfTimeSentAt, halfOnsets;
+    // A reverse armed for the next boundary (reverse): `reverseArmed`, and
+    // `reverseAt` where it lands; reverseFlag flips there.
+    var <reverseArmed = false, <reverseAt, reverseRoutine, reverseSeq = 0, reverseSentAt;
     // ---- Breaks -------------------------------------------------------------
     // Drop the looper out so the room can play into the hole, then come back ON
     // A LOOP DOWNBEAT. This MUTES and never stops: stopPlayback would tear down
@@ -828,14 +831,24 @@ Looper {
             // audio-rate control, as K2A would ramp a new speed over the block
             // it came in and the latch could take a value between.
             var speed = \speed.ar(1);
+            // The direction, ±1 (reverse, 2026-11-06), latched the same way:
+            // a pass starts on the loop's seam in either direction, so one
+            // set at any time in a pass takes over on the sample the next
+            // begins, and the loop's boundaries stay where they were (the
+            // drums' bar line with them). Flipped mid-pass, the playhead turned
+            // where it was and every boundary after moved. A new engine
+            // starts at rate 1 with its direction here; `rate` stays the
+            // playback rate the offline checks drive.
+            var dir = \dir.ar(1);
             var ref = Phasor.ar(0, rate * BufRateScale.kr(bufnum), startFrame, startFrame + loopFrames);
             var wrapped = (ref - Delay1.ar(ref)).abs > (loopFrames * 0.5);
             var speedNow = Latch.ar(speed, wrapped + Impulse.ar(0));
+            var dirNow = Latch.ar(dir, wrapped + Impulse.ar(0));
             // An audio-rate trigger (DC, never fires): with a constant one
             // Phasor reads its rate once a block, and the speed would change
             // on the block after the wrap, not on it.
             var phase = Phasor.ar(DC.ar(0),
-                rate * speedNow * BufRateScale.kr(bufnum),
+                rate * dirNow * speedNow * BufRateScale.kr(bufnum),
                 startFrame,
                 startFrame + loopFrames);
             // Cubic: at rate ±1 every position is a whole frame, where cubic
@@ -854,7 +867,7 @@ Looper {
             // heard lands at the matching loop position. Rounded to whole
             // frames, so the write head has the play head's fraction at any
             // rate (latencyFrames is whole; rate × it need not be).
-            var writePhase = (phase - (rate * latencyFrames).round - startFrame)
+            var writePhase = (phase - ((rate * dirNow) * latencyFrames).round - startFrame)
                 .mod(loopFrames) + startFrame;
             // The sample under the write head, read back WITHOUT interpolation:
             // BufWr writes on every block, recording or not, so in playback
@@ -1184,6 +1197,7 @@ Looper {
             if(bbcutEnabling and: { bbcut.not }) { list.add((what: \cutter, at: this.prNextBoundaryAt(now))) };
             if(halfTime == \armed) { list.add((what: \halfTime, at: halfTimeAt)) };
             if(halfTime == \releasing) { list.add((what: \halfTimeEnds, at: halfTimeAt)) };
+            if(reverseArmed) { list.add((what: if(reverseFlag) { \forward } { \reverse }, at: reverseAt)) };
         };
         ^list.asArray
     }
@@ -1520,15 +1534,18 @@ Looper {
 
     spawnEngine { |recEnable=0|
         var defName = if(inChannelCount == 1) { \looperEngineMono } { \looperEngine };
-        // A new engine plays at speed 1.
+        // A new engine plays at speed 1, in the direction now: a reverse
+        // armed for the old one is dropped.
         this.prResetHalfTime;
+        this.prResetReverse;
         engineSynth = Synth(defName, [
             \bufnum, buffer.bufnum,
             \in, inChannel,
             \out, outBus.index,
             \startFrame, startFrame,
             \loopFrames, loopFrames,
-            \rate, if(reverseFlag) { -1 } { 1 },
+            \rate, 1,
+            \dir, if(reverseFlag) { -1 } { 1 },
             \recEnable, recEnable,
             \latencyFrames, this.latencyFrames,
             \feedback, feedback,
@@ -3688,6 +3705,7 @@ Looper {
         this.prCancelReading;
         this.cancelNextLoopRecord;
         this.prResetHalfTime;
+        this.prResetReverse;
         // A detection may have a transport start queued for the next downbeat;
         // stopping the loop cancels it rather than firing into a stopped looper.
         overdubSyncRoutine !? { |r| r.stop };
@@ -4058,12 +4076,100 @@ Looper {
         };
     }
 
+    // ===================================================================
+    // Reverse
+    // ===================================================================
+    // A press while a loop plays arms the other direction for the next
+    // boundary, as half-time is armed: a pass starts on the loop's seam in
+    // either direction, so landing there keeps every boundary where it was,
+    // and the drums' bar line with them (flipped at once, the playhead turned
+    // where it was, and the loop's start moved there for good). Armed, a
+    // press takes it back, up to halfTimeMargin before it lands. The engine
+    // is sent the direction now, or timed into the pass that ends on the
+    // boundary, and takes it there to the sample (prEngineGraph). With no
+    // loop playing it flips at once: the next take plays that way.
     reverse {
+        var now = SystemClock.seconds, ld = this.loopDuration, at, after;
+        if(reverseArmed) {
+            if((reverseAt - now) < Looper.halfTimeMargin) { ^this.prRefused(\reverse, "the reverse lands now") };
+            this.prSendDir(reverseFlag);
+            ^this.prReverseArm(false)
+        };
+        if(engineSynth.isNil or: { ld <= 0 } or: { #[\playing, \overdubbing].includes(state).not }) {
+            reverseFlag = reverseFlag.not;
+            ^this.prReverseSaid
+        };
+        at = this.prNextBoundaryAt(now);
+        // Too close, the boundary after: one pass at the speed after this
+        // one (a half-time landing there makes it two loops long).
+        if((at - now) < Looper.halfTimeMargin) {
+            after = if(((halfTimeAt ? inf) - at).abs < 1e-6) { this.prSpeedAfterNext } { speed };
+            at = at + (ld / after);
+        };
+        // The engine's reference wraps once a loop, whatever the speed: sent
+        // after the last wrap before `at`, the direction is taken on `at`.
+        this.prSendDir(reverseFlag.not, at - ld);
+        this.prReverseArm(true, at);
+    }
+
+    // The engine's direction (reversed: true), sent no earlier than `after`
+    // (a wall time; 10 ms on, so a wrap at `after` has passed) and after a
+    // direction still on its way.
+    prSendDir { |reversed, after|
+        var now = thisThread.seconds, at = now, value = if(reversed) { -1 } { 1 };
+        after !? { |a| at = at.max(a + 0.01) };
+        reverseSentAt !? { |p| if(p > now) { at = at.max(p + 0.001) } };
+        engineSynth !? { |e|
+            if(at > now) { server.sendBundle(at - now, e.setMsg(\dir, value)) } { e.set(\dir, value) };
+        };
+        reverseSentAt = at;
+    }
+
+    // Armed for `at`, with a routine waiting for it, or not armed.
+    prReverseArm { |flag, at|
+        var seq;
+        reverseRoutine = this.prStopRoutine(reverseRoutine);
+        reverseSeq = reverseSeq + 1;
+        seq = reverseSeq;
+        reverseArmed = flag;
+        reverseAt = if(flag) { at };
+        if(flag) {
+            reverseRoutine = Routine {
+                (at - SystemClock.seconds).max(0).wait;
+                this.prReverseLands(seq);
+            }.play(SystemClock);
+        };
+        this.changed(\reverseArmed, reverseArmed);
+    }
+
+    // On the boundary, as the engine takes the direction.
+    prReverseLands { |seq|
+        if((seq != reverseSeq) or: { reverseArmed.not }) { ^this };
+        reverseRoutine = nil;
+        reverseArmed = false;
+        reverseAt = nil;
         reverseFlag = reverseFlag.not;
-        engineSynth !? { |s| s.set(\rate, if(reverseFlag) { -1 } { 1 }) };
+        this.changed(\reverseArmed, false);
+        this.prReverseSaid;
+    }
+
+    // The direction now, to the grains and whoever listens.
+    prReverseSaid {
         granularSynth !? { |g| g.set(\rate, this.prGrainRate) };
         ("Reverse: " ++ reverseFlag).postln;
         this.changed(\reverse, reverseFlag);
+    }
+
+    // No reverse armed: a new engine starts in the direction now, a stop
+    // has none to land on.
+    prResetReverse {
+        var was = reverseArmed;
+        reverseRoutine = this.prStopRoutine(reverseRoutine);
+        reverseSeq = reverseSeq + 1;
+        reverseSentAt = nil;
+        reverseArmed = false;
+        reverseAt = nil;
+        if(was) { this.changed(\reverseArmed, false) };
     }
 
     // ===================================================================

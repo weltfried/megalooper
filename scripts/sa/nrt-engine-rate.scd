@@ -32,11 +32,18 @@
 //          half-speed pass: back to rate 1 on the sample that pass ends
 //  12 new  rate -1, speed 0.5 set 30 ms into the first pass
 //
+// And a reverse as the Looper plays it (2026-11-06): the engine's `dir`, set
+// at any time in a pass, taken on the sample the next one starts:
+//
+//  13 new  rate  1, dir -1 set 30 ms into the first pass
+//  14 new  rate  1, the same, and dir 1 again set in the backwards pass:
+//          forwards again on the sample that pass ends
+//
 // Exits 0 if every check passed, 1 otherwise.
 (
 // The loop is 4803 frames, no whole number of blocks: a wrap falls inside a
 // block, where a change of speed taken a block late would show.
-var sr = 48000, len = 4803, dur = 1.2, engines = 13, chans = engines * 2;
+var sr = 48000, len = 4803, dur = 1.2, engines = 15, chans = engines * 2;
 var tmp = PathName.tmp +/+ "megalooper-nrt-engine-rate-" ++ thisProcess.pid;
 var osc = tmp +/+ "engine.osc", wav = tmp +/+ "engine.wav", src = tmp +/+ "loop.wav";
 var after = { |i| tmp +/+ "after-" ++ i ++ ".wav" };
@@ -50,9 +57,10 @@ var ok = { |label, cond, detail|
 };
 var newDef = SynthDef(\megaNrtEngineNew, Looper.prEngineGraph(false));
 var oldDef = SynthDef(\megaNrtEngineOld, Looper.prEngineGraph(false, 2, 2));
-// [def, rate, latencyFrames, [[time, speed], ...]] per engine, in the
-// table's order. The loop is 0.1 s, the engines start at 0.1 s: 0.13 s is in
-// the first pass, 0.35 s in the second half of the half-speed pass after it.
+// [def, rate, latencyFrames, [[time, value, control], ...]] per engine, in
+// the table's order, the control `speed` unless named. The loop is 0.1 s, the
+// engines start at 0.1 s: 0.13 s is in the first pass, 0.35 s in the second
+// half of the half-speed pass after it, 0.25 s in the second pass.
 var setups = [
     [\megaNrtEngineNew, 1, 0], [\megaNrtEngineOld, 1, 0],
     [\megaNrtEngineNew, -1, 0], [\megaNrtEngineOld, -1, 0],
@@ -61,7 +69,9 @@ var setups = [
     [\megaNrtEngineNew, 0.5, 7], [\megaNrtEngineNew, -0.5, 7],
     [\megaNrtEngineNew, 1, 0, [[0.13, 0.5]]],
     [\megaNrtEngineNew, 1, 0, [[0.13, 0.5], [0.35, 1]]],
-    [\megaNrtEngineNew, -1, 0, [[0.13, 0.5]]]
+    [\megaNrtEngineNew, -1, 0, [[0.13, 0.5]]],
+    [\megaNrtEngineNew, 1, 0, [[0.13, -1, \dir]]],
+    [\megaNrtEngineNew, 1, 0, [[0.13, -1, \dir], [0.25, 1, \dir]]]
 ];
 // The loop: noise and a sine, made by arithmetic so every run is the same, and
 // broadband, so a low-pass would show. Interleaved stereo.
@@ -85,7 +95,7 @@ score = [[0.0, [\d_recv, newDef.asBytes]], [0.0, [\d_recv, oldDef.asBytes]]]
             \bufnum, i, \in, 0, \startFrame, 0, \loopFrames, len, \out, i * 2,
             \rate, s[1], \latencyFrames, s[2], \declickFrames, 0,
             \phaseBus, i, \gateBus, 100]] }
-    ++ setups.collect { |s, i| (s[3] ? []).collect { |e| [e[0], [\n_set, 1000 + i, \speed, e[1]]] } }.flatten(1)
+    ++ setups.collect { |s, i| (s[3] ? []).collect { |e| [e[0], [\n_set, 1000 + i, e[2] ? \speed, e[1]]] } }.flatten(1)
     // Every synth freed before the end (scsynth 3.14.1 can hang in its offline
     // cleanup otherwise), then each buffer written as the engines left it.
     ++ [[dur - 0.1, [\n_free] ++ setups.collect { |s, i| 1000 + i }]]
@@ -170,6 +180,18 @@ if(sf.isNil or: { sf.numFrames < ((dur - 0.2) * sr) }) {
                     miss.(12, len + 1, len * 5, { |t| whole.((((t - len) - 1) / 2 + 1).neg) })] !? { |m|
                     m.collect { |t| t !? { "frame " ++ t ++ " plays " ++ out.(12, 0, start + t) ++ ", loop frames around: "
                         ++ (-3..3).collect { |d| [((t - len) - 1) / 2 + 1 + d, buf.(0, (((t - len) - 1) / 2 + 1 + d).neg.floor)] } } }.asString });
+            // A reverse: forwards to the pass's end, then backwards from the
+            // sample the loop starts again, frame L - 1 first; and forwards
+            // again from the sample the backwards pass ends.
+            ok.("reverse set 30 ms into a pass: forwards to the pass's end, every frame",
+                plays.(13, 0, len, { |t| whole.(t) }));
+            ok.("...then backwards from the sample the loop starts again, for two passes",
+                plays.(13, len, len * 3, { |t| whole.((t - len).neg) }),
+                miss.(13, len, len * 3, { |t| whole.((t - len).neg) }) !? { |t| "frame " ++ t });
+            ok.("forwards again, set in the backwards pass: on the sample that pass ends, every frame",
+                plays.(14, len, len * 2, { |t| whole.((t - len).neg) })
+                    and: { plays.(14, len * 2, len * 6, { |t| whole.(t - (len * 2)) }) },
+                miss.(14, len * 2, len * 6, { |t| whole.(t - (len * 2)) }) !? { |t| "frame " ++ t });
         }.value;
     };
     // What the engines left in their buffers.
@@ -177,7 +199,7 @@ if(sf.isNil or: { sf.numFrames < ((dur - 0.2) * sr) }) {
         var f = SoundFile.openRead(after.(i)), got, diff, name;
         name = (if(s[0] == \megaNrtEngineNew) { "new" } { "old" }) ++ " engine at rate " ++ s[1]
             ++ (if(s[2] != 0) { ", latency " ++ s[2] } { "" })
-            ++ (s[3] !? { |ev| ", speed " ++ ev.collect { |e| e[1] }.join(" then ") } ? "");
+            ++ (s[3] !? { |ev| ", " ++ (ev[0][2] ? \speed) ++ " " ++ ev.collect { |e| e[1] }.join(" then ") } ? "");
         if(f.isNil) { ok.(name ++ ": its buffer was written", false) } {
             got = FloatArray.newClear(f.numFrames * f.numChannels);
             f.readData(got);

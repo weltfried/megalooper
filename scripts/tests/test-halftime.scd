@@ -167,7 +167,9 @@ land.(l);
 ~tEq.("landed: the grains scan at the engine's speed, their pulse twice as long",
     [~tLastSet.(l, b, \rate), ~tLastSet.(l, b, \tau)], [0.5, 0.5]);
 l.reverse;
-~tEq.("...reversed, backwards at it", ~tLastSet.(l, b, \rate), -0.5);
+~tGet.(l, \reverseRoutine) !? { |rt| rt.stop };
+l.prReverseLands(~tGet.(l, \reverseSeq));
+~tEq.("...reversed (on the boundary it lands on), backwards at it", ~tLastSet.(l, b, \rate), -0.5);
 l.reverse;
 ~tNear.("a dissolve of two passes at half-time: each pass twice as long", l.dissolveDuration(2), 14.0, 1e-9);
 l.stopPlayback;

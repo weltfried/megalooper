@@ -300,10 +300,14 @@
     ~performLoopToggle = ~midiTip.(LooperTile().cycles_(false).font_(~guiMono.(16, true)).fixedHeight_(46)
         // The fourth: no loop, and reverse left on (Clear keeps it), so the
         // next take plays backwards. Shown, or a stray click arms it unseen.
+        // The last two: the other direction armed for the next loop, as
+        // half-time's armed is painted.
         .states_([["EMPTY", ~gt[\mute], nil], ["FORWARD", Color.white, ~gt[\loop]], ["REVERSE", Color.white, ~gt[\loop]],
-            ["EMPTY · REVERSE", ~gt[\loop], nil]])
+            ["EMPTY · REVERSE", ~gt[\loop], nil], ["REVERSE NEXT", ~gt[\onacc], ~gt[\armed]],
+            ["FORWARD NEXT", ~gt[\onacc], ~gt[\armed]]])
         .action_({ ~looper !? { |lp| lp.reverse } }),
-        'looper.reverse', "Play the loop backwards, or forwards again. Key V.");
+        'looper.reverse', "Play the loop backwards, or forwards again, from the next loop, as half-time lands; "
+            "again before then, it is taken back. Key V.");
     ~feedbackSlider = ~mapTag.(~guiBar.(\loop)
         .value_(l !? { |lp| lp.feedback } ? 1)
         .action_({ |sl| ~looper !? { |lp| lp.feedback = sl.value } }),
@@ -657,7 +661,8 @@
     if(l.notNil and: { ~performLoopToggle.notNil } and: { ~performLoopToggle.isClosed.not }) {
         has = l.loopDuration > 0;
         dur = l.loopDuration;
-        ~performLoopToggle.value_(case { has.not } { if(l.reverseFlag) { 3 } { 0 } } { l.reverseFlag } { 2 } { 1 });
+        ~performLoopToggle.value_(case { has.not } { if(l.reverseFlag) { 3 } { 0 } }
+            { l.reverseArmed } { if(l.reverseFlag) { 5 } { 4 } } { l.reverseFlag } { 2 } { 1 });
         ~performLoopToggle.border_(if(has) { ~gt[\loop] } { ~gt[\line] }).dashed_(has.not);
         ~performPaintBand.(\loop, has);
         ~feedbackSlider !? { |b| b.dim_(if(has) { 1 } { 0.3 }) };
@@ -666,7 +671,7 @@
         ~performHalfTile !? { |t| if(t.isClosed.not) {
             t.value_(switch(l.halfTime, \armed, { 1 }, \on, { 2 }, \releasing, { 3 }, { 0 }));
         } };
-        ~performNote.(\loop, "Click to reverse (V). Multiply M, Undo U, half-time L."
+        ~performNote.(\loop, "Click to reverse from the next loop (V). Multiply M, Undo U, half-time L."
             ++ (case { l.reverseFlag.not } { "" } { has } { " Playing backwards." } { " The next take plays backwards." }));
     };
 };

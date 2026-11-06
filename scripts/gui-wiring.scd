@@ -181,6 +181,10 @@
         .put(\reverse, { |looper, what, val|
             { ~performPaintLoop !? { |f| f.() } }.defer;
         })
+        // A reverse armed for the next loop, or taken back: its tile.
+        .put(\reverseArmed, { |looper, what, val|
+            { ~performPaintLoop !? { |f| f.() } }.defer;
+        })
         // Half-time armed, on, ending or over: its tile, and the take's ½.
         .put(\halfTime, { |looper, what, val|
             { ~performPaintLoop !? { |f| f.() }; ~statusRepaintGrids !? { |f| f.() } }.defer;

@@ -1310,12 +1310,13 @@ l.changed(\reverse, true);
 d.probeReply(id, late.(rec[\time]), rec[\time] + 0.01);
 ~tEq.("a reply to a probe sent before a reverse is discarded", d.dHat, held);
 ~tEq.("...no probe while reversed", d.probe(95.0), nil);
-~tPut.(l, \reverseFlag, false);
-l.changed(\reverse, false);
-~tEq.("...nor after it, the phase being shifted for good (that is not drift)", d.probe(96.0), nil);
 d.breakEndsAt(95.3021, 95.0);
 ~tNear.("...and a break then ends on the nearest 16th, not the loop boundary the model would put",
     d.instVarAt(\breakEnd), 95.25, 1e-9);
+~tPut.(l, \reverseFlag, false);
+l.changed(\reverse, false);
+~tAssert.("...forwards again, it probes again: a reverse lands on the loop's boundary, so the phase is where it was",
+    d.probe(96.0).notNil);
 ~tPut.(l, \loopStartTime, 98.0);
 fx[\wall] = 98.1;
 l.changed(\state, \playing);

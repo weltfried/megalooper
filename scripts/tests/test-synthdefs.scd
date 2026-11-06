@@ -55,8 +55,13 @@ var baseline = (
     // half-time's `speed`, taken on the sample a reference Phasor wraps, and
     // the playhead's Phasor reading its rate every sample. The render checks
     // that too.
-    'looperEngine':          [ 2697, 25642149 ],
-    'looperEngineMono':      [ 2637, 48664331 ],
+    // Moved 2026-11-06 from [ 2697, 25642149 ] and [ 2637, 48664331 ]: the
+    // direction `dir`, latched on the reference's wrap as the speed is, so a
+    // reverse lands on the sample a pass starts, and the write head's
+    // latency shift follows it. Deliberate — see the graph's comment; the
+    // render checks the landing.
+    'looperEngine':          [ 2927, 959546355 ],
+    'looperEngineMono':      [ 2867, 184139025 ],
     'looperClick':           [  429, 831893340 ],
     'looperMaster':          [  478, 767188786 ],
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the
