@@ -720,7 +720,7 @@ page (`scripts/gui-analysis.scd`).
 
 ![Onset analysis on Setup's Analysis page](images/onsets.png)
 
-*Fig: The top of Setup's Analysis page: the input's peak, the onsets counted and the last one's strength, and the onset threshold. (The automatic level's readout now sits beside the strength.)*
+*Fig: The top of Setup's Analysis page: the input's peak, the onsets counted, the last one's strength and the automatic level, and the onset threshold.*
 
 ![Setup's Analysis page](images/setup-analysis.png)
 
