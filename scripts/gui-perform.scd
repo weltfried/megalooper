@@ -104,23 +104,103 @@
     ~performColumns[key] !? { |c| c[\note] !? { |n| if(n.isClosed.not) { n.string_(str ? "") } } };
 };
 
-// ---- The effects that are on, as chips ------------------------------------------------
-// Each chain's effects that are on, one chip each in the chain's order: the
-// Effects colour, the words on it as a lit tile's are (\onacc), so an effect
-// that is on looks like everything else that is on. A chain with none on has
-// one dashed slot, as a switch that is off has. Read from across a stage, so
-// 14 px and bold, smaller only for a name that would not fit.
+// ---- Chips: what a layer has, readable from a stage -----------------------------------
+// A column of chips, one per thing a layer has: the Effects column's effects
+// that are on, the Cutter's voices, the Grains' shape. Lit, a chip is filled
+// in its layer's colour with the words a lit tile has (\onacc), so what
+// sounds looks like everything else that sounds; unlit (the layer or the
+// voice off), it is outlined in that colour, its words still in \ink. With
+// nothing to show, one dashed slot, as a switch that is off has. Read from
+// across a stage: 14 px and bold, smaller only for words that would not
+// fit, and cut short with "…" only below 11 px.
 //
-// They replaced bars that said how many were on and a grey line at the foot
-// that said which (2026-11-06): the names are what a player needs to see.
-//
-// The column must not grow past the Loop column, which sets Perform's
-// height, so all the chains together show at most ~performFxChipsMax chips;
-// a chain with more than its share ends on "+N", the ones not shown.
-~performFxChipH = 22;
-~performFxChipGap = 3;
+// They replaced grey lines at the columns' feet (2026-11-06): the effects'
+// bars and names first, then the Cutter's voices and the Grains' shape.
+~performChipH = 22;
+~performChipGap = 3;
+~performChipNames = IdentityDictionary.new;   // key -> the chips' words
+~performChipLit = IdentityDictionary.new;     // key -> true, false, or one per chip
+~performChipHeights = IdentityDictionary.new; // key -> the height last set
+~performChipsHeight = { |n| (n * ~performChipH) + ((n - 1).max(0) * ~performChipGap) };
+
+// The font and the words a chip draws in `room` px. Cut short from the
+// whole words each time, never from a cut one: a String is bytes, and "…"
+// is three of them, so trimming the last cut grew it (2026-11-06, a hang).
+// Never inside a character: a cut lands before a byte that starts one (in
+// UTF-8 a continuation byte is 10xxxxxx: "·" and "…" have them).
+~performChipFit = { |word, room|
+    var size = 14, font = ~guiSans.(size, true), text = word, n = word.size;
+    while { (text.bounds(font).width > room) and: { size > 11 } } {
+        size = size - 1;
+        font = ~guiSans.(size, true);
+    };
+    while { (text.bounds(font).width > room) and: { n > 1 } } {
+        n = n - 1;
+        while { (n > 1) and: { word[n].ascii.bitAnd(16rC0) == 16r80 } } { n = n - 1 };
+        text = word.keep(n) ++ "…";
+    };
+    [font, text]
+};
+
+// The chips of `key`, in the colour of the layer `colour` (a ~gt key).
+~performChips = { |key, colour, tip|
+    ~performChipNames[key] = [];
+    ~performChipLit[key] = true;
+    ~performChipHeights[key] = ~performChipH;
+    UserView().fixedHeight_(~performChipH).toolTip_(tip).drawFunc_({ |u|
+        var words = ~performChipNames[key] ? [], lit = ~performChipLit[key];
+        var w = u.bounds.width, h = ~performChipH, room = w - 16;
+        if(words.isEmpty) {
+            Pen.push;
+            Pen.strokeColor = ~gt[\line];
+            Pen.width = 1;
+            Pen.lineDash_(FloatArray[4, 3]);
+            Pen.addRect(Rect(0.5, 0.5, w - 1, h - 1));
+            Pen.stroke;
+            Pen.pop;
+            Pen.stringInRect("—", Rect(8, 0, room, h), ~guiSans.(13), ~gt[\mute], QAlignment(\left));
+        } {
+            words.do { |word, i|
+                var top = i * (h + ~performChipGap);
+                var on = if(lit.isKindOf(SequenceableCollection)) { lit[i] != false } { lit != false };
+                var fit = ~performChipFit.(word.asString, room);
+                if(on) {
+                    Pen.fillColor = ~gt[colour];
+                    Pen.addRect(Rect(0, top, w, h));
+                    Pen.fill;
+                } {
+                    Pen.strokeColor = ~gt[colour];
+                    Pen.width = 1.5;
+                    Pen.addRect(Rect(0.75, top + 0.75, w - 1.5, h - 1.5));
+                    Pen.stroke;
+                };
+                Pen.stringInRect(fit[1], Rect(8, top, room, h), fit[0], if(on) { ~gt[\onacc] } { ~gt[\ink] },
+                    QAlignment(\left));
+            };
+        };
+    })
+};
+// Show `words` on the chips of `key` (made by ~performChips as `view`), lit
+// as `lit` says: one slot for none, as tall as the words need. The height is
+// set only when it moves: a new height lays the column out again.
+~performSetChips = { |key, view, words, lit = true|
+    var height = ~performChipsHeight.(words.size.max(1));
+    ~performChipNames[key] = words;
+    ~performChipLit[key] = lit;
+    if(view.notNil and: { view.isClosed.not }) {
+        if(~performChipHeights[key] != height) {
+            ~performChipHeights[key] = height;
+            view.fixedHeight_(height);
+        };
+        view.refresh;
+    };
+};
+
+// The Effects column must not grow past the Loop column, which sets
+// Perform's height, so all the chains together show at most
+// ~performFxChipsMax chips; a chain with more than its share ends on "+N",
+// the ones not shown.
 ~performFxChipsMax = 5;
-~performFxChipNames = IdentityDictionary.new;
 
 // How many chips each chain gets: its count of effects on, one for a chain
 // with none (its dashed slot), the biggest share given up first while there
@@ -142,37 +222,25 @@
         names.keep(n - 1) ++ [names[n - 1] ++ " +" ++ (names.size - n)]
     }
 };
-~performFxChipsHeight = { |n| (n * ~performFxChipH) + ((n - 1).max(0) * ~performFxChipGap) };
 
-~performFxChipHeights = IdentityDictionary.new;
-~performFxChips = { |key, tip|
-    ~performFxChipNames[key] = [];
-    ~performFxChipHeights[key] = ~performFxChipH;
-    UserView().fixedHeight_(~performFxChipH).toolTip_(tip).drawFunc_({ |u|
-        var words = ~performFxChipNames[key] ? [], w = u.bounds.width, h = ~performFxChipH, room = w - 16;
-        if(words.isEmpty) {
-            Pen.push;
-            Pen.strokeColor = ~gt[\line];
-            Pen.width = 1;
-            Pen.lineDash_(FloatArray[4, 3]);
-            Pen.addRect(Rect(0.5, 0.5, w - 1, h - 1));
-            Pen.stroke;
-            Pen.pop;
-            Pen.stringInRect("—", Rect(8, 0, room, h), ~guiSans.(13), ~gt[\mute], QAlignment(\left));
-        } {
-            words.do { |word, i|
-                var top = i * (h + ~performFxChipGap), size = 14, font = ~guiSans.(size, true);
-                while { (word.bounds(font).width > room) and: { size > 11 } } {
-                    size = size - 1;
-                    font = ~guiSans.(size, true);
-                };
-                Pen.fillColor = ~gt[\fx];
-                Pen.addRect(Rect(0, top, w, h));
-                Pen.fill;
-                Pen.stringInRect(word, Rect(8, top, room, h), font, ~gt[\onacc], QAlignment(\left));
-            };
-        };
-    })
+// The Cutter's voices as chips: what each plays, and its effects ("Break/Repeat
+// · Bit + Comb"); lit while the cutter runs and the voice is on. Pure.
+~performCutChipWords = { |voices, specs, fxNames|
+    voices.collect { |v|
+        var name = (specs[v[\proc]] !? { |sp| sp[\name] }) ? v[\proc].asString;
+        var fx = (v[\fx] ? []).collect { |k| (fxNames[k] !? { |e| e[\name] }) ? k.asString };
+        name ++ if(fx.isEmpty) { "" } { " · " ++ fx.join(" + ") }
+    }
+};
+// The Grains' shape as chips: which way morph leans, the pitch, the window,
+// and the chords when they are followed. Pure.
+~performGrainChipWords = { |morph, pitch, env, follow|
+    var st = pitch.round(1).asInteger;
+    [
+        if(morph < 0.5) { "Toward drone" } { "Toward pulse" },
+        "Pitch " ++ (if(st > 0) { "+" } { "" }) ++ st ++ " st",
+        ((Looper.granularEnvNames[env] ? "").replace(" (built in)", "")) ++ " window"
+    ] ++ if(follow == true) { ["Follows chords"] } { [] }
 };
 
 // An action tile: the label, its footswitch words top right, the line under it.
@@ -288,13 +356,19 @@
     [~performArcLabel, ~performArcValue].do { |v|
         v.toolTip_("The first voice's intensity: what the cutter uses now / its value at full arc.\n"
             "The Arc macro moves it between its low end and the value the voice keeps.") };
+    // The voices, a chip each, where a grey line at the foot named them.
+    ~performCutVoicesLabel = ~performValue.("—");
+    ~performCutChips = ~performChips.(\cutVoices, \cut,
+        "The cutter's voices and what each plays, with its effects. Filled while the cutter runs and\n"
+            "the voice is on. Add and edit them on the Sound view (key 2).");
     cutCol = ~performColumn.((key: \cut, name: "Cutter", view: \sound,
         sw: { ~performSw.("B", 'looper.bbcut') },
-        toggle: ~bbcutButton,
+        toggle: ~bbcutButton, note: false,
         rows: [
             VLayout(~guiText.("Mode", 14, ~gt[\mute]), ~bbcutModeSeg[\view]).spacing_(5).margins_(0),
             VLayout(HLayout(~performArcLabel, nil, ~performArcValue).margins_(0).spacing_(8), ~performArcBar)
-                .spacing_(2).margins_(0)
+                .spacing_(2).margins_(0),
+            ~performParam.("Voices", ~performCutVoicesLabel, ~performCutChips)
         ]));
 
     // ---- Grains ------------------------------------------------------------------------
@@ -313,12 +387,17 @@
         .action_({ |sl| ~looper !? { |lp| lp.granularAmp = sl.value } }),
         'looper.granularAmp', "The granular layer's level against the dry loop.");
     ~performGrainAmpLabel = ~performValue.((l !? { |lp| lp.granularAmp } ? 0.3).round(0.01).asString);
+    // The shape, a chip per part, where a grey line at the foot said it.
+    ~performGrainChips = ~performChips.(\grainShape, \grain,
+        "Which way Morph leans, the grains' pitch, their window and, when on, the chords they follow.\n"
+            "Filled while the grains play. Set them on the Sound view (key 2).");
     grainCol = ~performColumn.((key: \grain, name: "Grains", view: \sound,
         sw: { ~performSw.("G", 'looper.granular') },
-        toggle: ~granularPerformButton,
+        toggle: ~granularPerformButton, note: false,
         rows: [
             ~performParam.("Morph", ~granularLabel, ~granularSlider),
-            ~performParam.("Level", ~performGrainAmpLabel, ~performGrainAmp)
+            ~performParam.("Level", ~performGrainAmpLabel, ~performGrainAmp),
+            ~performGrainChips
         ]));
 
     // ---- Onset notes ----------------------------------------------------------------
@@ -347,15 +426,15 @@
             .states_(~guiLayerStates.(\fx, "ON", "OFF")).border_(~gt[\line]).dashed_(true)
             .toolTip_("The effects are switched on the FX view and by their footswitches. Key 3.")
             .action_({ ~guiSelectView.(\fx) });
-        ~performFxGuitarChips = ~performFxChips.(\guitar,
+        ~performFxGuitarChips = ~performChips.(\guitar, \fx,
             "The instrument's effects that are on, in the chain's order. Switch them on the FX view (key 3)\n"
                 "or with their footswitches.");
         ~performFxGuitarLabel = ~performValue.("—");
-        ~performFxLoopChips = ~performFxChips.(\loop,
+        ~performFxLoopChips = ~performChips.(\loop, \fx,
             "The loop's effects that are on, in the chain's order. Switch them on the FX view (key 3)\n"
                 "or with their footswitches.");
         ~performFxLoopLabel = ~performValue.("—");
-        ~performFxDrumsChips = ~performFxChips.(\drums,
+        ~performFxDrumsChips = ~performChips.(\drums, \fx,
             "The drums' effects that are on, in the chain's order. Switch them on the FX view (key 3)\n"
                 "or with their footswitches.");
         ~performFxDrumsLabel = ~performValue.("—");
@@ -618,22 +697,22 @@
             ~performArcBar.value_(0).tick_(nil);
         };
         ~performArcBar.dim_(if(l.bbcut) { 1 } { 0.3 });
-        names = l.bbcutVoices.collect { |vv| (l.bbcutProcSpecs[vv[\proc]] !? { |s| s[\name] }) ? vv[\proc].asString };
-        ~performNote.(\cut, names.size.asString ++ " voice" ++ (if(names.size == 1) { "" } { "s" })
-            ++ " · " ++ names.join(" + "));
+        ~performCutVoicesLabel.string_(l.bbcutVoices.size.asString);
+        ~performSetChips.(\cutVoices, ~performCutChips,
+            ~performCutChipWords.(l.bbcutVoices, l.bbcutProcSpecs, l.bbcutFxSpecs),
+            l.bbcutVoices.collect { |vv| l.bbcut and: { vv[\enabled] != false } });
     };
 };
 
 ~performPaintGrains = {
-    var l = ~looper, env, pitch;
+    var l = ~looper;
     if(l.notNil and: { ~granularPerformButton.notNil } and: { ~granularPerformButton.isClosed.not }) {
         ~guiLayerPaint.(~granularPerformButton, l.granularOn, \grain);
         ~performPaintBand.(\grain, l.granularOn);
         [~granularSlider, ~performGrainAmp].do { |b| b !? { b.dim_(if(l.granularOn) { 1 } { 0.3 }) } };
-        env = Looper.granularEnvNames[l.granularEnv] ? "";
-        pitch = l.granularPitch.round(1).asInteger;
-        ~performNote.(\grain, (if(l.granularMorph < 0.5) { "Toward drone" } { "Toward pulse" })
-            ++ " · pitch " ++ (if(pitch > 0) { "+" } { "" }) ++ pitch ++ " st · " ++ env);
+        ~performSetChips.(\grainShape, ~performGrainChips,
+            ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords),
+            l.granularOn == true);
     };
 };
 // The grains' level, from the generic granular handler (gui-wiring.scd).
@@ -665,18 +744,8 @@
         lists = [guitar, loops, drums].collect { |ds| ds.collect { |d| d.name.asString } };
         slots = ~performFxSlots.(lists.collect(_.size), ~performFxChipsMax);
         [\guitar, \loop, \drums].do { |key, i|
-            var words = ~performFxChipWords.(lists[i], slots[i]);
-            var view = [~performFxGuitarChips, ~performFxLoopChips, ~performFxDrumsChips][i];
-            var height = ~performFxChipsHeight.(slots[i]);
-            ~performFxChipNames[key] = words;
-            if(view.notNil and: { view.isClosed.not }) {
-                // Set only when it moves: a new height lays the column out again.
-                if(~performFxChipHeights[key] != height) {
-                    ~performFxChipHeights[key] = height;
-                    view.fixedHeight_(height);
-                };
-                view.refresh;
-            };
+            ~performSetChips.(key, [~performFxGuitarChips, ~performFxLoopChips, ~performFxDrumsChips][i],
+                ~performFxChipWords.(lists[i], slots[i]));
         };
     };
 };

@@ -700,30 +700,63 @@ Routine {
         devs.flatten.do { |dv| set.(dv, false) };
         tick.();
         ok.("everything off: every chain an empty slot, and the Effects column has no line at its foot",
-            chains.every { |c| ~performFxChipNames[c] == [] } and: { ~performColumns[\fx][\note].isNil }
-                and: { ~performFxChipHeights[\guitar] == ~performFxChipH },
-            chains.collect { |c| ~performFxChipNames[c] }.asString);
+            chains.every { |c| ~performChipNames[c] == [] } and: { ~performColumns[\fx][\note].isNil }
+                and: { ~performChipHeights[\guitar] == ~performChipH },
+            chains.collect { |c| ~performChipNames[c] }.asString);
         set.(g[1], true);
         set.(g[0], true);
         set.(l[0], true);
         tick.();
         ok.("on: each chain names its own, in the chain's order, whichever was switched first",
-            [~performFxChipNames[\guitar], ~performFxChipNames[\loop], ~performFxChipNames[\drums]]
+            [~performChipNames[\guitar], ~performChipNames[\loop], ~performChipNames[\drums]]
                 == [[g[0].name, g[1].name], [l[0].name], []],
-            chains.collect { |c| ~performFxChipNames[c] }.asString);
-        ok.("...two chips tall where two are on, one where one is", [~performFxChipHeights[\guitar], ~performFxChipHeights[\loop]]
-            == [(2 * ~performFxChipH) + ~performFxChipGap, ~performFxChipH], ~performFxChipHeights.asString);
+            chains.collect { |c| ~performChipNames[c] }.asString);
+        ok.("...two chips tall where two are on, one where one is", [~performChipHeights[\guitar], ~performChipHeights[\loop]]
+            == [(2 * ~performChipH) + ~performChipGap, ~performChipH], ~performChipHeights.asString);
         ok.("...and the counts beside the chains as before", ~performFxGuitarLabel.string == ("2 of " ++ g.size),
             ~performFxGuitarLabel.string);
         devs.flatten.do { |dv| set.(dv, true) };
         tick.();
         // A chain with none has its one dashed slot, which counts as a chip.
         ok.("every effect on: five chips in all, the instrument's cut short saying how many more",
-            (chains.collect { |c| ~performFxChipNames[c].size.max(1) }.sum == 5)
-                and: { ~performFxChipNames[\guitar].last.contains(" +") },
-            chains.collect { |c| ~performFxChipNames[c] }.asString);
+            (chains.collect { |c| ~performChipNames[c].size.max(1) }.sum == 5)
+                and: { ~performChipNames[\guitar].last.contains(" +") },
+            chains.collect { |c| ~performChipNames[c] }.asString);
         was.do { |p| set.(p[0], p[1]) };
         tick.();
+    });
+
+    // The Cutter's voices and the Grains' shape as chips too (2026-11-06),
+    // where each column had a grey line at its foot.
+    section.("Perform's Cutter and Grains as chips", {
+        var l = ~looper, fit;
+        ok.("a voice's chip names what it plays and its effects; an unknown procedure by its key",
+            ~performCutChipWords.([(proc: \break, fx: [\bit, \comb]), (proc: \nosuch, fx: [])], l.bbcutProcSpecs, l.bbcutFxSpecs)
+                == ["Break/Repeat · Bit + Comb", "nosuch"],
+            ~performCutChipWords.([(proc: \break, fx: [\bit, \comb]), (proc: \nosuch, fx: [])], l.bbcutProcSpecs, l.bbcutFxSpecs).asString);
+        ok.("the grains' chips: the way Morph leans, the pitch, the window, and the chords when followed",
+            [~performGrainChipWords.(0.7, -2.4, 1, true), ~performGrainChipWords.(0.2, 3, 0, false)]
+                == [["Toward pulse", "Pitch -2 st", "Plateau window", "Follows chords"], ["Toward drone", "Pitch +3 st", "Hann window"]],
+            [~performGrainChipWords.(0.7, -2.4, 1, true), ~performGrainChipWords.(0.2, 3, 0, false)].asString);
+        fit = ~performChipFit.("Break/Repeat · Bit + Comb + BPF + Rev", 100);
+        ok.("words too long for a chip are drawn smaller, and cut short only at 11 px",
+            (fit[0].size == 11) and: { fit[1].endsWith("…") } and: { fit[1].bounds(fit[0]).width <= 100 }
+                and: { ~performChipFit.("Drive", 100)[0].size == 14 },
+            [fit[0].size, fit[1]].asString);
+        ~performPaintCutter.();
+        ~performPaintGrains.();
+        ok.("the Cutter column: a voice's chip under Voices, outlined while the cutter is off, no line at the foot",
+            (~performChipNames[\cutVoices] == ~performCutChipWords.(l.bbcutVoices, l.bbcutProcSpecs, l.bbcutFxSpecs))
+                and: { ~performChipNames[\cutVoices].size == l.bbcutVoices.size }
+                and: { ~performChipLit[\cutVoices] == l.bbcutVoices.collect { l.bbcut } }
+                and: { ~performCutVoicesLabel.string == l.bbcutVoices.size.asString }
+                and: { ~performColumns[\cut][\note].isNil },
+            [~performChipNames[\cutVoices], ~performChipLit[\cutVoices], ~performCutVoicesLabel.string].asString);
+        ok.("the Grains column: its shape as chips, lit as the grains are, no line at the foot",
+            (~performChipNames[\grainShape] == ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords))
+                and: { ~performChipLit[\grainShape] == (l.granularOn == true) } and: { ~performColumns[\grain][\note].isNil }
+                and: { ~performChipHeights[\grainShape] == ~performChipsHeight.(~performChipNames[\grainShape].size) },
+            [~performChipNames[\grainShape], ~performChipLit[\grainShape]].asString);
     });
 
     section.("the logo", {
