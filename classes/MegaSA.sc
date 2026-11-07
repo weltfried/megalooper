@@ -230,9 +230,9 @@ MegaSA {
         // the Looper level (0.7 before its limiter, into the Loop chain) went
         // and the looper went to unity: the chain hears the loop as played,
         // the mix hears it as loud as before, and a hot take with the drums
-        // stays off the master's clip.
-        levels = (guitar: 1, loop: 0.7079457844, drums: 0.2951209247, onsetKit: 0.1640589684, synth: 0.5011872336,
-            master: 1);
+        // stays off the master's clip. The values are defaultLevels', below.
+        levels = this.class.defaultLevels;
+        levels.removeAt(\bass);
         // Every strip starts with the player's mute off. The guitar's is held
         // while its plugin opens (holds, above), and let go once the plugin
         // has answered: open, or failed, in which case dry is better than
@@ -241,7 +241,7 @@ MegaSA {
         // The bass has a strip only with an input to play it. A plugin
         // opening on its chain holds nothing: until it is open its device
         // passes the bass through, as the drums' and the loop's do.
-        if(bassIn.notNil) { levels.put(\bass, 1); mutes.put(\bass, false) };
+        if(bassIn.notNil) { levels.put(\bass, this.class.defaultLevels[\bass]); mutes.put(\bass, false) };
         // Without VSTPlugin there is no plugin to host: the guitar plays its
         // built-in effects without it, and the post window says why.
         if(pluginPath.notNil and: { \VSTPlugin.asClass.isNil }) {
@@ -719,6 +719,15 @@ MegaSA {
     // key: a strip (\guitar, \bass, \loop, \drums, \onsetKit) or \master. Amplitude,
     // not dB.
     level { |key| ^levels[key] }
+
+    // Where every strip starts, megalooper's own (amplitudes; the comment in
+    // init says why each): what a start begins with unless levels were kept
+    // for the rig (setup-sa.scd, Start with this under Levels), and what
+    // Reset there goes back to. A new Event each call: the caller's own.
+    *defaultLevels {
+        ^(guitar: 1, bass: 1, loop: 0.7079457844, drums: 0.2951209247, onsetKit: 0.1640589684,
+            synth: 0.5011872336, master: 1)
+    }
 
     setLevel { |key, amp|
         if(levels.includesKey(key).not) {

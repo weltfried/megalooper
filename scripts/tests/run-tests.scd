@@ -64,6 +64,7 @@ var files = [
     "test-megaremote-sets.scd",
     "test-megaremote-presets.scd",
     "test-sa-sounds.scd",
+    "test-megasa-levels.scd",
     "test-megasa-plugins.scd",
     "test-theme-contrast.scd",
     "test-megadrums.scd",

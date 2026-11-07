@@ -550,14 +550,21 @@
     // latency measured on one is wrong on the next.
     rp[\calibrationKey] = ~audioSetupName.(rp[\inDevice] ? d[\defaultIn], rp[\outDevice] ? d[\defaultOut],
         rp[\audio][\hardwareBufferSize]);
+    // What the levels are kept under (setup-sa.scd, Start with this under
+    // Levels): the devices alone, as the buffer changes no level.
+    rp[\levelsKey] = ~audioDevicesName.(rp[\inDevice] ? d[\defaultIn], rp[\outDevice] ? d[\defaultOut]);
     rp
 };
 
 // "TSMEGA @ 64 frames", "MacBook Pro Microphone → MacBook Pro Speakers @ the
 // device's buffer": a setup in words, and the key its calibration is kept by.
 ~audioSetupName = { |inName, outName, buffer|
+    ~audioDevicesName.(inName, outName) ++ " @ " ++ (buffer !? { |n| n.asString ++ " frames" } ? "the device's buffer")
+};
+// "TSMEGA", "MacBook Pro Microphone → MacBook Pro Speakers": the devices alone.
+~audioDevicesName = { |inName, outName|
     var i = inName ? "system default input", o = outName ? "system default output";
-    (if(i == o) { i } { i ++ " → " ++ o }) ++ " @ " ++ (buffer !? { |n| n.asString ++ " frames" } ? "the device's buffer")
+    if(i == o) { i } { i ++ " → " ++ o }
 };
 
 // The rig of yours on the same device as this setup (its device names both

@@ -622,6 +622,23 @@ Routine {
         tick.();
         ok.("...and a level set anywhere shows there", ~saPerformLevels[\loop][\readout].string == "-12.0 dB",
             ~saPerformLevels[\loop][\readout].string);
+        // Start with this under LEVELS (setup-sa.scd): kept per rig, here in
+        // the scratch folder; its mark while the levels differ from a start's.
+        ok.("...which marks Start with this under LEVELS", ~saLevelsKeepButton.states[0][0] == "Start with this •",
+            ~saLevelsKeepButton.states[0][0]);
+        ~saLevelsResetButton.action.value(~saLevelsResetButton);
+        tick.();
+        ok.("Reset puts megalooper's own levels back, and the mark goes",
+            [~saPerformLevels[\loop][\readout].string, ~saLevelsKeepButton.states[0][0]] == ["-3.0 dB", "Start with this"],
+            [~saPerformLevels[\loop][\readout].string, ~saLevelsKeepButton.states[0][0]].asString);
+        m.setLevel(\loop, -5.dbamp);
+        ~saLevelsKeepButton.action.value(~saLevelsKeepButton);
+        tick.();
+        ok.("Start with this keeps them, in the scratch folder, and the mark goes",
+            (~saKeptLevelsPath.().beginsWith(PathName.tmp)) and: { ~saReadKeptLevels.()[\rigs].any { |lv| lv[\loop] == -5.0 } }
+                and: { ~saLevelsKeepButton.states[0][0] == "Start with this" },
+            [~saKeptLevelsPath.(), ~saLevelsKeepButton.states[0][0]].asString);
+        ~saResetLevels.();
         m.setLevel(\loop, 1);
         ok.("Perform's Effects column counts the drums' chain as well", ~performFxDrumsLabel.string.contains(" of "),
             ~performFxDrumsLabel.string);

@@ -524,7 +524,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick, and its voices by name), **Grains** (on/off, morph, level, and their pitch and window), each filled in its colour while it plays and outlined while it is off, **Effects** (each chain's effects that are on, by name, in the effects colour), **Drums** (on/off, the kit, **New loop**, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **Arc** (the expression pedal's bar) and the **onset threshold** with the last onset's strength, and, under the layers, the **levels** of every strip |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick, and its voices by name), **Grains** (on/off, morph, level, and their pitch and window), each filled in its colour while it plays and outlined while it is off, **Effects** (each chain's effects that are on, by name, in the effects colour), **Drums** (on/off, the kit, **New loop**, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **Arc** (the expression pedal's bar) and the **onset threshold** with the last onset's strength, and, under the layers, the **levels** of every strip, with **Reset** and **Start with this** |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
@@ -619,6 +619,17 @@ The controls, by view:
   sum under −0.45 dBFS. Their level in the mix is the **Loop** strip under
   Levels, which starts at −3 dB, so a hot take with the drums stays clear of
   the master's clip; the whole mix's last fader is **Master**.
+- **Levels** *(Perform, under the layers)* — a fader and a Mute per strip:
+  Instrument, Instrument 2, Loop, Drums, Onset kit, Synth and Master. They
+  start at megalooper's own levels: Instrument, Instrument 2 and Master 0 dB,
+  Loop −3, Synth −6, Drums −10.6, Onset kit −15.7. **Start with this**, at
+  the right of the LEVELS line, keeps them as they are for this rig, and the
+  next start on it begins with them. A rig is its audio devices (TSMEGA, say, or the Mac's
+  microphone and speakers), whatever the buffer, or a rig of yours by its
+  name: an interface and the laptop each keep their own. A dot on the button
+  says the levels differ from what a start here begins with. **Reset** puts
+  megalooper's own back for now; Start with this keeps those too. The mutes
+  are never kept: every strip starts unmuted.
 - **Morph** *(Perform's Grains column)* — between frozen drone (0) and pulsed scan
   locked to the detected pulse (1). Mirrors the Grains' Morph on Sound (CC 118 in the
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.

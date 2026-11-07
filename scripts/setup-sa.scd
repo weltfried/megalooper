@@ -580,6 +580,125 @@
     ok
 };
 
+// ---- Levels kept per rig ---------------------------------------------------------
+// Start with this under Levels on Perform keeps the mixer's levels for the
+// rig megalooper runs on, and the next start there begins with them instead
+// of megalooper's own (MegaSA.defaultLevels); Reset beside it goes back to
+// those, for now. Levels only: a mute is never kept, so a strip muted in
+// passing cannot start silent. A rig is its audio devices on the audio
+// settings (~rp[\levelsKey]: "TSMEGA", whatever the buffer), else a rig of
+// yours by its name. Kept in dB, in sa/kept-levels.json:
+//   {"format": "megalooper levels", "version": 1,
+//    "rigs": {"TSMEGA": {"guitar": -1.5, "loop": -3, ...}}}
+//   ~saKeepLevels.(action)   this rig's levels kept; action gets (ok, why)
+//   ~saLoadKeptLevels.()     at boot (~setupSA), this rig's kept levels in
+//   ~saResetLevels.()        megalooper's own levels, now
+//   ~saLevelsDirty.()        whether the levels differ from what a start
+//                            here begins with (Start with this's mark)
+~saLevelKeys = #[\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master];
+~saKeptLevelsPath = { ~saUserDir.() +/+ "kept-levels.json" };
+~saLevelsFormat = "megalooper levels";
+// The rig the levels are kept for; they are looked for under it, then under
+// the rig of yours this setup took its numbers from (~audioInherit).
+~saLevelsRig = { ((~rp !? { |r| r[\levelsKey] }) ?? { ~routingProfile }) !? { |k| k.asString } };
+~saLevelsKeys = {
+    var keys = List.new;
+    [~saLevelsRig.(), ~rp !? { |r| r[\inheritRig] }].do { |k|
+        k !? { if(keys.includesEqual(k.asString).not) { keys.add(k.asString) } } };
+    keys.asArray
+};
+// dB as kept: as good as off at -60, to a tenth (times ten, rounded, over
+// ten: round(0.1) answers -10.600000000000001).
+~saLevelDb = { |amp| ((amp ? 0).ampdb.max(-60) * 10).round / 10 };
+// Every rig's kept levels, (rigs: rig -> (strip -> dB), refused: why the file
+// was not read, or nil). No file is no levels.
+~saReadKeptLevels = {
+    var text = MegaFiles.readText(~saKeptLevelsPath.());
+    var obj = text !? { |t| MegaFiles.parseObject(t) };
+    var version = if(obj.isKindOf(MegaJsonObject)) { MegaFiles.versionOf(obj, ~saLevelsFormat, 1, "levels file") };
+    var rigs = Dictionary.new, why, own;
+    case
+    { text.isNil } { }
+    { obj.isString } { why = obj }
+    { version.isString } { why = version }
+    {
+        obj.at("rigs") !? { |r| if(r.isKindOf(MegaJsonObject)) { r.keysValuesDo { |rig, strips|
+            own = IdentityDictionary.new;
+            if(strips.isKindOf(MegaJsonObject)) { strips.keysValuesDo { |k, db|
+                if(db.isNumber and: { ~saLevelKeys.includes(k.asSymbol) }) { own.put(k.asSymbol, db.asFloat) } } };
+            rigs.put(rig.asString, own);
+        } } };
+    };
+    (rigs: rigs, refused: why)
+};
+// What a start here begins with, strip -> dB: megalooper's own, with this
+// rig's kept levels over them. `rigs` as read, or read now.
+~saLevelsStartOf = { |rigs|
+    var r = rigs ?? { ~saReadKeptLevels.()[\rigs] };
+    var key = ~saLevelsKeys.().detect { |k| r[k].notNil };
+    var start = IdentityDictionary.new;
+    MegaSA.defaultLevels.keysValuesDo { |k, amp| start.put(k, ~saLevelDb.(amp)) };
+    key !? { |k| r[k].keysValuesDo { |strip, db| start.put(strip, db) } };
+    start
+};
+// The levels now, strip -> dB, of the strips there are.
+~saLevelsNow = { |m|
+    var now = IdentityDictionary.new;
+    m !? { ~saLevelKeys.do { |k| m.level(k) !? { |amp| now.put(k, ~saLevelDb.(amp)) } } };
+    now
+};
+~saLevelsDirty = {
+    var now = ~saLevelsNow.(~megaSA), start = ~saLevelsStart ?? { ~saLevelsStartOf.() };
+    now.keys.any { |k| (now[k] - (start[k] ? now[k])).abs > 0.05 }
+};
+~saLevelsText = { |rigs|
+    var j = { |x| MegaFiles.jsonString(x) };
+    "{\"format\": " ++ j.(~saLevelsFormat) ++ ", \"version\": 1,\n \"rigs\": {"
+        ++ rigs.keys.asArray.sort.collect { |rig|
+            "\n  " ++ j.(rig) ++ ": {" ++ ~saLevelKeys.select { |k| rigs[rig][k].notNil }.collect { |k|
+                j.(k.asString) ++ ": " ++ MegaFiles.jsonNumber(rigs[rig][k]) }.join(", ") ++ "}"
+        }.join(",") ++ "}}\n"
+};
+~saKeepLevels = { |action|
+    var m = ~megaSA, rig = ~saLevelsRig.(), read, rigs;
+    case
+    { m.isNil } { action.value(false, "there is no mixer") }
+    { rig.isNil } { action.value(false, "there is no rig to keep them for") }
+    {
+        read = ~saReadKeptLevels.();
+        if(read[\refused].notNil) {
+            action.value(false, ~saKeptLevelsPath.().basename ++ " can't be read (" ++ read[\refused]
+                ++ "), so it is left as it is")
+        } {
+            rigs = read[\rigs];
+            rigs.put(rig, ~saLevelsNow.(m));
+            MegaFiles.write(~saKeptLevelsPath.(), ~saLevelsText.(rigs),
+                { |text| if((text !? { |t| MegaFiles.parseObject(t) }).isKindOf(MegaJsonObject).not) { "it does not read back" } },
+                nil, { |ok, why|
+                    if(ok) { ~saLevelsStart = ~saLevelsStartOf.(rigs) };
+                    action.value(ok, why);
+                }, true);
+        };
+    };
+};
+~saLoadKeptLevels = {
+    var m = ~megaSA, read = ~saReadKeptLevels.(), key;
+    if(read[\refused].notNil) {
+        ("megalooper: the kept levels (" ++ ~saKeptLevelsPath.().basename ++ ") were not read: " ++ read[\refused]
+            ++ ". The levels start as megalooper's own.").warn;
+    };
+    key = ~saLevelsKeys.().detect { |k| read[\rigs][k].notNil };
+    if(m.notNil and: { key.notNil }) {
+        read[\rigs][key].keysValuesDo { |k, db| if(m.level(k).notNil) { m.setLevel(k, db.clip(-60, 6).dbamp) } };
+        ("megalooper: the levels start as kept for " ++ key ++ ".").postln;
+    };
+    ~saLevelsStart = ~saLevelsStartOf.(read[\rigs]);
+    key.notNil
+};
+~saResetLevels = {
+    ~megaSA !? { |m| MegaSA.defaultLevels.keysValuesDo { |k, amp| if(m.level(k).notNil) { m.setLevel(k, amp) } } };
+};
+
 // The drums at boot, once MegaSA is ready: the kit folder, the kept drums if
 // there are any, then the default kit in every slot they did not name (or
 // gave a kit that is no longer there); a slot they kept empty ("none") stays
@@ -681,6 +800,8 @@
     ~megaSA.waitForReady;
     // What stands now is what was kept: Keep's mark starts clean.
     ~megaSA.markKept;
+    // The levels kept for this rig, if any (Start with this under Levels).
+    ~saLoadKeptLevels.();
     ~saWatchRecovery.();
     sound !? { |x| ("megalooper: the chains start as kept (" ++ x.devices.size ++ " devices, kept "
         ++ (x.savedAt ? "at an unknown time") ++ ").").postln };

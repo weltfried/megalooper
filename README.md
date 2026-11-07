@@ -142,6 +142,7 @@ folder:
 | `sa/kept.json`, `sa/sounds/` | The sound a boot starts with, and the sounds you saved |
 | `sa/drum-presets/`, `sa/kept-drums/` | The drums' presets, and the drums a boot starts with |
 | `sa/synth-presets/`, `sa/kept-synth/`, `sa/wavetables/` | The synth's presets, the synth a boot starts with, and your wavetables |
+| `sa/kept-levels.json` | The levels each rig starts with (**Start with this** under Levels, on Perform) |
 | `sa/plugins/` | The list of plugins megalooper found |
 | `settings.json` | Your choices: the audio devices and inputs, the MIDI map each rig uses, which MIDI inputs megalooper listens to, the theme, the help lines, AI apps on or off |
 | `calibration.json` | What the Calibrate view found, per audio setup (devices and buffer) or rig of yours |

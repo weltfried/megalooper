@@ -10,7 +10,9 @@ what the menus do not offer.
 ## What the menus do
 
 - **Kept for the next start**, in `settings.json` in your megalooper folder.
-  The devices are kept by name.
+  The devices are kept by name. The levels under Levels on Perform are kept
+  per setup too, its devices whatever the buffer, when you press **Start with
+  this** there (`sa/kept-levels.json`).
 - **Two devices are fine.** The input can be one device and the output
   another, the microphone and the speakers of a laptop, say: SuperCollider
   joins them itself. They must run at the same sample rate, or the audio

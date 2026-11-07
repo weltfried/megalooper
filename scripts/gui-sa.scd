@@ -1,5 +1,6 @@
 // megalooper — Megalooper SA's mixer as Perform shows it: its levels and
-// mutes (~buildSAPerformLevels). The effects, Bias FX's window and the presets
+// mutes (~buildSAPerformLevels), with Reset and Start with this, which keeps
+// the levels for the rig (setup-sa.scd). The effects, Bias FX's window and the presets
 // are on the Effects pane (gui-effects.scd), the drums on the Drums pane
 // (gui-drums.scd) and their New loop switch on Perform; Setup's Rig page keeps
 // only a line saying where they are.
@@ -106,22 +107,57 @@
     ~saPerformControllers = [];
     ~saPerformLevels = IdentityDictionary.new;
 };
+// Start with this's mark: a dot while the levels differ from what a start on
+// this rig begins with (setup-sa.scd, ~saLevelsDirty), as the effects' has.
+~saLevelsKeepPaint = {
+    ~saLevelsKeepButton !? { |b| if(b.isClosed.not) {
+        b.states_([[if((~saLevelsDirty !? { |f| f.value }) == true) { "Start with this •" } { "Start with this" },
+            ~gt[\ink], ~gt[\panel]]]) } };
+};
+// On LEVELS' caption line, at its right: Reset to megalooper's own, and Start
+// with this, which keeps them for this rig (setup-sa.scd). Tiles no taller
+// than the caption, and half the gap under it: any more height pushes the
+// strips' Mutes off the bottom of a laptop's window, and a column beside
+// Master widens the row and cuts the actions' words off.
+~saLevelsButtons = {
+    var small = { |label, width, tip, action|
+        LooperTile().border_(~gt[\line]).font_(~guiSans.(11)).fixedHeight_(18).fixedWidth_(width).pad_(6)
+            .cycles_(false).states_([[label, ~gt[\ink], ~gt[\panel]]]).toolTip_(tip).action_(action)
+    };
+    var own = ~saLevelKeys.select { |k| ~megaSA.level(k).notNil }.collect { |k|
+        ~saStripLabels[k].replace(":", "") ++ " " ++ ~saLevelDb.(MegaSA.defaultLevels[k]) ++ " dB" }.join(", ");
+    ~saLevelsKeepButton = small.("Start with this", 116,
+        "Keep the levels as they are now for this rig (" ++ (~saLevelsRig.() ? "this one") ++ "): the next start\n"
+            "on it begins with them instead of megalooper's own. The mutes are not kept.",
+        { ~saKeepLevels.({ |ok, why| {
+            if(ok) { ~guiSay.("Levels kept for " ++ ~saLevelsRig.() ++ ": the next start on it begins with them.") }
+                { ~guiSay.("The levels were not kept: " ++ (why ? "the file was not written") ++ ".", \bad) };
+            ~saLevelsKeepPaint.();
+        }.defer }) });
+    ~saLevelsKeepPaint.();
+    ~saLevelsResetButton = small.("Reset", 56, "megalooper's own levels, now: " ++ own ++ ".\n"
+        "Start with this keeps them for the next start too.", { ~saResetLevels.() });
+    HLayout(~guiCaption.("LEVELS", 11), nil, ~saLevelsResetButton, ~saLevelsKeepButton).spacing_(8).margins_(0)
+};
 ~buildSAPerformLevels = {
     var m = ~megaSA, keys;
     ~guiTeardowns[\saPerform].value;
     if(~rp.notNil and: { ~rp[\sa] == true } and: { m.notNil }) {
-        keys = [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].select { |k| m.level(k).notNil };
+        keys = ~saLevelKeys.select { |k| m.level(k).notNil };
         ~saPerformControllers = [
             SimpleController(m)
-                .put(\level, { |obj, what, key, amp| { ~saPaintLevel.(~saPerformLevels, key, amp) }.defer })
+                .put(\level, { |obj, what, key, amp| {
+                    ~saPaintLevel.(~saPerformLevels, key, amp);
+                    ~saLevelsKeepPaint.();
+                }.defer })
                 .put(\mute, { |obj, what, key| { ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) }.defer })
                 .put(\hold, { |obj, what, key| { ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) }.defer })
         ];
         View().background_(~gt[\panel]).layout_(VLayout(
-            ~guiCaption.("LEVELS", 11),
+            ~saLevelsButtons.(),
             HLayout(*keys.collect { |k|
                 [~saLevelRow.(m, k, ~saStripLabels[k], ~saPerformLevels, nil, nil, true), stretch: 1] }).spacing_(28)
-        ).margins_([16, 10, 16, 12]).spacing_(8))
+        ).margins_([16, 10, 16, 12]).spacing_(4))
     }
 };
 
