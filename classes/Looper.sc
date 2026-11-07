@@ -68,9 +68,11 @@ Looper {
     // For loops that start atmospheric: take one has no onsets, so no meter is
     // found and Live's transport is never started (correct — there is no beat to
     // follow). Overdub a rhythmic pattern and this derives the meter from THAT,
-    // then starts Live. Off by default: it only makes sense when you work that
-    // way, and every extra analysis pass is another chance to be wrong.
-    var <analyzeOverdubs = false;
+    // then starts Live. On by default since 2026-11-07: with the fallback
+    // meter off (its default, MeterAnalyzer.fallbackOn), a take with no beat
+    // has no meter, and an overdub is how it gets one. Gated on that: a loop
+    // with a meter is never re-read (prHasValidMeter).
+    var <analyzeOverdubs = true;
     // The loop is already a fixed length here, which makes the fit MORE
     // constrained than take one — but an atmospheric loop tends to be long, and
     // the default 4-bar enumeration cannot describe a 12 s pad at 120 BPM (six
@@ -1051,7 +1053,8 @@ Looper {
     // Three cases. A clean grid fit keeps its tempo and re-derives the bar count
     // (bpm depends only on tau/denom/sub, so k/n/loopDur are safe to recompute);
     // a take that fits no grid is anchored to the full length as whole bars of
-    // the user's fallback meter; anything else keeps the raw take.
+    // the user's fallback meter, or has none with the fallback off
+    // (MeterAnalyzer.fallbackFor); anything else keeps the raw take.
     //
     // The guard: a grid fit may move the take by at most MeterAnalyzer.snapLimit
     // eighths, and never more than snapLimitSecs. Rounding a 7+7+7+8 take to
@@ -1059,8 +1062,9 @@ Looper {
     // 5/4 lost 448 ms that way. An answer
     // that would move the loop further gives way to the best reading that does
     // not, and with none the take is length-anchored, which keeps its length
-    // exactly. The readings that would move it are dropped from the ranked
-    // list, so the next-reading switch never offers one. `snapRefused` on the
+    // exactly (or, with the fallback off, has no meter). The readings that
+    // would move it are dropped from the ranked list, so the next-reading
+    // switch never offers one. `snapRefused` on the
     // result says what gave way and by how much. guard = false is readingFor's:
     // its readings were vetted against the take when it was analysed, and the
     // loop in force since then is whole bars of the answer (a multiply doubles
@@ -1089,17 +1093,13 @@ Looper {
             out = if(fits.notEmpty) {
                 this.prSnapToBars(fits[0].copy, loopSecs).put(\candidates, fits)
             } {
-                MeterAnalyzer.anchorToLength(loopSecs,
-                    MeterAnalyzer.fallbackNum, MeterAnalyzer.fallbackDenom,
-                    result[\onsetCount])
+                MeterAnalyzer.fallbackFor(loopSecs, result[\onsetCount])
             };
             out[\snapRefused] = refused;
             ^out
         };
         if(result[\error] == \lengthAnchored) {
-            ^MeterAnalyzer.anchorToLength(loopSecs,
-                MeterAnalyzer.fallbackNum, MeterAnalyzer.fallbackDenom,
-                result[\onsetCount])
+            ^MeterAnalyzer.fallbackFor(loopSecs, result[\onsetCount])
         };
         result[\loopDur] = loopSecs;
         ^result
@@ -1424,9 +1424,11 @@ Looper {
             result = Looper.snapAnalysisToLoop(result, dur);
             result[\snapRefused] !? { |x|
                 ("Looper: " ++ x[\numerator] ++ "/" ++ x[\denominator] ++ " x" ++ x[\k]
-                    ++ " would move the loop " ++ x[\moveMs] ++ " ms — kept its length, as "
-                    ++ Looper.prReadingString(result)
-                    ++ (if(result[\error].notNil) { " (length-anchored)" } { "" }) ++ ".").postln;
+                    ++ " would move the loop " ++ x[\moveMs] ++ " ms — kept its length, "
+                    ++ (if(result[\error] == \noFit) { "with no meter" } {
+                        "as " ++ Looper.prReadingString(result)
+                            ++ (if(result[\error].notNil) { " (length-anchored)" } { "" }) })
+                    ++ ".").postln;
             };
             newFrames = (result.loopDur * sr).asInteger;
             // Chord/pitch segmentation over the full loop (cheap, ~0.1 ms).
@@ -2125,8 +2127,9 @@ Looper {
     }
 
     // What the log's header says about the instrument as the set began: the
-    // threshold, the channels the analysis reads, the fallback meter, and the
-    // loop already in force if the recorder was started mid-piece.
+    // threshold, the channels the analysis reads, the fallback meter (and
+    // whether there is one), and the loop already in force if the recorder
+    // was started mid-piece.
     prSessionContext {
         var ctx = (
             threshold: onsetThreshold,
@@ -2134,6 +2137,7 @@ Looper {
             in: inChannel,
             fallback: MeterAnalyzer.fallbackNum.asString ++ "/" ++ MeterAnalyzer.fallbackDenom,
             fallbackBars: MeterAnalyzer.fallbackBars,
+            fallbackOn: MeterAnalyzer.fallbackOn,
             state: state
         );
         if(loopFrames > 0 and: { lastResult.notNil }) {

@@ -40,6 +40,11 @@ File.mkdir(tmp);
 File.mkdir(out);
 ~midiUserRootOverride = tmp +/+ "user";
 ~midiWriteSync = true;
+// The fallback meter as a start sets it: off, as it ships (settings.json),
+// its meter 7/8 (~setupLooper).
+~fallbackApply.();
+MeterAnalyzer.fallbackNum = 7;
+MeterAnalyzer.fallbackDenom = 8;
 ~saFxPresetDir = tmp +/+ "fx";
 ~saDrumsPresetDir = tmp +/+ "drum-presets";
 ~saSynthPresetDir = tmp +/+ "synth-presets";

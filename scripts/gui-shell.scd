@@ -460,7 +460,7 @@
                     ++ " @ " ++ (r[\bpm] ? 0).round(0.1) ++ " BPM · "
                     ++ (r[\k] ? 1) ++ " bars · anchored, no beat found (no cutter)"
             } {
-                "no meter — " ++ r[\error] ++ " (no cutter)"
+                "no meter — " ++ (if(r[\error] == \noFit) { "no beat found" } { r[\error] }) ++ " (no cutter)"
             }
         } {
             MeterAnalyzer.sigString(r)

@@ -418,3 +418,50 @@ MeterAnalyzer.fallbackNum = origFallback[0];
 MeterAnalyzer.fallbackDenom = origFallback[1];
 MeterAnalyzer.fallbackBars = origFallback[2];
 }.value;
+
+// ---- no fallback (fallbackOn off) ------------------------------------------
+// Off, a take that fits nothing has no meter: the loop keeps its length and
+// has no tempo, and an overdub can find one (2026-11-07; the app's default,
+// the Rig page's switch). On is the library's default, every test above.
+{
+var orig = [MeterAnalyzer.fallbackOn, MeterAnalyzer.fallbackNum, MeterAnalyzer.fallbackDenom,
+    MeterAnalyzer.fallbackBars];
+var irregular = [0.0, 0.35, 0.61, 0.99, 1.4, 1.72, 2.05, 2.31, 2.66, 2.8];
+var tenSecs = (score: 0.9, numerator: 5, denominator: 4, k: 1, sub: 1, tau: 0.6369,
+    loopDur: 0.6369 * 5, bpm: 240 / (4 * 0.6369), n: 5, phase: 0, downbeatOffset: 0, accent: 0, onsetCount: 9);
+// A sparse take whose whole loop reads 7/8, which the 7/8 fallback fits too.
+var full = 4.097, hits = [0.341, 0.622, 2.076, 2.673, 3.538], st = [1.0, 0.4, 1.0, 0.6, 0.4];
+var take = { |on|
+    MeterAnalyzer.fallbackOn = on;
+    Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(full - hits[0], hits - hits[0], st, leadIn: hits[0]), full)
+};
+var r;
+MeterAnalyzer.fallbackNum = 7; MeterAnalyzer.fallbackDenom = 8; MeterAnalyzer.fallbackBars = 0;
+
+MeterAnalyzer.fallbackOn = false;
+r = MeterAnalyzer.analyze(2.99, irregular, irregular.collect { 1.0 });
+~tEq.("off, a take that fits no grid has no meter",
+    [r[\error], r[\numerator], r[\denominator], r[\bpm], r[\onsetCount]], [\noFit, nil, nil, nil, 10]);
+r = Looper.snapAnalysisToLoop(r, 3.1);
+~tEq.("...and the snap keeps the take as it is", [r[\error], r[\numerator], r[\loopDur]], [\noFit, nil, 3.1]);
+r = Looper.snapAnalysisToLoop(tenSecs.copy.put(\candidates, [tenSecs]), 10.0);
+~tEq.("...as where a reading would move it and nothing else fits",
+    [r[\error], r[\numerator], r[\loopDur], r[\snapRefused].notNil], [\noFit, nil, 10.0, true]);
+MeterAnalyzer.fallbackOn = true;
+r = Looper.snapAnalysisToLoop(tenSecs.copy.put(\candidates, [tenSecs]), 10.0);
+~tEq.("...which on is the fallback, as before", [r[\error], r[\numerator], r[\denominator]], [\lengthAnchored, 7, 8]);
+
+// The whole loop's reading gives way to a fallback that fits, the meter
+// the player chose; with none chosen, it answers.
+r = take.(true);
+~tEq.("on, a fallback that fits the whole loop keeps the take",
+    [r[\error], r[\numerator], r[\denominator]], [\lengthAnchored, 7, 8]);
+r = take.(false);
+~tEq.("...off, the whole loop's reading answers", [r[\error], r[\numerator], r[\denominator], r[\wholeLoop]],
+    [nil, 7, 8, true]);
+
+MeterAnalyzer.fallbackOn = orig[0];
+MeterAnalyzer.fallbackNum = orig[1];
+MeterAnalyzer.fallbackDenom = orig[2];
+MeterAnalyzer.fallbackBars = orig[3];
+}.value;

@@ -191,10 +191,30 @@
     // timing fits no pulse grid: the loop is treated as whole bars of this
     // meter and the tempo is derived from its length (see MeterAnalyzer
     // anchorToLength). Defaults to 7/8 to match the odd-meter percussive loops
-    // here; change it live in the GUI. bars 0 = auto (nearest ~110 BPM).
+    // here; change it live on Setup's Rig page. bars 0 = auto (nearest ~110
+    // BPM). Whether there is a fallback at all is ~fallbackApply's, below.
     MeterAnalyzer.fallbackNum   = 7;
     MeterAnalyzer.fallbackDenom = 8;
     MeterAnalyzer.fallbackBars  = 0;
+};
+
+// ---- The fallback meter's switch ---------------------------------------------
+// Whether a take that fits no pulse grid is kept as whole bars of the fallback
+// meter (MeterAnalyzer.fallbackOn), or has no meter: the loop plays at its
+// length, the drums wait, and the Overdub meter (on by default) finds one from
+// an overdub. On Setup's Rig page (gui-rig.scd), kept in settings.json beside
+// the theme; off unless switched on (2026-11-07).
+//   ~fallbackApply.()    the switch as settings.json says (boot.scd, once the
+//                        settings are read)
+//   ~fallbackSet.(true)  on, kept; false off
+~fallbackPrefKey = "fallbackMeter";
+~fallbackDefault = "off";
+~fallbackOnSaved = { ((~guiPrefSaved !? { |f| f.value(~fallbackPrefKey) }) ? ~fallbackDefault) == "on" };
+~fallbackApply = { MeterAnalyzer.fallbackOn = ~fallbackOnSaved.() };
+~fallbackSet = { |on|
+    MeterAnalyzer.fallbackOn = on == true;
+    ~guiPrefSave !? { |f| f.value(~fallbackPrefKey, if(on == true) { "on" } { "off" }, "the fallback meter's switch") };
+    ~rigFallbackPaint !? { |f| f.value };
 };
 
 ~wireLooperCallbacks = {
@@ -246,7 +266,8 @@
                 MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r)).sum.asInteger.clip(1, 99));
             ~ableton.sendMsg("/live/song/set/signature_denominator", r.denominator.asInteger);
         } {
-            ("=> " ++ r.error ++ " (" ++ r.onsetCount ++ " onsets)").postln
+            ("=> " ++ (if(r.error == \noFit) { "no meter: nothing fits, the loop plays at its length" } { r.error })
+                ++ " (" ++ r.onsetCount ++ " onsets)").postln
         };
         // Pre-fill the training-export fields with the analyzer's guess so the
         // user only has to correct mistakes before exporting the ground truth.

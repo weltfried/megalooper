@@ -409,6 +409,28 @@ s.waitForBoot {
     if(~checkGuiQuiet == true) { ~guiWindow.alpha_(0) };
     ~ok.("and back", (~guiThemeName == \dark) and: { ~guiThemeSaved.() == \dark });
 
+    // The fallback meter's switch on the Rig page (setup-model.scd): off
+    // unless settings.json says on, kept there, and the meter beside it only
+    // set while it is on.
+    "== the fallback meter's switch ==".postln;
+    ~tmpOld = MeterAnalyzer.fallbackOn;
+    ~fallbackApply.();
+    ~rigFallbackPaint.();
+    ~ok.("as boot does: off, with settings.json saying nothing of it",
+        [MeterAnalyzer.fallbackOn, ~rigFallbackSeg[\view].value, ~rigFallbackMenu.enabled] == [false, 0, false],
+        [MeterAnalyzer.fallbackOn, ~rigFallbackSeg[\view].value, ~rigFallbackMenu.enabled].asString);
+    ~rigFallbackSeg[\view].valueAction_(1);
+    0.3.wait;
+    ~ok.("On switches the analyser's fallback on, and the meter and bars with it",
+        [MeterAnalyzer.fallbackOn, ~rigFallbackMenu.enabled, ~rigFallbackBars.enabled] == [true, true, true]);
+    ~ok.("...kept in settings.json", File.readAllString(~midiSettingsPath.()).contains("\"fallbackMeter\": \"on\"")
+        and: { ~fallbackOnSaved.() });
+    ~fallbackSet.(false);
+    0.3.wait;
+    ~ok.("off from the model paints the switch back", ~rigFallbackSeg[\view].value == 0,
+        ~rigFallbackSeg[\view].value.asString);
+    MeterAnalyzer.fallbackOn = ~tmpOld;
+
     // Megalooper SA's Effects pane, on the SA rig only (~checkGuiProfile = \sa):
     // the same contracts as above — the model reaches a hidden pane, the
     // widgets write to the model only — plus a preset round trip through the

@@ -132,6 +132,13 @@ MeterAnalyzer {
     classvar <>fallbackDenom = 4;
     classvar <>fallbackBars = 0;
     classvar <maxFallbackBars = 8;
+    // Whether there is a fallback at all (2026-11-07). Off, a take that fits
+    // nothing has no meter (`noFit`): the loop plays at its own length with
+    // no tempo, the drums wait, and an overdub can find one (Looper's
+    // analyzeOverdubs). On here, so the tests and the offline harnesses read
+    // as they always have; the app starts it from settings.json, off unless
+    // switched on (setup-model.scd, ~fallbackApply; the Rig page's switch).
+    classvar <>fallbackOn = true;
 
     *initClass {
         standardMeters = [
@@ -197,10 +204,11 @@ MeterAnalyzer {
         extra = this.prRankCandidates(rescue[1], onsets.size).collect { |c| c.put(\wholeLoop, true) };
 
         // No pulse grid fit: the uneven bars, else the whole loop's best
-        // reading, else anchor the meter to the loop length instead of
-        // guessing a blind 4/4. analyze() only sees the post-first-onset span,
-        // so this is a best-effort estimate; a caller that knows the full
-        // recorded length (the Looper) re-anchors with anchorToLength to fold
+        // reading, else the fallback (fallbackFor): the meter anchored to the
+        // loop length instead of a blind 4/4, or no meter with fallbackOn
+        // off. analyze() only sees the post-first-onset span, so an anchored
+        // meter is a best-effort estimate; a caller that knows the full
+        // recorded length (the Looper) re-anchors with fallbackFor to fold
         // in any leading silence and stay exactly locked to the loop.
         uneven = leadIn !? { |lead|
             this.analyzeUneven(loopDur + lead, onsets + lead, strengths, pitches) };
@@ -208,7 +216,10 @@ MeterAnalyzer {
             case
             { uneven.notNil } {
                 ^uneven.put(\candidates, this.prMergeCandidates(uneven[\candidates], extra)) }
-            { rescue[0].notNil and: { this.prFallbackFits(onsets + leadIn, loopDur + leadIn).not } } {
+            // The fallback the player chose gives way only where it does
+            // not fit; with none chosen there is nothing to give way to.
+            { rescue[0].notNil and: { fallbackOn.not
+                or: { this.prFallbackFits(onsets + leadIn, loopDur + leadIn).not } } } {
                 ^rescue[0].put(\candidates, extra).put(\wholeLoop, true) };
             // Nothing up to kMax bars: up to longK, before the fallback. The
             // call below has kMax = longK, so it goes no further itself.
@@ -217,7 +228,7 @@ MeterAnalyzer {
                     minOnsetDensity.max(longMinDensity), leadIn, pitches);
                 if(longer[\error].isNil) { ^longer.put(\long, true) };
             };
-            ^this.anchorToLength(loopDur, fallbackNum, fallbackDenom, onsets.size)
+            ^this.fallbackFor(loopDur, onsets.size)
         };
 
         // The answer carries its own score and the ranked list it won; a
@@ -358,6 +369,22 @@ MeterAnalyzer {
                 phase: c[8], downbeatOffset: c[11] ? (c[8] * c[5]), accent: c[9],
                 onsetCount: onsetCount)
         }
+    }
+
+    // What a take that fits nothing gets: whole bars of the fallback meter
+    // over its length, or, with fallbackOn off, no meter.
+    *fallbackFor { |loopDur, onsetCount = 0|
+        ^if(fallbackOn) {
+            this.anchorToLength(loopDur, fallbackNum, fallbackDenom, onsetCount)
+        } {
+            this.noFit(loopDur, onsetCount)
+        }
+    }
+
+    // No meter: the take keeps its length, and has no tempo or bars.
+    *noFit { |loopDur, onsetCount = 0|
+        ^(numerator: nil, denominator: nil, bpm: nil, loopDur: loopDur,
+            error: \noFit, onsetCount: onsetCount)
     }
 
     // Derive a meter purely from the loop LENGTH (not onset micro-timing).

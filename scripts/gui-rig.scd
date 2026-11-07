@@ -1,6 +1,6 @@
 // megalooper — the Rig column of the Setup view: what this machine is plugged
-// into, the three numbers trimmed per rig, Megalooper SA's levels and the MIDI
-// map.
+// into, the fallback meter, the three numbers trimmed per rig, Megalooper SA's
+// levels and the MIDI map.
 //
 // Loaded by boot.scd; defines only, runs nothing. Entry point:
 //   ~buildRigPane — builds a fresh Rig pane against the EXISTING ~looper and
@@ -43,6 +43,51 @@
             ~guiRule.()
         ).margins_(0).spacing_(8))
     }
+};
+
+// The fallback meter (setup-model.scd): the switch, kept in settings.json, the
+// meter and bars it keeps a take in, and what Off means. Off until switched
+// on. Under its label like the transport row: beside it, too wide.
+~rigFallbackPaint = {
+    var on = MeterAnalyzer.fallbackOn == true;
+    ~rigFallbackSeg !? { |s| ~guiSegSet.(s, on.binaryValue) };
+    [~rigFallbackMenu, ~rigFallbackBars].do { |v| v !? { if(v.isClosed.not) { v.enabled_(on) } } };
+};
+~rigFallbackSection = {
+    var tip = "A take whose hits fit no pulse grid. On: it is kept as whole bars of this meter, the tempo\n"
+        "from the loop's length, and the drums play to it. Off: it has no meter. The loop plays at its\n"
+        "length, the drums wait, and the Overdub meter (in the take line) finds one from an overdub.";
+    var view;
+    ~rigFallbackSeg = ~guiSeg.(["Off", "On"], (height: 28, font: ~guiSans.(13),
+        action: { |i| ~fallbackSet !? { |f| f.value(i == 1) } }));
+    ~rigFallbackMenu = PopUpMenu().canFocus_(false).font_(~guiMono.(13, true))
+        .background_(~gt[\panel]).stringColor_(~gt[\ink]).fixedWidth_(76)
+        .toolTip_("What a take that fits NO pulse grid is kept in, while the switch is on. The loop is\n"
+            "kept exactly this many bars of this meter, so it still lines up with the bar line.")
+        .items_(~fallbackMeterLabels)
+        .value_((~fallbackMeters.detectIndex { |m|
+            (m[0] == MeterAnalyzer.fallbackNum) and: { m[1] == MeterAnalyzer.fallbackDenom } }) ? 0)
+        .action_({ |menu|
+            var m = ~fallbackMeters[menu.value];
+            MeterAnalyzer.fallbackNum   = m[0];
+            MeterAnalyzer.fallbackDenom = m[1];
+        });
+    ~rigFallbackBars = NumberBox().canFocus_(false).font_(~guiMono.(15, true)).background_(~gt[\panel])
+        .normalColor_(~gt[\ink]).align_(\left).fixedSize_(Size(44, 26))
+        .toolTip_("How many bars. 0 = auto: the bar count that lands nearest 110 BPM.")
+        .clipLo_(0).clipHi_(MeterAnalyzer.maxFallbackBars).step_(1).scroll_step_(1).decimals_(0)
+        .value_(MeterAnalyzer.fallbackBars)
+        .action_({ |nb| MeterAnalyzer.fallbackBars = nb.value.asInteger });
+    view = View().layout_(VLayout(
+        ~guiLabel.("Fallback meter", 14).toolTip_(tip),
+        HLayout(~rigFallbackSeg[\view].fixedWidth_(120).toolTip_(tip), ~rigFallbackMenu, ~rigFallbackBars,
+            ~guiText.("bars", 13, ~gt[\mute]), nil).margins_(0).spacing_(8),
+        ~guiHint.("Off: a take with no beat found plays at its length, no tempo, until an overdub finds one.")
+            .toolTip_(tip),
+        ~guiRule.()
+    ).margins_(0).spacing_(8));
+    ~rigFallbackPaint.();
+    view
 };
 
 ~rigRow = { |label, value|
@@ -275,6 +320,9 @@
         // The Looper's transport is Live's on a Live rig and the drums' on SA
         // (MegaSATransport); standalone has neither, and no row.
         ~rigTransportRow.(),
+        // What a take that fits no pulse grid gets: whole bars of a meter, or
+        // none until an overdub finds one.
+        ~rigFallbackSection.(),
 
         // ---- Timing, per rig ---------------------------------------------------
         // Three numbers trimmed by ear, per rig. Write them back into the

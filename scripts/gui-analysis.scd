@@ -9,8 +9,8 @@
 // This file owns the monitor FEED — the state the onset lamp is drawn from and
 // the OSC callback that fills it — plus the pane holding everything you only
 // look at between takes: the monitor toggle and counts, overdub detection,
-// onset notes, the pitch-segmentation knobs, the fallback meter, and the
-// training-data export.
+// onset notes, the pitch-segmentation knobs, bars by hand, and the
+// training-data export. The fallback meter is the Rig page's (gui-rig.scd).
 //
 // The lamp itself and the threshold's bar are NOT here. The lamp is in the
 // status band (gui-status.scd), on every view; the bar is on Perform, under
@@ -229,8 +229,8 @@
 
 // ---- Pane -----------------------------------------------------------------
 // The left column of the Setup view: the monitor and its counts, the
-// threshold, overdub detection, onset notes, the pitch knobs, the fallback
-// meter and the training export.
+// threshold, overdub detection, onset notes, the pitch knobs, bars by hand
+// and the training export.
 ~buildAnalysisPane = {
     // Captured per build. The moment a newer pane bumps the global, the redraw
     // timer below stops — otherwise rebuilding this pane would leave the old
@@ -476,11 +476,11 @@
             .margins_(0).spacing_(10),
         View().background_(~gt[\line]).layout_(grid),
         ~guiRule.(),
-        // ---- Pitch segmentation, the fallback, the export ------------------------
+        // ---- Pitch segmentation, bars by hand, the export ------------------------
         // Writes to PitchAnalyzer's classvars and ~looper.chordMinPerWindow take
         // effect on the NEXT recorded loop: chord segmentation runs at stop-
-        // record time, not live. The fallback meter is what a take that fits
-        // no pulse grid is anchored to; bars 0 = auto.
+        // record time, not live. The fallback meter moved to the Rig page with
+        // its switch (2026-11-07).
         ~analysisLine.("Pitch range · Hz", [
             ~analysisBox.(NumberBox().clipLo_(1).clipHi_(20000).step_(1).scroll_step_(1).decimals_(0)
                 .value_(PitchAnalyzer.hzLo).action_({ |nb| PitchAnalyzer.hzLo = nb.value }), 64),
@@ -496,25 +496,6 @@
             ~analysisBox.(NumberBox().clipLo_(1).clipHi_(1000).step_(1).scroll_step_(1).decimals_(0)
                 .value_(~looper !? { |l| l.chordMinPerWindow } ? 4)
                 .action_({ |nb| ~looper !? { |l| l.chordMinPerWindow = nb.value.asInteger } }), 56)
-        ]),
-        ~analysisLine.("Fallback meter / bars", [
-            PopUpMenu().canFocus_(false).font_(~guiMono.(13, true))
-                .background_(~gt[\panel]).stringColor_(~gt[\ink]).fixedWidth_(76)
-                .toolTip_("What a take that fits NO pulse grid is anchored to. The loop is kept exactly\n"
-                    "this many bars of this meter, so it still lines up with the bar line.")
-                .items_(~fallbackMeterLabels)
-                .value_((~fallbackMeters.detectIndex { |m|
-                    (m[0] == MeterAnalyzer.fallbackNum) and: { m[1] == MeterAnalyzer.fallbackDenom } }) ? 0)
-                .action_({ |menu|
-                    var m = ~fallbackMeters[menu.value];
-                    MeterAnalyzer.fallbackNum   = m[0];
-                    MeterAnalyzer.fallbackDenom = m[1];
-                }),
-            ~analysisBox.(NumberBox()
-                .toolTip_("0 = auto: pick the bar count that lands nearest 110 BPM.")
-                .clipLo_(0).clipHi_(MeterAnalyzer.maxFallbackBars).step_(1).scroll_step_(1).decimals_(0)
-                .value_(MeterAnalyzer.fallbackBars)
-                .action_({ |nb| MeterAnalyzer.fallbackBars = nb.value.asInteger }), 44)
         ]),
         ~analysisLine.("Bars by hand · one cycle", [
             ~analysisBarsField, ~guiText.("/", 14, ~gt[\mute]), ~analysisBarsDenom,

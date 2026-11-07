@@ -6,7 +6,7 @@
 //
 //   setup-routing.scd  ~routingProfiles, ~applyRoutingProfile, the preflights
 //   setup-midi.scd     ~setupMidiIO, and the numbers MIDI is bound to
-//   setup-model.scd    ~setupLooper, ~wireLooperCallbacks
+//   setup-model.scd    ~setupLooper, ~wireLooperCallbacks, ~fallbackApply
 //   setup-sa.scd       ~setupSA: Megalooper SA's mixer and drums, on profiles
 //                      with sa: true
 //   setup-miditargets.scd  ~midiTargetsBuild: every control MIDI can drive
@@ -229,6 +229,9 @@ s.waitForBoot {
     // (setup-midimap.scd); a map's bindings for SA's effects and drums do
     // nothing on a rig without them.
     ~setupMidiBindings.();
+    // The fallback meter on or off, as settings.json (read just above) says:
+    // off unless switched on (setup-model.scd).
+    ~fallbackApply.();
 
     // Builds the window, its status band and every pane, in the theme kept in
     // settings.json (read by ~setupMidiBindings above). Cannot run before

@@ -212,6 +212,8 @@ l.detectMeterFromOverdub(false);
 ~tEq.("...the run at an overdub's end says nothing", refused.size, 0);
 ~tPut.(l, \loopFrames, 2 * 48000);
 ~tGet.(l, \overdubOnsets).addAll([[0.1, 1.0], [0.6, 0.5], [1.1, 1.0]]);
+// The switch is on by default (2026-11-07): off here, for the words that say so.
+~tPut.(l, \analyzeOverdubs, false);
 l.detectMeterFromOverdub(true);
 ~tEq.("Detect now on three onsets: refused, with the count and the switch that was off", refused.asArray,
     [[\detectMeterFromOverdub, "no beat in the last overdub: 3 onsets, 8 needed · Overdub meter is off"]]);

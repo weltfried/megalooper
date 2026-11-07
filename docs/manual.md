@@ -529,7 +529,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
 | **Synth** | 7 | The note sequencer, the Wave synth or a VST instrument, and their presets ([The synth](synth.md)) |
-| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop and the timing bars, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, onset notes, pitch, fallback meter, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, **AI apps** ([AI apps](ai.md)) and Record set's **Log every action** ([Every action](#every-action)) |
+| **Setup** | 5 | Three pages, picked from the menu its tab opens (key **5** again: the next page). **Rig**: profile, device, analysis input, input, Drums follow the loop, the fallback meter and the timing bars, and **Calibrate** (where the wizard is) beside them · **Analysis**: monitor, counts, threshold, onset notes, pitch, bars by hand, export · **MIDI & AI**: the MIDI map, **MIDI in**, **AI apps** ([AI apps](ai.md)) and Record set's **Log every action** ([Every action](#every-action)) |
 | **Calibrate** | 6 | The wizard, step by step; Esc goes back to Setup's Rig page |
 
 ![The Sound view](images/sound.png)
@@ -708,7 +708,9 @@ so nothing here can be clicked into a state you didn't intend.
   detection chose, which is also where it started the drums.
 - **Take** — what the analyser decided: `7/8`, `103.2` BPM, `2` bars, the key;
   `TAKE · ANCHORED` when the loop fell back to the length-anchored meter, which
-  is also the reason the cutter will refuse to start. When the analyser's
+  is also the reason the cutter will refuse to start; `TAKE · NO METER` when
+  nothing fit and the [fallback meter](#the-fallback-meter) is off: the loop
+  plays at its length and the drums wait for an overdub to find the meter. When the analyser's
   runner-up scored close the chip says so — `or 7/4 @ 206.4?` — which is the
   take that wants the next-reading switch; while a reading is armed the chip is
   filled and counts down, `→ 7/4 @ 206.4 BPM · 2 bars · lands in 1 loop`, and
@@ -749,7 +751,7 @@ rest is on Setup's Analysis page (`scripts/gui-analysis.scd`).
 
 ![Setup's Analysis page](images/setup-analysis.png)
 
-*Fig: Setup's Analysis page: the readout, the onset threshold's value, the onset notes, the pitch range, the fallback meter, Bars by hand and the export.*
+*Fig: Setup's Analysis page: the readout, the onset threshold's value, the onset notes, the pitch range, Bars by hand and the export.*
 
 On **Perform**:
 
@@ -790,8 +792,6 @@ In **Setup's Analysis page**:
 - **Min samples · total / per window** — 8 / 3: how many pitch readings a
   take, and each chord window, needs before a key or a chord is named. From
   the next take.
-- **Fallback meter / bars** — see [How meter detection
-  works](#how-meter-detection-works).
 
 A threshold changed from the default belongs to the rig: Calibrate's threshold
 step (optional) keeps it for this rig ([The calibrated
@@ -850,9 +850,11 @@ shares.
 ### Overdub meter detection
 
 For loops that open atmospheric. Take one has no attacks, so no meter is found
-and the drums never start — correct, there is no beat to follow. Turn on
-**Overdub meter** in the take line of the status band, overdub a rhythmic
-pattern, and the meter is derived from *that* instead, then the drums start.
+and the drums never start — correct, there is no beat to follow. Overdub a
+rhythmic pattern and the meter is derived from *that* instead, then the drums
+start. **Overdub meter**, in the take line of the status band, is on from the
+start; with the [fallback meter](#the-fallback-meter) off, as it starts, this
+is how a take with no beat found gets its meter.
 
 - **Runs on `endOverdub`**, and only while the loop still has **no valid meter**
   (a length-anchored fallback counts as none). Without that gate every overdub
@@ -920,8 +922,8 @@ on; when neither does, it lands on the next one and the drums start again from
 it.
 
 Refused, with a line in the log and nothing lit: when nothing is playing, on a
-take that fit no grid, because the length-anchored fallback has no next
-reading to offer, and on a take that only one reading fit. A stop, a clear, a new take or an undo cancels a
+take that fit no grid, because no meter, or the length-anchored fallback, has
+no next reading to offer, and on a take that only one reading fit. A stop, a clear, a new take or an undo cancels a
 reading that has not landed.
 
 ## Onset notes
@@ -1713,7 +1715,7 @@ from the record press, each grid's pulse the loop's length over its number of
 pulses, and only where beat one falls left free. A loop repeats, so its length
 is whole pulses even when the first hit came half a beat after the press,
 which the first fit cannot see. Its gates are a little looser, and it gives
-way to the **Fallback meter** whenever that fits the loop as well. Its
+way to the **Fallback meter**, when that is on, wherever it fits the loop as well. Its
 readings also go to the end of the list the [next
 reading](#the-next-reading) offers. It took the seven training takes from one
 read right to five, and moved none of the duo's own takes that were read right.
@@ -1723,12 +1725,22 @@ onset per pulse, `longMinDensity`). Eight bars of 4/4 at 85 BPM need it: four
 bars of them would be under 50 BPM, so they came out as the fallback. It is
 tried only here because, let in everywhere, it reads a slow four-bar take as
 eight bars at twice its tempo (four of 4/4 at 70 as eight at 140).
-If nothing fits even so, the take
-is *length-anchored*: the loop is kept as whole bars of the **Fallback meter**
-(Setup's Analysis page, 4/4 by default), as many as put the tempo nearest
-110 BPM, or the number you set beside it. The status band says
-`TAKE · ANCHORED`, and the cutter will not start. Fewer than two onsets give no
-reading at all.
+If nothing fits even so, the take has **no meter**, unless the [fallback
+meter](#the-fallback-meter) is on. Fewer than two onsets give no reading at all.
+
+### The fallback meter
+
+What a take gets when nothing fits, on Setup's Rig page. **Off** (as it
+starts): the take has no meter. The loop plays at the length you recorded,
+with no tempo; the drums and the cutter wait, the status band says
+`TAKE · NO METER`, and an overdub finds the meter (**Overdub meter**, on from
+the start: [Overdub meter detection](#overdub-meter-detection)), or **Bars by
+hand** gives it. **On**: the take is *length-anchored*, kept as whole bars of
+the meter beside the switch (7/8 to start), as many as put the tempo nearest
+110 BPM, or the number you set beside it; the drums play to it. The status
+band says `TAKE · ANCHORED`, the cutter will not start, and an overdub can
+still find the real meter. megalooper keeps the switch for the next start; the
+meter starts at 7/8 again.
 
 ### Accent analysis
 

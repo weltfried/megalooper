@@ -162,7 +162,13 @@
     { r.isNil } { }
     { (r[\error].notNil) and: { r[\error] != \lengthAnchored } } {
         t[\head] = "TAKE · NO METER";
-        t[\hint] = "No meter: " ++ r[\error] ++ ". The cutter needs one: record again.";
+        // No fallback (Setup › Rig): a take that fits nothing has no meter
+        // until an overdub finds one.
+        t[\hint] = if(r[\error] == \noFit) {
+            "No beat found: the loop plays at its length, the drums wait. "
+                ++ (if((l !? { |x| x.analyzeOverdubs }) == true) { "Overdub a rhythm and its meter is found." }
+                    { "Overdub meter on, then overdub a rhythm, finds one." })
+        } { "No meter: " ++ r[\error] ++ ". The cutter needs one: record again." };
         t[\line] = "no meter";
     }
     {

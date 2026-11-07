@@ -374,10 +374,11 @@ protect {
     ~tEq.("the cutter's mode: Mix at the bottom, then on to Insert, read back as its index",
         [heard.(l, { act.('looper.bbcutMode', [\position, 0]) }), { act.('looper.bbcutMode', [\next]); l.bbcutMode }.value,
             targets['looper.bbcutMode'][\get].value], [[[\bbcutMode, \mix]], \insert, 1]);
+    // On by default (2026-11-07), so the flip turns it off.
     ~tEq.("Overdub detect flips through the model's setter, and goes where it is told",
         [heard.(l, { act.('looper.analyzeOverdubs', [\flip]) }), l.analyzeOverdubs,
-            heard.(l, { act.('looper.analyzeOverdubs', [\set, false]) }), l.analyzeOverdubs],
-        [[[\analyzeOverdubs, true]], true, [[\analyzeOverdubs, false]], false]);
+            heard.(l, { act.('looper.analyzeOverdubs', [\set, true]) }), l.analyzeOverdubs],
+        [[[\analyzeOverdubs, false]], false, [[\analyzeOverdubs, true]], true]);
     ~tEq.("Re-roll throws the dice again, and the Chance readout hears of it",
         heard.(l, { act.('looper.rerollOnsetNotes', [\fire]) }), [[\onsetNoteChance, 0.3]]);
     l.granularPitch = 7;
