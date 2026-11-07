@@ -275,9 +275,12 @@ MegaRemote {
         kit = args !? { |a| a.at("kit") };
         if(given.isNil and: { kit.isNil }) { ^this.class.failure("nothing to change: give a pattern, a kit, or both") };
         if(given.notNil and: { given.isKindOf(MegaJsonObject).not }) { ^this.class.failure("pattern must be an object") };
-        if(kit.notNil and: { drums.kitKeys.includes(kit.asString.asSymbol).not }) {
-            ^this.class.failure("there is no kit " ++ kit.asString.quote ++ "; there are "
-                ++ drums.kitKeys.collect(_.asString).join(", "))
+        // Only a kit whose samples are here: a map alone plays nothing.
+        if(kit.notNil and: { drums.kitsWithAudio.includes(kit.asString.asSymbol).not }) {
+            ^this.class.failure(if(drums.kitKeys.includes(kit.asString.asSymbol)) {
+                "the kit " ++ kit.asString.quote ++ " has no samples on this Mac; there are "
+            } { "there is no kit " ++ kit.asString.quote ++ "; there are " }
+                ++ drums.kitsWithAudio.collect(_.asString).join(", "))
         };
         label = "drums' " ++ [given !? { which.asString ++ " pattern" }, kit !? { "kit" }].reject(_.isNil).join(" and ");
         this.prSnapshot(\drums, label, drums.presetData("before the AI's change"), src);
@@ -1499,7 +1502,7 @@ MegaRemote {
             \stepsKit, d.kit(\steps) !? { |k| k.asString },
             \onsetKit, d.kit(\onset) !? { |k| k.asString },
             \kitLevels, this.obj([\steps, d.kitLevel(\steps), \onset, d.kitLevel(\onset)]),
-            \kits, d.kitKeys.collect(_.asString),
+            \kits, d.kitsWithAudio.collect(_.asString),
             \pads, this.obj([\steps, pads.(\steps), \onset, pads.(\onset)]),
             \repeats, d.repeats, \reverbMix, d.reverbMix, \offsetMs, d.offsetMs,
             \patterns, this.obj([\main, d.patterns[\main], \break, d.patterns[\break]])

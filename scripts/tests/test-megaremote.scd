@@ -181,7 +181,8 @@ if(sa.notNil) {
     d = sa.drums;
     // A kit asked for is the drums' at once; its buffers never come here.
     d.kitReader = { |path, done| };
-    kits = d.kitKeys;
+    // The kits the AI may give: those whose samples are here.
+    kits = d.kitsWithAudio;
     presets = ~tTempPath.("megaremote-presets");
     said = List.new;
     src = (looper: nil, sa: sa, profile: \sa, drumsPresetDir: presets, say: { |m| said.add(m) });
@@ -216,6 +217,26 @@ if(sa.notNil) {
         [false, false, false, false, false, 2]);
     ~tAssert.("...a kit there is not is answered with those there are",
         ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"kit\": \"no-such-kit\"}}").at("error").contains(kits[0].asString));
+    // A kit whose map is here and its samples are not plays nothing: it is
+    // neither listed nor taken, and the answer says why.
+    {
+        var dir = ~tTempPath.("megaremote-kits"), was = d.kitDir, refused, listed;
+        File.mkdir(dir);
+        File.use(dir +/+ "maponly.json", "w", { |f|
+            f.write("{ \"version\": 1, \"key\": \"maponly\", \"name\": \"Map Only\", \"pads\": { \"36\": { \"name\": \"Kick\", "
+                ++ "\"layers\": [ { \"file\": \"maponly/k.wav\" } ] } } }") });
+        d.instVarPut(\kitDir, dir);
+        d.instVarPut(\kitIndex, nil);
+        refused = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"kit\": \"maponly\"}}");
+        listed = ask.(r, "{\"command\": \"context\"}").at("result").at("drums").at("kits");
+        ~tEq.("a kit with its map and no samples is refused, saying so, and not listed among the kits",
+            [refused.at("ok"), refused.at("error").contains("has no samples on this Mac"), listed.includesEqual("maponly")],
+            [false, true, false]);
+        d.instVarPut(\kitDir, was);
+        d.instVarPut(\kitIndex, nil);
+        File.delete(dir +/+ "maponly.json");
+        File.delete(dir);
+    }.value;
 
     if(kits.size >= 2) {
         o = kits.detect { |k| k != d.kit(\steps) };

@@ -1198,8 +1198,19 @@
     HLayout(~guiTitle.("Drums", 26), on, brk, nil, importButton, live, keep).spacing_(14)
 };
 
+// The kits a part can play: those whose samples are here. A kit's map
+// without its samples (the kits megalooper was built on, before Live's
+// samples are exported) is no choice, so it is not offered; the kit the
+// part has now is, all the same, so the menu names what is set. An import
+// rebuilds the pane, and the menus with it.
+~drumsKitChoices = { |d, slot|
+    var here = if(d.respondsTo(\kitsWithAudio)) { d.kitsWithAudio } { d.kitKeys };
+    var now = d.kit(slot);
+    if(now.isNil or: { here.includes(now) }) { here } { (here ++ [now]).sort }
+};
+
 ~drumsKitMenu = { |d, slot|
-    var keys = d.kitKeys;
+    var keys = ~drumsKitChoices.(d, slot);
     var menu = ~drumsMenu.(PopUpMenu()).fixedWidth_(220)
         .items_(["— none —"] ++ keys.collect { |k| ~drumsKitName.(d, k) })
         .action_({ |mn|

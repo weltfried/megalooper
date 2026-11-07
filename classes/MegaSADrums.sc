@@ -855,8 +855,8 @@ MegaSADrums {
                 pads: (kit !? { |k| k.notes }) ? [],
                 hasRepeats: (kit !? { |k| k.hasRepeats }) ? false,
                 readable: kit.notNil,
-                // megalooper ships a kit's map, never its samples: is one of
-                // them on this Mac?
+                // megalooper ships every kit's map, the samples of two: is
+                // one of this kit's on this Mac?
                 audio: (kit !? { |k| k.files(dir).any { |p| File.exists(p) } }) ? false,
                 warnings: notes.asArray));
         };
@@ -877,9 +877,11 @@ MegaSADrums {
     kitInfo { |key| ^key !? { |k| this.prKitIndex[k.asSymbol] } }
 
     // The kits that can sound on this Mac: those with a sample of theirs in
-    // the kits folder. megalooper ships every kit's map and no audio (the
-    // kits it was built on play Ableton's), so on a fresh clone there are
-    // none, and the Drums pane says so and shows nothing else.
+    // the kits folder. megalooper ships every kit's map, and the audio of two,
+    // the Analog Kit and the Bolt Kit; the kits it was built on play
+    // Ableton's. Only these are offered (the kit menus, the AI tool): a map
+    // alone plays nothing. With none (a clone with the kits' folders gone),
+    // the Drums pane says so and shows nothing else.
     kitsWithAudio { ^this.kitKeys.select { |k| this.kitInfo(k)[\audio] == true } }
 
     // Read the folder again (a kit added while running).

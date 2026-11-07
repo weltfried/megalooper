@@ -41,11 +41,14 @@ megalooper ships two kits with their sounds, each on notes 36 to 51:
 The sounds of both are CC0: use them in your music, or anywhere else, with no
 conditions and no credit needed.
 
-The other kits come as maps only. The kits megalooper was built on play
-samples that come with Ableton Live, and those cannot be passed on. There are
-two ways to get more kits. Both use `tools/export-live-set.py`, which needs
-Python 3 and nothing else. **Import samples…**, at the top of the Drums view,
-runs it for you on a folder of your own samples.
+The kit menus list the kits whose sounds are on your Mac: on a fresh
+install, those two. There are two ways to add more. Both use
+`tools/export-live-set.py`, which needs Python 3 and nothing else:
+**Import samples…**, at the top of the Drums view, runs it for you on a
+folder of your own samples, and with Ableton Live installed it copies the
+kits megalooper was built on from Live's own library. Those play samples that
+come with Live, which cannot be passed on, so megalooper ships only their
+maps, and they appear in the menus once their sounds are here.
 
 ## A kit from Ableton Live
 
@@ -107,9 +110,9 @@ and import or run it again.
 
 ## Choosing a kit
 
-Each part has a kit menu on the Drums pane. A kit's line says whether it is
-ready, how many pads it plays and how far it was levelled. **— none —**
-silences a part.
+Each part has a kit menu on the Drums pane, listing the kits whose sounds are
+here. A kit's line says whether it is ready, how many pads it plays and how
+far it was levelled. **— none —** silences a part.
 
 Kits come at the levels their makers gave them, and those differ a lot: most
 of the kits megalooper builds play 5 to 10 dB below Kit-Carbon + layer, and

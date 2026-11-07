@@ -1024,6 +1024,28 @@ Routine {
         ok.("a sample put there counts at the next build, with the folder read again",
             ~drumsKitsHere.(d2) and: { d2.kitsWithAudio == [\mine] }, d2.kitsWithAudio.asString);
         ok.("an Event standing in for the drums is never hidden", ~drumsKitsHere.((kitKeys: [])));
+        // A kit's map without its samples is no choice: the menus offer the
+        // kits that play (a fresh clone: the Analog and Bolt Kits, not the
+        // maps of Ableton's), and the kit a part already has all the same.
+        File.use(dir +/+ "maponly.json", "w", { |f|
+            f.write("{ \"version\": 1, \"key\": \"maponly\", \"name\": \"Map Only\", \"pads\": { \"36\": { \"name\": \"Kick\", "
+                ++ "\"choke\": 0, \"retrigger\": false, \"layers\": [ { \"file\": \"maponly/k.wav\", "
+                ++ "\"vel\": { \"law\": \"operator\", \"amount\": 1 } } ] } } }") });
+        d2.rescanKits;
+        ok.("the kit choices are the kits with samples, not a map alone",
+            (d2.kitKeys == [\maponly, \mine]) and: { ~drumsKitChoices.(d2, \steps) == [\mine] },
+            [d2.kitKeys, ~drumsKitChoices.(d2, \steps)].asString);
+        pane = ~buildDrumsPane.();
+        tick.();
+        ok.("...so the kit menus list only it", [\kit_steps, \kit_onset].every { |k|
+            ~drumsWidgets[k][\view].items == ["— none —", "Mine"] },
+            [\kit_steps, \kit_onset].collect { |k| ~drumsWidgets[k][\view].items }.asString);
+        d2.instVarAt(\kitRequested).put(\steps, \maponly);
+        ok.("...but a part that has a map-only kit still finds it in its menu",
+            (~drumsKitChoices.(d2, \steps) == [\maponly, \mine]) and: { ~drumsKitChoices.(d2, \onset) == [\mine] },
+            ~drumsKitChoices.(d2, \steps).asString);
+        d2.instVarAt(\kitRequested).put(\steps, nil);
+        File.delete(dir +/+ "maponly.json");
         File.delete(dir +/+ "mine" +/+ "k.wav");
         File.delete(dir +/+ "mine");
         File.delete(dir +/+ "mine.json");

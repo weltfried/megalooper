@@ -108,7 +108,7 @@
      },
      "kit": {
       "type": "string",
-      "description": "A kit's key from drums.kits in get_context."
+      "description": "A kit's key from drums.kits in get_context: the kits whose samples are on this Mac."
      }
     },
     "additionalProperties": false
