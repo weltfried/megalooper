@@ -81,7 +81,7 @@ say `guitar` in their ids, as in `sa.level.guitar`.
 - `dissolve`, `dissolveBars` (Dissolve loops: the id is from when it counted
   bars), `breakLoops`, `sessionRecording`
 - `bbcut`, `bbcutMode`, `granular`
-- `intensity`, `feedback`, `onsetThreshold`, `masterAmp`
+- `intensity`, `feedback`, `onsetThreshold`
 
 **The Grains**, `looper.` and: `granularMorph`, `granularAmp`,
 `granularPitch`, `granularDetune`, `granularSize`, `granularDensity`,

@@ -334,7 +334,7 @@ makeRig = { |cfg|
     l.breakLoops = cfg[\breakLoops] ? 2;
     // Looper.init's master: Synth.tail(server, ...) is the default group's tail.
     l.instVarPut(\masterSynth, Synth.tail(stub[\defaultGroup], \looperMaster,
-        [\inBus, outBus.index, \out, l.outChannel, \amp, l.masterAmp]));
+        [\inBus, outBus.index, \out, l.outChannel]));
     l.sessionDir = cfg[\setDir];
     ~looper = l;
     ~megaSA = sa;

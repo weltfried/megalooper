@@ -63,7 +63,7 @@ var baseline = (
     'looperEngine':          [ 2927, 959546355 ],
     'looperEngineMono':      [ 2867, 184139025 ],
     'looperClick':           [  429, 831893340 ],
-    'looperMaster':          [  478, 767188786 ],
+    'looperMaster':          [  383, 375005486 ],   // 2026-11-07: no amp, unity into the limiter
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the
     // engine's phase bus (two new controls, phaseBus and locked, and the
     // phase-correction UGens). A deliberate change — see the graph's comment.

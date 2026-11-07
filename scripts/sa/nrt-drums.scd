@@ -244,7 +244,7 @@ makeRig = { |cfg|
     l.breakLoops = cfg[\breakLoops] ? 1;
     // Looper.init's master: Synth.tail(server, ...) is the default group's tail.
     l.instVarPut(\masterSynth, Synth.tail(stub[\defaultGroup], \looperMaster,
-        [\inBus, outBus.index, \out, l.outChannel, \amp, l.masterAmp]));
+        [\inBus, outBus.index, \out, l.outChannel]));
     sa.attachLooper(l);
     // The loop's buffer: the take as recorded, from frame 0.
     buf = Buffer.new(stub, cfg[\loopFrames], 2, stub.nextBufferNumber(1));
@@ -733,12 +733,14 @@ alignment = { |label, bpm, num, den, withBreak|
         var mst = chanOf.(res, chMaster + side), lp = chanOf.(res, chLoop + side), st = chanOf.(res, chSteps + side);
         var on = chanOf.(res, chOnset + side), i = 0, x;
         while { i < res[\frames] } {
-            x = (mst[i] - ((lp[i] + (st[i] * rig[\sa].level(\drums))) + (on[i] * rig[\sa].level(\onsetKit))).clip2(0.98)).abs;
+            x = (mst[i] - (((lp[i] * rig[\sa].level(\loop)) + (st[i] * rig[\sa].level(\drums)))
+                + (on[i] * rig[\sa].level(\onsetKit))).clip2(0.98)).abs;
             if(x > mixErr) { mixErr = x };
             i = i + 1;
         };
     };
-    check.(label ++ ": SA's master is loop + drums x " ++ rig[\sa].level(\drums).round(1e-4) ++ " + onset kit x "
+    check.(label ++ ": SA's master is loop x " ++ rig[\sa].level(\loop).round(1e-4) ++ " + drums x "
+        ++ rig[\sa].level(\drums).round(1e-4) ++ " + onset kit x "
         ++ rig[\sa].level(\onsetKit).round(1e-4) ++ " (clipped at 0.98), to " ++ mixErr.round(1e-8), mixErr < 1e-5, mixErr.asString);
 
     if(withBreak.not) {
@@ -778,8 +780,8 @@ alignment = { |label, bpm, num, den, withBreak|
             };
             mx
         });
-        closeB = ((((stomp * sr) / block).floor.asInteger) .. (nb - 1)).detect { |bi| bmax[bi] < (0.5 * (0.7 * tone)) };
-        openB = closeB !? { |c| ((c + 1) .. (nb - 1)).detect { |bi| bmax[bi] > (0.5 * (0.7 * tone)) } };
+        closeB = ((((stomp * sr) / block).floor.asInteger) .. (nb - 1)).detect { |bi| bmax[bi] < (0.5 * tone) };
+        openB = closeB !? { |c| ((c + 1) .. (nb - 1)).detect { |bi| bmax[bi] > (0.5 * tone) } };
         // Not a check: the gate is the Looper's (Looper.fireBreak/endBreak), and
         // this is what it does, for the record.
         say.("NOTE  the loop's own gate (Looper's breakAmp, after its Limiter): shut "

@@ -207,15 +207,15 @@
     ].do { |e|
         var key = e[3];
         add.(e[0], e[1], e[2], \continuous, (group: granularGroups[key] ?? {
-                (feedback: "Loop", intensity: "Arc and level")[key] },
+                (feedback: "Loop", intensity: "Arc and threshold")[key] },
             get: { ~looper !? { |l| l.perform(key) } }, set: { |v| ~looper.perform(key.asSetter, v) },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
     };
-    // The threshold on the Analysis slider's exponential law (gui-const.scd).
-    // On the Analysis page since 2026-11-05: the tap's level is followed
-    // automatically, so it is a setting, not a stage control. A map that
-    // binds it (the TSMEGA's CC 7) still drives it.
-    add.('looper.onsetThreshold', "Onset threshold", "Analysis", \continuous, (group: "Detection",
+    // The threshold on its bar's exponential law (gui-const.scd). On Perform,
+    // under the Arc, where the Looper level was, since 2026-11-07 (on the
+    // Analysis page from 2026-11-05). A map that binds it (the TSMEGA's CC 7)
+    // drives it.
+    add.('looper.onsetThreshold', "Onset threshold", "Perform", \continuous, (group: "Arc and threshold",
         get: { ~looper !? { |l| l.onsetThreshold } }, set: { |v| ~looper.onsetThreshold = v },
         fromPos: { |c| ~onsetThresholdSpec.map(c) }, toPos: { |v| ~onsetThresholdSpec.unmap(v) },
         format: hundredths,
@@ -284,10 +284,6 @@
             get: { ~looper !? { |l| l.analyzeOverdubs } },
             set: { |on| ~looper !? { |l| l.analyzeOverdubs = (on == true) } },
             available: looper));
-        // Perform's Looper level, straight 0..1, read as its label reads.
-        add.('looper.masterAmp', "Looper level", "Perform", \continuous, (group: "Arc and level",
-            get: { ~looper !? { |l| l.masterAmp } }, set: { |v| ~looper !? { |l| l.masterAmp = v } },
-            fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
         // The onset notes' Chance slider, straight 0..1, read as a percentage
         // as its label is (gui-analysis.scd).
         add.('looper.onsetNoteChance', "Chance", "Analysis", \continuous, (group: "Onset notes",

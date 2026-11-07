@@ -90,7 +90,8 @@ LooperCalibrator {
                     "flashes between them at the default.",
                 todo: [
                     "Plug your instrument in. Ableton Live is not in this path at all.",
-                    "Open the Analysis tab and play the way you are going to play.",
+                    "Go to Perform and play the way you are going to play: the threshold "
+                    "is under the Arc, the lamp in the band at the top.",
                     "If the lamp flashes between notes, raise the threshold; if a hit "
                     "leaves it dark, lower it. Otherwise leave it at 0.5.",
                     "Come back here and press Done, or Skip."
@@ -294,8 +295,8 @@ LooperCalibrator {
                     "flashes between them at the default.",
                 todo: [
                     "Plug your instrument in.",
-                    "On the Setup view, under Analysis, play the way you are going "
-                    "to play.",
+                    "Go to Perform and play the way you are going to play: the threshold "
+                    "is under the Arc, the lamp in the band at the top.",
                     "If the lamp flashes between notes, raise the threshold; if a hit "
                     "leaves it dark, lower it. Otherwise leave it at 0.5.",
                     "Come back here and press Done (the threshold is kept for this "

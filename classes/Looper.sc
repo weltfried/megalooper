@@ -312,7 +312,6 @@ Looper {
     var <granularFollowChords = false;
     var granularEnvBufs;
     var <transportMode = \full;
-    var <masterAmp = 0.7;
     var <latencyMs = 0;
     var <declickMs = 3;
     var <feedback = 1.0;
@@ -477,8 +476,7 @@ Looper {
             server.sync;
             masterSynth = Synth.tail(server, \looperMaster, [
                 \inBus, outBus.index,
-                \out, outChannel,
-                \amp, masterAmp
+                \out, outChannel
             ]);
             // At the head, so the analysis synths read this block's gain.
             tapLevelAna = this.analysisIn;
@@ -969,21 +967,21 @@ Looper {
             Out.ar(0, (SinOsc.ar(freq) * env * amp).dup);
         }).add;
 
-        // Brick-wall limiter on the summed output of engine + granular,
-        // followed by master gain. Sits at the tail so it always runs
-        // after the audio sources.
-        SynthDef(\looperMaster, { |inBus, out=0, amp=0.7, breakAmp=1|
+        // Brick-wall limiter on the summed output of engine + granular, at
+        // unity: the loop goes on at the level it was played, and a sum too
+        // hot comes out at 0.95 at most. Sits at the tail so it always runs
+        // after the audio sources. Its level was a slider on Perform (Looper
+        // level, 0.7 to start) until 2026-11-07: a level into the Loop chain
+        // set nothing the Loop strip after it does not, so it went.
+        SynthDef(\looperMaster, { |inBus, out=0, breakAmp=1|
             var sig = In.ar(inBus, 2);
-            // The break gate, kept SEPARATE from amp on purpose: amp is the
-            // user's master control, with a slider and a changed notification,
-            // and driving it from a break would leave that slider claiming a
-            // level the looper is not at. 5 ms is fast enough to feel
-            // instantaneous under a foot and slow enough not to click.
+            // The break gate. 5 ms is fast enough to feel instantaneous under
+            // a foot and slow enough not to click.
             //
             // After the limiter, not before: muting ahead of it would pump the
             // gain reduction on the way in and out of every break.
             var gate = Lag.kr(breakAmp, 0.005);
-            Out.ar(out, Limiter.ar(sig, 0.95, 0.01) * amp * gate);
+            Out.ar(out, Limiter.ar(sig, 0.95, 0.01) * gate);
         }).add;
 
         // The granular voice. `morph` is still the meta-control — it sets the
@@ -4838,12 +4836,6 @@ Looper {
         outChannel = val;
         masterSynth !? { |s| s.set(\out, val) };
         this.changed(\outChannel, val);
-    }
-
-    masterAmp_ { |val|
-        masterAmp = val.max(0);
-        masterSynth !? { |s| s.set(\amp, masterAmp) };
-        this.changed(\masterAmp, masterAmp);
     }
 
     // Live transport modes:

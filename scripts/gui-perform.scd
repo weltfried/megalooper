@@ -27,9 +27,10 @@
 // the hatch while the hole is open, Next reading while one is landing, Rec
 // next loop while it waits or records, Dissolve while the ending runs). Under
 // them two bars, each under a caption saying what it is: the ARC, the
-// expression pedal's, and the LOOPER LEVEL (the loop, the cutter and the
-// grains together). They were "MACROS · DRAG" with Looper, Arc and Onset
-// rows until 2026-11-06, which read as a riddle on stage.
+// expression pedal's, and the ONSET THRESHOLD, with the last onset's
+// strength beside its caption. They were "MACROS · DRAG" with Looper, Arc and
+// Onset rows until 2026-11-06, which read as a riddle on stage; the LOOPER
+// LEVEL under the Arc went on 2026-11-07, and the threshold took its place.
 //
 // Every tile and bar writes to the model only, and is painted back from its
 // notifications (gui-wiring.scd), so a refused action leaves it dark and a
@@ -279,11 +280,27 @@
 // A bar under a caption of its own, the caption saying what it is and what
 // plays it ("ACTIONS · FOOTSWITCH" above it reads the same way); the value
 // right of the bar.
-~performMacro = { |caption, bar, value|
+// `caption` is its words or a view of them; `aside`, a view at the caption
+// line's right (the threshold's last strength).
+~performMacro = { |caption, bar, value, aside|
+    var words = if(caption.isString) { ~guiCaption.(caption) } { caption };
     VLayout(
-        ~guiCaption.(caption),
+        if(aside.isNil) { words } { HLayout(words, nil, aside).spacing_(8).margins_(0) },
         HLayout([bar, stretch: 1], value.fixedWidth_(52)).spacing_(10).margins_(0)
     ).spacing_(6).margins_(0)
+};
+
+// What the last onset's strength reads, "LAST STRENGTH 0.42", "—" before any
+// (gui-analysis.scd keeps it, ~analysisLastStrength, and paints this label
+// with its readout).
+~performStrengthWords = {
+    var st = ~analysisLastStrength;
+    "LAST STRENGTH " ++ (if(st.isNumber and: { (~analysisOnsetCount ? 0) > 0 }) { st.round(0.01).asString } { "—" })
+};
+// Paint it, when it reads anything new (the readout's timer, gui-analysis.scd).
+~performPaintStrength = {
+    ~performStrengthLabel !? { |t|
+        if(t.isClosed.not and: { t.string != ~performStrengthWords.() }) { t.string_(~performStrengthWords.()) } };
 };
 
 // ---- The pane ----------------------------------------------------------------------------
@@ -577,15 +594,8 @@
         ~guiCaption.("DISSOLVE LOOPS"), ~dissolveLoopsField
     ).margins_(0).spacing_(8);
 
-    // ---- The arc and the looper's level --------------------------------------------------------
+    // ---- The arc and the onset threshold --------------------------------------------------------
     // Writes to the model only; the controller paints bar and label back.
-    ~masterAmpSlider = ~mapTag.(~guiBar.(\ink, 16)
-        .value_(l !? { |lp| lp.masterAmp } ? 0.7)
-        .action_({ |sl| ~looper !? { |lp| lp.masterAmp = sl.value } }),
-        'looper.masterAmp',
-        "The looper's own level: the loop, the cutter and the grains together, before the\n"
-            "Loop strip. The whole mix's last fader is Master under Levels.");
-    ~masterAmpLabel = ~performValue.((l !? { |lp| lp.masterAmp } ? 0.7).round(0.01).asString);
     // The control the whole piece is shaped with.
     ~intensitySlider = ~midiTip.(~guiBar.(\ink, 16)
         .value_(l !? { |lp| lp.intensity } ? 1)
@@ -596,11 +606,34 @@
             "granular layer at its set level. It only SCALES — the stored controls keep\n"
             "meaning what they say, and the cutter's own level never moves with it.");
     ~intensityLabel = ~performValue.((l !? { |lp| lp.intensity } ? 1).round(0.01).asString);
-    // The onset threshold used to be a macro here, because tuning it meant
-    // watching the lamp while playing. Since 2026-11-05 the tap's level is
-    // followed automatically (Looper.prTapLevelGraph) and the threshold stays
-    // at its default, so it lives on Setup › Analysis only: nothing to set on
-    // stage. The status band shows the automatic level under the lamp.
+    // The onset threshold. It was a macro here until 2026-11-05, then a
+    // setting on Setup › Analysis alone, once the tap's level was followed
+    // automatically (Looper.prTapLevelGraph) and the default worked at any
+    // level. On stage it was missed: a room or a pedal that makes the lamp
+    // flash between notes wants a nudge there and then. So since 2026-11-07 it
+    // is here, where the Looper level was, and only here (Setup › Analysis
+    // shows its value and says so). Beside its caption, the strength of the
+    // last onset, which the Analysis page's readout shows too; the input's
+    // level and the automatic level are in the status band above.
+    ~performThresholdBar = ~mapTag.(~guiBar.(\ink, 16)
+        .value_(~onsetThresholdSpec.unmap(l !? { |lp| lp.onsetThreshold } ? 0.5))
+        .action_({ |sl| ~looper !? { |lp| lp.onsetThreshold = ~onsetThresholdSpec.map(sl.value) } }),
+        'looper.onsetThreshold',
+        "The onset threshold: how sharp an attack must be to count as an onset. The\n"
+            "default, 0.5, works at any tap level (the automatic level, under the lamp).\n"
+            "Raise it if the lamp flashes between notes, lower it if a hit leaves it dark.\n"
+            "Exponential: a nudge moves it by the same share wherever it is. It acts at\n"
+            "once, on the monitor and on a take being recorded.");
+    ~performThresholdLabel = ~performValue.((l !? { |lp| lp.onsetThreshold } ? 0.5).round(0.01).asString);
+    ~performThresholdCaption = ~guiCaption.("");
+    ~midiWatch.(~performThresholdCaption, { |t|
+        t.string_("ONSET THRESHOLD" ++ (~midiWords.('looper.onsetThreshold') !? { |w| " · " ++ w.split($,).first } ? "")) });
+    ~performStrengthLabel = ~guiMonoText.(~performStrengthWords.(), 12, ~gt[\ink]).align_(\right)
+        .toolTip_("The strength of the last onset: the RMS of the hit, from 40 ms before the\n"
+            "detector fired to 30 ms after. The accents and the onset notes' velocities\n"
+            "read it. It is not on the threshold's scale: the threshold decides whether\n"
+            "an attack counts, this says how loud the one that counted was.");
+    ~performStrengthLabel.setProperty(\wordWrap, false);
 
     right = ~performRight = View().background_(~gt[\bg]).fixedWidth_(400).layout_(VLayout(
         ~guiCaption.("ACTIONS · FOOTSWITCH"),
@@ -612,7 +645,7 @@
         ).hSpacing_(8).vSpacing_(8),
         steppers,
         ~performMacro.("ARC · EXPRESSION PEDAL", ~intensitySlider, ~intensityLabel),
-        ~performMacro.("LOOPER LEVEL · LOOP, CUTTER, GRAINS", ~masterAmpSlider, ~masterAmpLabel),
+        ~performMacro.(~performThresholdCaption, ~performThresholdBar, ~performThresholdLabel, ~performStrengthLabel),
         nil
     ).margins_([18, 14, 18, 12]).spacing_(10));
 

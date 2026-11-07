@@ -12,11 +12,11 @@
 // onset notes, the pitch-segmentation knobs, the fallback meter, and the
 // training-data export.
 //
-// The lamp itself and the threshold slider are NOT here. They are in the window
-// header (gui-shell.scd), above the tab strip, because the threshold is tuned
-// while playing and anything you have to leave Perform to reach is a thing you
-// set once and then stop thinking about. This file keeps the state; the shell
-// decays it and draws it.
+// The lamp itself and the threshold's bar are NOT here. The lamp is in the
+// status band (gui-status.scd), on every view; the bar is on Perform, under
+// the Arc (gui-perform.scd), since 2026-11-07, because a nudge to it is made
+// while playing. This page shows the threshold's value and says where it is
+// set. This file keeps the state; the band decays it and draws it.
 //
 // Why this exists: `MeterAnalyzer` never hears audio, only onset times. When
 // detection admits ghost onsets or misses real hits, meter detection fails and
@@ -178,7 +178,6 @@
 // "monitor off" while it is plainly running.
 ~analysisRefreshAll = {
     ~looper !? { |l|
-        ~analysisThresholdBar !? { |sl| sl.value = ~onsetThresholdSpec.unmap(l.onsetThreshold) };
         ~analysisThresholdLabel !? { |t| t.string_(l.onsetThreshold.round(0.01).asString) };
         ~analysisPaintMonitor.();
         ~analysisPaintTapGain.();
@@ -265,15 +264,14 @@
             "still matters for clipping and hiss, not for detection.");
     // What the old readout line said, for the checks and the tooltip.
     ~analysisStatsLabel = ~analysisPeakLabel;
-    ~analysisThresholdBar = ~mapTag.(~guiBar.(\ink, 16)
-        .value_(~onsetThresholdSpec.unmap(~looper !? { |l| l.onsetThreshold } ? 0.5))
-        .action_({ |sl| ~looper !? { |l| l.onsetThreshold = ~onsetThresholdSpec.map(sl.value) } }),
-        'looper.onsetThreshold');
-    ~analysisThresholdLabel = ~guiMonoText.("", 14, ~gt[\ink]);
+    // The threshold is set on Perform (one setting, one place): its value
+    // here, and where to set it.
+    ~analysisThresholdLabel = ~guiMonoText.((~looper !? { |l| l.onsetThreshold } ? 0.5).round(0.01).asString,
+        14, ~gt[\ink]);
     ~analysisThresholdCaption = ~guiLabel.("", 14);
     ~midiWatch.(~analysisThresholdCaption, { |t|
-        t.string_("Onset threshold" ++ (~midiWords.('looper.onsetThreshold') !? { |w| " · " ++ w.split($,).first } ? "")
-            ++ " · exponential") });
+        t.string_("Onset threshold · set on Perform, under the Arc"
+            ++ (~midiWords.('looper.onsetThreshold') !? { |w| " · " ++ w.split($,).first } ? "")) });
 
     // Overdub meter detection (its switch and Detect now) is the status
     // band's, on every view: gui-status.scd.
@@ -471,8 +469,7 @@
             View().background_(~gt[\bg]).layout_(VLayout(stat.(~analysisStrengthLabel, "last strength")).margins_(0)),
             View().background_(~gt[\bg]).layout_(VLayout(stat.(~analysisTapGainLabel, "auto level dB")).margins_(0))
         ).margins_(1).spacing_(1)),
-        VLayout(HLayout(~analysisThresholdCaption, nil, ~analysisThresholdLabel).margins_(0),
-            ~analysisThresholdBar).spacing_(5).margins_(0),
+        HLayout(~analysisThresholdCaption, nil, ~analysisThresholdLabel).margins_(0),
         ~guiRule.(),
         HLayout(~guiLabel.(case { (~rp !? { |r| r[\live] }) != false } { "Onset notes → Live" }
             { (~rp !? { |r| r[\sa] }) == true } { "Onset notes → onset kit" } { "Onset notes" }, 16, ~gt[\ink], true), nil, ~onsetNotesLabel, ~onsetNotesButton)
@@ -563,7 +560,12 @@
             // The feed keeps filling whatever view is up — ~analysisPush is
             // plain data on the OSC thread, and the status band's meter and
             // lamp depend on it — but these numbers are only worth rebuilding
-            // when someone can see them.
+            // when someone can see them: here, or the last strength on
+            // Perform, beside the threshold.
+            if(~analysisDirty and: { ~guiPaneSeen.(\perform) }) {
+                ~analysisDirty = false;
+                ~performPaintStrength !? { |f| f.() };
+            };
             if(~analysisDirty and: {
                 ~guiPaneSeen.(\analysis)
             }) {

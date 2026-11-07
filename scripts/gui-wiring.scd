@@ -62,9 +62,6 @@
             { ~wireBar.(~feedbackSlider, ~feedbackLabel, val, val.round(0.01).asString);
               if(looper.state == \overdubbing) { ~statusPaintLook.() } }.defer;
         })
-        .put(\masterAmp, { |looper, what, val|
-            { ~wireBar.(~masterAmpSlider, ~masterAmpLabel, val, val.round(0.01).asString) }.defer;
-        })
         // Morph appears on Perform and on Sound, so it is the one granular
         // parameter with a hand-written handler; the rest are wired
         // generically below.
@@ -206,10 +203,11 @@
         .put(\refused, { |looper, what, action, why|
             { ~guiSay !? { |f| f.("Refused: " ++ (why ? action), \bad) } }.defer;
         })
-        // ---- Setup: analysis (gui-analysis.scd) -----------------------------------------
+        // ---- The onset threshold: Perform's bar, Setup › Analysis's value ------------------
         .put(\onsetThreshold, { |looper, what, val|
-            { ~wireBar.(~analysisThresholdBar, ~analysisThresholdLabel,
+            { ~wireBar.(~performThresholdBar, ~performThresholdLabel,
                 ~onsetThresholdSpec.unmap(val), val.round(0.01).asString);
+              ~wireBar.(nil, ~analysisThresholdLabel, nil, val.round(0.01).asString);
               ~statusPaintThreshold !? { |f| f.() };
               ~analysisPaintTapGain !? { |f| f.() } }.defer;
         })

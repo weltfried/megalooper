@@ -63,7 +63,7 @@ idShape = "^[a-z][a-zA-Z0-9]*(\\.([a-z][a-zA-Z0-9]*|[0-9]+))+$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
 // (the trims follow the kits, so they come with SA only).
 families = [
-    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 46],
+    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 45],
     [\live, "^live\\.record$", 1],
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 16],
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 128],
@@ -91,7 +91,7 @@ looperIds = ['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 
     'looper.reverse', 'looper.dissolve', 'looper.sessionRecording', 'looper.granular', 'looper.bbcut',
     'looper.onsetNotes', 'looper.analysisMonitor', 'looper.analyzeOverdubs',
     'looper.detectMeterFromOverdub', 'looper.rerollOnsetNotes', 'looper.granularResetTweaks',
-    'looper.masterAmp', 'looper.feedback', 'looper.intensity', 'looper.onsetThreshold', 'looper.onsetNoteChance',
+    'looper.feedback', 'looper.intensity', 'looper.onsetThreshold', 'looper.onsetNoteChance',
     'looper.granularMorph', 'looper.granularAmp', 'looper.granularPitch', 'looper.granularDetune',
     'looper.granularSize', 'looper.granularDensity', 'looper.granularSizeRand', 'looper.granularPosition',
     'looper.granularScan', 'looper.granularSpray', 'looper.granularEnv', 'looper.granularFollowChords',
@@ -249,9 +249,9 @@ protect {
 
     live = [targets.size, count.(there)];
     ("  on a Live rig: " ++ live[0] ++ " controls, " ++ live[1] ++ " there").postln;
-    ~tEq.("on a Live rig the Looper's 46, Live's record and the count's 3 lights are there, and nothing of SA's",
+    ~tEq.("on a Live rig the Looper's 45, Live's record and the count's 3 lights are there, and nothing of SA's",
         [live[1], targets.keys.asArray.select { |id| there.(targets[id]) and: { id.asString.beginsWith("sa.") } }],
-        [50, []]);
+        [49, []]);
 
     // ------------------------------------------------------------------- laws --
     ~tEq.("every level's law goes back to where it came from, at 0, 1/4, 1/2, 3/4 and 1 ("
@@ -268,9 +268,14 @@ protect {
             (x[\kind] != \choice) or: {
                 (0..(n - 1)).every { |i| x[\fromPos].value(x[\toPos].value(i)) == i }
                     and: { x[\fromPos].value(0) == 0 } and: { x[\fromPos].value(1) == (n - 1) } } }), []);
-    ~tEq.("the header's levels and Chance move straight 0..1, as their sliders",
-        ['looper.masterAmp', 'looper.feedback', 'looper.intensity', 'looper.onsetNoteChance'].collect { |id|
-            [0.3, 0.77].collect { |c| targets[id][\fromPos].value(c) } }, [[0.3, 0.77], [0.3, 0.77], [0.3, 0.77], [0.3, 0.77]]);
+    ~tEq.("Feedback, the Arc and Chance move straight 0..1, as their sliders",
+        ['looper.feedback', 'looper.intensity', 'looper.onsetNoteChance'].collect { |id|
+            [0.3, 0.77].collect { |c| targets[id][\fromPos].value(c) } }, [[0.3, 0.77], [0.3, 0.77], [0.3, 0.77]]);
+    ~tEq.("the onset threshold is on its bar's exponential law, as Perform's bar",
+        [0.3, 0.77].collect { |c| targets['looper.onsetThreshold'][\fromPos].value(c) },
+        [0.3, 0.77].collect { |c| ~onsetThresholdSpec.map(c) });
+    ~tEq.("no Looper level any more: the looper plays at unity into its limiter",
+        targets.includesKey('looper.masterAmp'), false);
     ~tEq.("every granular row is on ~granularMapValue, as its slider",
         offenders.({ |x| var row = ~granularParams.detect { |r| ("looper." ++ r[\key]).asSymbol == x[\id] };
             row.isNil or: { [0.1, 0.5, 0.9].every { |c| near.(x[\fromPos].value(c), ~granularMapValue.(row, c)) } } }),
@@ -308,7 +313,7 @@ protect {
         [targets['sa.drums.reverbMix'][\fromPos].value(0.4), targets['sa.drums.reverbMix'][\format].value(0.1508)],
         [~drumsReverbSpec.map(0.4), (0.1508 * 100).round(0.1).asString ++ " %"]);
     ~tEq.("the Looper's readouts are their widgets': two decimals, a percentage, a note with its name, units",
-        [targets['looper.masterAmp'][\format].value(0.456), targets['looper.onsetNoteChance'][\format].value(0.456),
+        [targets['looper.feedback'][\format].value(0.456), targets['looper.onsetNoteChance'][\format].value(0.456),
             targets['looper.onsetNote'][\format].value(42), targets['looper.onsetNoteDynRange'][\format].value(30),
             targets['looper.onsetNoteGateMs'][\format].value(20), targets['looper.dissolveBars'][\format].value(8),
             targets['looper.granularPitch'][\format].value(-12)],
@@ -345,9 +350,10 @@ protect {
         []);
 
     // --------------------------------------------- the Looper's, driven --
-    ~tEq.("Master: the knob sets the model, which says so", heard.(l, { act.('looper.masterAmp', [\position, 0.42]) }),
-        [[\masterAmp, 0.42]]);
-    ~tEq.("...and reads back through the model", [l.masterAmp, targets['looper.masterAmp'][\get].value], [0.42, 0.42]);
+    ~tEq.("the threshold: the knob sets the model on its bar's law, which says so",
+        heard.(l, { act.('looper.onsetThreshold', [\position, 0.42]) }), [[\onsetThreshold, ~onsetThresholdSpec.map(0.42)]]);
+    ~tEq.("...and reads back through the model", [l.onsetThreshold, targets['looper.onsetThreshold'][\get].value],
+        [~onsetThresholdSpec.map(0.42), ~onsetThresholdSpec.map(0.42)]);
     ~tEq.("Chance likewise", [heard.(l, { act.('looper.onsetNoteChance', [\position, 0.3]) }), l.onsetNoteChance],
         [[[\onsetNoteChance, 0.3]], 0.3]);
     ~tEq.("a count is set in whole numbers: Dissolve loops halfway is 17 (its id from when it counted bars)",

@@ -230,7 +230,6 @@ gestures = [
     [\feedback,         4, { |l| l.feedback = 1.0.rand }],
     [\granularLevel,    4, { |l| l.granularAmp = 1.0.rand }],
     [\granularMorph,    4, { |l| l.granularMorph = 1.0.rand }],
-    [\masterAmp,        4, { |l| l.masterAmp = 1.0.rand }],
     [\voiceAmp,         4, { |l| l.setVoiceAmp(0, 1.0.rand) }],
     [\cutterOn,         4, { |l| cutterOn.(l) }],
     [\cutterOff,        4, { |l| l.disableBBCut }],

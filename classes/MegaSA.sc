@@ -226,8 +226,13 @@ MegaSA {
         bassIn = bass;
         // The drums' two strips start where Live's faders were: the drums
         // group at -10.6 dB, the One Hit Kit's track at -15.7 dB.
-        // The synth's at -6 dB.
-        levels = (guitar: 1, loop: 1, drums: 0.2951209247, onsetKit: 0.1640589684, synth: 0.5011872336, master: 1);
+        // The synth's at -6 dB. The loop's at -3 dB since 2026-11-07, when
+        // the Looper level (0.7 before its limiter, into the Loop chain) went
+        // and the looper went to unity: the chain hears the loop as played,
+        // the mix hears it as loud as before, and a hot take with the drums
+        // stays off the master's clip.
+        levels = (guitar: 1, loop: 0.7079457844, drums: 0.2951209247, onsetKit: 0.1640589684, synth: 0.5011872336,
+            master: 1);
         // Every strip starts with the player's mute off. The guitar's is held
         // while its plugin opens (holds, above), and let go once the plugin
         // has answered: open, or failed, in which case dry is better than

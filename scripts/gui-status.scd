@@ -950,13 +950,14 @@
     ~guiLevelDb = ~guiMonoText.("—", 12, ~gt[\mute]).align_(\center);
     ~guiOnsetLampView = UserView().canFocus_(false).fixedSize_(Size(30, 30))
         .toolTip_("Flashes on every onset the detector hears. The tap's level is followed\n"
-            "automatically (the line under it: the gain the onsets are heard at), so\n"
-            "there is nothing to set while playing. Live on the analysis monitor (Setup).")
+            "automatically (the line under it: the gain the onsets are heard at), so the\n"
+            "default threshold works at any level; it is on Perform, under the Arc, for a\n"
+            "nudge. Live on the analysis monitor (Setup).")
         .drawFunc_({ |v| ~statusDrawLamp.(v) });
     ~guiOnsetThrLabel = ~guiMonoText.("auto —", 12, ~gt[\mute]).toolTip_(
         "The automatic level: how far the analysis turns the tap up (+) or down (-)\n"
             "to hear every take at one level. 0 dB until something has been played.\n"
-            "The onset threshold shows beside it only when it is off its default (Setup › Analysis).");
+            "The onset threshold shows beside it only when it is off its default (Perform, under the Arc).");
     ~midiWatch.(~guiOnsetThrLabel, { ~statusPaintThreshold.() });
     ~statusPosShown = IdentityDictionary.new;
     // On one line each: wrapping, a bar of ten beats or more ("BEAT 10/11")

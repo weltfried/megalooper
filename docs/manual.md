@@ -205,7 +205,7 @@ its own when nobody touches it (one at rest can read 68, 69, 68). So every
 knob or pedal on a CC has one step of hysteresis unless its mapping says
 otherwise: a move counts if it is two steps or more, or one step on in the
 direction of the last. The control stays within a step of the pedal, and a
-level set with Looper level is not taken back by the next hop. The
+value set with the pedal is not taken back by the next hop. The
 Knobs row of Setup's MIDI map sets the default.
 
 **keys-and-knobs**, for keyboards and knob boxes, on any input:
@@ -455,7 +455,7 @@ silent so the room can play into the hole, coming back **on a loop downbeat**.
 
 ![Perform's actions](images/perform-actions.png)
 
-*Fig: Perform's actions with their keys. Under them, how many loops a break lasts and how many bars a dissolve takes, then the Arc and the looper's level.*
+*Fig: Perform's actions with their keys. Under them, how many loops a break lasts and how many bars a dissolve takes, then the Arc and the onset threshold, with the last onset's strength.*
 
 The hole opens the instant you stomp — the mute is not quantised, so it lands
 exactly where your foot did. Only the **resume** is on the grid: it waits out
@@ -492,7 +492,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 ![The Perform view](images/perform.png)
 
-*Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3, which the count under the state block shows as group 2 of 2+2+3. Under the status band, a column per layer, then the actions, the Arc and the looper's level.*
+*Fig: The Perform view with a take playing: 7+7+7+8/8 at 103.2 BPM in Dm, the playhead in bar 2, beat 3, which the count under the state block shows as group 2 of 2+2+3. Under the status band, a column per layer, then the actions, the Arc and the onset threshold.*
 
 - **The top bar**, on every view: the logo, a Möbius loop whose twist
   travels round once a pass while the loop plays (and stands when it
@@ -524,7 +524,7 @@ Sound, FX, Drums, Synth and Setup) plus Calibrate, and a footer.
 
 | View | Key | What lives there |
 |---|---|---|
-| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick, and its voices by name), **Grains** (on/off, morph, level, and their pitch and window), each filled in its colour while it plays and outlined while it is off, **Effects** (each chain's effects that are on, by name, in the effects colour), **Drums** (on/off, the kit, **New loop**, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **Arc** (the expression pedal's bar) and **Looper level**, and, under the layers, the **levels** of every strip |
+| **Perform** | 1 | A column per layer — **Loop** (forward/reverse, feedback, length, ×2), **Cutter** (on/off, Mix/Insert/Gate, the arc-driven parameter with its tick, and its voices by name), **Grains** (on/off, morph, level, and their pitch and window), each filled in its colour while it plays and outlined while it is off, **Effects** (each chain's effects that are on, by name, in the effects colour), **Drums** (on/off, the kit, **New loop**, and the onset notes' switch and Chance) and **Synth** (on/off, Cutoff, Position, Random sound) — then the **actions** (Trigger, Stop, Break, Next reading, Dissolve, Rec next loop, Undo, Clear, each with its key and footswitch), Break loops and Dissolve loops, the **Arc** (the expression pedal's bar) and the **onset threshold** with the last onset's strength, and, under the layers, the **levels** of every strip |
 | **Sound** | 2 | The **Cutter** (preset, voices, procedure, cut synth, ratio, parameters, level, pan, voice effects) beside the **Grains** (preset, Blend, Pitch, Grain, Read position, grain window) |
 | **FX** | 3 | The **effects** chains (click a block to edit it, its square to switch it) and their sounds |
 | **Drums** | 4 | The **drums** (step sequencer, timing, kits, mix) |
@@ -612,9 +612,13 @@ The controls, by view:
   (the [automatic level](#the-automatic-level)), but a tap that far under the
   input is usually the wrong channel or a gain left down, and its hiss is turned
   up with it: fix the channel or the gain. See [docs/routing.md](routing.md).
-- **Looper level** *(Perform, under the Arc)* — the looper's own level: the loop, the
-  cutter and the grains together, after their limiter (0–1, starts at 0.7).
-  The whole mix's last fader is **Master** under Levels, on Perform.
+- **Onset threshold** *(Perform, under the Arc)* — how sharp an attack must be
+  to count as an onset, with the last onset's strength beside it. See [Onset
+  analysis](#onset-analysis). The loop, the cutter and the grains go into the
+  Loop chain at the level they were played, through a limiter that holds their
+  sum under −0.45 dBFS. Their level in the mix is the **Loop** strip under
+  Levels, which starts at −3 dB, so a hot take with the drums stays clear of
+  the master's clip; the whole mix's last fader is **Master**.
 - **Morph** *(Perform's Grains column)* — between frozen drone (0) and pulsed scan
   locked to the detected pulse (1). Mirrors the Grains' Morph on Sound (CC 118 in the
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.
@@ -732,19 +736,20 @@ ghost onsets or misses real hits, meter detection fails and the loop drops to th
 anchored fallback meter. Straight 4/4 takes used to come out 7/8 that way, and
 also when the first hit came well after the record press; a second fit over the
 whole loop now reads most of those ([How meter detection
-works](#how-meter-detection-works)). There is nothing to tune while playing: the tap's level is
-followed automatically (below), the **onset threshold** stays at its default,
-and when a reading is still wrong, the next-reading switch and Bars by hand fix
-it. Perform shows the lamp in the status band; the rest is on Setup's Analysis
-page (`scripts/gui-analysis.scd`).
+works](#how-meter-detection-works)). Little needs tuning while playing: the
+tap's level is followed automatically (below), the **onset threshold** works
+at its default, and when a reading is still wrong, the next-reading switch and
+Bars by hand fix it. For the room or the pedal that still needs a nudge,
+Perform has the threshold under the Arc, and the lamp in the status band; the
+rest is on Setup's Analysis page (`scripts/gui-analysis.scd`).
 
 ![Onset analysis on Setup's Analysis page](images/onsets.png)
 
-*Fig: The top of Setup's Analysis page: the input's peak, the onsets counted, the last one's strength and the automatic level, and the onset threshold.*
+*Fig: The top of Setup's Analysis page: the input's peak, the onsets counted, the last one's strength and the automatic level, and the onset threshold's value.*
 
 ![Setup's Analysis page](images/setup-analysis.png)
 
-*Fig: Setup's Analysis page: the onset threshold, the onset notes, the pitch range, the fallback meter, Bars by hand and the export.*
+*Fig: Setup's Analysis page: the readout, the onset threshold's value, the onset notes, the pitch range, the fallback meter, Bars by hand and the export.*
 
 On **Perform**:
 
@@ -754,6 +759,17 @@ On **Perform**:
   **automatic level**: `auto +6 dB` is how far the analysis turns the tap up
   (or down) to hear it at one level; `auto 0 dB` until something has been
   played. The threshold joins it (`· thr 0.42`) only when it is off its default.
+- **Onset threshold** (0.01–2.0, default **0.5**), under the Arc, also a MIDI
+  target — meant to be left at its default: with the automatic level, 0.5
+  works at any tap level. Change it only if the lamp flashes *between* notes
+  at the default (raise it) or a hit leaves it dark (lower it). Live on both
+  the monitor and a running recorder. The travel is **exponential**: a nudge
+  of 1% of the bar moves the threshold by about 5% of wherever it currently
+  is, so it feels the same at 0.05 as at 1.0; the default 0.5 sits at about
+  three quarters across. Beside its caption, **last strength**: the strength of
+  the most recent onset (below). It is not on the threshold's scale: the
+  threshold decides whether an attack counts, the strength says how loud the
+  one that counted was.
 
 In **Setup's Analysis page**:
 
@@ -767,13 +783,7 @@ In **Setup's Analysis page**:
   accent test and the onset notes' velocities see: the RMS of the hit, from
   40 ms before the detector fired to 30 ms after), and the **auto level** in dB.
   **Reset counts** starts the count again.
-- **Onset threshold** (0.01–2.0, default **0.5**), also a MIDI target — meant to
-  be left at its default: with the automatic level, 0.5 works at any tap level.
-  Change it only if the lamp flashes *between* notes at the default (raise it)
-  or a hit leaves it dark (lower it). Live on both the monitor and a running
-  recorder. The travel is **exponential**: a nudge of 1% of the slider moves the
-  threshold by about 5% of wherever it currently is, so it feels the same at 0.05
-  as at 1.0; the default 0.5 sits at about three quarters across.
+- **Onset threshold** — its value, and where it is set: on Perform.
 - **Onset notes** — plays the loop's onsets on the onset kit. See
   [Onset notes](#onset-notes) below.
 - **Pitch range · Hz** — 30–2000: the band the pitch tracker believes.
@@ -1474,7 +1484,7 @@ has to be true in the room, and what to do. The right column shows this rig's
    the interface's input gain until the loudest hit comes in between -12 and
    -3 dBFS. Too quiet and soft notes go unnoticed; clipped and every hit looks
    the same.
-3. **Onset threshold.** Set it on Setup's Analysis page while you play: raise
+3. **Onset threshold.** Set it on Perform, under the Arc, while you play: raise
    it until the lamp lights only on real hits, lower it until none are
    missing. Then press **Done**.
 4. **Overdub round trip.** Optional on a Mac, where megalooper starts from

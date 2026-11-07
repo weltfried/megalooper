@@ -29,7 +29,7 @@
 // The Looper's own switches, for its state.
 ~actionsLooperState = { |l|
     (reverse: l.reverseFlag, halfTime: l.halfTime, intensity: l.intensity, feedback: l.feedback,
-        masterAmp: l.masterAmp, breakLoops: l.breakLoops, dissolveLoops: l.dissolveLoops,
+        breakLoops: l.breakLoops, dissolveLoops: l.dissolveLoops,
         onsetNotes: l.onsetNotes, onsetNoteChance: l.onsetNoteChance, onsetThreshold: l.onsetThreshold)
 };
 
