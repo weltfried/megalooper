@@ -1700,7 +1700,8 @@ be an argument inside a single def.
 `MeterAnalyzer.analyze(loopDur, onsetTimes, onsetStrengths)` enumerates over:
 
 - A list of standard meters: `2/4 3/4 4/4 5/4 6/4 7/4 5/8 6/8 7/8 9/8 11/8 12/8`.
-- Bar counts K = 1..4 (multi-bar loops).
+- Bar counts K = 1..4 (multi-bar loops), and up to 8 when nothing else fits
+  (below).
 - Pulse subdivisions (1, 2, 4) — to handle e.g. 8th-note triggering for a 4/4.
 
 For each candidate, an iterative least-squares fit picks the pulse period
@@ -1716,6 +1717,12 @@ way to the **Fallback meter** whenever that fits the loop as well. Its
 readings also go to the end of the list the [next
 reading](#the-next-reading) offers. It took the seven training takes from one
 read right to five, and moved none of the duo's own takes that were read right.
+If nothing fits even so, the grids are fitted again with up to **eight bars**
+(`MeterAnalyzer.longK`), where there are onsets enough to fill them (half an
+onset per pulse, `longMinDensity`). Eight bars of 4/4 at 85 BPM need it: four
+bars of them would be under 50 BPM, so they came out as the fallback. It is
+tried only here because, let in everywhere, it reads a slow four-bar take as
+eight bars at twice its tempo (four of 4/4 at 70 as eight at 140).
 If nothing fits even so, the take
 is *length-anchored*: the loop is kept as whole bars of the **Fallback meter**
 (Setup's Analysis page, 4/4 by default), as many as put the tempo nearest
@@ -2029,8 +2036,12 @@ renders play the chains, drums and synth on an offline server.
 
 ## Known limitations
 
-- A loop is one to four bars (`MeterAnalyzer.maxK`), uneven ones like
-  7+7+7+8/8 included.
+- A loop is read as one to four bars (`MeterAnalyzer.maxK`), uneven ones like
+  7+7+7+8/8 included, and as up to eight only when no shorter reading fits
+  (`longK`). So eight bars of 4/4 at 100 BPM or faster read as four at half
+  the tempo, and eight of 7/8 as four of 7/4: the same beats in other bars.
+  **Bars by hand** gives them their eight: type all eight bars (`4 4 4 4 4 4 4
+  4` over 4), since a single bar is counted at the tempo in force.
 - BPM is always reported as the quarter-note equivalent. Compound meters (e.g.
   6/8 dotted-quarter) are the user's interpretation.
 - Compound-vs-simple meters that share a pulse grid (e.g. 6/8 vs 3/4) are now

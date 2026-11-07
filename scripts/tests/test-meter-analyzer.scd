@@ -356,3 +356,65 @@ MeterAnalyzer.fallbackNum = origNum;
 MeterAnalyzer.fallbackDenom = origDenom;
 MeterAnalyzer.fallbackBars = origBars;
 }.value;
+
+// ---- long phrases (longK) ------------------------------------------------
+// Eight bars of 4/4 under 100 BPM have no reading in maxK bars: four of them
+// are under bpmRangeLo. The duo's eight bars at 85 (2026-11-07) came out as
+// the 7/8 fallback; up to longK bars, tried when nothing else fits, reads them.
+{
+var origLongK = MeterAnalyzer.longK;
+var origFallback = [MeterAnalyzer.fallbackNum, MeterAnalyzer.fallbackDenom, MeterAnalyzer.fallbackBars];
+var jit = [0.008, -0.006, 0.011, -0.009, 0.004, -0.012, 0.007, -0.003];
+// `bars` bars of 4/4 at `bpm`, hits on the eighths where `pat` is above 0,
+// a little off the grid, the record press 40 ms ahead of the first.
+var phrase = { |bars, bpm, pat|
+    var eighth = 30 / bpm, hits = List.new, st = List.new;
+    bars.do { |b| pat.do { |s, i| if(s > 0) {
+        hits.add(0.04 + (((b * 8) + i) * eighth) + jit.wrapAt(hits.size));
+        st.add(s) } } };
+    [(bars * 8 * eighth) + 0.02, hits.asArray, st.asArray]
+};
+var read = { |p|
+    var hits = p[1];
+    MeterAnalyzer.fallbackNum = 7; MeterAnalyzer.fallbackDenom = 8; MeterAnalyzer.fallbackBars = 0;
+    Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(p[0] - hits[0], hits - hits[0], p[2],
+        leadIn: hits[0]), p[0])
+};
+var riff = [1, 0, 0.6, 0.5, 0, 0.6, 0.7, 0], rock = [1, 0.3, 0.7, 0.3, 0.9, 0.3, 0.7, 0.5];
+var r;
+
+MeterAnalyzer.longK = 8;
+r = read.(phrase.(8, 85, riff));
+~tEq.("eight bars of 4/4 at 85 read as eight bars of 4/4",
+    [r[\numerator], r[\denominator], r[\k], r[\error], r[\long]], [4, 4, 8, nil, true]);
+~tNear.("...at 85", r[\bpm], 85, 0.5);
+r = read.(phrase.(8, 85, rock));
+~tEq.("...played on every eighth too", [r[\numerator], r[\denominator], r[\k]], [4, 4, 8]);
+MeterAnalyzer.longK = MeterAnalyzer.maxK;
+r = read.(phrase.(8, 85, riff));
+~tEq.("...and with longK at maxK, the fallback as before", [r[\numerator], r[\denominator], r[\error]], [7, 8, \lengthAnchored]);
+MeterAnalyzer.longK = 8;
+
+// Only where nothing fits: a slow four-bar take keeps its four bars. With
+// eight let in everywhere, four of 4/4 at 60 to 78 read as eight at twice
+// the tempo (maxK 8: this one as eight at 140).
+r = read.(phrase.(4, 70, rock));
+~tEq.("four bars of 4/4 at 70 stay four bars", [r[\numerator], r[\denominator], r[\k], r[\long]], [4, 4, 4, nil]);
+~tNear.("...at 70", r[\bpm], 70, 0.5);
+
+// Hits on no grid still go to the fallback: the longer grids want onsets
+// to fill them (longMinDensity). Of 200 random takes of 6 to 30 hits over
+// 10 to 25 s, the longer grids read 2 more than maxK's do, 15 without it:
+// this one came out 9/8 at 85 over seven bars.
+r = read.([22.27, [3.23, 6.78, 9.01, 9.98, 12.13, 13.41, 13.47, 16.3, 17.02, 19.08, 21.59],
+    [0.58, 0.93, 0.54, 0.61, 0.57, 0.4, 0.73, 0.84, 0.4, 0.65, 0.88]]);
+~tEq.("eleven scattered hits over 22 s still go to the fallback", [r[\numerator], r[\denominator], r[\error]], [7, 8, \lengthAnchored]);
+r = read.([22, [0.42, 1.00, 1.38, 2.05, 2.12, 3.49, 4.07, 6.62, 9.83, 10.11, 11.02, 11.11, 11.46,
+    12.14, 12.73, 13.33, 13.64, 14.16, 15.01, 17.15, 17.51, 19.97, 20.84, 21.22], 0.5 ! 24]);
+~tEq.("...and twenty-four", [r[\numerator], r[\denominator], r[\error]], [7, 8, \lengthAnchored]);
+
+MeterAnalyzer.longK = origLongK;
+MeterAnalyzer.fallbackNum = origFallback[0];
+MeterAnalyzer.fallbackDenom = origFallback[1];
+MeterAnalyzer.fallbackBars = origFallback[2];
+}.value;

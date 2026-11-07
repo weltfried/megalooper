@@ -8,7 +8,7 @@ MeterAnalyzer {
     // eighth taken for the beat: sets were read 4/4 at 164.37 (82.19 next on
     // the list) and 7+7+2/8 at 197.85.
     classvar <bpmRangeHi = 160;
-    classvar <maxK = 4;
+    classvar <>maxK = 4;
     classvar <maxN = 128;
     classvar <loopTolerance = 0.10;
     // The most Looper.snapAnalysisToLoop may move a take's length to make it
@@ -101,6 +101,19 @@ MeterAnalyzer {
     classvar <>wholeLoop = true;
     classvar <>wholeFitThreshold = 0.75;
     classvar <>wholeErrThreshold = 0.15;
+    // Long phrases (2026-11-07). A first take is fitted with up to maxK bars,
+    // and a phrase of eight bars of 4/4 under 100 BPM has no reading there:
+    // four bars of it are under bpmRangeLo, so it went to the fallback (the
+    // duo's eight bars at 85 came out 7/8 at 74.7). When nothing fits up to
+    // maxK, the take is fitted again with up to longK bars, before the
+    // fallback. Only then: let in everywhere, a slow four-bar take reads as
+    // eight bars at twice its tempo (four of 4/4 at 80 as eight at 160).
+    // The longer grids want onsets to fill them, as the overdub detection's
+    // do (longMinDensity, onsets per pulse; Looper's overdubMinDensity).
+    //   longK           the most bars then; maxK or less turns it off
+    //   longMinDensity  its density floor
+    classvar <>longK = 8;
+    classvar <>longMinDensity = 0.5;
     // How many ranked readings analyze() returns beside its answer, best
     // first. See prRankCandidates. Settable so an offline sweep can ask for
     // the whole list; the app keeps the default.
@@ -158,7 +171,7 @@ MeterAnalyzer {
     // `pitches` (optional, with leadIn): the take's pitch readings, [time from
     // the press, Hz, amplitude] each, for the uneven bars' notes.
     *analyze { |loopDur, onsets, strengths, maxBars, minOnsetDensity = 0, leadIn, pitches|
-        var best, uneven, meterScore, fitted, rescue, extra;
+        var best, uneven, meterScore, fitted, rescue, extra, longer;
         var kMax = (maxBars ? maxK).asInteger.max(1);
 
         if(onsets.size < 2) {
@@ -197,6 +210,13 @@ MeterAnalyzer {
                 ^uneven.put(\candidates, this.prMergeCandidates(uneven[\candidates], extra)) }
             { rescue[0].notNil and: { this.prFallbackFits(onsets + leadIn, loopDur + leadIn).not } } {
                 ^rescue[0].put(\candidates, extra).put(\wholeLoop, true) };
+            // Nothing up to kMax bars: up to longK, before the fallback. The
+            // call below has kMax = longK, so it goes no further itself.
+            if(kMax < longK) {
+                longer = this.analyze(loopDur, onsets, strengths, longK,
+                    minOnsetDensity.max(longMinDensity), leadIn, pitches);
+                if(longer[\error].isNil) { ^longer.put(\long, true) };
+            };
             ^this.anchorToLength(loopDur, fallbackNum, fallbackDenom, onsets.size)
         };
 
