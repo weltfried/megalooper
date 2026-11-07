@@ -1,0 +1,2733 @@
+{
+ "version": 1,
+ "key": "bolt",
+ "name": "Bolt Kit",
+ "description": "A big, loud, roomy acoustic kit: 24\" kick, deep floor toms, a tight steel snare, rides played as crashes, a trash stack; close mics and room as two trims, driven into saturation",
+ "source": "Karoryfer Samples, CC0 1.0: Big Rusty Drums (github.com/sfzinstruments/karoryfer.big-rusty-drums) and Frankensnare (github.com/sfzinstruments/karoryfer.frankensnare), FLACs renamed and trimmed (each ends 60 dB below its own peak, 50 ms fade). The map is CC0 too",
+ "groups": {
+  "close": "Close mics",
+  "room": "Room (overheads)"
+ },
+ "notes": [
+  "Assembled 2026-11-07: a big, loud kit in a room, kick and snare up front, floor toms left, rides played as crashes, the drums run into saturation. Samples chosen by measurement.",
+  "Big Rusty Drums (Szpaderski, Poland): 24x18 kick, 22x16 / 18x16 floor toms, 15x15 and 14x14 toms, 14\" hats, 22\" Sabian Big & Ugly ride (bow on 51, edge as the crash-ride on 49), a three-cymbal stack (39) as a trashy crash. Frankensnare: 12x5 steel snare (38, the tightest and highest, about 276 Hz) and the 14x8 aluminium snare's rimshot (40).",
+  "Pads 48 and 50 are the 14\" tom transposed +3 and +6 semitones, so General MIDI patterns find six toms.",
+  "Velocity: the steps' seven velocities (10 29 49 68 88 107 127) each play their own recording where a drum has seven layers, so rolls (x0.7 per hit) walk down through different hits; law simpler 0.15 on top. Round robin 1 of each layer only.",
+  "Mics: groups 'close' and 'room' (the overheads; cymbals play from them alone). Offsets from the libraries' own SFZ defaults: tom room -3.1 dB, snare top -4.4 dB under bottom and room, kick room -10 dB (unfiltered).",
+  "Drive: each drum mic's loudest layer goes 6 dB into the voice's tanh (drive = 6 dB minus its raw peak), the softer layers less; hats and cymbals clean. Level: each pad's top zone at -18 dB energy over its first 150 ms after drive, then the pad trims (gainDb). Toms panned by size, floor toms left; sidestick clean.",
+  "Made by scripts/sa/make-bolt-kit.py. The samples are CC0, so megalooper ships the kit with its audio, as it does the Analog Kit."
+ ],
+ "pads": {
+  "36": {
+   "name": "Kick 24",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR kick_24 kick kick vl1.flac",
+     "gainDb": -7.4,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.2,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR kick_24 kick oh vl1.flac",
+     "gainDb": -17.4,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR kick_24 kick kick vl3.flac",
+     "gainDb": -7.4,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.2,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR kick_24 kick oh vl3.flac",
+     "gainDb": -17.4,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR kick_24 kick kick vl5.flac",
+     "gainDb": -7.4,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.2,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR kick_24 kick oh vl5.flac",
+     "gainDb": -17.4,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR kick_24 kick kick vl8.flac",
+     "gainDb": -7.4,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.2,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR kick_24 kick oh vl8.flac",
+     "gainDb": -17.4,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR kick_24 kick kick vl10.flac",
+     "gainDb": -7.4,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.2,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR kick_24 kick oh vl10.flac",
+     "gainDb": -17.4,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR kick_24 kick kick vl12.flac",
+     "gainDb": -7.4,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.2,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR kick_24 kick oh vl12.flac",
+     "gainDb": -17.4,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR kick_24 kick kick vl14.flac",
+     "gainDb": -7.4,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.2,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR kick_24 kick oh vl14.flac",
+     "gainDb": -17.4,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "37": {
+   "name": "Sidestick",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": -6.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick top vl1.flac",
+     "gainDb": 4.38,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick btm vl1.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR snare_14 sidestick oh vl1.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick top vl2.flac",
+     "gainDb": 4.38,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick btm vl2.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR snare_14 sidestick oh vl2.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick top vl3.flac",
+     "gainDb": 4.38,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick btm vl3.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR snare_14 sidestick oh vl3.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick top vl4.flac",
+     "gainDb": 4.38,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR snare_14 sidestick btm vl4.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR snare_14 sidestick oh vl4.flac",
+     "gainDb": 8.78,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "38": {
+   "name": "Snare 12 Steel",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": 0.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic top vl1.flac",
+     "gainDb": -15.39,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 14.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic btm vl1.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.6,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 12_basic oh vl1.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 13.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic top vl2.flac",
+     "gainDb": -15.39,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 14.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic btm vl2.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.6,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 12_basic oh vl2.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 13.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic top vl3.flac",
+     "gainDb": -15.39,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 14.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic btm vl3.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.6,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 12_basic oh vl3.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 13.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic top vl4.flac",
+     "gainDb": -15.39,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 14.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic btm vl4.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.6,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 12_basic oh vl4.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 13.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic top vl5.flac",
+     "gainDb": -15.39,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 14.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic btm vl5.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.6,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 12_basic oh vl5.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 13.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic top vl6.flac",
+     "gainDb": -15.39,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 14.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic btm vl6.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.6,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 12_basic oh vl6.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 13.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic top vl7.flac",
+     "gainDb": -15.39,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 14.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 12_basic btm vl7.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.6,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 12_basic oh vl7.flac",
+     "gainDb": -10.99,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 13.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "39": {
+   "name": "Trash Stack",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -5.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "room",
+     "file": "bolt/BR stack_3_layer ed oh vl1.flac",
+     "gainDb": 5.34,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR stack_3_layer ed oh vl4.flac",
+     "gainDb": 5.34,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR stack_3_layer ed oh vl6.flac",
+     "gainDb": 5.34,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "40": {
+   "name": "Rimshot 14 Alu",
+   "choke": 0,
+   "retrigger": true,
+   "pan": 0.0,
+   "gainDb": -1.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/FS 14a_rimshot top vl1.flac",
+     "gainDb": -11.59,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 9.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 14a_rimshot btm vl1.flac",
+     "gainDb": -7.19,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 14a_rimshot oh vl1.flac",
+     "gainDb": -7.19,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 14a_rimshot top vl2.flac",
+     "gainDb": -11.59,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 9.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 14a_rimshot btm vl2.flac",
+     "gainDb": -7.19,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 14a_rimshot oh vl2.flac",
+     "gainDb": -7.19,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 14a_rimshot top vl3.flac",
+     "gainDb": -11.59,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 9.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/FS 14a_rimshot btm vl3.flac",
+     "gainDb": -7.19,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/FS 14a_rimshot oh vl3.flac",
+     "gainDb": -7.19,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.4,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "41": {
+   "name": "Tom 22 Floor",
+   "choke": 0,
+   "retrigger": false,
+   "pan": -0.35,
+   "gainDb": -1.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR tom_22 center cl vl1.flac",
+     "gainDb": -10.29,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_22 center oh vl1.flac",
+     "gainDb": -13.39,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 12.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_22 center cl vl2.flac",
+     "gainDb": -10.29,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_22 center oh vl2.flac",
+     "gainDb": -13.39,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 12.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_22 center cl vl3.flac",
+     "gainDb": -10.29,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_22 center oh vl3.flac",
+     "gainDb": -13.39,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 12.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_22 center cl vl4.flac",
+     "gainDb": -10.29,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_22 center oh vl4.flac",
+     "gainDb": -13.39,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 12.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_22 center cl vl5.flac",
+     "gainDb": -10.29,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_22 center oh vl5.flac",
+     "gainDb": -13.39,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 12.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_22 center cl vl6.flac",
+     "gainDb": -10.29,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_22 center oh vl6.flac",
+     "gainDb": -13.39,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 12.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_22 center cl vl7.flac",
+     "gainDb": -10.29,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_22 center oh vl7.flac",
+     "gainDb": -13.39,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 12.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "42": {
+   "name": "HiHat Closed",
+   "choke": 1,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -8.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 tc cl vl1.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 tc oh vl1.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 tc cl vl2.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 tc oh vl2.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 tc cl vl3.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 tc oh vl3.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 tc cl vl4.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 tc oh vl4.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 tc cl vl6.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 tc oh vl6.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 tc cl vl7.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 tc oh vl7.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 tc cl vl8.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 tc oh vl8.flac",
+     "gainDb": 8.57,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "43": {
+   "name": "Tom 18 Floor",
+   "choke": 0,
+   "retrigger": false,
+   "pan": -0.2,
+   "gainDb": -1.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR tom_18 center cl vl1.flac",
+     "gainDb": -10.28,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_18 center oh vl1.flac",
+     "gainDb": -13.38,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_18 center cl vl2.flac",
+     "gainDb": -10.28,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_18 center oh vl2.flac",
+     "gainDb": -13.38,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_18 center cl vl3.flac",
+     "gainDb": -10.28,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_18 center oh vl3.flac",
+     "gainDb": -13.38,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_18 center cl vl4.flac",
+     "gainDb": -10.28,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_18 center oh vl4.flac",
+     "gainDb": -13.38,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_18 center cl vl6.flac",
+     "gainDb": -10.28,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_18 center oh vl6.flac",
+     "gainDb": -13.38,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_18 center cl vl7.flac",
+     "gainDb": -10.28,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_18 center oh vl7.flac",
+     "gainDb": -13.38,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_18 center cl vl8.flac",
+     "gainDb": -10.28,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.5,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_18 center oh vl8.flac",
+     "gainDb": -13.38,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 8.8,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "44": {
+   "name": "HiHat Pedal",
+   "choke": 1,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -9.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 chik cl vl1.flac",
+     "gainDb": 3.04,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 chik oh vl1.flac",
+     "gainDb": 3.04,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 chik cl vl3.flac",
+     "gainDb": 3.04,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 chik oh vl3.flac",
+     "gainDb": 3.04,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 chik cl vl5.flac",
+     "gainDb": 3.04,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 chik oh vl5.flac",
+     "gainDb": 3.04,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "45": {
+   "name": "Tom 15",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -2.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR tom_15 center cl vl1.flac",
+     "gainDb": -10.61,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_15 center oh vl1.flac",
+     "gainDb": -13.71,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 19,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_15 center cl vl2.flac",
+     "gainDb": -10.61,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_15 center oh vl2.flac",
+     "gainDb": -13.71,
+     "transpose": 0.0,
+     "velLo": 20,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_15 center cl vl3.flac",
+     "gainDb": -10.61,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_15 center oh vl3.flac",
+     "gainDb": -13.71,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_15 center cl vl4.flac",
+     "gainDb": -10.61,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_15 center oh vl4.flac",
+     "gainDb": -13.71,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_15 center cl vl5.flac",
+     "gainDb": -10.61,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_15 center oh vl5.flac",
+     "gainDb": -13.71,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_15 center cl vl6.flac",
+     "gainDb": -10.61,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_15 center oh vl6.flac",
+     "gainDb": -13.71,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_15 center cl vl7.flac",
+     "gainDb": -10.61,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 10.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_15 center oh vl7.flac",
+     "gainDb": -13.71,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 7.7,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "46": {
+   "name": "HiHat Open",
+   "choke": 1,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -9.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 open cl vl1.flac",
+     "gainDb": 4.8,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 open oh vl1.flac",
+     "gainDb": 4.8,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 open cl vl4.flac",
+     "gainDb": 4.8,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 open oh vl4.flac",
+     "gainDb": 4.8,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR hihat_14 open cl vl6.flac",
+     "gainDb": 4.8,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR hihat_14 open oh vl6.flac",
+     "gainDb": 4.8,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "47": {
+   "name": "Tom 14",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.15,
+   "gainDb": -2.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl1.flac",
+     "gainDb": -9.77,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl1.flac",
+     "gainDb": -12.87,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl2.flac",
+     "gainDb": -9.77,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl2.flac",
+     "gainDb": -12.87,
+     "transpose": 0.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl3.flac",
+     "gainDb": -9.77,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl3.flac",
+     "gainDb": -12.87,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl4.flac",
+     "gainDb": -9.77,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl4.flac",
+     "gainDb": -12.87,
+     "transpose": 0.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl5.flac",
+     "gainDb": -9.77,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl5.flac",
+     "gainDb": -12.87,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl6.flac",
+     "gainDb": -9.77,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl6.flac",
+     "gainDb": -12.87,
+     "transpose": 0.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "48": {
+   "name": "Tom 14 +3",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.25,
+   "gainDb": -2.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl1.flac",
+     "gainDb": -9.77,
+     "transpose": 3.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl1.flac",
+     "gainDb": -12.87,
+     "transpose": 3.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl2.flac",
+     "gainDb": -9.77,
+     "transpose": 3.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl2.flac",
+     "gainDb": -12.87,
+     "transpose": 3.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl3.flac",
+     "gainDb": -9.77,
+     "transpose": 3.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl3.flac",
+     "gainDb": -12.87,
+     "transpose": 3.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl4.flac",
+     "gainDb": -9.77,
+     "transpose": 3.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl4.flac",
+     "gainDb": -12.87,
+     "transpose": 3.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl5.flac",
+     "gainDb": -9.77,
+     "transpose": 3.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl5.flac",
+     "gainDb": -12.87,
+     "transpose": 3.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl6.flac",
+     "gainDb": -9.77,
+     "transpose": 3.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl6.flac",
+     "gainDb": -12.87,
+     "transpose": 3.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "49": {
+   "name": "Crash Ride 22 Edge",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -4.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "room",
+     "file": "bolt/BR ride_22 ed oh vl1.flac",
+     "gainDb": 9.47,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR ride_22 ed oh vl2.flac",
+     "gainDb": 9.47,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR ride_22 ed oh vl4.flac",
+     "gainDb": 9.47,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "50": {
+   "name": "Tom 14 +6",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.35,
+   "gainDb": -3.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl1.flac",
+     "gainDb": -9.77,
+     "transpose": 6.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl1.flac",
+     "gainDb": -12.87,
+     "transpose": 6.0,
+     "velLo": 1,
+     "velHi": 39,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl2.flac",
+     "gainDb": -9.77,
+     "transpose": 6.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl2.flac",
+     "gainDb": -12.87,
+     "transpose": 6.0,
+     "velLo": 40,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl3.flac",
+     "gainDb": -9.77,
+     "transpose": 6.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl3.flac",
+     "gainDb": -12.87,
+     "transpose": 6.0,
+     "velLo": 59,
+     "velHi": 78,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl4.flac",
+     "gainDb": -9.77,
+     "transpose": 6.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl4.flac",
+     "gainDb": -12.87,
+     "transpose": 6.0,
+     "velLo": 79,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl5.flac",
+     "gainDb": -9.77,
+     "transpose": 6.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl5.flac",
+     "gainDb": -12.87,
+     "transpose": 6.0,
+     "velLo": 98,
+     "velHi": 117,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "close",
+     "file": "bolt/BR tom_14 center cl vl6.flac",
+     "gainDb": -9.77,
+     "transpose": 6.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 11.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR tom_14 center oh vl6.flac",
+     "gainDb": -12.87,
+     "transpose": 6.0,
+     "velLo": 118,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 6.3,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  },
+  "51": {
+   "name": "Ride 22",
+   "choke": 0,
+   "retrigger": false,
+   "pan": 0.0,
+   "gainDb": -7.0,
+   "beatRepeat": false,
+   "repeatFilter": false,
+   "layers": [
+    {
+     "group": "room",
+     "file": "bolt/BR ride_22 rd oh vl4.flac",
+     "gainDb": 9.5,
+     "transpose": 0.0,
+     "velLo": 1,
+     "velHi": 58,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR ride_22 rd oh vl7.flac",
+     "gainDb": 9.5,
+     "transpose": 0.0,
+     "velLo": 59,
+     "velHi": 97,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    },
+    {
+     "group": "room",
+     "file": "bolt/BR ride_22 rd oh vl10.flac",
+     "gainDb": 9.5,
+     "transpose": 0.0,
+     "velLo": 98,
+     "velHi": 127,
+     "startFrames": 0,
+     "lenSecs": 0.0,
+     "drive": 0.0,
+     "vel": {
+      "law": "simpler",
+      "amount": 0.15
+     }
+    }
+   ]
+  }
+ }
+}

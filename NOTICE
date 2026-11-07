@@ -37,7 +37,8 @@ So version 3 is a permitted choice here, and GPL-3 is not in conflict with
 BBCut. (BBCut.quark likewise records `license: "GPL"`, unversioned.)
 
 No third-party code is redistributed in this repository. Every dependency below
-is fetched by the user at install time.
+is fetched by the user at install time. The one third-party work in it is the
+Bolt Kit's audio, public domain recordings (CC0), below.
 
 --------------------------------------------------------------------------
 Dependencies
@@ -118,6 +119,23 @@ machines, no sample of any machine in them. The sounds and the map are
 dedicated to the public domain under CC0 1.0 Universal (the folder's
 LICENSE): use them for anything, with no conditions. The script that makes
 them is part of megalooper and GPL-3 like the rest.
+
+--------------------------------------------------------------------------
+The Bolt Kit: CC0
+--------------------------------------------------------------------------
+
+presets/sa/drums/kits/bolt/ holds recordings by Karoryfer Samples, from their
+libraries Big Rusty Drums and Frankensnare, which their makers dedicated to
+the public domain under CC0 1.0 Universal:
+
+  https://github.com/sfzinstruments/karoryfer.big-rusty-drums
+  https://github.com/sfzinstruments/karoryfer.frankensnare
+
+scripts/sa/make-bolt-kit.py picks the recordings the kit plays, trims their
+silent tails and writes the map, presets/sa/drums/kits/bolt.json. The map and
+the trims are dedicated to the public domain under CC0 1.0 as well (the
+folder's LICENSE says which commits, and what was changed). The script is part
+of megalooper and GPL-3 like the rest.
 
 --------------------------------------------------------------------------
 Reusable without any of the above

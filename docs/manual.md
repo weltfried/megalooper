@@ -1654,7 +1654,7 @@ megalooper/
     bbcut/               -- the cutter setups megalooper ships; yours are in your megalooper folder
     granular/            -- empty; yours are in your megalooper folder
     midi/                -- the MIDI map megalooper ships (JSON): keys-and-knobs
-    sa/                  -- the effects' variations, the drum patterns, the kits' maps, the Analog Kit's sounds
+    sa/                  -- the effects' variations, the drum patterns, the kits' maps, the Analog and Bolt Kits' sounds
   site/                  -- the website: the homepage and this manual (Astro)
   .github/workflows/     -- builds the website on GitHub Pages
   training-data/         -- exported labelled loops (WAV gitignored, JSON kept)

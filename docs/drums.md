@@ -19,13 +19,27 @@ the Setup view's Rig page.
 
 ## The kits
 
-megalooper ships one kit with its sounds: **Analog Kit**, sixteen pads
-synthesized in the manner of the classic analog drum machines: a deep kick,
-snare, clap, rim, three toms, three congas, closed and open hi-hats that cut
-each other off, cymbal, maracas, cowbell and claves, on notes 36 to 51. It is
-megalooper's own, made by `scripts/sa/make-analog-kit.scd`, so a fresh install
-has drums from the first start. Its sounds are CC0: use them in your music,
-or anywhere else, with no conditions and no credit needed.
+megalooper ships two kits with their sounds, each on notes 36 to 51:
+
+- **Analog Kit**: sixteen pads synthesized in the manner of the classic analog
+  drum machines: a deep kick, snare, clap, rim, three toms, three congas,
+  closed and open hi-hats that cut each other off, cymbal, maracas, cowbell
+  and claves. It is megalooper's own, made by `scripts/sa/make-analog-kit.scd`,
+  so a fresh install has drums from the first start.
+- **Bolt Kit**: a big, loud acoustic kit, recorded in a room: a 24-inch kick,
+  a tight 12-inch steel snare, sidestick and rimshot, six toms from a 22-inch
+  floor tom up, hi-hats, a ride, the ride's edge played as a crash, and a
+  stack of trashy cymbals. On most of its drums each of the steps' seven
+  velocities plays a recording of its own, so a roll, falling in level,
+  moves through different hits. Its trims include **Close mics** and
+  **Room (overheads)**, to set how much room you hear, and the drums are
+  driven into saturation. Its long recordings take about 90 MB of memory
+  while a part plays it. The recordings are Karoryfer
+  Samples', from their libraries Big Rusty Drums and Frankensnare;
+  `scripts/sa/make-bolt-kit.py` builds the kit from them.
+
+The sounds of both are CC0: use them in your music, or anywhere else, with no
+conditions and no credit needed.
 
 The other kits come as maps only. The kits megalooper was built on play
 samples that come with Ableton Live, and those cannot be passed on. There are

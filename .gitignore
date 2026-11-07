@@ -55,8 +55,10 @@ presets/sa/drums/kits/*.aifc
 presets/sa/drums/kits/*.ogg
 presets/sa/drums/kits/*.flac
 # ...but megalooper's own kit, synthesized by scripts/sa/make-analog-kit.scd,
-# is shipped with its audio, so a fresh install has drums.
+# is shipped with its audio, so a fresh install has drums. So is the Bolt Kit,
+# CC0 recordings by Karoryfer Samples (scripts/sa/make-bolt-kit.py).
 !presets/sa/drums/kits/analog/
+!presets/sa/drums/kits/bolt/
 # The Drums tab's presets (personal, like the effects'; the folder is kept)
 # and the sounds Keep keeps.
 presets/sa/drum-presets/*.scd

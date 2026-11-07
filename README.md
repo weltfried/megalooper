@@ -178,8 +178,9 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
   samples of delay is held back: its chain plays without it and says why.
 - **Effects are added by menu.** A tile moves by dragging; dragging a new
   effect in from a list is planned.
-- **One drum kit ships with its sounds:** megalooper's own Analog Kit,
-  synthesized. The kits megalooper was built on play Ableton's samples, which
+- **Two drum kits ship with their sounds:** megalooper's own Analog Kit,
+  synthesized, and the Bolt Kit, a big, loud acoustic kit from public domain
+  recordings. The kits megalooper was built on play Ableton's samples, which
   cannot be passed on. See [Drums](docs/drums.md).
 - **The public default chain has no amp.** A DI guitar through the built-in
   effects alone sounds thin: add an amp simulator plugin
@@ -191,12 +192,14 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 
 megalooper's cutter layer subclasses BBCut, so the project as a whole is GPL.
 [NOTICE](NOTICE) says why, lists every dependency with its licence, and names
-the trademarks megalooper mentions. No third-party code or audio is in this
+the trademarks megalooper mentions. No third-party code is in this
 repository: you install each dependency from its own source.
 
-The drum kit megalooper ships, the Analog Kit, is its own: its sounds are
-**CC0**, free to use in your music or anywhere, with no conditions
-([its licence](presets/sa/drums/kits/analog/LICENSE)).
+The drum kits megalooper ships are **CC0**, free to use in your music or
+anywhere, with no conditions. The Analog Kit is megalooper's own
+([its licence](presets/sa/drums/kits/analog/LICENSE)). The Bolt Kit plays
+recordings by Karoryfer Samples, from Big Rusty Drums and Frankensnare, which
+they released as CC0 ([its licence](presets/sa/drums/kits/bolt/LICENSE)).
 
 `classes/MeterAnalyzer.sc` and `classes/PitchAnalyzer.sc` need nothing but
 SuperCollider's class library, if the meter detection is the part you want.

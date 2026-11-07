@@ -749,6 +749,33 @@ kit !? { |k|
 };
 }.value;
 
+// The Bolt Kit (scripts/sa/make-bolt-kit.py) ships with its audio too: CC0
+// recordings by Karoryfer Samples, their silent tails trimmed.
+{
+var kdir = MegaSADrums.defaultKitDir, warn = List.new, kit, files, scan, frames = 0, missing;
+kit = kdir !? { |k| MegaSAKit.read(MegaSAKit.fileFor(k, 'bolt'), warn) };
+~tEq.("the shipped Bolt Kit is read with no warning", [kit.notNil, warn.size], [true, 0]);
+kit !? { |k|
+    ~tEq.("...its sixteen pads, notes 36 to 51", k.pads.keys.asArray.sort, (36..51));
+    ~tEq.("...its two mic groups, close and room", k.groups.keys.asArray.sort, [\close, \room]);
+    files = Set.new;
+    k.pads.do { |p| p[\layers].do { |l| files.add(kdir +/+ l[\file].asString) } };
+    missing = files.select { |f| File.exists(f).not };
+    ~tAssert.("...every file in the repo, mono or stereo, 44.1 kHz", files.every { |f|
+        var sf = SoundFile.openRead(f), ok = sf.notNil and: { [1, 2].includes(sf.numChannels) }
+            and: { sf.sampleRate == 44100 };
+        sf !? { |s| frames = frames + (s.numFrames * s.numChannels); s.close };
+        ok
+    }, missing.asArray.collect(_.basename).asString);
+    ~tAssert.("...trimmed: under 100 MB of buffers (the recordings as published are 130)",
+        missing.isEmpty and: { frames * 4 < 100e6 }, (frames * 4 / 1e6).round(0.1).asString);
+    ~tEq.("...the three hats choking each other", [42, 44, 46].collect { |n| k.pads[n][\choke] }, [1, 1, 1]);
+    ~tAssert.("...its licence beside the sounds", File.exists(kdir +/+ "bolt" +/+ "LICENSE"));
+    scan = MegaSADrums.scanKits(kdir);
+    ~tEq.("...a kit with its audio to the drums", (scan[\bolt] !? { |i| i[\audio] }), true);
+};
+}.value;
+
 // Loading, with a reader standing in for Buffer.read.
 kit !? {
     stub = ~tStubServer.();
