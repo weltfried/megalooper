@@ -246,11 +246,7 @@
 
     ~analysisMonitorButton = ~mapTag.(LooperTile().states_([["○ monitor off", ~gt[\mute], nil],
         ["● monitor on", ~gt[\play], nil]]).font_(~guiMono.(12, true)).fixedSize_(Size(130, 24)).align_(\left).pad_(0)
-        .action_({ |b|
-            ~looper !? { |l|
-                if(b.value == 1) { l.startAnalysisMonitor } { l.stopAnalysisMonitor };
-            };
-        }), 'looper.analysisMonitor',
+        .action_({ |b| ~controlDo.('looper.analysisMonitor', \set, b.value == 1, \gui) }), 'looper.analysisMonitor',
         "The analysis monitor: the input level, the onset lamp and the counts. It runs for the\n"
             "session; the status band's meter and lamp need it.");
     ~analysisPeakLabel = ~guiMonoText.("—", 26, ~gt[\ink]);
@@ -283,7 +279,7 @@
     // trigger that dies when you stop playing.
     ~onsetNotesButton = ~midiTip.(~analysisSwitch.("OFF", "ON", \play)
         .value_(if(~looper.notNil and: { ~looper.onsetNotes }) { 1 } { 0 })
-        .action_({ |b| ~looper !? { |l| l.onsetNotes = (b.value == 1) } }),
+        .action_({ |b| ~controlDo.('looper.onsetNotes', \set, b.value == 1, \gui) }),
         'looper.onsetNotes',
         if(sa) {
             "Play the loop's detected onsets on the onset kit, a drum part from the rhythm you\n"
@@ -299,7 +295,7 @@
     ~onsetNoteField = ~mapTag.(~analysisBox.(NumberBox()
         .clipLo_(0).clipHi_(127).step_(1).scroll_step_(1).decimals_(0)
         .value_(~looper !? { |l| l.onsetNote } ? 36)
-        .action_({ |nb| ~looper !? { |l| l.onsetNote = nb.value } }), 46),
+        .action_({ |nb| ~controlDo.('looper.onsetNote', \set, nb.value, \gui) }), 46),
         'looper.onsetNote',
         if(sa) {
             "Note number every onset plays: which pad of the onset kit. 36 (C1) is the first pad.\n"
@@ -325,27 +321,27 @@
     ~onsetNoteVelLoField = ~mapTag.(~analysisBox.(NumberBox()
         .clipLo_(1).clipHi_(127).step_(1).scroll_step_(1).decimals_(0)
         .value_(~looper !? { |l| l.onsetNoteVelLo } ? 40)
-        .action_({ |nb| ~looper !? { |l| l.onsetNoteVelLo = nb.value } }), 44),
+        .action_({ |nb| ~controlDo.('looper.onsetNoteVelLo', \set, nb.value, \gui) }), 44),
         'looper.onsetNoteVelLo',
         "Velocity of the QUIETEST hit — the floor everything at or below the dynamic range is sent at.");
     ~onsetNoteVelHiField = ~mapTag.(~analysisBox.(NumberBox()
         .clipLo_(1).clipHi_(127).step_(1).scroll_step_(1).decimals_(0)
         .value_(~looper !? { |l| l.onsetNoteVelHi } ? 127)
-        .action_({ |nb| ~looper !? { |l| l.onsetNoteVelHi = nb.value } }), 44),
+        .action_({ |nb| ~controlDo.('looper.onsetNoteVelHi', \set, nb.value, \gui) }), 44),
         'looper.onsetNoteVelHi',
         "Velocity of the LOUDEST hit in the loop. Velocities are relative to that peak, so they\n"
             "do not shift when you change the interface gain.");
     ~onsetNoteDynField = ~mapTag.(~analysisBox.(NumberBox()
         .clipLo_(1).clipHi_(90).step_(1).scroll_step_(1).decimals_(0)
         .value_(~looper !? { |l| l.onsetNoteDynRange } ? 30)
-        .action_({ |nb| ~looper !? { |l| l.onsetNoteDynRange = nb.value } })),
+        .action_({ |nb| ~controlDo.('looper.onsetNoteDynRange', \set, nb.value, \gui) })),
         'looper.onsetNoteDynRange',
         "How many dB below the loop's loudest hit maps to the minimum velocity. Small =\n"
             "compressed, every hit near the top. Large = wide, quiet ghost notes stay quiet.");
     ~onsetNoteGateField = ~mapTag.(~analysisBox.(NumberBox()
         .clipLo_(1).clipHi_(1000).step_(1).scroll_step_(5).decimals_(0)
         .value_(~looper !? { |l| l.onsetNoteGateMs } ? 20)
-        .action_({ |nb| ~looper !? { |l| l.onsetNoteGateMs = nb.value } })),
+        .action_({ |nb| ~controlDo.('looper.onsetNoteGateMs', \set, nb.value, \gui) })),
         'looper.onsetNoteGateMs',
         "How long each note is held. Drum racks and one-shot samplers ignore this; anything\n"
             "gated does not. Automatically shortened so a gate can never run into the next hit.");
@@ -362,7 +358,7 @@
     // it is monotonic and never reshuffles the hits already sounding.
     ~onsetNoteChanceSlider = ~mapTag.(~guiBar.(\play, 12)
         .value_(~looper !? { |l| l.onsetNoteChance } ? 1)
-        .action_({ |sl| ~looper !? { |l| l.onsetNoteChance = sl.value } }),
+        .action_({ |sl| ~controlDo.('looper.onsetNoteChance', \position, sl.value, \gui) }),
         'looper.onsetNoteChance',
         "How likely each onset is to be sent: 100 % is every hit as played, 0 % silence. Which\n"
             "hits drop out is fixed per take, so the thinned part still repeats exactly. Re-roll\n"
@@ -379,7 +375,7 @@
             ~analysisCell.("Chance", VLayout(~onsetNoteChanceLabel, ~onsetNoteChanceSlider).margins_(0).spacing_(4)),
             ~analysisCell.("Dice", ~mapTag.(LooperTile().states_([["Re-roll", ~gt[\ink], nil]]).border_(~gt[\line])
                 .cycles_(false).font_(~guiSans.(14)).fixedHeight_(26)
-                .action_({ ~looper !? { |l| l.rerollOnsetNotes } }),
+                .action_({ ~controlDo.('looper.rerollOnsetNotes', \press, nil, \gui) }),
                 'looper.rerollOnsetNotes',
                 "Throw the dice again: the same hits at the same chance, a different subset of them.\n"
                     "Does not touch the loop, the pattern or the audio."))]

@@ -336,10 +336,10 @@
     // the top of the pane where you are editing what it switches on.
     ~bbcutPaneButton = ~midiTip.(LooperTile().cycles_(false).font_(~guiMono.(14, true))
         .fixedSize_(Size(96, 34)).border_(~gt[\cut])
-        .action_({ ~looper.bbcut = ~looper.bbcut.not }),
+        .action_({ ~controlDo.('looper.bbcut', \press, nil, \gui) }),
         'looper.bbcut', "Master switch for the cutter — same as the B key.");
     ~bbcutModeSegSound = ~guiSeg.(["Mix", "Insert", "Gate"], (height: 32, font: ~guiSans.(14),
-        action: { |i| ~looper !? { |lp| lp.bbcutMode = [\mix, \insert, \gate][i] } }));
+        action: { |i| ~controlDo.('looper.bbcutMode', \set, i, \gui) }));
     ~mapTag.(~bbcutModeSegSound[\view], 'looper.bbcutMode',
         "Mix = dry + cuts · Insert = dry ducks under repeats · Gate = cuts only");
     pane.layout_(VLayout(

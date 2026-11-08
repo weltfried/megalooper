@@ -265,9 +265,8 @@
         .value_(~granularUnmapValue.(p, val))
         // Writes to the model ONLY. The controller paints the label, so the
         // number you read is always the number the synth was given.
-        .action_({ |sl|
-            ~looper.perform(p[\key].asSetter, ~granularMapValue.(p, sl.value));
-        }), ("looper." ++ p[\key]).asSymbol, p[\tip]);
+        .action_({ |sl| ~controlDo.(("looper." ++ p[\key]).asSymbol, \position, sl.value, \gui) }),
+        ("looper." ++ p[\key]).asSymbol, p[\tip]);
     var text = ~guiMonoText.(~granularFormat.(p, val), 14, ~gt[\ink]).align_(\right);
     ~granularWidgets.put(p[\key], (slider: slider, label: text, param: p));
     VLayout(
@@ -334,13 +333,13 @@
     // pressing this with no loop recorded is refused and the tile stays dark.
     ~granularOnButton = ~midiTip.(LooperTile().cycles_(false).font_(~guiMono.(14, true))
         .fixedSize_(Size(96, 34)).border_(~gt[\grain])
-        .action_({ ~looper.toggleGranular }),
+        .action_({ ~controlDo.('looper.granular', \press, nil, \gui) }),
         'looper.granular',
         "Toggle the granular layer (key G). Refused, and left off, while no loop is recorded.");
     // The window shapes, from Looper.granularEnvNames, one tile each.
     ~granularEnvSeg = ~guiSeg.(Looper.granularEnvNames,
         (gap: 6, height: 38, fill: \grain, ink: \onacc, base: \bg, font: ~guiSans.(15, true),
-            action: { |i| ~looper.granularEnv = i }));
+            action: { |i| ~controlDo.('looper.granularEnv', \set, i, \gui) }));
     ~granularEnvMenu = ~mapTag.(~granularEnvSeg[\view], 'looper.granularEnv',
         "Grain envelope shape.\n"
             "Hann: Warp1's own, smooth and symmetrical — the default.\n"
@@ -355,7 +354,7 @@
     // transposed with the changes.
     ~granularChordsSeg = ~guiSeg.(["As played", "Follow chords"],
         (gap: 6, height: 38, fill: \grain, ink: \onacc, base: \bg, font: ~guiSans.(15, true),
-            action: { |i| ~looper.granularFollowChords = i == 1 }));
+            action: { |i| ~controlDo.('looper.granularFollowChords', \set, i, \gui) }));
     ~mapTag.(~granularChordsSeg[\view], 'looper.granularFollowChords',
         "As played (the default): the grains sound the loop where they read, as they always did.\n"
             "Follow chords: they are transposed by the interval from the chord where they read to the\n"
@@ -371,7 +370,7 @@
             ~granularOnButton,
             ~mapTag.(LooperTile().states_([["Reset tweaks", ~gt[\mute], nil]]).cycles_(false)
                 .font_(~guiSans.(14)).fixedHeight_(30).fixedWidth_(110)
-                .action_({ ~granularResetTweaks.() }),
+                .action_({ ~controlDo.('looper.granularResetTweaks', \press, nil, \gui) }),
                 'looper.granularResetTweaks',
                 "Put every control below back to neutral, so morph alone shapes the sound again.\n"
                     "Morph itself is left where you performed it."),
