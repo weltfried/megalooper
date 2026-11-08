@@ -309,18 +309,15 @@
 // window lives: words for the status line, and the switches the setup scripts
 // keep (AI apps, the AI's changes for Revert, Log every action) painted where
 // they are shown. Deferred: it may be said from any thread.
-~guiTeardowns = ~guiTeardowns ? ();
-~guiTeardowns[\app] = { ~appController !? { |c| c.remove }; ~appController = nil };
 ~appWatch = {
-    ~guiTeardowns[\app].value;
-    ~app !? { |a|
-        ~appController = SimpleController(a)
-            .put(\say, { |obj, what, words, kind| { ~guiSay.(words, kind) }.defer })
-            .put(\aiApps, { { ~guiAiPaint !? { |f| f.value } }.defer })
-            .put(\aiChanges, { { ~guiAiPaint !? { |f| f.value } }.defer })
-            .put(\actionsLog, { { ~actionsPaint !? { |f| f.value } }.defer })
-            .put(\midi, { |obj, what, kind| ~midiGuiHeard !? { |f| f.value(kind) } });
-    };
+    ~guiUnwatch.(\app);
+    ~guiWatch.(\app, ~app, (
+        say: { |obj, what, words, kind| ~guiSay.(words, kind) },
+        aiApps: { ~guiAiPaint !? { |f| f.value } },
+        aiChanges: { ~guiAiPaint !? { |f| f.value } },
+        actionsLog: { ~actionsPaint !? { |f| f.value } },
+        midi: { |obj, what, kind| ~midiGuiHeard !? { |f| f.value(kind) } }
+    ));
 };
 // What the shell hears from the Looper (~guiWatch, gui-wiring.scd): the tabs'
 // dots (the cutter and the grains running, visible with their view hidden,

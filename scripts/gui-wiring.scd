@@ -81,6 +81,14 @@
     };
     c
 };
+// A controller kept under `owner` whose handlers the caller puts itself, each
+// deferring its own work: for the panes whose handlers are long chains (the
+// drums', the synth's, the effects'). Same owners, same lifetime.
+~guiController = { |owner, model|
+    var c = SimpleController(model);
+    ~guiWatchers[owner] = (~guiWatchers[owner] ? List.new).add(c);
+    c
+};
 ~guiUnwatch = { |owner|
     (~guiWatchers[owner] ? []).do { |c| c.remove };
     ~guiWatchers.removeAt(owner);

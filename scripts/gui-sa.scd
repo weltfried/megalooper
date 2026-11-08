@@ -98,8 +98,7 @@
 ~guiTeardowns = ~guiTeardowns ? ();
 ~saPerformLevels = IdentityDictionary.new;
 ~guiTeardowns[\saPerform] = {
-    (~saPerformControllers ? []).do(_.remove);
-    ~saPerformControllers = [];
+    ~guiUnwatch.(\saPerform);
     ~saPerformLevels = IdentityDictionary.new;
 };
 // Start with this's mark: a dot while the levels differ from what a start on
@@ -139,15 +138,11 @@
     ~guiTeardowns[\saPerform].value;
     if(~rp.notNil and: { ~rp[\sa] == true } and: { m.notNil }) {
         keys = ~saLevelKeys.select { |k| m.level(k).notNil };
-        ~saPerformControllers = [
-            SimpleController(m)
-                .put(\level, { |obj, what, key, amp| {
-                    ~saPaintLevel.(~saPerformLevels, key, amp);
-                    ~saLevelsKeepPaint.();
-                }.defer })
-                .put(\mute, { |obj, what, key| { ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) }.defer })
-                .put(\hold, { |obj, what, key| { ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) }.defer })
-        ];
+        ~guiWatch.(\saPerform, m, (
+            level: { |obj, what, key, amp| ~saPaintLevel.(~saPerformLevels, key, amp); ~saLevelsKeepPaint.() },
+            mute: { |obj, what, key| ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) },
+            hold: { |obj, what, key| ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) }
+        ));
         View().background_(~gt[\panel]).layout_(VLayout(
             ~saLevelsButtons.(),
             HLayout(*keys.collect { |k|

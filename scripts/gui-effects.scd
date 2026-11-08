@@ -62,15 +62,12 @@
 // window is gone finds nothing to write to rather than a destroyed view.
 // Re-loading this file removes the controllers a pane already hung on the
 // model first, or they would stay subscribed with nothing to paint.
-(~effectsControllers ? []).do(_.remove);
-~effectsControllers = [];
+~guiUnwatch !? { |f| f.(\effects); f.(\effectsDevices) };
 // The editor's widgets, for the one device it shows (~effectsSelected).
 ~effectsWidgets = IdentityDictionary.new;   // setting -> (knob: or menu:, readout:, param:)
 ~effectsTiles = IdentityDictionary.new;     // device key -> (select:, on:)
 // The rows' holders (scrolling, so more devices never widen the window), and
 // the controllers on further devices, which say their settings themselves.
-(~effectsDeviceControllers ? []).do(_.remove);
-~effectsDeviceControllers = [];
 ~effectsRowHolders = ();
 // The setting whose knob the mouse is holding. Its knob is not repositioned by
 // the model while held: a stepped setting snapped back under the hand would
@@ -79,10 +76,8 @@
 
 ~guiTeardowns = ~guiTeardowns ? ();
 ~guiTeardowns[\effects] = {
-    ~effectsControllers.do(_.remove);
-    ~effectsControllers = [];
-    ~effectsDeviceControllers.do(_.remove);
-    ~effectsDeviceControllers = [];
+    ~guiUnwatch.(\effects);
+    ~guiUnwatch.(\effectsDevices);
     ~effectsRowHolders = ();
     ~effectsChainPending = false;
     ~effectsWidgets = IdentityDictionary.new;
@@ -385,10 +380,10 @@
         d.name ++ ", a plugin. Click to show its page below; its square, top right, switches it on or off.");
     paint.value;
     d.plugin !? { |p|
-        ~effectsDeviceControllers = ~effectsDeviceControllers.add(SimpleController(p).put(\state, {
+        ~guiController.(\effectsDevices, p).put(\state, {
             // Its page says what it is doing too: made again if it is shown.
             { paint.value; ~effectsPaintStatus.(); if(~effectsSelected == d.id) { ~effectsSelect.(d.id) } }.defer
-        }));
+        });
     };
     ~effectsPluginTiles = (~effectsPluginTiles ?? { IdentityDictionary.new }).put(d.id, tile);
     ~effectsPluginPaints = (~effectsPluginPaints ?? { IdentityDictionary.new }).put(d.id, paint);
@@ -988,8 +983,7 @@
     var m = ~megaSA;
     var arrow = { ~guiText.("›", 18, ~gt[\mute]).align_(\center).fixedWidth_(14) };
     var tilesOf, row, first;
-    ~effectsDeviceControllers.do(_.remove);
-    ~effectsDeviceControllers = [];
+    ~guiUnwatch.(\effectsDevices);
     ~effectsTiles = IdentityDictionary.new;
     ~effectsPluginTiles = IdentityDictionary.new;
     ~effectsPluginPaints = IdentityDictionary.new;
@@ -1020,8 +1014,8 @@
         ~effectsRowHolders[track] !? { |h| if(h.isClosed.not) { h.canvas_(row) } };
     };
     m.devices.select { |d| d.id != d.type }.do { |d|
-        ~effectsDeviceControllers = ~effectsDeviceControllers.add(SimpleController(d)
-            .put(\param, { |obj, what, name, val| { ~effectsRefreshParam.(name, val, d.id); ~effectsKeepSoon.() }.defer }));
+        ~guiController.(\effectsDevices, d)
+            .put(\param, { |obj, what, name, val| { ~effectsRefreshParam.(name, val, d.id); ~effectsKeepSoon.() }.defer });
     };
     ~effectsTiles.keysDo { |k| ~effectsRefreshTile.(k) };
 };
@@ -1193,8 +1187,8 @@
         }.value;
         ~effectsEditorHolder.layout.add(~effectsEditor.(~effectsSelected));
         // The footswitches, recalls and resets reach here through the model.
-        ~effectsControllers = [
-            SimpleController(m)
+        [
+            ~guiController.(\effects, m)
                 .put(\kept, { { ~effectsPaintKeep.() }.defer })
                 // An edit MegaSA refused (no memory, a plugin it cannot host)
                 // is said where the eye is; it stays until the next message.
@@ -1265,7 +1259,7 @@
                 }.defer
             };
             // \latency: a report may hold it off, or let it be heard again.
-            [SimpleController(plug).put(\state, paint).put(\bank, paint).put(\latency, paint)]
+            [~guiController.(\effects, plug).put(\state, paint).put(\bank, paint).put(\latency, paint)]
         } ? []);
         ~effectsRefreshAll.();
         ~effectsPaintKeep.();

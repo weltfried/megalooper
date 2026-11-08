@@ -50,8 +50,6 @@
 // on. Under its label like the transport row: beside it, too wide.
 // The switch follows the setting, however it was set (~fallbackSet tells
 // MeterAnalyzer's dependants): its controller lives as long as the section.
-~guiTeardowns = ~guiTeardowns ? ();
-~guiTeardowns[\rigFallback] = { ~rigFallbackController !? { |c| c.remove }; ~rigFallbackController = nil };
 ~rigFallbackPaint = {
     var on = MeterAnalyzer.fallbackOn == true;
     ~rigFallbackSeg !? { |s| ~guiSegSet.(s, on.binaryValue) };
@@ -90,9 +88,8 @@
             .toolTip_(tip),
         ~guiRule.()
     ).margins_(0).spacing_(8));
-    ~guiTeardowns[\rigFallback].value;
-    ~rigFallbackController = SimpleController(MeterAnalyzer)
-        .put(\fallbackOn, { { ~rigFallbackPaint.() }.defer });
+    ~guiUnwatch.(\rigFallback);
+    ~guiWatch.(\rigFallback, MeterAnalyzer, (fallbackOn: { ~rigFallbackPaint.() }));
     ~rigFallbackPaint.();
     view
 };

@@ -409,8 +409,7 @@
 // this file again first removes the controllers a pane already hung on the
 // model, or they would stay subscribed with nothing to paint; the pane must
 // then be rebuilt, as the Effects pane must.
-(~drumsControllers ? []).do(_.remove);
-~drumsControllers = [];
+~guiUnwatch !? { |f| f.(\drums) };
 ~drumsWidgets = IdentityDictionary.new;   // key -> (kind:, view:, get:, ...), see ~drumsPaint
 ~drumsLanes = IdentityDictionary.new;     // lane -> its step strip
 // lane -> where its drag last was, (x:, y:), or \live after a double-click
@@ -435,8 +434,7 @@
 
 ~guiTeardowns = ~guiTeardowns ? ();
 ~guiTeardowns[\drums] = {
-    ~drumsControllers.do(_.remove);
-    ~drumsControllers = [];
+    ~guiUnwatch.(\drums);
     ~drumsWidgets = IdentityDictionary.new;
     ~drumsLanes = IdentityDictionary.new;
     ~drumsLaneDrag = IdentityDictionary.new;
@@ -1497,7 +1495,7 @@
 // note. Deferred: the drums notify from the pump's thread, MIDI from its own.
 ~drumsWire = { |d, m|
     var ctls = [
-        SimpleController(d)
+        ~guiController.(\drums, d)
             .put(\on, { { ~drumsPaint.(\on); ~drumsPollPlayhead.(true);
                 ~guiRefreshTabs !? { |f| f.value } }.defer })
             .put(\playing, { { ~drumsPollPlayhead.(true); ~guiRefreshTabs !? { |f| f.value } }.defer })
@@ -1547,14 +1545,14 @@
             .put(\reverb, { { ~drumsPaint.(\reverbMix); ~drumsPaint.(\reverbState) }.defer })
     ];
     m !? {
-        ctls = ctls.add(SimpleController(m)
+        ctls = ctls.add(~guiController.(\drums, m)
             .put(\level, { |obj, what, key, amp|
                 { ~saPaintLevel !? { |f| f.(~drumsLevels, key, amp) } }.defer })
             .put(\mute, { |obj, what, key, flag|
                 { ~saPaintMute !? { |f| f.(~drumsLevels, key, flag) } }.defer }));
     };
     ~looper !? { |l|
-        ctls = ctls.add(SimpleController(l).put(\onsetNote, {
+        ctls = ctls.add(~guiController.(\drums, l).put(\onsetNote, {
             { ~drumsRebuildTrims.(); ~drumsPaint.(~drumsKitLineKey.(\onset)) }.defer }));
     };
     ctls
@@ -1614,7 +1612,7 @@
         // controls, and the one picked is mapped (~mapPick, gui-const.scd).
         ~presetFamilies[\saDrums][\menu] !? { |menu|
             ~mapTag.(menu, ~mapPick.(~drumsPresetPicks), menu.toolTip ? "") };
-        ~drumsControllers = ~drumsWire.(d, m);
+        ~drumsWire.(d, m);
         ~drumsRefreshAll.();
     } };
     ~drumsPane = pane;

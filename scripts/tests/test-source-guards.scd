@@ -431,3 +431,23 @@ stale = allowed.reject { |g| byGui.includes(g) and: { bySetup.includes(g).not } 
     "no longer: " ++ stale.join(", "));
 ~tAssert.("…and the scan sees the window's globals", byGui.includes(\guiWindow) and: { bySetup.includes(\looper) });
 }.value;
+
+// One rule for how a view hears a model (docs/dev/architecture.md, 5, step
+// 4): through ~guiWatch or ~guiController (gui-wiring.scd), which keep every
+// controller under its owner and drop them together with the window. A pane
+// making a SimpleController of its own again is back to keeping its own list
+// and its own teardown, which is how the hub outlived the window it painted.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var found = List.new;
+(root +/+ "scripts" +/+ "gui-*.scd").pathMatch.reject { |p| PathName(p).fileName == "gui-wiring.scd" }.do { |path|
+    (File.readAllString(path) ? "").split($\n).do { |line, i|
+        var cut = line.find("//");
+        var code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
+        if(code.contains("SimpleController(") or: { code.contains("addDependant(") }) {
+            found.add(PathName(path).fileName ++ ":" ++ (i + 1)) };
+    };
+};
+~tAssert.("no pane makes a controller of its own: they watch through ~guiWatch or ~guiController",
+    found.isEmpty, "found at " ++ found.join(", "));
+}.value;

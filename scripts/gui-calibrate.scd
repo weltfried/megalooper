@@ -319,7 +319,7 @@
     // Async results land from a Routine, so the repaint is deferred rather than
     // called from the button that started it. Keyed teardown so re-loading this
     // file replaces the controller instead of stacking a second one.
-    ~calController !? { |c| c.remove };
+    ~guiUnwatch.(\calibrate);
     ~calRepaint = {
         // A repaint already deferred when the window closed would otherwise
         // land on destroyed widgets. The refresh itself stays unguarded, so it
@@ -329,13 +329,9 @@
             ~calibrateRefresh.()
         } }.defer
     };
-    ~calController = SimpleController(cal)
-        .put(\status,  { ~calRepaint.() })
-        .put(\step,    { ~calRepaint.() })
-        .put(\applied, { ~calRepaint.() })
-        .put(\reset,   { ~calRepaint.() })
-        .put(\kept,    { ~calRepaint.() });
-    ~guiTeardowns[\calibrate] = { ~calController !? { |c| c.remove }; ~calController = nil };
+    ~guiWatch.(\calibrate, cal, (
+        status: { ~calRepaint.() }, step: { ~calRepaint.() }, applied: { ~calRepaint.() },
+        reset: { ~calRepaint.() }, kept: { ~calRepaint.() }));
 
     ~guiSwapPane.(\calibrate, pane);
     ~calibrateRefresh.();

@@ -52,10 +52,8 @@
 
 ~guiTeardowns = ~guiTeardowns ? ();
 ~synthGen = (~synthGen ? 0) + 1;
-~synthControllers = ~synthControllers ? [];
 ~guiTeardowns[\synth] = {
-    ~synthControllers.do(_.remove);
-    ~synthControllers = [];
+    ~guiUnwatch.(\synth);
     ~synthWidgets = IdentityDictionary.new;
     ~synthLanes = IdentityDictionary.new;
     ~synthHeld = nil;
@@ -558,7 +556,7 @@
 ~synthWire = { |d, w, m|
     var lanes = { { ~synthRefreshLanes.() }.defer };
     var ctls = [
-        SimpleController(d)
+        ~guiController.(\synth, d)
             .put(\notesOn, { { ~synthPaint.(\notesOn); ~synthPollPlayhead.(true); ~guiRefreshTabs !? { |f| f.value } }.defer })
             .put(\playing, { { ~synthPollPlayhead.(true); ~guiRefreshTabs !? { |f| f.value } }.defer })
             .put(\noteSetting, { |obj, what, name| { ~synthPaint.(name); ~synthPaintAll.() }.defer })
@@ -568,11 +566,11 @@
             .put(\noteStep, { { ~synthRefreshLane.(\steps) }.defer })
             .put(\notes, { { ~synthPaintAll.() }.defer })
     ];
-    w !? { ctls = ctls.add(SimpleController(w)
+    w !? { ctls = ctls.add(~guiController.(\synth, w)
         .put(\waveSetting, { |obj, what, name| { ~synthPaint.(("wave_" ++ name).asSymbol) }.defer })
         .put(\waveSettings, { { ~synthPaintAll.() }.defer })
         .put(\waveTable, { { ~synthPaint.(\tableName) }.defer })) };
-    m !? { ctls = ctls.add(SimpleController(m)
+    m !? { ctls = ctls.add(~guiController.(\synth, m)
         .put(\level, { |obj, what, key, amp| { ~saPaintLevel !? { |f| f.(~synthLevels, key, amp) } }.defer })
         .put(\mute, { |obj, what, key| { ~saPaintMute !? { |f| f.(~synthLevels, key, ~saMutedOf.(m, key)) } }.defer })
         .put(\instrument, { { ~synthPaint.(\instrument); ~synthPaint.(\instrumentLine) }.defer })) };
@@ -616,7 +614,7 @@
                     "default · hover for what it does"), nil]
             )).margins_([22, 14, 22, 14]).spacing_(8))
         ).margins_(0).spacing_(0));
-        ~synthControllers = ~synthWire.(d, w, m);
+        ~synthWire.(d, w, m);
         ~synthPaintAll.();
     };
     ~synthPane = pane;
