@@ -252,6 +252,13 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     srv[\sync] = { |self| self };
     srv[\nextNodeID] = { |self| 1000 };
     srv[\nextBufferNumber] = { |self, n = 1| self[\bufferAllocator].alloc(n) };
+    // A target, as a Server is one (its default group, node 1): so a Synth
+    // made on the stub's own server (Synth(\x, args, server), Synth.tail(server,
+    // \x)) is a real Synth whose s_new is recorded here, where a Synth with no
+    // target went to Server.default, the harness's trap (and outside the
+    // harness, a running megalooper's scsynth). No message is sent for it.
+    srv[\defaultGroup] = Group.basicNew(srv, 1);
+    srv[\asTarget] = { |self| self[\defaultGroup] };
     srv
 };
 

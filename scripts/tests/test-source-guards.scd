@@ -449,3 +449,39 @@ var found = List.new;
 ~tAssert.("no pane makes a controller of its own: they watch through ~guiWatch or ~guiController",
     found.isEmpty, "found at " ++ found.join(", "));
 }.value;
+
+// Every synth a class makes names where it goes (a target, a server), never
+// Server.default by omission: in the app that is the looper's own server, but
+// a test's looper on a stub server sent such a synth to whatever answers on
+// 57110, a running megalooper's (docs/dev/architecture.md, 5, step 5; four
+// such synths of the Looper's were found by the harness on 2026-11-08). A
+// Synth( call with fewer than three arguments has no target.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var found = List.new;
+(root +/+ "classes" +/+ "*.sc").pathMatch.do { |path|
+    var text = File.readAllString(path) ? "", n = text.size, i = 0, k, depth, commas, c, line;
+    while { i < n } {
+        k = text.find("Synth(", offset: i);
+        if(k.isNil) { i = n } {
+            if((k > 0) and: { (text[k - 1].isAlphaNum or: { text[k - 1] == $. }) }) { i = k + 6 } {
+                depth = 1; commas = 0; i = k + 6;
+                while { (depth > 0) and: { i < n } } {
+                    c = text[i];
+                    case
+                    { (c == $/) and: { (i + 1) < n } and: { text[i + 1] == $/ } } { i = (text.find("\n", offset: i) ? n) - 1 }
+                    { "([{".includes(c) } { depth = depth + 1 }
+                    { ")]}".includes(c) } { depth = depth - 1 }
+                    { (c == $,) and: { depth == 1 } } { commas = commas + 1 };
+                    i = i + 1;
+                };
+                if(commas < 2) {
+                    line = text.copyRange(0, k).occurrencesOf($\n) + 1;
+                    found.add(PathName(path).fileName ++ ":" ++ line);
+                };
+            };
+        };
+    };
+};
+~tAssert.("every synth a class makes names its target", found.isEmpty, "untargeted at " ++ found.join(", "));
+}.value;

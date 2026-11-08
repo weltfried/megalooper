@@ -340,6 +340,9 @@ Looper {
     // the affected voice. `bbcutBuffer` is the single shared snapshot buffer.
     var bbcutBuffer;
     var <bbcutEnabling = false;
+    // enableBBCut's routine, waiting for the boundary to bring the cutter in:
+    // kept, so a stop, a clear, a new take or free takes a cutter starting back.
+    var bbcutEnableRoutine;
     // When the current engine started, in SystemClock (logical) seconds: the
     // anchor every language-side layer counts the loop from. Readable for
     // Megalooper SA's drums, which put their grid on it.
@@ -1019,6 +1022,7 @@ Looper {
 
     startRecord {
         var defName = if(inChannelCount == 1) { \looperRecMono } { \looperRec };
+        this.prCancelBBCutEnable;
         if(bbcut) { this.disableBBCut };
         // A reading armed for the loop being replaced has nothing to land on.
         this.prCancelReading;
@@ -1041,7 +1045,7 @@ Looper {
             \ana, this.analysisIn,
             \onsetThreshold, onsetThreshold,
             \tapGainBus, this.prTapGainIndex
-        ]);
+        ], server);
         this.prLogEvent(\recordStart,
             (threshold: onsetThreshold, ana: this.analysisIn, in: inChannel), recStartTime);
         this.prSetState(\recording);
@@ -1494,7 +1498,7 @@ Looper {
     }
 
     startOverdub {
-        if(this.prAtHalfTime) { ^this.prRefused(\trigger, "half-time: end it before an overdub") };
+        this.prRefusal(\overdub) !? { |why| ^this.prRefused(\trigger, why) };
         if(engineSynth.notNil) {
             this.snapshotForUndo;
             engineSynth.set(\recEnable, 1);
@@ -1559,7 +1563,7 @@ Looper {
             \gateBus, insertBus.index,
             \phaseBus, phaseBus.index,
             \gateMode, if(bbcut) { this.bbcutGateCode } { 0 }
-        ]);
+        ], server);
         // Wall time of the moment the loop's audio actually starts. `Synth.new`
         // sends its s_new IMMEDIATELY and applies no latency of its own, so that
         // moment is SystemClock.seconds and nothing else.
@@ -2348,7 +2352,9 @@ Looper {
         // still hold — but the analysis has to grow with it or BBCut will cut
         // the longer file at the old beat count and pitch it up n times.
         this.prScaleResultLength(n);
-        reverseFlag = false;
+        // The new loop plays forwards: said, or the window and the drums would
+        // go on showing and following a reversed loop.
+        if(reverseFlag) { reverseFlag = false; this.prReverseSaid };
         // Spawn the new engine FIRST (phase-aligned to this boundary via
         // spawnEngine's loopStartTime), then free the old one — no silent gap.
         // Tempo/MIDI clocks are intentionally left running: same tempo, so Live
@@ -2696,55 +2702,67 @@ Looper {
                 ++ "x too fast — re-record or re-analyze the loop.").warn;
         };
 
-        Routine {
+        bbcutEnableRoutine = Routine {
             var ready = Condition.new;
             var untilNextBoundary, sp, newBuffer, cutSpeed;
+            // A cutter that cannot start (the loop cleared under it, a file
+            // that would not write) leaves nothing half on: before, a throw
+            // here kept bbcutEnabling true, and the cutter and half-time were
+            // refused until the looper was built again.
+            try {
 
-            // The loop goes to disk and comes back BEFORE the wait, and running
-            // voices — when this is a re-enable — keep playing until the
-            // boundary; the swap below is then a teardown and a spawn in the
-            // same instant. That is what lets a reading that changes the pulse
-            // (prLandReading) put the new grid on the downbeat with no hole in
-            // front of it. A first enable is unchanged: nothing was playing.
-            buffer.write(path, "WAV", "int24", loopFrames, startFrame);
-            server.sync;
+                // The loop goes to disk and comes back BEFORE the wait, and running
+                // voices — when this is a re-enable — keep playing until the
+                // boundary; the swap below is then a teardown and a spawn in the
+                // same instant. That is what lets a reading that changes the pulse
+                // (prLandReading) put the new grid on the downbeat with no hole in
+                // front of it. A first enable is unchanged: nothing was playing.
+                buffer.write(path, "WAV", "int24", loopFrames, startFrame);
+                server.sync;
 
-            // eventlist=1 → cut start positions land on whole-beat (pulse)
-            // boundaries inside the buffer, and CutBuf3 can use the analysis.
-            // The fourth arg is an action closure fired once allocRead completes.
-            newBuffer = BBCutBuffer(path, totalBeats, 1, { ready.unhang });
-            ready.hang;
+                // eventlist=1 → cut start positions land on whole-beat (pulse)
+                // boundaries inside the buffer, and CutBuf3 can use the analysis.
+                // The fourth arg is an action closure fired once allocRead completes.
+                newBuffer = BBCutBuffer(path, totalBeats, 1, { ready.unhang });
+                ready.hang;
 
-            // Phase-align to the next loop downbeat so cut beat 0 = loop
-            // beat 0. `loopStartTime` is the wall time when the current
-            // engineSynth was spawned — the true audio start, with no latency
-            // adjustment (see spawnEngine; adding one is the 2026-09-07 bug). All
-            // voices spawn right after this wait, so they share beat 0.
-            // The next boundary, and the speed after it: at half-time
-            // (rc600-picks.md, 3b) the end of a half-speed pass, and a landing
-            // or an end of half-time armed for it, so the cutter comes in at
-            // the speed the loop will play.
-            cutSpeed = this.prSpeedAfterNext;
-            untilNextBoundary = (this.prNextBoundaryAt(SystemClock.seconds) - SystemClock.seconds).max(0);
-            untilNextBoundary.wait;
+                // Phase-align to the next loop downbeat so cut beat 0 = loop
+                // beat 0. `loopStartTime` is the wall time when the current
+                // engineSynth was spawned — the true audio start, with no latency
+                // adjustment (see spawnEngine; adding one is the 2026-09-07 bug). All
+                // voices spawn right after this wait, so they share beat 0.
+                // The next boundary, and the speed after it: at half-time
+                // (rc600-picks.md, 3b) the end of a half-speed pass, and a landing
+                // or an end of half-time armed for it, so the cutter comes in at
+                // the speed the loop will play.
+                cutSpeed = this.prSpeedAfterNext;
+                untilNextBoundary = (this.prNextBoundaryAt(SystemClock.seconds) - SystemClock.seconds).max(0);
+                untilNextBoundary.wait;
 
-            this.teardownBBCut;
-            bbcutBuffer = newBuffer;
-            sp = this.bbcutSpawnParams(cutSpeed);
-            bbcutVoices.do { |voice|
-                if(voice[\enabled]) {
-                    this.spawnBBCutVoice(voice, sp);
+                this.teardownBBCut;
+                bbcutBuffer = newBuffer;
+                sp = this.bbcutSpawnParams(cutSpeed);
+                bbcutVoices.do { |voice|
+                    if(voice[\enabled]) {
+                        this.spawnBBCutVoice(voice, sp);
+                    };
                 };
+
+                engineSynth !? { |s| s.set(\gateMode, this.bbcutGateCode) };
+
+                bbcut = true;
+                bbcutEnabling = false;
+                this.changed(\bbcut, true);
+                ("BBCut on (" ++ totalBeats ++ " beats @ "
+                    ++ baseBps.round(0.01) ++ " bps, "
+                    ++ this.bbcutActiveVoiceCount ++ " voice(s)).").postln;
+                bbcutEnableRoutine = nil;
+            } { |err|
+                bbcutEnabling = false;
+                bbcutEnableRoutine = nil;
+                err.reportError;
+                this.prRefused(\bbcut, "the cutter could not start (" ++ err.errorString ++ ")");
             };
-
-            engineSynth !? { |s| s.set(\gateMode, this.bbcutGateCode) };
-
-            bbcut = true;
-            bbcutEnabling = false;
-            this.changed(\bbcut, true);
-            ("BBCut on (" ++ totalBeats ++ " beats @ "
-                ++ baseBps.round(0.01) ++ " bps, "
-                ++ this.bbcutActiveVoiceCount ++ " voice(s)).").postln;
         }.play;
     }
 
@@ -2856,6 +2874,15 @@ Looper {
         bbcutVoices.do { |v| this.freeBBCutVoice(v) };
         bbcutBuffer !? { |b| b.free };
         bbcutBuffer = nil;
+    }
+
+    // A cutter starting (enableBBCut waiting for the boundary) taken back: a
+    // stop, a clear, a new take, the looper freed. Before, a stop or a clear
+    // during that wait was ignored (stopPlayback acted only if(bbcut)), and the
+    // cutter came in over nothing.
+    prCancelBBCutEnable {
+        bbcutEnableRoutine = this.prStopRoutine(bbcutEnableRoutine);
+        bbcutEnabling = false;
     }
 
     // Export the current loop to `dir` as a 24-bit WAV plus a JSON sidecar, for
@@ -3713,6 +3740,7 @@ Looper {
         overdubSyncRoutine !? { |r| r.stop };
         overdubSyncRoutine = nil;
         this.stopOverdubAnalysis;
+        this.prCancelBBCutEnable;
         if(bbcut) { this.disableBBCut };
         engineSynth !? { |s| s.free };
         engineSynth = nil;
@@ -4220,14 +4248,40 @@ Looper {
 
     // Why half-time can't be armed now, or nil. A dissolve's bars were
     // measured at the speed it began at.
-    prHalfTimeRefusal {
-        ^case
-            { state == \overdubbing } { "end the overdub first" }
-            { (state != \playing) or: { this.loopDuration <= 0 } } { "half-time needs a loop playing" }
-            { nextRecState != \idle } { "Rec next loop is on" }
-            { bbcutEnabling } { "the cutter is starting" }
-            { dissolving or: { dissolvePos > 0 } } { "a dissolve is on" }
-            { nil }
+    prHalfTimeRefusal { ^this.prRefusal(\halfTime) }
+
+    // Why an action can't be taken now, in words, or nil: one table that every
+    // entry point with conditions asks (docs/dev/architecture.md, 5, step 5),
+    // so two things that must not overlap refuse each other both ways. Rec
+    // next loop already refused an overdub's playing ("end the overdub
+    // first"); an overdub and a multiply now refuse a next loop's armed or
+    // recording, where they used to break the swap: it set \playing over a
+    // running overdub, and swapped in reps recorded at the old length.
+    prRefusal { |action|
+        ^switch(action,
+            \overdub, {
+                case
+                { this.prAtHalfTime } { "half-time: end it before an overdub" }
+                { nextRecState != \idle } { "Rec next loop is on: overdub once the next loop is in" }
+                { nil }
+            },
+            \multiply, {
+                case
+                { this.prAtHalfTime } { "half-time: end it first" }
+                { (state == \empty) or: { state == \recording } or: { loopFrames == 0 } } { "no loop to multiply" }
+                { nextRecState != \idle } { "Rec next loop is on" }
+                { nil }
+            },
+            \halfTime, {
+                case
+                { state == \overdubbing } { "end the overdub first" }
+                { (state != \playing) or: { this.loopDuration <= 0 } } { "half-time needs a loop playing" }
+                { nextRecState != \idle } { "Rec next loop is on" }
+                { bbcutEnabling } { "the cutter is starting" }
+                { dissolving or: { dissolvePos > 0 } } { "a dissolve is on" }
+                { nil }
+            },
+            { nil })
     }
 
     // The engine's speed, signed, as the grains scan by it.
@@ -4659,7 +4713,7 @@ Looper {
             \rate, this.prGrainRate
         ] ++ this.prGranularArgs ++ this.prGranularChordArgs.flatten(1);
         granularSynth = engineSynth !? { |e| Synth.after(e, \looperGranular, args) }
-            ?? { Synth(\looperGranular, args) };
+            ?? { Synth(\looperGranular, args, server) };
         ("Granular on. tau=" ++ tau.round(0.001)
             ++ " morph=" ++ granularMorph.round(0.01)
             ++ (if(engineSynth.notNil) { ", locked to the loop" } { ", free (loop stopped)" })
@@ -4876,9 +4930,7 @@ Looper {
 
     multiply { |factor=2|
         var newFrames = loopFrames * factor;
-        if(this.prAtHalfTime) { ^this.prRefused(\multiply, "half-time: end it first") };
-        if(state == \empty or: { state == \recording }) { ^this.prRefused(\multiply, "no loop to multiply") };
-        if(loopFrames == 0) { ^this.prRefused(\multiply, "no loop to multiply") };
+        this.prRefusal(\multiply) !? { |why| ^this.prRefused(\multiply, why) };
         if((startFrame + newFrames) > buffer.numFrames) {
             ("Multiply would overflow buffer (need " ++ newFrames ++ " frames).").warn;
             ^this.prRefused(\multiply, "the loop would not fit the buffer")
@@ -5367,7 +5419,7 @@ Looper {
                 Synth(\looperClick, [
                     \freq, if(isDownbeat) { 1500 } { 900 },
                     \amp,  if(isDownbeat) { 0.5 }  { 0.2 }
-                ]);
+                ], server);
                 tau.wait;
                 i = i + 1;
             };
@@ -5443,6 +5495,8 @@ Looper {
         // First: a set being recorded must reach the disk even if the looper is
         // being torn down around it, and stop() is what closes the files.
         sessionRec !? { |r| r.free };
+        CmdPeriod.remove(this);
+        this.prCancelBBCutEnable;
         this.teardownBBCut;
         nextRecRoutine !? { |r| r.stop };
         nextRecSynth !? { |s| s.free };
@@ -5458,6 +5512,10 @@ Looper {
         breakRoutine !? { |r| r.stop };
         dissolveRoutine !? { |r| r.stop };
         readingRoutine !? { |r| r.stop };
+        // Before 2026-11-08 free left these two running: a half-time landing
+        // after free restarted the onset notes and sent MIDI.
+        halfTimeRoutine = this.prStopRoutine(halfTimeRoutine);
+        reverseRoutine = this.prStopRoutine(reverseRoutine);
         if(transportMode == \full) { midiOut !? { |m| m.stop } };
         buffer !? { |b| b.free };
         undoBuffer !? { |b| b.free };
@@ -5465,6 +5523,7 @@ Looper {
         outBus !? { |b| b.free };
         phaseBus !? { |b| b.free };
         tapGainBus !? { |b| b.free };
+        insertBus !? { |b| b.free };
         granularEnvBufs !? { |bufs| bufs.do { |b| b.free } };
         this.stopOnsetNotes;
         onsetResp !? { |r| r.free };
