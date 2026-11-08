@@ -63,7 +63,7 @@
     } {
         var bus     = l.instVarAt(\insertBus);
         var engine  = l.instVarAt(\engineSynth);
-        var voices  = l.instVarAt(\bbcutVoices);
+        var voices  = l.cutterPart.instVarAt(\bbcutVoices);
         var code    = l.bbcutGateCode;
 
         "-- 1. the mode --".postln;

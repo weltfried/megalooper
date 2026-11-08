@@ -1579,6 +1579,7 @@ megalooper/
     LooperOnsetNotes.sc  -- the loop's onsets replayed as a drum part (MIDI notes, or the drums' onset kit)
     LooperChainRecorder.sc -- Rec next loop: records the next loop over this one, for the swap
     LooperGrains.sc      -- the grains: their controls, windows, synth, chords and presets
+    LooperCutter.sc      -- the cutter: BBCut voices over the loop, their procedures, effects, clocks and presets
     LooperBreakProc.sc   -- house BBCut procedure: occasional block repeats
     LooperCutGate.sc     -- drives the Insert-mode duck bus from each cut block
     LooperSessionRecorder.sc -- records the whole set to disk, from the stomp

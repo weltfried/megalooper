@@ -33,7 +33,7 @@ data = l.bbcutPresetData("Round Trip");
 str = l.bbcutPresetText(data);
 parsed = MegaFiles.parseObject(str);
 ~tAssert.("the serialised preset is one JSON object, a BBCut preset",
-    parsed.isKindOf(MegaJsonObject) and: { parsed.at("format") == Looper.bbcutPresetFormat }, str.keep(200));
+    parsed.isKindOf(MegaJsonObject) and: { parsed.at("format") == LooperCutter.presetFormat }, str.keep(200));
 parsed = MegaFiles.eventOf(parsed);
 ~tAssert.("...and yields an Event", parsed.isKindOf(Dictionary),
     "got a " ++ parsed.class);

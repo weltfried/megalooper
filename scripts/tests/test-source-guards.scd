@@ -17,7 +17,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 // The Looper and the parts split out of it (docs/dev/architecture.md 5,
 // step 8): what these guards hold is the Looper's, wherever its code now is.
-var src = ["Looper.sc", "LooperSynthDefs.sc", "LooperOnsetNotes.sc", "LooperChainRecorder.sc", "LooperGrains.sc"].collect { |f| File.readAllString(root +/+ "classes" +/+ f) }.join("\n");
+var src = ["Looper.sc", "LooperSynthDefs.sc", "LooperOnsetNotes.sc", "LooperChainRecorder.sc", "LooperGrains.sc", "LooperCutter.sc"].collect { |f| File.readAllString(root +/+ "classes" +/+ f) }.join("\n");
 var stripComments, flat, countOf, bare;
 
 // Drop // comments to end of line. The Looper's SynthDefs contain no string

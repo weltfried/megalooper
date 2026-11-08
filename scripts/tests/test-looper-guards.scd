@@ -152,6 +152,14 @@ r = heard.(l, { l.cmdPeriod });
 ~tEq.("...and its buffer is kept", ~tGet.(l, \loopFrames), 48000);
 r = heard.(l, { l.cmdPeriod });
 ~tEq.("a second Cmd-period says nothing more", r, []);
+// The cutter running or starting is off after it (LooperCutter.forget).
+l = playing.();
+~tPut.(l, \ready, true);
+~tPut.(l, \bbcut, true);
+~tPut.(l, \bbcutEnabling, true);
+r = heard.(l, { l.cmdPeriod });
+~tEq.("after Cmd-period the cutter is off and not starting, and says so",
+    [l.bbcut, l.bbcutEnabling, said.(r, \bbcut).any { |x| x[1] == false }], [false, false, true]);
 l = ~tLooper.();
 r = heard.(l, { l.cmdPeriod });
 ~tEq.("a looper never ready is left alone", [r, l.state], [[], \empty]);
@@ -159,6 +167,24 @@ l = playing.();
 CmdPeriod.add(l);
 l.free;
 ~tAssert.("free stops listening for Cmd-period", CmdPeriod.objects.includes(l).not);
+
+// ---- what the Looper tells the cutter, and the cutter the engine -------------------------
+// (LooperCutter, split out of the Looper on 2026-11-08.)
+{
+    var vol;
+    l = playing.();
+    ~tGet.(l, \bbcutVoices)[0].put(\amp, 0.8).put(\mixer, (volume_: { |self, x| vol = x }));
+    ~tPut.(l, \dissolvePos, 0.2);
+    l.prApplyMixes;
+    ~tEq.("the arc sets each voice's level: its own times the cutter's mix", vol, 0.8 * l.prBBCutMix);
+    ~tPut.(l, \bbcut, true);
+    l.bbcutMode = \gate;
+    ~tEq.("a mode change while cutting gates the dry loop at once (gate: muted)",
+        ~tLastSet.(l, ~tGet.(l, \engineSynth), \gateMode), 1);
+    l.bbcutMode = \insert;
+    ~tEq.("...insert: ducked under the repetitions", ~tLastSet.(l, ~tGet.(l, \engineSynth), \gateMode), 2);
+    ~tPut.(l, \bbcut, false);
+}.value;
 
 // ---- free ------------------------------------------------------------------------------
 l = playing.();

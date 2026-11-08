@@ -572,7 +572,10 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     granularSynth: \grainsPart, granularEnvBufs: \grainsPart, granularMorph: \grainsPart, granularAmp: \grainsPart,
     granularPitch: \grainsPart, granularDetune: \grainsPart, granularSize: \grainsPart, granularDensity: \grainsPart,
     granularSizeRand: \grainsPart, granularPosition: \grainsPart, granularScan: \grainsPart, granularSpray: \grainsPart,
-    granularEnv: \grainsPart, granularFollowChords: \grainsPart
+    granularEnv: \grainsPart, granularFollowChords: \grainsPart,
+    bbcut: \cutterPart, bbcutMode: \cutterPart, bbcutVoices: \cutterPart, bbcutProcSpecs: \cutterPart,
+    bbcutProcOrder: \cutterPart, bbcutFxSpecs: \cutterPart, bbcutFxOrder: \cutterPart, bbcutBuffer: \cutterPart,
+    bbcutEnabling: \cutterPart, bbcutEnableRoutine: \cutterPart
 );
 ~tOwner = { |obj, key|
     var part = if(obj.isKindOf(Looper)) { ~tWhere[key] };

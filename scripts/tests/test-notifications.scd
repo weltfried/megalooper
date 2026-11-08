@@ -53,7 +53,7 @@ var looperSkip, looperParts;
 
 // The Looper's parts: each says its changes as the Looper's, held to the
 // Looper's table here.
-looperParts = ["LooperOnsetNotes", "LooperChainRecorder", "LooperGrains"];
+looperParts = ["LooperOnsetNotes", "LooperChainRecorder", "LooperGrains", "LooperCutter"];
 check.("Looper", Looper.notifications, saidIn.(["Looper.sc"] ++ looperParts.collect { |n| n ++ ".sc" }, "prSetGranular"));
 ~tEq.("a part of the Looper says its changes as the Looper's (looper.changed), never as its own, which nobody hears",
     looperParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);
