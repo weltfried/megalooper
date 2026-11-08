@@ -291,27 +291,10 @@ Looper {
     // MIDI Clock Sync Delay preference for a per-input trim.
     var <abletonSyncMs = 0;
     var clockNudge = 0;   // seconds to fold into upcoming clock-tick waits (live shift)
-    // Loop chaining: record a new loop (guitar + processed loop return from
-    // Live, captured on inChannel) over the currently playing one, quantized to
-    // loop boundaries, then swap it in as the active loop. nextBuffer is the
-    // double-buffer scratch; the active `buffer` and `nextBuffer` are swapped on
-    // handoff. nextRecState: \idle -> \armed -> \recording -> (swap) -> \idle.
-    var nextBuffer, nextRecSynth, nextRecRoutine;
-    // Where the chain recorder starts, relative to the loop boundary, in ms.
-    // NEGATIVE starts it earlier. Default 0 = the old behaviour exactly.
-    //
-    // It exists because the chained loop can land rotated inside its own buffer,
-    // and nothing here can derive by how much: the recorder finds its boundary
-    // from `loopStartTime` (which carries whatever skew that has) and records
-    // audio that arrived a round trip after it was played. Measure it with
-    // scripts/check-chain-align.scd and set this to exactly what it reports —
-    // the tool's sign and this one are deliberately the same.
-    var <chainRecOffsetMs = 0;
-    // The recorder outlives the swap when the offset is POSITIVE, finishing the
-    // tail it started late for. Held here rather than in a closure so a teardown
-    // or a cancel in that window can still reach it.
-    var nextRecTail;
-    var <nextRecState = \idle, nextRecStopRequested = false, nextRecReps = 0;
+    // Loop chaining, the capture: LooperChainRecorder, made when first asked
+    // for (chainPart). It records the next loop over this one and hands it
+    // over on a boundary; the swap is the Looper's (prSwapInNextLoop).
+    var chainPart;
     // Construction is ASYNCHRONOUS: buffers, busses and SynthDefs reach the
     // server on init's own Routine, so an instance is not usable the instant
     // Looper() returns. Anything that sends s_new before this flips gets a silent
@@ -395,7 +378,7 @@ Looper {
             var envShapes = Looper.prGranularEnvShapes;
             buffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
             undoBuffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
-            nextBuffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
+            this.chainPart.allocBuffer(server, server.sampleRate * bufDur);
             outBus = Bus.audio(server, 2);
             // "Insert"-mode duck flag: 1 while the cutter is playing a
             // repetition, 0 otherwise. Defaults to 0 so the dry loop passes
@@ -578,10 +561,10 @@ Looper {
         if(ready.not) { ^this };
         ready = false;
         engineSynth = nil; recSynth = nil; granularSynth = nil; masterSynth = nil;
-        tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; nextRecSynth = nil;
+        tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; chainPart !? { |c| c.forget };
         clickRoutine = nil; midiClockRoutine = nil; chordRoutine = nil; breakRoutine = nil;
         dissolveRoutine = nil; readingRoutine = nil; halfTimeRoutine = nil; reverseRoutine = nil;
-        bbcutEnableRoutine = nil; nextRecRoutine = nil; overdubSyncRoutine = nil;
+        bbcutEnableRoutine = nil; overdubSyncRoutine = nil;
         bbcutEnabling = false;
         if(bbcut) { bbcut = false; this.changed(\bbcut, false) };
         this.changed(\granular, false);
@@ -689,8 +672,8 @@ Looper {
         breakEndsAt !? { |t| list.add((what: \break, at: t)) };
         pendingReading !? { |p| list.add((what: \reading, at: p[\at])) };
         if(this.loopDuration > 0) {
-            if(nextRecState == \armed) { list.add((what: \recordNextLoop, at: this.prNextBoundaryAt(now))) };
-            if(nextRecState == \stopping) { list.add((what: \recordNextLoopEnds, at: this.prNextBoundaryAt(now))) };
+            if(this.nextRecState == \armed) { list.add((what: \recordNextLoop, at: this.prNextBoundaryAt(now))) };
+            if(this.nextRecState == \stopping) { list.add((what: \recordNextLoopEnds, at: this.prNextBoundaryAt(now))) };
             if(bbcutEnabling and: { bbcut.not }) { list.add((what: \cutter, at: this.prNextBoundaryAt(now))) };
             if(halfTime == \armed) { list.add((what: \halfTime, at: halfTimeAt)) };
             if(halfTime == \releasing) { list.add((what: \halfTimeEnds, at: halfTimeAt)) };
@@ -991,7 +974,7 @@ Looper {
         returnChannel = val;
         // nil is legal (see canChainLoops) but cannot go into an OSC message, and
         // a nil return channel means there is no chain synth running to update.
-        returnChannel !? { nextRecSynth !? { |s| s.set(\ret, returnChannel) } };
+        returnChannel !? { this.chainPart.returnChannel_(returnChannel) };
         this.changed(\returnChannel, val);
     }
 
@@ -1362,13 +1345,8 @@ Looper {
                 \recording, { "Rec next loop: close the take first" },
                 { "Rec next loop needs a loop playing" }))
         };
-        switch(nextRecState,
-            \recording, {
-                nextRecStopRequested = true;
-                nextRecState = \stopping;
-                this.changed(\nextRecState, \stopping);
-                "Next loop: will stop at the end of the current loop.".postln;
-            },
+        switch(this.nextRecState,
+            \recording, { this.chainPart.requestStop },
             \armed, { this.cancelNextLoopRecord },
             \stopping, { /* already closing out — ignore */ },
             {
@@ -1376,30 +1354,6 @@ Looper {
                 this.armNextLoopRecord
             }   // \idle / default
         );
-    }
-
-    // The calibrated chain-record trim in seconds, clipped to under a loop
-    // either way so the shifted start cannot cross a neighbouring boundary and
-    // land the recording a whole repetition out.
-    prChainRecOffset { |loopSecs|
-        ^(chainRecOffsetMs / 1000).clip(loopSecs * -0.9, loopSecs * 0.9)
-    }
-
-    // Seconds to wait, from `phaseInLoop` into the current pass, before the
-    // chain recorder starts: the NEXT loop boundary, shifted by `off`.
-    //
-    // Deliberately NOT .mod(loopSecs). That collapses the wait to nearly zero
-    // whenever a positive offset pushes it past a whole loop, starting the
-    // recorder at THIS boundary instead of the next one. Only a negative result
-    // needs rescuing, and it needs a whole loop added.
-    //
-    // Pure on purpose. This arithmetic got the chained loops wrong once, and
-    // inline in the Routine below — next to Synth.tail and the buffer — there
-    // was no way to test it. See scripts/tests/test-chain-timing.scd.
-    prChainStartWait { |loopSecs, phaseInLoop, off|
-        var wait = (loopSecs - phaseInLoop) + off;
-        if(wait < 0) { wait = wait + loopSecs };
-        ^wait
     }
 
     // Live's master, coming back on a spare input pair, for the session
@@ -1618,87 +1572,43 @@ Looper {
     // bus carrying the looper's own output straight back in.
     canChainLoops { ^returnChannel.notNil }
 
+    // The capture (LooperChainRecorder), made when first asked for: a Looper
+    // made without init (the tests' newCopyArgs) has one too.
+    chainPart { ^chainPart ?? { chainPart = LooperChainRecorder(this) } }
+
+    // The facade: the window, MIDI, the AI and the tests ask the Looper.
+    nextRecState { ^this.chainPart.nextRecState }
+    chainRecOffsetMs { ^this.chainPart.chainRecOffsetMs }
+    chainRecOffsetMs_ { |val| this.chainPart.chainRecOffsetMs_(val) }
+    cancelNextLoopRecord { this.chainPart.cancel }
+    finishNextLoopRecord { |off = 0| this.chainPart.finish(off) }
+    prChainRecOffset { |loopSecs| ^this.chainPart.recOffset(loopSecs) }
+    prChainStartWait { |loopSecs, phaseInLoop, off| ^this.chainPart.startWait(loopSecs, phaseInLoop, off) }
+    prFreeNextRecTail { this.chainPart.freeTail }
+
+    // Armed for the next boundary, given a loop and a return to chain from.
     armNextLoopRecord {
-        var sr = server.sampleRate;
-        var ld = loopFrames / sr;
-        var defName = if(inChannelCount == 1) { \looperRecPlainMono } { \looperRecPlain };
         if(this.canChainLoops.not) {
             "Next loop: this rig has no return channel, so loop chaining is off."
                 .warn;
             ^this.prRefused(\recordNextLoop, "this rig has no return channel to chain from")
         };
         if(loopFrames == 0) { "Next loop: no loop playing.".warn; ^this.prRefused(\recordNextLoop, "no loop playing") };
-        nextRecStopRequested = false;
-        nextRecReps = 0;
-        nextRecState = \armed;
-        nextBuffer.zero;
-        this.changed(\nextRecState, \armed);
-        "Next loop: armed — recording starts at next loop boundary.".postln;
-        nextRecRoutine = Routine {
-            var off = this.prChainRecOffset(ld);
-            var firstRep = true;
-            // Wait to the next loop boundary off the same wall-clock reference
-            // BBCut uses (loopStartTime = audio start of the current engine),
-            // shifted by the calibrated offset.
-            var phaseInLoop = (SystemClock.seconds
-                - (loopStartTime ? SystemClock.seconds)) % ld;
-            this.prChainStartWait(ld, phaseInLoop, off).wait;
-            nextRecSynth = Synth.tail(server, defName, [
-                \bufnum, nextBuffer.bufnum,
-                \in, inChannel,
-                \ret, returnChannel
-            ]);
-            nextRecState = \recording;
-            this.changed(\nextRecState, \recording);
-            "Next loop: recording...".postln;
-            // Count completed reps; a stop request takes effect at the boundary
-            // that closes the current rep. Also bail if the buffer would overflow.
-            //
-            // The rep grid stays on the TRUE boundaries — only the first wait
-            // absorbs the offset — so the swap still happens exactly on a loop
-            // boundary and the handoff stays gapless.
-            while { nextRecStopRequested.not } {
-                if(firstRep) { (ld - off).wait; firstRep = false } { ld.wait };
-                nextRecReps = nextRecReps + 1;
-                if((nextRecReps + 1) * loopFrames > nextBuffer.numFrames) {
-                    "Next loop: scratch buffer full — stopping.".warn;
-                    nextRecStopRequested = true;
-                };
-            };
-            this.finishNextLoopRecord(off);
-        }.play(SystemClock);
+        this.chainPart.arm;
     }
 
-    finishNextLoopRecord { |off = 0|
-        var n = nextRecReps.max(1);
-        var newFrames = n * loopFrames;
-        var oldEngine = engineSynth;
-        var tmp;
-        // A recorder that started LATE (positive offset) is still short of the
-        // final rep, so let it finish the tail; one that started early already
-        // has everything and is freed here as before. It writes into what is
-        // about to become the ACTIVE buffer, but the new engine below reads from
-        // frame 0 while the write head is a whole loop further on.
-        this.prFreeNextRecTail;
-        nextRecSynth !? { |syn|
-            if(off > 0) {
-                nextRecTail = syn;
-                SystemClock.sched(off, { this.prFreeNextRecTail; nil });
-            } {
-                syn.free;
-            };
-        };
-        nextRecSynth = nil;
-        nextRecRoutine = nil;
+    // The capture lands on a boundary: `next` (the capture, `n` passes of the
+    // loop long) becomes the loop, and the old loop's buffer is answered, the
+    // scratch for the next capture. Undo can take the swap back.
+    prSwapInNextLoop { |next, n|
+        var oldEngine = engineSynth, old = buffer;
         // Snapshot the OLD loop first so Undo can revert the swap.
         this.snapshotForUndo;
         // A reading armed for the old loop has nothing to land on (multiply's).
         this.prCancelReading;
-        // Double-buffer swap: the freshly recorded buffer becomes active; the
-        // old active buffer becomes the scratch for the next capture.
-        tmp = buffer; buffer = nextBuffer; nextBuffer = tmp;
+        buffer = next;
         startFrame = 0;
-        loopFrames = newFrames;
+        loopFrames = n * loopFrames;
         // The capture is n whole reps of the old loop, so the meter and tempo
         // still hold — but the analysis has to grow with it or BBCut will cut
         // the longer file at the old beat count and pitch it up n times.
@@ -1714,35 +1624,7 @@ Looper {
         oldEngine !? { |s| s.free };
         this.prSetState(\playing);
         this.prLogEvent(\chain, (reps: n, loopDur: this.loopDuration));
-        nextRecState = \idle;
-        nextRecStopRequested = false;
-        this.changed(\nextRecState, \idle);
-        ("Next loop active: " ++ n ++ "x current loop ("
-            ++ (newFrames / server.sampleRate).round(0.01) ++ " s).").postln;
-    }
-
-    prFreeNextRecTail {
-        nextRecTail !? { |s| s.free };
-        nextRecTail = nil;
-    }
-
-    // Set this to exactly what scripts/check-chain-align.scd reports.
-    chainRecOffsetMs_ { |val|
-        chainRecOffsetMs = val.clip(-2000, 2000);
-        this.changed(\chainRecOffsetMs, chainRecOffsetMs);
-    }
-
-    cancelNextLoopRecord {
-        var wasActive = #[\armed, \recording, \stopping].includes(nextRecState);
-        nextRecRoutine !? { |r| r.stop }; nextRecRoutine = nil;
-        nextRecSynth !? { |s| s.free }; nextRecSynth = nil;
-        this.prFreeNextRecTail;
-        nextRecStopRequested = false;
-        if(nextRecState != \idle) {
-            nextRecState = \idle;
-            this.changed(\nextRecState, \idle);
-        };
-        if(wasActive) { "Next loop: cancelled.".postln };
+        ^old
     }
 
     // ===================================================================
@@ -3418,21 +3300,21 @@ Looper {
             \overdub, {
                 case
                 { this.prAtHalfTime } { "half-time: end it before an overdub" }
-                { nextRecState != \idle } { "Rec next loop is on: overdub once the next loop is in" }
+                { this.nextRecState != \idle } { "Rec next loop is on: overdub once the next loop is in" }
                 { nil }
             },
             \multiply, {
                 case
                 { this.prAtHalfTime } { "half-time: end it first" }
                 { (state == \empty) or: { state == \recording } or: { loopFrames == 0 } } { "no loop to multiply" }
-                { nextRecState != \idle } { "Rec next loop is on" }
+                { this.nextRecState != \idle } { "Rec next loop is on" }
                 { nil }
             },
             \halfTime, {
                 case
                 { state == \overdubbing } { "end the overdub first" }
                 { (state != \playing) or: { this.loopDuration <= 0 } } { "half-time needs a loop playing" }
-                { nextRecState != \idle } { "Rec next loop is on" }
+                { this.nextRecState != \idle } { "Rec next loop is on" }
                 { bbcutEnabling } { "the cutter is starting" }
                 { dissolving or: { dissolvePos > 0 } } { "a dissolve is on" }
                 { nil }
@@ -4361,9 +4243,7 @@ Looper {
         CmdPeriod.remove(this);
         this.prCancelBBCutEnable;
         this.teardownBBCut;
-        nextRecRoutine !? { |r| r.stop };
-        nextRecSynth !? { |s| s.free };
-        this.prFreeNextRecTail;
+        chainPart !? { |c| c.free };
         recSynth !? { |s| s.free };
         engineSynth !? { |s| s.free };
         granularSynth !? { |s| s.free };
@@ -4382,7 +4262,6 @@ Looper {
         if(transportMode == \full) { midiOut !? { |m| m.stop } };
         buffer !? { |b| b.free };
         undoBuffer !? { |b| b.free };
-        nextBuffer !? { |b| b.free };
         outBus !? { |b| b.free };
         phaseBus !? { |b| b.free };
         tapGainBus !? { |b| b.free };

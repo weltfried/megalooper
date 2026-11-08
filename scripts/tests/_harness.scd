@@ -566,7 +566,9 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     onsetNoteGateMs: \onsetNotesPart, onsetNoteOffsetMs: \onsetNotesPart, onsetNotePattern: \onsetNotesPart,
     onsetNotePatternDur: \onsetNotesPart, onsetNoteChance: \onsetNotesPart, onsetNoteRolls: \onsetNotesPart,
     onsetNoteRoutine: \onsetNotesPart, onsetNoteSounding: \onsetNotesPart, onsetNoteSink: \onsetNotesPart,
-    halfOnsets: \onsetNotesPart
+    halfOnsets: \onsetNotesPart,
+    nextBuffer: \chainPart, nextRecSynth: \chainPart, nextRecRoutine: \chainPart, nextRecTail: \chainPart,
+    nextRecState: \chainPart, nextRecStopRequested: \chainPart, nextRecReps: \chainPart, chainRecOffsetMs: \chainPart
 );
 ~tOwner = { |obj, key|
     var part = if(obj.isKindOf(Looper)) { ~tWhere[key] };

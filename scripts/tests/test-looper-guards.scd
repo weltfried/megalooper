@@ -86,6 +86,20 @@ l = playing.();
 ~tPut.(l, \nextRecReps, 1);
 r = heard.(l, { l.finishNextLoopRecord(0) });
 ~tAssert.("a swap that was forwards already says nothing of the direction", said.(r, \reverse).isEmpty, r.asString);
+// The capture becomes the loop and the old loop the next capture's scratch
+// (LooperChainRecorder hands its buffer over, Looper.prSwapInNextLoop answers
+// the old one): kept the same, the next capture would write over the loop
+// playing.
+{
+    var was, scratch;
+    l = playing.();
+    was = ~tGet.(l, \buffer); scratch = ~tGet.(l, \nextBuffer);
+    ~tPut.(l, \nextRecState, \recording);
+    ~tPut.(l, \nextRecReps, 1);
+    l.finishNextLoopRecord(0);
+    ~tEq.("the swap trades the buffers: the capture plays, the old loop is the next scratch, the state idle",
+        [~tGet.(l, \buffer) === scratch, ~tGet.(l, \nextBuffer) === was, l.nextRecState], [true, true, \idle]);
+}.value;
 
 // ---- a cutter starting, taken back --------------------------------------------------
 [[\stop, { |lp| lp.stopPlayback }], [\take, { |lp| lp.startRecord }]].do { |c|

@@ -62,7 +62,7 @@
         "~chainAlign: no ~looper.".warn;
     } {
         var newBuf    = l.instVarAt(\buffer);
-        var oldBuf    = l.instVarAt(\nextBuffer);
+        var oldBuf    = l.chainPart.instVarAt(\nextBuffer);
         var undo      = l.instVarAt(\undoState);
         var curFrames = l.instVarAt(\loopFrames);
         var sr        = l.server.sampleRate;

@@ -318,10 +318,10 @@ Routine {
         // says the loop began.
         ~renderPhase = 25.5 * tau;
         ~looper.instVarPut(\loopStartTime, SystemClock.seconds - ~renderPhase);
-        ~looper.instVarPut(\nextRecState, \armed);
+        ~looper.chainPart.instVarPut(\nextRecState, \armed);
         wait.(0.3);
         cropTo.(rectOf.(~statusCountView).union(rectOf.(~guiPositionView)), "count-in");
-        ~looper.instVarPut(\nextRecState, \idle);
+        ~looper.chainPart.instVarPut(\nextRecState, \idle);
         ~renderPhase = 9.5 * tau;
         wait.(0.3);
         part.(find.(~guiWindow.view, "BREAK LOOPS") !? { |v| v.parent }, "perform-actions");
