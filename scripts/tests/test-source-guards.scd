@@ -555,15 +555,21 @@ var found = List.new;
 // name at all.
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
-var moved = ~tWhere.keys, found = List.new;
+// Every class's moved names (~tParts), but a name still a variable of one
+// of those classes (MegaSA's masterSynth moved, the Looper's did not) can't
+// be told apart by its receiver here, and is left out.
+var owners = ~tParts.keys.collect { |k| k.asClass }, where = ();
+var moved, found = List.new;
 var files = ["scripts/*.scd", "scripts/sa/*.scd", "scripts/tests/*.scd"].collect { |g| (root +/+ g).pathMatch }.flatten;
+~tParts.do { |t| t.keysValuesDo { |k, part| where[k] = part } };
+moved = where.keys.reject { |k| owners.any { |c| c.instVarNames.includes(k) } };
 files.reject { |p| p.endsWith("_harness.scd") }.do { |path|
     (File.readAllString(path) ? "").split($\n).do { |line, i|
         var cut = line.find("//"), code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
         var hits = code.findRegexp("([A-Za-z_]+)\\.instVar(?:At|Put)\\(\\\\([a-zA-Z]+)");
         // findRegexp answers the match, then each group: [whole, receiver, name] per hit.
         hits.clump(3).do { |h|
-            if(h.size == 3 and: { moved.includes(h[2][1].asSymbol) } and: { ~tWhere[h[2][1].asSymbol].asString != h[1][1] }) {
+            if(h.size == 3 and: { moved.includes(h[2][1].asSymbol) } and: { where[h[2][1].asSymbol].asString != h[1][1] }) {
                 found.add(PathName(path).fileName ++ ":" ++ (i + 1) ++ " " ++ h[2][1]);
             };
         };

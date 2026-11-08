@@ -109,7 +109,7 @@ if(vst.isNil) { ~tSkip.("a plugin's device opens what its sound names", "VSTPlug
     };
     got = make.((key: "Amp", format: "vst2", uid: "A001", name: "Amp", vendor: "Acme"), all, "/abs/x/Rig.vst");
     ~tEq.("a plugin's device opens the catalog's entry for the plugin its sound names, by its key",
-        [got[1], got[2].plugin.notNil, (got[0].instVarAt(\holds)[\guitar] ? []).includes(\opening).not], ["Amp", true, true]);
+        [got[1], got[2].plugin.notNil, got[0].held(\guitar).includes(\opening).not], ["Amp", true, true]);
     got[0].free;
     got = make.((key: "Amp (moved)", format: "vst2", uid: "A001", name: "x", vendor: "y"), all, "/abs/x/Rig.vst");
     ~tEq.("...found by its id when its key is another now", got[1], "Amp");
@@ -122,7 +122,7 @@ if(vst.isNil) { ~tSkip.("a plugin's device opens what its sound names", "VSTPlug
     got[0].free;
     got = make.((key: "Gone", format: "vst2", uid: "G1", name: "Gone", vendor: "Nobody"), all, "/abs/x/Rig.vst");
     ~tEq.("a plugin this Mac has not is not opened: its device stays in the chain with no plugin, the guitar is not held, and the sound still names it",
-        [got[1], got[2].notNil, got[2].plugin, (got[0].instVarAt(\holds)[\guitar] ? []).includes(\opening),
+        [got[1], got[2].notNil, got[2].plugin, got[0].held(\guitar).includes(\opening),
             MegaSAPlugins.identityOf(got[0].sound.device(\plugin1)[\plugin])[\key]],
         [nil, true, nil, false, "Gone"]);
     got[0].free;
@@ -147,7 +147,7 @@ if(vst.isNil) { ~tSkip.("a plugin's device opens what its sound names", "VSTPlug
     ~tEq.("every plugin device of a sound is made for the plugin it names, and opened",
         [fakes.keys.asArray.sort, m.pluginDevices.collect(_.id), fakes.values.collect { |f| f[\opened] }, fakes.values.collect { |f| f[\state] }],
         [['Amp', 'Surround'], [\plugin1, \plugin2], [1, 1], [\open, \open]]);
-    ~tEq.("...the guitar let go once the last of them has answered", (m.instVarAt(\holds)[\guitar] ? []).includes(\opening), false);
+    ~tEq.("...the guitar let go once the last of them has answered", m.held(\guitar).includes(\opening), false);
     got = nil;
     m.writeSound(root +/+ "two.json", "two", true, nil, { |ok, w| got = [ok, w] }, true, "261010_120000");
     run.value;
@@ -189,10 +189,10 @@ if(vst.isNil) { ~tSkip.("a plugin's device opens what its sound names", "VSTPlug
     m.instVarPut(\openings, IdentitySet[m.device(\plugin1), m.device(\plugin2)]);
     m.hold(\guitar, \opening);
     m.prOpenAnswered(m.device(\plugin1));
-    got = [(m.instVarAt(\holds)[\guitar] ? []).includes(\opening)];
+    got = [m.held(\guitar).includes(\opening)];
     m.prOpenAnswered(m.device(\plugin2));
     ~tEq.("the guitar is held until the last of its plugins has answered its open",
-        got ++ [(m.instVarAt(\holds)[\guitar] ? []).includes(\opening)], [true, false]);
+        got ++ [m.held(\guitar).includes(\opening)], [true, false]);
     // A burst of recalls ends on the last for each plugin, not for all of them.
     heard = List.new;
     m.prStateJob(\load, \program, root +/+ "two.states" +/+ "plugin1-261010_120000.fxp", { |ok| heard.add([\first, ok]) }, m.device(\plugin1));
@@ -220,7 +220,7 @@ if(vst.isNil) { ~tSkip.("a plugin's device opens what its sound names", "VSTPlug
         [fakes['Surround'][\opened], MegaSAPlugins.identityOf(d.fileExtras !? { |x| x[\plugin] }) !? { |i| i[\key] }, m.prPluginTarget(d)],
         [0, "Surround", "Surround"]);
     m.prOpenPlugin(d);
-    ~tEq.("...then open, with nothing held for it", [fakes['Surround'][\state], (m.instVarAt(\holds)[\guitar] ? []).size], [\open, 0]);
+    ~tEq.("...then open, with nothing held for it", [fakes['Surround'][\state], m.held(\guitar).size], [\open, 0]);
     ~tEq.("what the catalog has not, what needs the bridge and what is no effect are refused; so is a plugin with no key",
         [m.insertPlugin(\guitar, nil, "Gone"), m.insertPlugin(\guitar, nil, "Intel Only"), m.insertPlugin(\guitar, nil, "Piano"),
             m.insertPlugin(\guitar, nil, "Tone Gen"), m.insertDevice(\guitar, nil, \plugin), m.guitarChain.ids.last], [nil, nil, nil, nil, nil, \plugin2]);
@@ -279,7 +279,7 @@ if(vst.isNil) { ~tSkip.("a plugin's device opens what its sound names", "VSTPlug
     fakes = IdentityDictionary.new;
     m = ~tMegaSA.(~tStubServer.(), maker, "/abs/x/Rig.vst", sound, all, { |x| x.markerDir = markers });
     ~tEq.("a marker left behind keeps that plugin closed at the next boot: its device stays, empty, the guitar is not held, the sound still names it",
-        [fakes.size, m.device(\plugin1).notNil, m.device(\plugin1).plugin, (m.instVarAt(\holds)[\guitar] ? []).includes(\opening),
+        [fakes.size, m.device(\plugin1).notNil, m.device(\plugin1).plugin, m.held(\guitar).includes(\opening),
             MegaSAPlugins.identityOf(m.sound.device(\plugin1)[\plugin])[\key]],
         [0, true, nil, false, "Amp"]);
     ~tEq.("...and the marker is gone, so the boot after tries it again", File.exists(markers +/+ "Amp.opening"), false);

@@ -95,7 +95,9 @@ MegaSA {
     // `instrument` (a MegaSAPlugin) in instrumentSynth, at the head of the
     // drums' synth group, onto synthBus.
     var <instrumentKey, <instrument, instrumentSynth;
-    var <strips, <masterSynth;
+    // The mixer (MegaSAMixer): the strips, their levels, mutes and holds,
+    // and the master. Made when first asked for (mixerPart).
+    var mixerPart;
     // The chains' edits (insertDevice and the rest, below): removed plugins
     // parked in limboGroup, a paused group made at the first such removal,
     // still open, for undo to bring back (oldest first in limbo; a removed
@@ -115,9 +117,6 @@ MegaSA {
     // so their model (the patterns, PC 17's switch) is there at once; their
     // server side goes up in prBuild, after the groups.
     var <drums;
-    // Amplitude per strip, plus \master. Mutes are per strip only: muting the
-    // master is the interface's volume knob.
-    var <levels, <mutes;
     // One beat of the loop's tempo, for the echo and the auto filter's LFO; set
     // by every analysis. And the tempo itself in BPM, nil until a reading has
     // given one: what each plugin is told, also once it opens or a bank job
@@ -145,16 +144,6 @@ MegaSA {
     // heard, so setup-sa.scd answers true only while the loop is stopped. With
     // none set, yes.
     var <>statesAllowed;
-    // Why a strip is held silent apart from the player's own mute (mutes):
-    // strip -> the IdentitySet of its reasons, \opening (the guitar's plugin
-    // is opening, and until it is its device passes the DI through: a blast at
-    // full scale), \bank (its bank is being read or written, which suspends
-    // it) or \state (it opened, but its saved sound did not load, so it would
-    // play its default patch, not yours). The strip is muted while the
-    // player's mute is on or it has a reason. Nothing but the player touches
-    // the player's mute; \state is the one reason the player lets go, by
-    // unmuting the strip.
-    var holds;
     // False once freed: what comes back afterwards (a plugin's open, a bank
     // job) finds nothing to act on.
     var <alive = true;
@@ -249,24 +238,9 @@ MegaSA {
     init { |sound, plugins, bass|
         catalog = plugins;
         bassIn = bass;
-        // The drums' two strips start where Live's faders were: the drums
-        // group at -10.6 dB, the One Hit Kit's track at -15.7 dB.
-        // The synth's at -6 dB. The loop's at -3 dB since 2026-11-07, when
-        // the Looper level (0.7 before its limiter, into the Loop chain) went
-        // and the looper went to unity: the chain hears the loop as played,
-        // the mix hears it as loud as before, and a hot take with the drums
-        // stays off the master's clip. The values are defaultLevels', below.
-        levels = this.class.defaultLevels;
-        levels.removeAt(\bass);
-        // Every strip starts with the player's mute off. The guitar's is held
-        // while its plugin opens (holds, above), and let go once the plugin
-        // has answered: open, or failed, in which case dry is better than
-        // nothing.
-        mutes = (guitar: false, loop: false, drums: false, onsetKit: false, synth: false);
-        // The bass has a strip only with an input to play it. A plugin
-        // opening on its chain holds nothing: until it is open its device
-        // passes the bass through, as the drums' and the loop's do.
-        if(bassIn.notNil) { levels.put(\bass, this.class.defaultLevels[\bass]); mutes.put(\bass, false) };
+        // The strips' levels and mutes (MegaSAMixer): the bass has one only with
+        // an input to play it.
+        mixerPart = MegaSAMixer(this, bassIn.notNil);
         // Without VSTPlugin there is no plugin to host: the guitar plays its
         // built-in effects without it, and the post window says why.
         if(pluginPath.notNil and: { \VSTPlugin.asClass.isNil }) {
@@ -274,11 +248,8 @@ MegaSA {
                 ++ " cannot be hosted; the instrument plays without it.").warn;
             pluginPath = nil;
         };
-        holds = IdentityDictionary.new;
-        if(pluginPath.notNil and: { sound.isNil or: { sound.devices(\guitar).any { |d| d[\type] == \plugin } } }) {
-            holds.put(\guitar, IdentitySet[\opening]) };
+        this.mixerPart.startOpening(pluginPath.notNil and: { sound.isNil or: { sound.devices(\guitar).any { |d| d[\type] == \plugin } } });
         pendingBank = List.new;
-        strips = IdentityDictionary.new;
         limbo = List.new;
         undoList = List.new;
         redoList = List.new;
@@ -320,8 +291,7 @@ MegaSA {
         this.prMakeChains(sound);
         // The guitar is held while a plugin on its chain opens: only if one
         // will (prPluginTarget), whichever plugin that is.
-        if(guitarChain.devices.any { |d| d.isPlugin and: { this.prPluginTarget(d).notNil } }) {
-            holds.put(\guitar, IdentitySet[\opening]) } { holds.removeAt(\guitar) };
+        this.mixerPart.startOpening(guitarChain.devices.any { |d| d.isPlugin and: { this.prPluginTarget(d).notNil } });
         // Cmd-period frees every node and nothing builds them again: it says
         // so (cmdPeriod, below) instead of leaving SA silent with no word.
         CmdPeriod.add(this);
@@ -403,16 +373,7 @@ MegaSA {
         this.prBuildDrums;
         this.prBuildDrumsChain;
         this.prBuildSynth;
-        this.stripBusses.pairsDo { |key, bus|
-            strips.put(key, Synth.tail(mixerGroup, \megaSAStrip, [
-                \in, bus.index, \out, masterBus.index,
-                \amp, levels[key], \mute, this.muted(key).binaryValue
-            ] ++ this.prStemArgs(key)));
-        };
-        masterSynth = Synth.tail(mixerGroup, \megaSAMaster, [
-            \in, masterBus.index, \out, hwOut, \rec, recordBus.index,
-            \amp, levels[\master]
-        ]);
+        this.mixerPart.build(mixerGroup, this.stripBusses, masterBus, hwOut, recordBus, { |key| this.prStemArgs(key) });
         server.sync;
         ready = true;
         "MegaSA ready.".postln;
@@ -741,86 +702,28 @@ MegaSA {
         };
     }
 
-    // key: a strip (\guitar, \bass, \loop, \drums, \onsetKit) or \master. Amplitude,
-    // not dB.
-    level { |key| ^levels[key] }
+    // ---- The mixer (MegaSAMixer) -------------------------------------------
+    // The part, made when first asked for: a MegaSA made without init (a
+    // test's newCopyArgs) has one too.
+    mixerPart { ^mixerPart ?? { mixerPart = MegaSAMixer(this, bassIn.notNil) } }
 
-    // Where every strip starts, megalooper's own (amplitudes; the comment in
-    // init says why each): what a start begins with unless levels were kept
-    // for the rig (setup-sa.scd, Start with this under Levels), and what
-    // Reset there goes back to. A new Event each call: the caller's own.
-    *defaultLevels {
-        ^(guitar: 1, bass: 1, loop: 0.7079457844, drums: 0.2951209247, onsetKit: 0.1640589684,
-            synth: 0.5011872336, master: 1)
-    }
-
-    setLevel { |key, amp|
-        if(levels.includesKey(key).not) {
-            ("MegaSA: no strip " ++ key ++ "; strips are "
-                ++ levels.keys.asArray.sort.join(", ")).warn;
-        } {
-            levels.put(key, amp.max(0));
-            this.prNode(key) !? { |n| n.set(\amp, levels[key]) };
-            this.changed(\level, key, levels[key]);
-        };
-    }
-
-    mute { |key| ^mutes[key] }
-
-    setMute { |key, flag|
-        var held;
-        if(mutes.includesKey(key).not) {
-            ("MegaSA: no strip " ++ key ++ " to mute; strips are "
-                ++ mutes.keys.asArray.sort.join(", ")).warn;
-        } {
-            mutes.put(key, flag == true);
-            // Unmuting a strip held because its plugin's sound did not load is
-            // the player's choice to hear the plugin as it is.
-            held = holds !? { |h| h[key] };
-            if((flag != true) and: { held.notNil } and: { held.includes(\state) }) {
-                held.remove(\state);
-                this.changed(\hold, key, this.held(key));
-            };
-            this.prSendMute(key);
-            this.changed(\mute, key, mutes[key]);
-        };
-    }
-
-    prNode { |key| ^if(key == \master) { masterSynth } { strips[key] } }
-
-    // ---- Holds -----------------------------------------------------------
-    // A strip's reasons for being held (holds, above), sorted.
-    held { |key| ^(holds !? { |h| h[key] } ? []).asArray.sort }
-
-    // What the strip is told: muted while the player's mute is on or it is
-    // held. The mute buttons and the MIDI lights show this.
-    muted { |key| ^(mutes !? { |m| m[key] == true } ? false) or: { this.held(key).notEmpty } }
-
-    // Hold a strip for `reason`, or let it go; each says \hold (key, reasons)
-    // when it changes something.
-    hold { |key, reason|
-        var set;
-        holds = holds ?? { IdentityDictionary.new };
-        set = holds[key] ?? { holds.put(key, IdentitySet.new); holds[key] };
-        if(set.includes(reason).not) {
-            set.add(reason);
-            this.prSendMute(key);
-            this.changed(\hold, key, this.held(key));
-        };
-    }
-
-    unhold { |key, reason|
-        var set = holds !? { |h| h[key] };
-        if(set.notNil and: { set.includes(reason) }) {
-            set.remove(reason);
-            this.prSendMute(key);
-            this.changed(\hold, key, this.held(key));
-        };
-    }
-
-    prSendMute { |key|
-        strips !? { |s| s[key] !? { |n| n.set(\mute, this.muted(key).binaryValue) } };
-    }
+    // The facade: the window, MIDI, the AI, the levels kept per rig and the
+    // tests ask MegaSA, which asks its mixer.
+    *defaultLevels { ^MegaSAMixer.defaultLevels }
+    levels { ^this.mixerPart.levels }
+    mutes { ^this.mixerPart.mutes }
+    strips { ^this.mixerPart.strips }
+    masterSynth { ^this.mixerPart.masterSynth }
+    level { |key| ^this.mixerPart.level(key) }
+    setLevel { |key, amp| this.mixerPart.setLevel(key, amp) }
+    mute { |key| ^this.mixerPart.mute(key) }
+    setMute { |key, flag| this.mixerPart.setMute(key, flag) }
+    held { |key| ^this.mixerPart.held(key) }
+    muted { |key| ^this.mixerPart.muted(key) }
+    hold { |key, reason| this.mixerPart.hold(key, reason) }
+    unhold { |key, reason| this.mixerPart.unhold(key, reason) }
+    prSendMute { |key| this.mixerPart.sendMute(key) }
+    prNode { |key| ^this.mixerPart.node(key) }
 
     // ---- The synth: presets and Keep ---------------------------------------
     // The note sequencer's pattern (drums.notes) and the Wave synth's
@@ -2094,8 +1997,7 @@ MegaSA {
         limbo !? { |l| l.do(_.forget); limbo = List.new };
         undoList = List.new;
         redoList = List.new;
-        strips.do(_.free);
-        masterSynth !? (_.free);
+        mixerPart !? { |m| m.free };
         [guitarGroup, mixerGroup, drumGroup, recordGroup].do { |g| g !? (_.free) };
         wave !? { |w| w.free };
         [guitarBus, bassBus, synthBus, loopBus, loopFxBus, masterBus, recordBus,

@@ -558,6 +558,8 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 // variable holding that part, as ~tWhere says. Moving a variable costs a line
 // here, not an edit in every test that reaches it. Anything not a Looper, and
 // any name not listed, is reached on the object itself.
+// MegaSA's parts likewise (step 9), in ~tParts, by class: ~tWhere is the
+// Looper's.
 ~tWhere = (
     // variable: the Looper's method answering the part it moved into
     // (made when first asked for, so a newCopyArgs Looper has it too)
@@ -577,8 +579,12 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     bbcutProcOrder: \cutterPart, bbcutFxSpecs: \cutterPart, bbcutFxOrder: \cutterPart, bbcutBuffer: \cutterPart,
     bbcutEnabling: \cutterPart, bbcutEnableRoutine: \cutterPart
 );
+~tParts = (
+    Looper: ~tWhere,
+    MegaSA: (levels: \mixerPart, mutes: \mixerPart, holds: \mixerPart, strips: \mixerPart, masterSynth: \mixerPart)
+);
 ~tOwner = { |obj, key|
-    var part = if(obj.isKindOf(Looper)) { ~tWhere[key] };
+    var part = ~tParts[obj.class.name] !? { |t| t[key] };
     if(part.isNil) { obj } { obj.perform(part) }
 };
 ~tPut = { |looper, key, val| ~tOwner.(looper, key).instVarPut(key, val); looper };
