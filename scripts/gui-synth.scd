@@ -162,7 +162,9 @@
 // A pattern setting as a menu (`items`: [value, label] pairs).
 ~synthSettingMenu = { |name, items, width, tip, id|
     var menu = ~synthMenu.(PopUpMenu()).fixedWidth_(width).items_(items.collect(_[1]))
-        .action_({ |mn| ~synthModel.() !? { |d| d.setNoteSetting(name, items[mn.value][0]) } });
+        .action_({ |mn|
+            if(id.notNil) { ~controlDo.(id, \set, mn.value, \gui) }
+                { ~synthModel.() !? { |d| d.setNoteSetting(name, items[mn.value][0]) } } });
     if(id.notNil) { ~mapTag.(menu, id, tip) } { menu.toolTip_(tip ? "") };
     ~synthWidgets.put(name, (kind: \menu, view: menu, get: { ~synthModel.() !? { |d| d.notes[name] } },
         index: { |v| items.collect(_[0]).indexOfEqual(v) }));
@@ -191,10 +193,15 @@
         .color_([~gt[\panel2], ~gt[\synth], ~gt[\bg], ~gt[\ink]])
         .fixedSize_(Size(32, 32))
         .centered_(c[\centered] == true)
-        .action_({ |k| c[\set].value(c[\spec].map(k.value)) })
+        .action_({ |k|
+            if(c[\id].notNil) { ~controlDo.(c[\id].value, \position, k.value, \gui) } { c[\set].value(c[\spec].map(k.value)) } })
         .mouseDownAction_({ |k, x, y, mods, button, clicks|
+            var v = c[\default] ? c[\spec].default;
             ~synthHeld = c[\key];
-            if(clicks == 2) { c[\set].value(c[\default] ? c[\spec].default); true } { nil }
+            if(clicks == 2) {
+                if(c[\id].notNil) { ~controlDo.(c[\id].value, \set, v, \gui) } { c[\set].value(v) };
+                true
+            } { nil }
         })
         .mouseUpAction_({ |k| ~synthHeld = nil; ~synthPaint.(c[\key]); nil });
     if(c[\id].notNil) { ~mapTag.(knob, c[\id], c[\tip] ? "") } { knob.toolTip_(c[\tip] ? "") };
@@ -222,7 +229,7 @@
 ~synthHeaderRow = {
     var on = ~midiWatch.(~mapTag.(LooperTile().border_(~gt[\synth]).font_(~guiMono.(14, true))
         .fixedSize_(Size(130, 34))
-        .action_({ |b| ~synthModel.() !? { |d| d.setNotesOn(b.value == 1) } }), 'sa.synth.on'), { |b|
+        .action_({ |b| ~controlDo.('sa.synth.on', \set, b.value == 1, \gui) }), 'sa.synth.on'), { |b|
             var tag = ~midiProgram.('sa.synth.on') !? { |n| " · PC " ++ n } ? "";
             var was = b.value;
             b.states_([["OFF" ++ tag, ~gt[\mute], nil], ["ON" ++ tag, ~gt[\onacc], ~gt[\synth]]]);
@@ -233,12 +240,12 @@
         });
     var random = ~mapTag.(~synthButton.().fixedSize_(Size(130, 34)).cycles_(false)
         .states_([["Random sound", ~gt[\ink], ~gt[\panel]]])
-        .action_({ ~synthWave.() !? { |w| w.randomize } }), 'sa.synth.random',
+        .action_({ ~controlDo.('sa.synth.random', \press, nil, \gui) }), 'sa.synth.random',
         "Every setting of the Wave synth at random but its level and its glide: a new sound\n"
         "for the same line. Save a preset first to keep the one you have.");
     var reset = ~mapTag.(~synthButton.().fixedSize_(Size(120, 34)).cycles_(false)
         .states_([["Reset sound", ~gt[\ink], ~gt[\panel]]])
-        .action_({ ~synthWave.() !? { |w| w.reset } }), 'sa.synth.reset',
+        .action_({ ~controlDo.('sa.synth.reset', \press, nil, \gui) }), 'sa.synth.reset',
         "Every setting of the Wave synth back as megalooper ships it. The pattern stays.");
     var keep = ~synthButton.().fixedSize_(Size(140, 34)).cycles_(false)
         .states_([["Start with this", ~gt[\ink], ~gt[\panel]]])
@@ -472,7 +479,7 @@
     var p = MegaSAWave.param(name), key = ("wave_" ++ name).asSymbol, menu;
     if(p[\choices].notNil) {
         menu = ~mapTag.(~synthMenu.(PopUpMenu()).fixedWidth_(110).items_(p[\choices].collect(_[1]))
-            .action_({ |m| ~synthWave.() !? { |w| w.set(name, p[\choices][m.value][0]) } }), ("sa.synth." ++ name).asSymbol,
+            .action_({ |m| ~controlDo.(("sa.synth." ++ name).asSymbol, \set, m.value, \gui) }), ("sa.synth." ++ name).asSymbol,
             p[\tip] ? "");
         ~synthWidgets.put(key, (kind: \menu, view: menu, get: { ~synthWave.() !? { |w| w[name] } },
             index: { |v| p[\choices].collect(_[0]).indexOfEqual(v) }));

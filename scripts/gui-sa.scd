@@ -58,7 +58,7 @@
 ~saLevelRow = { |m, key, label, table, labelWidth = 130, tip, compact = false|
     var readout = ~guiMonoText.("", 13, ~gt[\ink]).fixedWidth_(70).align_(\right);
     var slider = ~mapTag.(~guiBar.(\ink, 16)
-        .action_({ |sl| m.setLevel(key, ~saLevelSpec.map(sl.value).dbamp) })
+        .action_({ |sl| ~controlDo.(("sa.level." ++ key).asSymbol, \position, sl.value, \gui) })
         .mouseDownAction_({ |sl| ~saLevelHeld = sl; nil })
         .mouseUpAction_({ |sl|
             if(~saLevelHeld === sl) { ~saLevelHeld = nil };
@@ -70,7 +70,7 @@
     var mute = if(m.mute(key).notNil) {
         ~mapTag.(LooperTile().border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(70, 26))
             .states_([["Mute", ~gt[\ink], nil], ["Muted", Color.white, ~gt[\rec]]])
-            .action_({ |b| m.setMute(key, b.value == 1) }),
+            .action_({ |b| ~controlDo.(("sa.mute." ++ key).asSymbol, \set, b.value == 1, \gui) }),
             ("sa.mute." ++ key).asSymbol,
             "Silence this strip without moving its level; every tab showing it agrees. It also shows\n"
                 "Muted while the strip is held: its plugin opening or loading its sound. A plugin whose\n"

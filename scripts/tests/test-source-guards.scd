@@ -253,8 +253,9 @@ var offenders = List.new;
 }.value;
 
 // One way to drive a control (docs/dev/architecture.md, 5, step 1): the keys,
-// the Perform pane, the top bar, the status band, the Grains and Cutter panes
-// and Setup's Analysis page press their controls through the command layer
+// the Perform pane, the top bar, the status band, the Grains, Cutter, Synth
+// and Drums panes, the SA strips and Setup's Analysis page press their
+// controls through the command layer
 // (~controlDo), so a key, a tile and a footswitch mean the same thing. A
 // widget's action calling the Looper or SA's models itself again is the drift
 // this ended: the keys calling Looper selectors of their own, Perform's drums
@@ -264,11 +265,15 @@ var offenders = List.new;
 // ~controlDo and leaves the list. Only one-line actions are seen.
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
-var models = ["~looper !?", "~looper.", "~megaSA !?", "~megaSA.", "~drumsModel !?", "~synthModel !?"];
+var models = ["~looper !?", "~looper.", "~megaSA !?", "~megaSA.", "~drumsModel !?", "~synthModel !?",
+    "~drumsModel.()", "~synthModel.()", "~synthWave.()"];
 // No control drives these: the cutter's voice editor (its voices come and
-// go), the onset notes' channel and offset, the chords' window.
+// go), the onset notes' channel and offset, the chords' window, the note
+// sequencer's switches and boxes that have none (triplet, dotted, scale, first,
+// last), the instrument menu, the drums' repeat grid and their kept dice.
 var noControl = ["setVoiceSynth(", "setVoiceRatio(", "setVoiceAmp(", "onsetNoteChannel =",
-    "onsetNoteOffsetMs =", "chordMinPerWindow ="];
+    "onsetNoteOffsetMs =", "chordMinPerWindow =", "setNoteSetting(name, bt.value", "setNoteSetting(name, n.value",
+    "setInstrument(", "setRepeatGrid(", "keepDice("];
 var direct = { |file, isAction|
     var found = List.new;
     (File.readAllString(root +/+ "scripts" +/+ file) ? "").split($\n).do { |line, i|
@@ -281,9 +286,9 @@ var direct = { |file, isAction|
 };
 var widget = { |code| code.contains(".action_({") or: { code.contains("action: {") } };
 var widgets = ["gui-perform.scd", "gui-shell.scd", "gui-status.scd", "gui-granular.scd", "gui-bbcut.scd",
-    "gui-analysis.scd"].collect { |f| direct.(f, widget) }.flatten;
+    "gui-analysis.scd", "gui-sa.scd", "gui-synth.scd", "gui-drums.scd"].collect { |f| direct.(f, widget) }.flatten;
 var keys = direct.("gui-shell.scd", { |code| code.contains("{ char == $") });
-~tAssert.("Perform's, the top bar's, the status band's, Grains', Cutter's and Analysis' widgets drive their controls through ~controlDo",
+~tAssert.("the widgets of Perform, the top bar, the status band, Grains, Cutter, Analysis, the SA strips, Synth and Drums drive their controls through ~controlDo",
     widgets.isEmpty, "found at " ++ widgets.join(", "));
 ~tAssert.("…and the keys do too", keys.isEmpty, "found at " ++ keys.join(", "));
 ~tAssert.("…and the guard reads the widgets it guards",
@@ -304,3 +309,31 @@ var family = drums.find("~definePresetFamily.(\\saDrums,") !? { |i| drums.copyRa
 ~tAssert.("…and its MIDI controls recall one on the next bar line (recallPreset)",
     targets.contains("d.recallPreset(dir.value, slug)"));
 }.value;
+
+// A pane that drives through the command layer needs it loaded: a script
+// that loads one without setup-miditargets.scd finds ~controlDo nil, and a
+// nil called in sclang answers nil, so every widget would do nothing without
+// a word (check-gui-drums.scd did, 2026-11-08). Until one parts list is
+// shared (docs/dev/architecture.md, 5, step 3), every script that loads such
+// a pane and builds a pane or the window must load the command layer too.
+// (Loading a gui file only for its functions, as some tests do for tables
+// that belong lower down, needs no command layer: step 2 moves those.)
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var scripts = root +/+ "scripts";
+var panes = (scripts +/+ "gui-*.scd").pathMatch.select { |path|
+    (File.readAllString(path) ? "").contains("~controlDo.(")
+}.collect { |path| PathName(path).fileName };
+var loaders = ((scripts +/+ "*.scd").pathMatch ++ (scripts +/+ "tests" +/+ "*.scd").pathMatch
+    ++ (scripts +/+ "sa" +/+ "*.scd").pathMatch).reject { |path| PathName(path).fileName.beginsWith("gui-") };
+var missing = loaders.select { |path|
+    var text = File.readAllString(path) ? "";
+    var builds = text.contains("~buildGuiWindow.(") or: { text.findRegexp("~build[A-Z][A-Za-z]*Pane\\.\\(").notEmpty };
+    builds and: { panes.any { |pane| text.contains("\"" ++ pane ++ "\"") } }
+        and: { text.contains("\"setup-miditargets.scd\"").not }
+}.collect { |path| PathName(path).fileName };
+~tAssert.("the panes that drive through ~controlDo are found", panes.size >= 5, panes.asString);
+~tAssert.("every script that builds one of them loads the command layer (setup-miditargets.scd) too",
+    missing.isEmpty, "missing in " ++ missing.join(", "));
+}.value;
+

@@ -944,7 +944,7 @@
     var p = MegaSASteps.laneParamSpec(name);
     var menu = ~mapTag.(~drumsMenu.(PopUpMenu()).fixedWidth_(230)
         .items_(~drumsNoteItems.(~drumsModel.()))
-        .action_({ |mn| ~drumsLaneSet.(lane, name, mn.value + 36) }), ~drumsLaneId.(lane, name),
+        .action_({ |mn| ~controlDo.(~drumsLaneId.(lane, name).value, \set, mn.value, \gui) }), ~drumsLaneId.(lane, name),
         ~drumsTip.(p[\tip] ++ "\nBy default: " ++ ~drumsNoteText.(nil, p[\live][lane]) ++ "."));
     ~drumsWidgets.put(~drumsLaneKey.(name, lane), (kind: \menu, view: menu,
         get: ~drumsLaneGet.(lane, name), index: { |v| v !? { (v - 36).clip(0, 15) } }));
@@ -959,27 +959,27 @@
     // Its tag has no tip: its tooltip follows the page (~drumsLengthTip).
     var len = ~mapTag.(~drumsBox.(NumberBox()).fixedWidth_(38)
         .clipLo_(2).clipHi_(16).step_(1).scroll_step_(1).decimals_(0)
-        .action_({ |nb| ~drumsSetLength.(lane, nb.value.round.asInteger) })
+        .action_({ |nb| ~controlDo.(~drumsLengthId.(lane).value, \set, nb.value.round.asInteger, \gui) })
         .mouseDownAction_({ |nb, x, y, mods, button, clicks|
-            if(clicks == 2) { ~drumsSetLength.(lane, ~drumsLiveLength.(lane)); true } { nil } }),
+            if(clicks == 2) { ~controlDo.(~drumsLengthId.(lane).value, \set, ~drumsLiveLength.(lane), \gui); true } { nil } }),
         ~drumsLengthId.(lane));
     var lock = ~mapTag.(~drumsButton.().fixedWidth_(48)
         .states_([["Lock", ~gt[\mute], nil], ["Lock", ~gt[\onacc], ~gt[\drum]]])
-        .action_({ |b| ~drumsLaneSet.(lane, \lock, b.value == 1) }), ~drumsLaneId.(lane, \lock),
+        .action_({ |b| ~controlDo.(~drumsLaneId.(lane, \lock).value, \set, b.value == 1, \gui) }), ~drumsLaneId.(lane, \lock),
         ~drumsTip.(MegaSASteps.laneParamSpec(\lock)[\tip], \lock));
     var delay = ~mapTag.(~drumsBox.(NumberBox()).fixedWidth_(46)
         .clipLo_(0).clipHi_(50).step_(0.5).scroll_step_(0.5).decimals_(1)
-        .action_({ |nb| ~drumsLaneSet.(lane, \delay, nb.value) })
+        .action_({ |nb| ~controlDo.(~drumsLaneId.(lane, \delay).value, \set, nb.value, \gui) })
         .mouseDownAction_({ |nb, x, y, mods, button, clicks|
             if(clicks == 2) {
-                ~drumsLaneSet.(lane, \delay, MegaSASteps.laneParamSpec(\delay)[\live][lane]);
+                ~controlDo.(~drumsLaneId.(lane, \delay).value, \set, MegaSASteps.laneParamSpec(\delay)[\live][lane], \gui);
                 true
             } { nil } }), ~drumsLaneId.(lane, \delay),
         ~drumsTip.(MegaSASteps.laneParamSpec(\delay)[\tip]
             ++ "\nDrag it up or down; double-click: the default (0 ms).", \delay));
     var mute = ~mapTag.(~drumsButton.().fixedWidth_(52)
         .states_([["Mute", ~gt[\ink], nil], ["Muted", Color.white, ~gt[\rec]]])
-        .action_({ |b| ~drumsLaneSet.(lane, \mute, b.value == 1) }), ~drumsLaneId.(lane, \mute),
+        .action_({ |b| ~controlDo.(~drumsLaneId.(lane, \mute).value, \set, b.value == 1, \gui) }), ~drumsLaneId.(lane, \mute),
         ~drumsTip.(MegaSASteps.laneParamSpec(\mute)[\tip], \mute));
     // The device's two dice, for this lane on the page shown: every step
     // anew, or every step moved by one at most (MegaSADrums.randomizeLane).
@@ -1045,10 +1045,15 @@
         .color_([~gt[\panel2], ~gt[\drum], ~gt[\bg], ~gt[\ink]])
         .fixedSize_(Size(size, size))
         .centered_(c[\centered] == true)
-        .action_({ |k| c[\set].value(c[\spec].map(k.value)) })
+        .action_({ |k|
+            if(c[\id].notNil) { ~controlDo.(c[\id].value, \position, k.value, \gui) } { c[\set].value(c[\spec].map(k.value)) } })
         .mouseDownAction_({ |k, x, y, mods, button, clicks|
+            var v = c[\live] ? c[\spec].default;
             ~drumsHeld = c[\key];
-            if(clicks == 2) { c[\set].value(c[\live] ? c[\spec].default); true } { nil }
+            if(clicks == 2) {
+                if(c[\id].notNil) { ~controlDo.(c[\id].value, \set, v, \gui) } { c[\set].value(v) };
+                true
+            } { nil }
         })
         .mouseUpAction_({ |k|
             ~drumsHeld = nil;
@@ -1087,7 +1092,7 @@
     var p = MegaSASteps.paramSpec(name);
     var menu = ~mapTag.(~drumsMenu.(PopUpMenu()).fixedWidth_(width)
         .items_(p[\choices].collect { |pair| pair[1] })
-        .action_({ |mn| ~drumsParamSet.(name).value(p[\choices][mn.value][0]) }),
+        .action_({ |mn| ~controlDo.(~drumsParamId.(name).value, \set, mn.value, \gui) }),
         ~drumsParamId.(name), ~drumsParamTip.(p));
     ~drumsWidgets.put(name, (kind: \menu, view: menu, get: ~drumsParamGet.(name),
         index: { |v| p[\choices].collect { |pair| pair[0] }.indexOfEqual(v) }));
@@ -1098,7 +1103,7 @@
     var p = MegaSASteps.paramSpec(name);
     var b = ~mapTag.(~drumsButton.().fixedWidth_(width)
         .states_([["Off", ~gt[\mute], nil], ["On", ~gt[\onacc], ~gt[\drum]]])
-        .action_({ |bt| ~drumsParamSet.(name).value(bt.value == 1) }),
+        .action_({ |bt| ~controlDo.(~drumsParamId.(name).value, \set, bt.value == 1, \gui) }),
         ~drumsParamId.(name), ~drumsParamTip.(p));
     ~drumsWidgets.put(name, (kind: \button, view: b, get: ~drumsParamGet.(name)));
     b
@@ -1109,7 +1114,7 @@
     var nb = ~mapTag.(~drumsBox.(NumberBox()).fixedWidth_(width)
         .clipLo_(p[\spec].minval).clipHi_(p[\spec].maxval)
         .step_(1).scroll_step_(1).decimals_(0)
-        .action_({ |n| ~drumsParamSet.(name).value(n.value.round.asInteger) }),
+        .action_({ |n| ~controlDo.(~drumsParamId.(name).value, \set, n.value.round.asInteger, \gui) }),
         ~drumsParamId.(name), ~drumsParamTip.(p));
     ~drumsWidgets.put(name, (kind: \number, view: nb, get: ~drumsParamGet.(name)));
     nb
@@ -1177,7 +1182,7 @@
     // Its tooltip says what drives it already, so its tag has no tip.
     var on = ~midiWatch.(~mapTag.(LooperTile().border_(~gt[\drum]).font_(~guiMono.(14, true))
         .fixedSize_(Size(130, 34))
-        .action_({ |b| ~drumsModel.() !? { |d| d.setOn(b.value == 1) } }), 'sa.drums.on'), { |b|
+        .action_({ |b| ~controlDo.('sa.drums.on', \set, b.value == 1, \gui) }), 'sa.drums.on'), { |b|
             var tag = ~midiProgram.('sa.drums.on') !? { |n| " · PC " ++ n } ? "";
             var was = b.value;
             b.states_([["OFF" ++ tag, ~gt[\mute], nil],
@@ -1192,11 +1197,9 @@
     var brk = ~mapTag.(~drumsButton.().fixedSize_(Size(116, 34)).font_(~guiSans.(14, true))
         .states_([["Main plays", ~gt[\ink], nil], ["BREAK plays", Color.new255(243, 243, 241), Color.new255(11, 11, 12)]])
         .action_({ |b|
-            ~drumsModel.() !? { |d|
-                d.setBreakPattern(b.value == 1);
-                // Lit by what the drums did, not by the click.
-                b.value = d.breakActive.binaryValue;
-            };
+            ~controlDo.('sa.drums.breakPattern', \set, b.value == 1, \gui);
+            // Lit by what the drums did, not by the click.
+            ~drumsModel.() !? { |d| b.value = d.breakActive.binaryValue };
         }), 'sa.drums.breakPattern',
         "Which pattern plays: lit while the Break pattern does. The Looper's break\n"
         "switches it in and out; a click switches it by hand until the Looper's next\n"
@@ -1204,7 +1207,7 @@
     // The pattern shown's, so its tag is a function of it, as the knobs' are.
     var live = ~mapTag.(~drumsButton.().fixedSize_(Size(110, 34)).cycles_(false)
         .states_([["Reset pattern", ~gt[\ink], ~gt[\panel]]])
-        .action_({ ~drumsModel.() !? { |d| d.resetPattern(~drumsPattern) } }),
+        .action_({ ~controlDo.(("sa.drums.livePattern." ++ ~drumsPattern).asSymbol, \press, nil, \gui) }),
         { ("sa.drums.livePattern." ++ ~drumsPattern).asSymbol },
         "The pattern shown below (Main or Break) back as megalooper ships it: every\n"
         "step, length, lane setting and its timing. A double-click on a step does it for one.\n"
@@ -1257,7 +1260,7 @@
 // Lit from the drums' own switch (\repeats), whatever it starts as.
 ~drumsRepeatsButton = {
     var b = ~mapTag.(~drumsButton.().fixedWidth_(130)
-        .action_({ |bt| ~drumsModel.() !? { |d| d.setRepeats(bt.value == 1) } }), 'sa.drums.repeats',
+        .action_({ |bt| ~controlDo.('sa.drums.repeats', \set, bt.value == 1, \gui) }), 'sa.drums.repeats',
         "Kit-Carbon's repeats, on every Carbon pad: now and then a pad's 16th repeats five\n"
         "times through a 2-bar cycle, falling in pitch and level.\n"
         "The KJ layer is not repeated (it is not in the pads' chains).\n"
@@ -1486,10 +1489,13 @@
 ~drumsMixSlider = { |name, label, spec, get, set, live, format, tip, enabled, id|
     var readout = ~guiMonoText.("", 13, ~guiInk).fixedWidth_(70).align_(\right);
     var slider = ~guiBar.(\drum, 16)
-        .action_({ |sl| set.value(spec.map(sl.value)) })
+        .action_({ |sl| if(id.notNil) { ~controlDo.(id.value, \position, sl.value, \gui) } { set.value(spec.map(sl.value)) } })
         .mouseDownAction_({ |sl, x, y, mods, button, clicks|
             ~drumsHeld = name;
-            if(clicks == 2) { set.value(live); true } { nil }
+            if(clicks == 2) {
+                if(id.notNil) { ~controlDo.(id.value, \set, live, \gui) } { set.value(live) };
+                true
+            } { nil }
         })
         .mouseUpAction_({ ~drumsHeld = nil; ~drumsPaint.(name); nil });
     if(id.isNil) { slider.toolTip_(tip) } { ~mapTag.(slider, id, tip) };
