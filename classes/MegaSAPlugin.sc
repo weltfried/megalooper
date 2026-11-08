@@ -35,6 +35,19 @@ MegaSAPlugin {
     // it was, and the chain is delayed by that, not by what it reports.
     var <dryDelay = 0;
 
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            state: [\state, [\state], "opening, open, failed or crashed"],
+            bank: [\state, [\bank], "the bank its sound came from"],
+            latency: [\state, [\frames], "the delay it reports"]
+        )
+    }
+
     *new { |synth, id, path| ^super.newCopyArgs(synth, id, path).init }
 
     // ---- The device SynthDefs ---------------------------------------------

@@ -844,6 +844,9 @@ closes = stub[\msgs].select { |m| m[0].asString.contains("b_close") };
 ~tEq.("the recorder says where everything is now", [rec.settled, rec.paths == rec.finalPaths], [true, true]);
 events = LooperSessionRecorder.readEvents(rec.paths[\events]);
 ~tEq.("the log ends with files, then sessionStop", events.keep(-2).collect(_[\ev]), ["files", "sessionStop"]);
+~tEq.("its header says its format and version (a log from before it says neither: version 0)",
+    [events.first[\ev], events.first[\format], events.first[\version].asString],
+    ["session", LooperSessionRecorder.eventsFormat, LooperSessionRecorder.eventsVersion.asString]);
 ~tEq.("...after the tail's hit and transport, and nothing heard once the WAVs had ended",
     events.select { |e| (e[\t] ? 0) > 60 }.collect { |e| [e[\ev], e[\note]] }, [["hit", 38], ["drumsStop", nil]]);
 filesEv = events.detect { |e| e[\ev] == "files" } ? ();

@@ -80,6 +80,17 @@ MegaSAKit {
     var <>levelDb = 0;
 
     // The kit file format this build reads.
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            state: [\state, [\state], "its samples loading, ready or failed"]
+        )
+    }
+
     *kitVersion { ^1 }
 
     // ---- Reading a kit ----------------------------------------------------

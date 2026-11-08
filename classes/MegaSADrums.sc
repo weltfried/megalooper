@@ -214,6 +214,45 @@ MegaSADrums {
     var <notes, <notesOn = false, notesHist, noteCursor, noteLog, noteHeads, <>noteVoice;
 
     // megaSA: anything that answers `server` (MegaSA; a test passes an Event).
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            on: [\state, [\on], "the steps on"],
+            playing: [\state, [\on], "the drums play (the loop runs, they follow it)"],
+            breakActive: [\state, [\on], "the Break pattern plays"],
+            pattern: [\event, [\pattern], "a pattern changed wholesale (\\main or \\break)"],
+            steps: [\event, [\pattern], "a pattern's steps changed wholesale"],
+            step: [\state, [\pattern, \page, \lane, \step, \value], "one step of a page"],
+            length: [\state, [\pattern, \page, \lane, \value], "a lane's length on a page"],
+            lane: [\state, [\pattern, \lane, \name, \value], "a lane's setting (note, alt, delay, mute, lock)"],
+            param: [\state, [\pattern, \name, \value], "a pattern's timing setting"],
+            kit: [\state, [\slot, \key], "the kit in a slot (\\steps, \\onset), nil for none"],
+            kitState: [\state, [\slot, \state], "a slot's kit loading, ready or failed"],
+            kitLevel: [\state, [\slot, \db], "how far a kit was levelled"],
+            padTrim: [\state, [\slot, \note, \db], "a pad's trim"],
+            groupTrim: [\state, [\slot, \group, \db], "a layer group's trim"],
+            repeats: [\state, [\on], "Beat Repeat on"],
+            repeatGrid: [\state, [\mode], "where the repeats capture: \\bars or \\live"],
+            retrigAt: [\state, [\mode], "when Beat Repeat retriggers"],
+            mix: [\state, [\name, \value], "the reverb's mix or the offset"],
+            reverb: [\state, [\state], "the reverb wet or dry"],
+            dice: [\state, [\dice], "the kept dice, or nil for new ones every start"],
+            presetArmed: [\state, [\slug, \at], "a preset armed for the next bar line, nil when none"],
+            presetLanded: [\event, [\slug], "a preset came in"],
+            notesOn: [\state, [\on], "the note sequencer on"],
+            notes: [\event, [], "the note pattern changed wholesale"],
+            noteSetting: [\state, [\name, \value], "a note-sequencer setting"],
+            noteLaneSetting: [\state, [\lane, \name, \value], "a note lane's setting"],
+            noteStep: [\state, [\step, \on], "a step of the note sequence on or off"],
+            noteValue: [\state, [\lane, \step, \value], "one value of a note lane"],
+            noteValues: [\event, [\lane], "a note lane's values changed wholesale"]
+        )
+    }
+
     *new { |megaSA| ^super.newCopyArgs(megaSA).init }
 
     init {

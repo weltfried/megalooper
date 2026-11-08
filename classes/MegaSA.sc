@@ -176,6 +176,31 @@ MegaSA {
     // the plugin is hosted in its guitar chain's plugin device (none there,
     // none hosted) and opens with that device's state.
     // bassIn: the bass's hardware input, or nil for none.
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            chain: [\event, [\track, \edit, \id, \index], "a chain edited: its track, \\insert, \\remove, \\move or \\rename, the device, where"],
+            fx: [\state, [\id, \on], "a device switched on or off"],
+            fxParam: [\state, [\name, \value], "a default device's setting, named alone (its id is its type)"],
+            fxSetting: [\state, [\id, \name, \value], "any device's setting"],
+            fxRandom: [\state, [\id, \draws], "a device drawn at random: how many draws Undo random can take back"],
+            latency: [\state, [\track, \seconds], "a chain's delay"],
+            level: [\state, [\strip, \amp], "a strip's level, linear"],
+            mute: [\state, [\strip, \on], "a strip muted by the player"],
+            hold: [\state, [\strip, \held], "a strip held silent (a plugin opening, its bank loading)"],
+            instrument: [\state, [\key, \ok], "what plays the notes (nil: the Wave synth), and whether it opened"],
+            tempo: [\state, [\bpm], "the tempo the chains are synced to"],
+            kept: [\event, [], "the chains kept for the next start"],
+            soundLoaded: [\event, [\slug, \ok, \notes], "a sound loaded, or not, and what was said about it"],
+            soundSaved: [\event, [\slug, \ok, \why, \withStates], "a sound saved, or not"],
+            refused: [\event, [\action, \why], "an edit it would not make, and why"]
+        )
+    }
+
     *new { |server, guitarIn = 0, hwOut = 0, pluginPath, bankPath, sound, catalog, bassIn|
         ^super.newCopyArgs(server, guitarIn, hwOut, pluginPath, bankPath).init(sound, catalog, bassIn)
     }

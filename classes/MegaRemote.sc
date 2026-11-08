@@ -54,6 +54,17 @@ MegaRemote {
     // (their files are numbered).
     var pendingSwitch, stateCount = 0;
 
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            aiChanges: [\state, [\count], "how many of the AI's changes Revert can take back"]
+        )
+    }
+
     *new { |source| ^super.newCopyArgs(source) }
 
     *formatName { ^"megalooper remote" }

@@ -1059,10 +1059,21 @@ LooperSessionRecorder {
         logFile = nil;
     }
 
-    // The header: the stamp, the sample rate, every file the set opened (the
-    // stems with their roles and channels) and what the looper knows.
+    // The events file's own format and version, in its header (the first
+    // line, "session"): it is the corpus the meter's regression reads
+    // (replay-session.scd) and the AI apps' past sets (MegaRemote), and was the
+    // one file megalooper reads back with no version (docs/dev/architecture.md
+    // 3.7). A file from before 2026-11-08 has neither field: version 0.
+    *eventsFormat { ^"megalooper events" }
+    *eventsVersion { ^1 }
+
+    // The header: the format and version, the stamp, the sample rate, every
+    // file the set opened (the stems with their roles and channels) and what
+    // the looper knows.
     prLogHeader { |stamp, masterChannel, tapChannel, context|
         var fields = (
+            format: this.class.eventsFormat,
+            version: this.class.eventsVersion,
             stamp: stamp,
             date: Date.getDate.asString,
             sampleRate: server !? { |s| s.sampleRate },

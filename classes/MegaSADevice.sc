@@ -28,6 +28,19 @@ MegaSADevice {
     // A device of a built-in type, every setting at its type's default (the
     // Live set's) unless `given` (name -> value) says otherwise: a number,
     // not NaN, held to its range.
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            on: [\state, [\on], "switched on"],
+            param: [\state, [\name, \value], "a setting"],
+            name: [\state, [\name], "what it is called"]
+        )
+    }
+
     *new { |id, type, given| ^super.newCopyArgs(id, type).init(given) }
 
     // A plugin device: `name` is the plugin's. No settings of its own yet:

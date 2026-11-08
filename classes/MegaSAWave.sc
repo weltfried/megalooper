@@ -39,6 +39,19 @@ MegaSAWave {
     // tableDir; nil until one is loaded, when the set plays Analog's.
     var <userPartials, <tableName;
 
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            waveSetting: [\state, [\name, \value], "a setting"],
+            waveSettings: [\event, [], "every setting changed (a preset, Random, Reset)"],
+            waveTable: [\state, [\name], "the wavetable of yours, nil for none"]
+        )
+    }
+
     *new { |server| ^super.newCopyArgs(server).init }
 
     init {

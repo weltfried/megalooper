@@ -33,6 +33,22 @@ LooperCalibrator {
     var measurers;       // step key -> Function (looper, callback, this)
     var listenChannels;  // step key -> the input channel that step records
 
+    // Every notification it says (`changed(what, args...)`): a \state (its
+    // arguments are the new value) or an \event (something that happened),
+    // its arguments by name, in words. Its listeners (the window, MIDI, the
+    // action log, which writes them into a set's log) rely on these; a test
+    // holds the class to the table (test-notifications.scd).
+    *notifications {
+        ^(
+            status: [\state, [\key], "what it is doing"],
+            step: [\state, [\index], "the step of the wizard"],
+            listen: [\state, [\key], "what it listens for"],
+            applied: [\event, [\key], "a measured value applied"],
+            kept: [\event, [\field], "a value kept for the next start (nil: all of them)"],
+            reset: [\event, [], "the values back as the rig's profile has them"]
+        )
+    }
+
     *new { |looper, live = true|
         ^super.new.initCalibrator(looper, live)
     }

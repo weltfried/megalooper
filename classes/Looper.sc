@@ -1019,6 +1019,90 @@ Looper {
     // 2026-11-08 nothing was said, the window polled the result's identity,
     // and only the onAnalysis slot heard of it, which undo, clear and multiply
     // never called (docs/dev/architecture.md 3.6).
+    // Every notification a Looper says (`changed(what, args...)`): what it
+    // carries, and whether it is a \state (its arguments are the new value; the
+    // last one said is what holds) or an \event (something that happened). The
+    // window, MIDI's send-back, the drums, the AI apps and the action log
+    // listen, and the action log writes them into a set's log, so this is a
+    // file format too. A test holds every `changed` in the class to this table
+    // (test-notifications.scd). docs/dev/architecture.md 3.6.
+    *notifications {
+        ^(
+            // ---- the transport
+            state: [\state, [\state], "\\empty, \\recording, \\playing, \\overdubbing or \\stopped"],
+            refused: [\event, [\action, \why], "an action it would not take, and why, in words"],
+            nextRecState: [\state, [\state], "the next loop: \\idle, \\armed, \\recording or \\stopping"],
+            reverse: [\state, [\backwards], "the loop plays backwards"],
+            reverseArmed: [\state, [\armed], "the other direction is armed for the next boundary"],
+            halfTime: [\state, [\state], "\\off, \\armed, \\on or \\ending"],
+            speed: [\state, [\rate], "the engine's speed: 1, or 0.5 at half-time"],
+            sessionRecording: [\state, [\on], "the set is being recorded"],
+            transportMode: [\state, [\mode], "what goes to Live: \\full, \\startOnly or \\off"],
+            // ---- the analysis
+            result: [\state, [\result], "the reading in force (an Event), nil once cleared"],
+            reading: [\state, [\pending], "a reading armed for a boundary (an Event), nil when none"],
+            readingIndex: [\state, [\index], "which reading of the take is in force (0: the analyser's)"],
+            chord: [\event, [\segment], "the chord the loop plays now (a segment Event)"],
+            overdubDetected: [\event, [\result], "a meter read from an overdub"],
+            tapStarved: [\state, [\gap], "the take was heard this many dB under the input on the tap, or nil"],
+            tapGain: [\state, [\gain], "the automatic level in front of the onset detector, linear"],
+            onsetThreshold: [\state, [\threshold], "the onset detector's threshold"],
+            analysisMonitor: [\state, [\on], "the analysis monitor runs"],
+            liveOnset: [\event, [\time, \strength], "the monitor heard an onset (SystemClock seconds, 0..1)"],
+            analyzeOverdubs: [\state, [\on], "overdubs are read for a meter while the loop has none"],
+            trainingExport: [\event, [\base], "a labelled loop written: the path its files share"],
+            // ---- the rig
+            inChannelCount: [\state, [\count], "1 or 2 input channels"],
+            analysisChannel: [\state, [\channel], "the clean tap's input, or nil"],
+            outChannel: [\state, [\channel], "where the loop goes"],
+            returnChannel: [\state, [\channel], "the processed loop's return, for the next loop"],
+            sessionChannel: [\state, [\channel], "the master's return, for recording the set"],
+            latencyMs: [\state, [\ms], "overdub latency"],
+            abletonSyncMs: [\state, [\ms], "Live sync"],
+            declickMs: [\state, [\ms], "the loop seam's fade"],
+            chainRecOffsetMs: [\state, [\ms], "the next loop's record trim"],
+            // ---- the loop's levels and the arc
+            feedback: [\state, [\level], "overdub feedback, 0..1"],
+            intensity: [\state, [\level], "the arc, 0..1"],
+            break: [\state, [\on], "a break is on"],
+            breakEndsAt: [\state, [\time], "when the break ends (SystemClock seconds), or nil"],
+            breakLoops: [\state, [\loops], "loop passes a break covers"],
+            dissolving: [\state, [\on], "a dissolve runs"],
+            dissolvePos: [\state, [\position], "how far the dissolve is, 0..1 (30 times a second while it runs)"],
+            dissolveLoops: [\state, [\loops], "loop passes the dissolve takes"],
+            // ---- the cutter
+            bbcut: [\state, [\on], "the cutter runs"],
+            bbcutMode: [\state, [\mode], "\\mix, \\insert or \\gate"],
+            bbcutState: [\event, [\voices], "the voices changed wholesale (a preset recalled)"],
+            bbcutVoices: [\state, [\voices], "a voice's settings (said per pixel of a drag)"],
+            // ---- the grains
+            granular: [\state, [\on], "the grains play"],
+            granularAmp: [\state, [\value], "their level"],
+            granularMorph: [\state, [\value], "drone to pulse, 0..1"],
+            granularPitch: [\state, [\value], "semitones"],
+            granularDetune: [\state, [\value], "semitones of random detune"],
+            granularSize: [\state, [\value], "grain size, a multiple of morph's"],
+            granularSizeRand: [\state, [\value], "grain size randomness"],
+            granularDensity: [\state, [\value], "density, a multiple of morph's"],
+            granularPosition: [\state, [\value], "read position"],
+            granularScan: [\state, [\value], "extra passes per loop"],
+            granularSpray: [\state, [\value], "read-position spray, ms"],
+            granularEnv: [\state, [\index], "the grain window (Looper.granularEnvNames)"],
+            granularFollowChords: [\state, [\on], "the grains follow the chords"],
+            // ---- the onset notes
+            onsetNotes: [\state, [\on], "the onset notes play"],
+            onsetNote: [\state, [\note], "the note they play"],
+            onsetNoteChannel: [\state, [\channel], "their MIDI channel, 0..15"],
+            onsetNoteVelLo: [\state, [\velocity], "the quietest hit's velocity"],
+            onsetNoteVelHi: [\state, [\velocity], "the loudest hit's velocity"],
+            onsetNoteDynRange: [\state, [\db], "dB below the loudest that maps to the lowest velocity"],
+            onsetNoteGateMs: [\state, [\ms], "how long a note is held"],
+            onsetNoteOffsetMs: [\state, [\ms], "timing trim"],
+            onsetNoteChance: [\state, [\chance], "how likely each hit sounds, 0..1"],
+            onsetNotePattern: [\event, [\hits], "the pattern was built again: how many hits"]
+        )
+    }
+
     // Cmd-period has freed every synth of the looper's (the engine, the
     // master, the recorder, the grains, the cutter's voices) and stopped every
     // routine (the clocks, the onset notes, the chords), and nothing makes
