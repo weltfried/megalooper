@@ -741,8 +741,6 @@
 };
 ~saDrumsNewLoopSet = { |off|
     ~megaSA !? { |m| m.drums !? { |d| d.newLoopOff = off == true } };
-    // Perform's switch shows what was set (it does not move itself).
-    ~performNewLoopSeg !? { |sg| ~guiSegSet !? { |f| f.value(sg, (off == true).binaryValue) } };
     ~prefSave !? { |f| f.value(~saDrumsNewLoopKey, if(off == true) { "off" } { "play" }, "the drums' new-loop switch") };
 };
 

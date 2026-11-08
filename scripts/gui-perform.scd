@@ -480,7 +480,8 @@
         // one line: the column is as tall as the Loop's. The pattern playing
         // is on the tile above (MAIN or BREAK).
         ~performNewLoopSeg = ~guiSeg.(["Play", "Off"], (height: 26, base: \panel, font: ~guiSans.(13),
-            action: { |i| ~saDrumsNewLoopSet.(i == 1) }));
+            // Its switch shows what was set: it does not move itself.
+            action: { |i| ~saDrumsNewLoopSet.(i == 1); ~guiSegSet.(~performNewLoopSeg, i) }));
         ~guiSegSet.(~performNewLoopSeg, ((~drumsModel !? { |f| f.value !? { |d| d.newLoopOff } }) == true).binaryValue);
         newLoopTip = "What the drums do when you record a new loop.\n"
             "Play: they start with the loop.\n"

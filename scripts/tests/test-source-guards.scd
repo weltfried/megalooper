@@ -373,18 +373,19 @@ var boot = File.readAllString(scripts +/+ "boot.scd") ? "";
 
 // The setup scripts stand below the window (docs/dev/architecture.md, 5,
 // step 2): none reads a global that only a gui file defines. It started at 54
-// (a MIDI control's law was a pane's, the settings' helpers the theme's); what
-// is left is named here, and the list only shrinks. Most of it is a setup
-// script writing a widget itself, which step 4 ends (models notify, panes
-// listen); the window's own controls (Show a view) and the MIDI monitor reach
-// the window on purpose.
+// (a MIDI control's law was a pane's, the settings' helpers the theme's), and
+// was 17 after step 4's first part. What is left is named here, and the list
+// only shrinks: a name no setup script reads from the window any more fails
+// until it is taken off. Most of it is a setup script writing a widget
+// itself, which step 4 ends (models notify, panes listen); the window's own
+// controls (Show a view) and the MIDI monitor reach the window on purpose.
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 var scripts = root +/+ "scripts";
 var allowed = [
-    // a setup script writing or painting the window itself (step 4)
-    \exportBarsField, \exportDenomField, \exportDenoms, \exportNumField, \rootLabel,
-    \granularPaintChords, \rigFallbackPaint, \guiSegSet, \performNewLoopSeg,
+    // a setup script writing or painting the window itself (step 4; the
+    // analysis' export fields and key, the Grains' chords line, the fallback
+    // and new-loop switches are the panes' own now)
     \actionsPaint, \guiAiPaint, \guiSay, \guiView, \presetShow, \presetFamilies,
     \midiGui, \midiGuiRefresh, \midiMonitorPush,
     // the window's own controls, which drive the window (Show a view)
@@ -408,18 +409,20 @@ var used = { |text|
 };
 var setupFiles = (scripts +/+ "setup-*.scd").pathMatch;
 var guiFiles = (scripts +/+ "gui-*.scd").pathMatch;
-var bySetup = Set.new, byGui = Set.new, offenders = List.new, stale;
+var bySetup = Set.new, byGui = Set.new, usedBySetup = Set.new, offenders = List.new, stale;
 setupFiles.do { |p| bySetup = bySetup | assigned.(code.(p)) };
 guiFiles.do { |p| byGui = byGui | assigned.(code.(p)) };
 setupFiles.do { |p|
     var name = PathName(p).fileName;
     used.(code.(p)).do { |g|
+        usedBySetup.add(g);
         if(byGui.includes(g) and: { bySetup.includes(g).not } and: { allowed.includes(g).not }) {
             offenders.add(name ++ ": ~" ++ g)
         };
     };
 };
-stale = allowed.reject { |g| byGui.includes(g) and: { bySetup.includes(g).not } };
+// Named, but no setup script reads it from the window any more: off the list.
+stale = allowed.reject { |g| byGui.includes(g) and: { bySetup.includes(g).not } and: { usedBySetup.includes(g) } };
 ~tAssert.("no setup script reads a global only a gui file defines, past the named ones",
     offenders.isEmpty, offenders.asArray.sort.join(", "));
 ~tAssert.("…and every named one is still such a global (the list only shrinks)", stale.isEmpty,

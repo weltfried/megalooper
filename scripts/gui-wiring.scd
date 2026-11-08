@@ -57,6 +57,25 @@
 ~wireLooperController = {
     ~looperController !? { |c| c.remove };
     ~looperController = SimpleController(~looper)
+        // A take's result (setup-model.scd says it for the Looper): the
+        // training-export fields pre-filled with the analyser's guess, so only
+        // its mistakes need correcting before an export; the key, a dash with
+        // no chords; the Grains' chords line, what the take gives them.
+        .put(\result, { |looper, what, r|
+            {
+                ~exportNumField !? { |f| r.numerator !? { |n| if(f.isClosed.not) { f.value_(n) } } };
+                ~exportBarsField !? { |f| if(f.isClosed.not) { f.value_((r.k ? 1).max(1)) } };
+                ~exportDenomField !? { |f|
+                    r.denominator !? { |d| ~exportDenoms.indexOf(d.asInteger) !? { |i| if(f.isClosed.not) { f.value_(i) } } } };
+                if(r.chordSegments.isNil or: { r.chordSegments.isEmpty }) {
+                    ~rootLabel !? { |t| if(t.isClosed.not) { t.string_("—") } } };
+                ~granularPaintChords !? { |f| f.() };
+            }.defer;
+        })
+        // The chord playing now (setup-model.scd says it for the Looper).
+        .put(\chord, { |looper, what, seg|
+            { ~rootLabel !? { |t| if(t.isClosed.not) { t.string_(seg.rootName ++ " " ++ seg.scaleName) } } }.defer;
+        })
         // The state block says the feedback while overdubbing, and only then.
         .put(\feedback, { |looper, what, val|
             { ~wireBar.(~feedbackSlider, ~feedbackLabel, val, val.round(0.01).asString);

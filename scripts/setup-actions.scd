@@ -54,7 +54,10 @@
     l !? {
         parts.put(\looper, (model: l,
             skip: #[\liveOnset, \dissolvePos, \analysisMonitor, \sessionRecording, \sessionChannel, \reading,
-                \readingIndex, \speed, \breakEndsAt, \overdubDetected, \bbcutState, \onsetNotePattern],
+                \readingIndex, \speed, \breakEndsAt, \overdubDetected, \bbcutState, \onsetNotePattern,
+                // A take's result is the session log's (a take line), and the
+                // chord playing changes with every pass: neither is an action.
+                \result, \chord],
             logged: #[\halfTime],
             bare: #[\bbcutVoices],
             state: { (grains: MegaRemote.grainsOf(l), cutter: MegaRemote.cutterOf(l),

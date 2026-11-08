@@ -211,10 +211,12 @@
 ~fallbackDefault = "off";
 ~fallbackOnSaved = { ((~prefSaved !? { |f| f.value(~fallbackPrefKey) }) ? ~fallbackDefault) == "on" };
 ~fallbackApply = { MeterAnalyzer.fallbackOn = ~fallbackOnSaved.() };
+// It tells MeterAnalyzer's dependants (the Rig page's switch, gui-rig.scd):
+// a class variable sends nothing of itself.
 ~fallbackSet = { |on|
     MeterAnalyzer.fallbackOn = on == true;
+    MeterAnalyzer.changed(\fallbackOn, MeterAnalyzer.fallbackOn);
     ~prefSave !? { |f| f.value(~fallbackPrefKey, if(on == true) { "on" } { "off" }, "the fallback meter's switch") };
-    ~rigFallbackPaint !? { |f| f.value };
 };
 
 ~wireLooperCallbacks = {
@@ -269,16 +271,6 @@
             ("=> " ++ (if(r.error == \noFit) { "no meter: nothing fits, the loop plays at its length" } { r.error })
                 ++ " (" ++ r.onsetCount ++ " onsets)").postln
         };
-        // Pre-fill the training-export fields with the analyzer's guess so the
-        // user only has to correct mistakes before exporting the ground truth.
-        {
-            ~exportNumField   !? { r.numerator   !? { ~exportNumField.value_(r.numerator) } };
-            ~exportBarsField  !? { ~exportBarsField.value_((r.k ? 1).max(1)) };
-            (~exportDenomField.notNil and: { r.denominator.notNil }) .if {
-                var idx = ~exportDenoms.indexOf(r.denominator.asInteger);
-                idx !? { ~exportDenomField.value_(idx) };
-            };
-        }.defer;
         if(r.chordSegments.notNil and: { r.chordSegments.size > 0 }) {
             var summary = r.chordSegments.collect { |seg|
                 seg.rootName ++ " " ++ seg.scaleName
@@ -288,10 +280,13 @@
                 ++ summary).postln;
         } {
             "=> no chords detected".postln;
-            { ~rootLabel !? { |t| t.string_("—") } }.defer;
         };
-        // The Grains view's Chords line: what this take gives them to follow.
-        { ~granularPaintChords !? { |f| f.() } }.defer;
+        // The window hears of the take's result as it hears of everything
+        // else, from the model (the export fields, the key, the Grains' chords
+        // line: gui-wiring.scd). The Looper itself sends nothing when a
+        // result lands (docs/dev/architecture.md 3.6); until it does, it is
+        // said here, as the Looper will say it.
+        ~looper.changed(\result, r);
     };
 
     // Drives Live's scale system from the chord routine. Looper's
@@ -300,7 +295,9 @@
     ~looper.onChordChange = { |seg|
         ~ableton.sendMsg("/live/song/set/root_note", seg.root.asInteger);
         ~ableton.sendMsg("/live/song/set/scale_name", seg.scaleName);
-        { ~rootLabel !? { |t| t.string_(seg.rootName ++ " " ++ seg.scaleName) } }.defer;
+        // The window's key follows (gui-wiring.scd), told as it is told of
+        // everything else.
+        ~looper.changed(\chord, seg);
     };
 };
 )

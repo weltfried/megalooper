@@ -582,6 +582,40 @@ Routine {
     });
 
     // The server's load, in the top bar on every view.
+    // The window hears of what the models decide from the models, never from
+    // a setup script painting it (docs/dev/architecture.md, 5, step 4): a
+    // take's result and the chord playing (setup-model.scd says them for the
+    // Looper), and the fallback meter set from outside its switch.
+    section.("the window hears a take's result, the chord and the fallback meter", {
+        var wasFallback = MeterAnalyzer.fallbackOn, wasPrefSave = ~prefSave;
+        ~wireLooperController.();
+        ~rootLabel.string_("C major");
+        ~looper.changed(\result, (numerator: 7, denominator: 8, k: 3, chordSegments: []));
+        tick.();
+        ok.("a take's result fills the export fields with the analyser's guess",
+            [~exportNumField.value, ~exportBarsField.value, ~exportDenoms[~exportDenomField.value]] == [7, 3, 8],
+            [~exportNumField.value, ~exportBarsField.value, ~exportDenomField.value].asString);
+        ok.("...and a take with no chords shows no key", ~rootLabel.string == "—", ~rootLabel.string);
+        ~looper.changed(\chord, (rootName: "D", scaleName: "dorian"));
+        tick.();
+        ok.("the chord playing names the key", ~rootLabel.string == "D dorian", ~rootLabel.string);
+        // Each from the other state: the class starts with it on, the app
+        // switches it off at boot, so either may be showing now.
+        ~prefSave = { };
+        ~fallbackSet.(false);
+        tick.();
+        ok.("the fallback meter set off from outside its switch paints it off", ~rigFallbackSeg[\view].value == 0,
+            ~rigFallbackSeg[\view].value.asString);
+        ~fallbackSet.(true);
+        tick.();
+        ok.("...and on", ~rigFallbackSeg[\view].value == 1, ~rigFallbackSeg[\view].value.asString);
+        ~fallbackSet.(false);
+        tick.();
+        ok.("...and off again", ~rigFallbackSeg[\view].value == 0, ~rigFallbackSeg[\view].value.asString);
+        MeterAnalyzer.fallbackOn = wasFallback;
+        ~prefSave = wasPrefSave;
+    });
+
     section.("the CPU tile", {
         var srv = ~looper.server, look = { [~guiCpuTile.states[0][0], ~guiCpuTile.sub, ~guiCpuTile.states[0][1]] };
         var near = { |a, b| a.notNil and: { [a.red - b.red, a.green - b.green, a.blue - b.blue].every { |x| x.abs < 0.01 } } };
