@@ -59,7 +59,7 @@ check.("Looper", Looper.notifications, saidIn.(["Looper.sc"] ++ looperParts.coll
     looperParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);
 ~tEq.("the Looper lists 65 notifications", Looper.notifications.size, 65);
 // MegaSA's parts likewise (step 9).
-saParts = ["MegaSAMixer"];
+saParts = ["MegaSAMixer", "MegaSAStateJobs"];
 check.("MegaSA", MegaSA.notifications, saidIn.(["MegaSA.sc"] ++ saParts.collect { |n| n ++ ".sc" }));
 ~tEq.("a part of MegaSA says its changes as MegaSA's (sa.changed), never as its own",
     saParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);

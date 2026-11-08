@@ -581,7 +581,8 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 );
 ~tParts = (
     Looper: ~tWhere,
-    MegaSA: (levels: \mixerPart, mutes: \mixerPart, holds: \mixerPart, strips: \mixerPart, masterSynth: \mixerPart)
+    MegaSA: (levels: \mixerPart, mutes: \mixerPart, holds: \mixerPart, strips: \mixerPart, masterSynth: \mixerPart,
+        bankBusy: \stateJobsPart, pendingBank: \stateJobsPart, bankRoutine: \stateJobsPart)
 );
 ~tOwner = { |obj, key|
     var part = ~tParts[obj.class.name] !? { |t| t[key] };

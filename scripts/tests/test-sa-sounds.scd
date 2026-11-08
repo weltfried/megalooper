@@ -27,7 +27,7 @@ kept = ~saKeptPath.();
 states = MegaSASound.statesDirFor(kept);
 // A fresh user folder for the next case.
 fresh = { ~tRemoveTree.(root +/+ "user"); ~tRemoveTree.(old); File.mkdir(old) };
-run = { |megaSA| megaSA.instVarAt(\bankRoutine) !? { |r| 12.do { r.next } } };
+run = { |megaSA| ~tGet.(megaSA, \bankRoutine) !? { |r| 12.do { r.next } } };
 MegaSA.loadSynthDefs;
 
 ~tAssert.("the sound's files are under the scratch root here, never your own folder",

@@ -17,7 +17,7 @@ kids = { |srv, chain| (~tNodeTree.(srv)[\children][chain.group.nodeID] ? []).asA
 want = { |chain| [chain.source.nodeID] ++ chain.devices.select { |x| x.node.notNil }.collect { |x| x.node.nodeID } };
 // The plugin's state jobs run on a routine with waits: stepped here by hand
 // (its clock later finds it done).
-run = { |megaSA| megaSA.instVarAt(\bankRoutine) !? { |r| 12.do { r.next } } };
+run = { |megaSA| ~tGet.(megaSA, \bankRoutine) !? { |r| 12.do { r.next } } };
 heard = { |obj, fn|
     var all = List.new, f = { |o, what ... more| all.add([what] ++ more) };
     obj.addDependant(f);

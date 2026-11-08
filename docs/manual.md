@@ -1597,6 +1597,7 @@ megalooper/
     MegaActionLog.sc     -- Log every action: each change, and the parts' states, into the set's log
     MegaSA.sc            -- the instrument around the Looper: chains, mixer, drums, synth
     MegaSAMixer.sc       -- its mixer: the strips, their levels, mutes and holds, and the master
+    MegaSAStateJobs.sc   -- the plugins' state jobs, one at a time, the guitar held around each
     MegaSAChain.sc       -- one chain of devices
     MegaSADevice.sc      -- one device in a chain: a built-in effect or a plugin
     MegaSAFx.sc          -- the built-in effects

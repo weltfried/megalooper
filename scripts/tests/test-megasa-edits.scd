@@ -452,7 +452,7 @@ if(vst.isNil) { ~tSkip.("the plugin's device in edits", "VSTPlugin is not instal
     got = List.new;
     sa.loadGuitarBank("/x/a.fxb", { |ok| got.add([\a, ok]) });
     sa.loadGuitarBank("/x/b.fxb", { |ok| got.add([\b, ok]) });
-    job = sa.instVarAt(\bankRoutine);
+    job = ~tGet.(sa, \bankRoutine);
     job.next;   // the strip's fade
     job.next;   // a.fxb asked for; waiting for the answer
     sa.removeDevice(\plugin1);
@@ -460,7 +460,7 @@ if(vst.isNil) { ~tSkip.("the plugin's device in edits", "VSTPlugin is not instal
     job.next;   // a.fxb answered; b.fxb next, after the fade
     job.next;   // b.fxb finds no plugin
     ~tEq.("a bank job waiting when the plugin is removed answers false; the guitar is let go",
-        [got.asArray, sa.instVarAt(\bankBusy), sa.held(\guitar).includes(\bank)], [[[\a, true], [\b, false]], false, false]);
+        [got.asArray, ~tGet.(sa, \bankBusy), sa.held(\guitar).includes(\bank)], [[[\a, true], [\b, false]], false, false]);
     sa.undo;
     // Parked, then so many edits that undo can reach it no more: it stays
     // parked, still open. It cannot be opened anew before phase 5, and a

@@ -126,11 +126,10 @@ MegaSA {
     // init's routine (prBuild). free stops it if it has not finished, so a
     // MegaSA freed early builds nothing afterwards.
     var builder;
-    // The plugin's state is being read or written, one job at a time: those
-    // asked for meanwhile wait in pendingBank, in order. A save is never
-    // dropped; a load replaces one still waiting, so a burst of recalls ends
-    // on the last. The guitar strip is held (\bank) while a job runs.
-    var bankBusy = false, pendingBank;
+    // The plugins' state jobs, one at a time across every plugin, the guitar
+    // held around each (MegaSAStateJobs). Made when first asked for
+    // (stateJobsPart).
+    var stateJobsPart;
     // What the sound MegaSA was built from or last recalled held beyond the
     // devices (MegaSASound's unknown fields and tracks), for the next sound
     // written from the chains; and what Keep's mark compares against
@@ -149,7 +148,7 @@ MegaSA {
     var <alive = true;
     // The routines that open the guitar's plugin after the build and run its
     // bank jobs; free stops them.
-    var opener, bankRoutine;
+    var opener;
     // How the guitar's plugin is made, given (synth, id, path), the synth
     // being its device's: MegaSAPlugin's own constructor unless something
     // else is set before the build. The
@@ -249,7 +248,6 @@ MegaSA {
             pluginPath = nil;
         };
         this.mixerPart.startOpening(pluginPath.notNil and: { sound.isNil or: { sound.devices(\guitar).any { |d| d[\type] == \plugin } } });
-        pendingBank = List.new;
         limbo = List.new;
         undoList = List.new;
         redoList = List.new;
@@ -1855,70 +1853,13 @@ MegaSA {
 
     prBankJob { |what, file, action| this.prStateJob(what, \bank, file, action) }
 
-    // Reading or writing the plugin's state suspends it, and a plugin that
-    // is busy may pass the guitar through dry: a DI at full scale is a blast.
-    // So the guitar strip is muted around every job, and jobs run one at a
-    // time, in the order they were asked for. `what` is \save or \load,
-    // `kind` \program or \bank. A save always runs. A load asked for while
-    // another still waits replaces it (that one's action gets false), so a
-    // burst of recalls ends on the last.
-    prStateJob { |what, kind, file, action, device|
-        var dev = device ? this.prPluginDevice;
-        var job = [what, kind, file, action, dev];
-        // Only the guitar is muted around a job: a loop-chain plugin that is
-        // busy passes the loop through, which is no blast.
-        var onGuitar = { |j| j[4].notNil and: { guitarChain.devices.includes(j[4]) } };
-        if(bankBusy) {
-            if(what == \load) {
-                pendingBank.copy.do { |old|
-                    if((old[0] == \load) and: { old[4] === dev }) { pendingBank.remove(old); old[3].value(false) } };
-            };
-            pendingBank.add(job);
-            ^this
-        };
-        bankBusy = true;
-        if(onGuitar.(job) or: { dev.isNil }) { this.hold(\guitar, \bank) };
-        bankRoutine = Routine {
-            while { job.notNil and: { alive } } {
-                var done = false, ok = false, waited = 0, plug;
-                var reply = { |p, jobOk| ok = jobOk; done = true };
-                if(onGuitar.(job)) { this.hold(\guitar, \bank) };
-                0.05.wait;   // the strip's 20 ms fade, then some
-                // The plugin as it is now: one an edit has removed since the
-                // job was asked for has no state to give or take.
-                plug = job[4] !? { |d| if(this.devices.includes(d)) { d.plugin } };
-                case
-                { plug.isNil or: { plug.state != \open } } { reply.(nil, false) }
-                { job[0] == \save } { plug.saveState(job[1], job[2], reply) }
-                { plug.loadState(job[1], job[2], reply) };
-                while { done.not and: { waited < 30 } } { 0.05.wait; waited = waited + 0.05 };
-                job[3].value(ok);
-                // A plugin that has not answered in 30 s may still be busy,
-                // and its late answer would be taken for the next job's, so
-                // the waiting ones are dropped rather than sent into that.
-                if(done.not) {
-                    ("MegaSA: " ++ (plug !? { |p| p.name } ? "the plugin") ++ " did not answer in 30 s with " ++ PathName(job[2]).fileName
-                        ++ "; a later job may still find it busy.").warn;
-                    pendingBank.do { |p| p[3].value(false) };
-                    pendingBank.clear;
-                    job = nil;
-                } {
-                    job = if(pendingBank.isEmpty) { nil } { pendingBank.removeAt(0) };
-                };
-            };
-            this.prBankJobsDone;
-        }.play(SystemClock);
-    }
-
-    // The last bank job has answered: the plugin, no longer busy, is told the
-    // tempo it may have missed meanwhile, and the guitar is let go.
-    prBankJobsDone {
-        bankBusy = false;
-        if(alive) {
-            tempo !? { |t| this.pluginDevices.do { |d| d.plugin.setTempo(t) } };
-            this.unhold(\guitar, \bank);
-        };
-    }
+    // The plugins' state jobs (MegaSAStateJobs), made when first asked for:
+    // a plugin's program or bank read or written, one job at a time, the
+    // guitar held around each. `what` is \save or \load, `kind` \program or
+    // \bank, `device` the plugin's (the guitar plugin when nil).
+    stateJobsPart { ^stateJobsPart ?? { stateJobsPart = MegaSAStateJobs(this) } }
+    prStateJob { |what, kind, file, action, device| this.stateJobsPart.run(what, kind, file, action, device) }
+    prBankJobsDone { this.stateJobsPart.finished }
 
     // The loop's tempo, for the effects that follow it: the echo's times and
     // the auto filter's synced LFO, through each chain's group, and each
@@ -1981,10 +1922,10 @@ MegaSA {
         CmdPeriod.remove(this);
         // A build still under way builds nothing more, a plugin not yet asked
         // to open is not, and a bank job stops.
-        [builder, opener, bankRoutine].do { |r| r !? { if(r !== thisThread) { r.stop } } };
+        [builder, opener].do { |r| r !? { if(r !== thisThread) { r.stop } } };
         builder = nil;
         opener = nil;
-        bankRoutine = nil;
+        stateJobsPart !? { |j| j.stop };
         // The drums first: they stop deciding hits and let go of the Looper's
         // notifications before anything they play into goes. The Looper keeps
         // their port and their onset sink, which do nothing from now on: on a

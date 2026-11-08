@@ -143,7 +143,7 @@ if(vst.isNil) { ~tSkip.("a plugin's device opens what its sound names", "VSTPlug
         fakes.put(pth.asSymbol, f);
         f
     }, "/abs/x/Rig.vst", sound, all);
-    run = { m.instVarAt(\bankRoutine) !? { |r| 60.do { r.next } } };
+    run = { ~tGet.(m, \bankRoutine) !? { |r| 60.do { r.next } } };
     ~tEq.("every plugin device of a sound is made for the plugin it names, and opened",
         [fakes.keys.asArray.sort, m.pluginDevices.collect(_.id), fakes.values.collect { |f| f[\opened] }, fakes.values.collect { |f| f[\state] }],
         [['Amp', 'Surround'], [\plugin1, \plugin2], [1, 1], [\open, \open]]);
