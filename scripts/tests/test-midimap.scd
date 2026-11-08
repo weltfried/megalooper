@@ -27,7 +27,7 @@ if(~midiRouteWith.isNil) { (scripts +/+ "setup-midimap.scd").load };
 if(~saGuitarBank.isNil) { (scripts +/+ "setup-sa.scd").load };
 if(~routingProfiles.isNil) { (scripts +/+ "setup-routing.scd").load };
 if(~onsetThresholdSpec.isNil) { (scripts +/+ "gui-const.scd").load };
-if(~granularParams.isNil) { (scripts +/+ "gui-granular.scd").load };
+if(~granularParams.isNil) { (scripts +/+ "setup-granular.scd").load };
 
 // Equal, numbers to within 1e-9, however nested: the router's calls carry
 // floats that arithmetic along a law can leave a hair off.

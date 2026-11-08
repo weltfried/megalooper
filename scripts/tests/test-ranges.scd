@@ -17,10 +17,10 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 {
 var l, params;
 
-// gui-granular.scd only DEFINES (that is the whole point of the scripts/ split),
-// so loading it here is side-effect free — no window opens.
+// setup-granular.scd only DEFINES (that is the whole point of the scripts/
+// split), so loading it here is side-effect free — no window opens.
 if(~granularParams.isNil) {
-    (thisProcess.nowExecutingPath.dirname.dirname +/+ "gui-granular.scd").load;
+    (thisProcess.nowExecutingPath.dirname.dirname +/+ "setup-granular.scd").load;
 };
 l = ~tLooper.();
 params = ~granularParams;

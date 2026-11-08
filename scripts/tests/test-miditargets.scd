@@ -31,7 +31,7 @@ if(~saGuitarBank.isNil) { (scripts +/+ "setup-sa.scd").load };
 if(~midiApply.isNil) { (scripts +/+ "setup-midimap.scd").load };
 if(~onsetThresholdSpec.isNil) { (scripts +/+ "gui-const.scd").load };
 if(~definePresetFamily.isNil) { (scripts +/+ "gui-presets.scd").load };
-if(~granularParams.isNil) { (scripts +/+ "gui-granular.scd").load };
+if(~granularParams.isNil) { (scripts +/+ "setup-granular.scd").load };
 if(~midiNoteName.isNil) { (scripts +/+ "gui-analysis.scd").load };
 if(~saLevelSpec.isNil) { (scripts +/+ "gui-sa.scd").load };
 if(~effectsMap.isNil) { (scripts +/+ "gui-effects.scd").load };

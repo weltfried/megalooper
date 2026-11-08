@@ -7,11 +7,13 @@
 //                        loop and a running granular layer both survive it.
 //                        Follow with ~wireLooperController.() to re-subscribe.
 //
+// The parameters themselves, their laws and Reset tweaks are setup-granular.scd's:
+// this file builds the pane from them.
+//
 // NOTE for anyone editing this file: everything above ~buildGranularPane must
-// stay at top level and side-effect-free. tests/test-ranges.scd and
-// tests/test-preset-bar.scd load this file ALONE, with no shell and no window,
-// and assert on ~granularParams / ~granularMapValue / the preset family. A
-// top-level call to ~guiSwapPane or ~fitOnScreen would take both files down.
+// stay at top level and side-effect-free. tests/test-preset-bar.scd loads this
+// file with no shell and no window and asserts on the preset family. A
+// top-level call to ~guiSwapPane or ~fitOnScreen would take it down.
 //
 // Why this exists: the layer had exactly one control, `morph`, which slides the
 // whole texture between a frozen drone and a beat-locked pulsed scan by lerping
@@ -25,112 +27,6 @@
 // MIDI CC, the Reset button and the slider itself all showing the same number.
 (
 ~granularLabelWidth = 82;
-
-// Slider position (0..1) <-> parameter value. Everything goes through its
-// ControlSpec except the bipolar ones: Scan's useful range is a hair either
-// side of zero (0.05 extra passes per loop is already an audible drift), and a
-// plain linear +/-2 slider buries that inside one pixel of centre. Those get a
-// squared, symmetric law instead, which spreads the small values out and still
-// reaches the ends.
-~granularMapValue = { |p, v|
-    if(p[\bipolar] == true) {
-        var x = (v * 2) - 1;
-        x.sign * x.squared * p[\spec].maxval
-    } {
-        p[\spec].map(v)
-    };
-};
-
-~granularUnmapValue = { |p, val|
-    if(p[\bipolar] == true) {
-        var x = (val / p[\spec].maxval).clip(-1, 1);
-        ((x.sign * x.abs.sqrt) + 1) * 0.5
-    } {
-        p[\spec].unmap(val)
-    };
-};
-
-// Whole-number params (Pitch) read badly as "-12.0", so they print as integers.
-~granularFormat = { |p, val|
-    var str = if(p[\round] >= 1) {
-        val.round(1).asInteger.asString
-    } {
-        val.round(p[\round]).asString
-    };
-    str ++ (p[\unit] ? "")
-};
-
-// ---- The parameter table --------------------------------------------------
-// Every row of the window comes from here, and so does the MVC wiring in
-// gui-main.scd — adding a parameter means adding one entry, a matching setter
-// on Looper and a SynthDef arg, and nothing else.
-//
-// `default` is the value Reset restores and is deliberately NEUTRAL: with all
-// of them at default the layer sounds exactly as it did when morph was the only
-// control. `noReset` keeps the meta-control out of that (resetting the tweaks
-// should not also throw away a performed drone/rhythm position).
-//
-// The two multipliers get GEOMETRIC ranges (1/8..8, 1/4..4) so that the centre
-// of the slider — and CC 64 — is exactly 1x, i.e. morph untouched. An off-centre
-// neutral makes a multiplier impossible to return to by feel.
-~granularParams = [
-    (key: \granularMorph, label: "Morph", spec: ControlSpec(0, 1, \lin, 0, 0),
-        round: 0.01, default: 0, noReset: true,
-        tip: "The meta-control, mirrored from the main window.\n"
-            "0 = frozen drone: long overlapped grains, static read point.\n"
-            "1 = pulsed scan: one grain per detected beat, reading through the\n"
-            "loop in time, so the granulator's rhythm matches what you played.\n"
-            "Everything below bends whatever this asks for."),
-    (key: \granularAmp, label: "Level", spec: ControlSpec(0, 1, \lin, 0, 0.3),
-        round: 0.01, default: 0.3,
-        tip: "Level of the granular layer, summed with the engine before the\n"
-            "master limiter. 0.3 by default."),
-    (key: \granularPitch, label: "Pitch", spec: ControlSpec(-24, 24, \lin, 1, 0),
-        round: 1, unit: " st", default: 0,
-        tip: "Grain transposition in semitones. The read pointer is untouched,\n"
-            "so this pitches the layer WITHOUT changing how fast it moves\n"
-            "through the loop — -12 is an octave-down pad under the same take."),
-    (key: \granularDetune, label: "Detune", spec: ControlSpec(0, 12, 3, 0, 0),
-        round: 0.01, unit: " st", default: 0,
-        tip: "Random detune drawn afresh for EVERY grain, +/- this many\n"
-            "semitones. Under ~0.2 it thickens like a chorus; past a few\n"
-            "semitones the loop shatters into pitched confetti."),
-    (key: \granularSize, label: "Grain size", spec: ControlSpec(0.125, 8, \exp, 0, 1),
-        round: 0.01, unit: " x", default: 1,
-        tip: "Grain length as a MULTIPLE of what morph asks for (0.4 s at the\n"
-            "drone end, one beat at the pulsed end). Below about 0.2x grains\n"
-            "stop carrying pitch and start reading as texture."),
-    (key: \granularDensity, label: "Density", spec: ControlSpec(0.25, 4, \exp, 0, 1),
-        round: 0.01, unit: " x", default: 1,
-        tip: "Overlapping grain count, as a multiple of morph's (6 drone,\n"
-            "1 pulsed). Thickness — and the CPU bill: this is the parameter\n"
-            "that runs the server up, so the result is clipped at 16 overlaps."),
-    (key: \granularSizeRand, label: "Size rand", spec: ControlSpec(0, 1, \lin, 0, 0.1),
-        round: 0.01, default: 0.1,
-        tip: "Warp1's windowRandRatio: how much grain LENGTH varies from grain\n"
-            "to grain. A little breaks up the comb filtering that perfectly\n"
-            "regular overlaps produce; 1.0 is, per the UGen's own docs,\n"
-            "probably too random."),
-    (key: \granularPosition, label: "Position", spec: ControlSpec(0, 1, \lin, 0, 0),
-        round: 0.001, default: 0,
-        tip: "Where in the loop the grains read from, as a fraction of the loop\n"
-            "region. At the drone end this IS the freeze point — sweep it to\n"
-            "walk the drone through the recording by hand. It wraps, so it can\n"
-            "never read past the end of the loop."),
-    (key: \granularScan, label: "Scan", spec: ControlSpec(-2, 2, \lin, 0, 0),
-        round: 0.01, unit: " /loop", default: 0, bipolar: true,
-        tip: "EXTRA passes through the loop per loop duration, ADDED to morph's\n"
-            "own (0 at the drone end, 1 at the pulsed end).\n"
-            "0 leaves morph in charge · small values drift a frozen drone\n"
-            "· negative runs the read head backwards · -1 exactly freezes a\n"
-            "fully pulsed scan · 1 doubles it."),
-    (key: \granularSpray, label: "Spray", spec: ControlSpec(0, 500, 4, 0, 0),
-        round: 0.1, unit: " ms", default: 0,
-        tip: "Per-grain read-position randomness in milliseconds. Unlike the\n"
-            "tiny jitter morph applies at the drone end, this survives at the\n"
-            "pulsed end — it is how you loosen a locked grid without giving up\n"
-            "the beat. It blurs across the loop seam on purpose.")
-];
 
 // ---- Preset bar -----------------------------------------------------------
 // The bar itself — menu, name field, two-click Save/Delete, status line — is
@@ -238,17 +134,6 @@
     };
 };
 
-// Neutral again: every bend back to its default, meta-control left alone.
-~granularResetTweaks = {
-    ~looper !? { |l|
-        ~granularParams.do { |p|
-            if(p[\noReset] != true) { l.perform(p[\key].asSetter, p[\default]) };
-        };
-        l.granularEnv = 0;
-        l.granularFollowChords = false;
-    };
-};
-
 // ---- Row + section builders -----------------------------------------------
 // A row: the label and the value over a bar in the grains' colour, with a
 // thin mark where the control is neutral (its default: morph alone shapes the
@@ -275,9 +160,8 @@
     ).spacing_(3).margins_(0)
 };
 
-// Look a param up by key so the sections below can be written in reading order
-// rather than in table order.
-~granularParamAt = { |key| ~granularParams.detect { |p| p[\key] == key } };
+// The rows by key (~granularParamAt, setup-granular.scd), so the sections below
+// can be written in reading order rather than in table order.
 ~granularRowFor  = { |key| ~granularRow.(~granularParamAt.(key)) };
 
 // A section: its title, what drives its controls ("CC 118 · CC 119"), its

@@ -22,7 +22,7 @@ if(~midiRouteWith.isNil) { (scripts +/+ "setup-midimap.scd").load };
 if(~saGuitarBank.isNil) { (scripts +/+ "setup-sa.scd").load };
 if(~routingProfiles.isNil) { (scripts +/+ "setup-routing.scd").load };
 if(~onsetThresholdSpec.isNil) { (scripts +/+ "gui-const.scd").load };
-if(~granularParams.isNil) { (scripts +/+ "gui-granular.scd").load };
+if(~granularParams.isNil) { (scripts +/+ "setup-granular.scd").load };
 
 // ------------------------------------------------------ what is sent back --
 ~tEq.("a knob or a pedal on a level, a count or a choice is sent where its control is, from a CC or pitch bend",

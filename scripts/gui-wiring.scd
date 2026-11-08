@@ -262,7 +262,7 @@
     // handler above, and SimpleController.put REPLACES by key — a second one
     // would silently orphan Perform's bar.
     //
-    // Nil-guarded on the whole table: gui-granular.scd is optional, and a
+    // Nil-guarded on the whole table: setup-granular.scd is optional, and a
     // session that never loaded it just gets no granular subscriptions.
     ~granularParams !? { |params|
         params.do { |p|

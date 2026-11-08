@@ -504,7 +504,7 @@ sa.free;
 var l, r, got, o, src, said, dirs, before, cutBefore, refusals, rows;
 var ask = { |remote, text| MegaFiles.parseObject(MegaFiles.json(remote.handle(text))) };
 var scripts = thisProcess.nowExecutingPath.dirname.dirname;
-if(~granularParams.isNil) { (scripts +/+ "gui-granular.scd").load };
+if(~granularParams.isNil) { (scripts +/+ "setup-granular.scd").load };
 l = ~tLooper.();
 said = List.new;
 dirs = ~tTempPath.("megaremote-looper-presets");

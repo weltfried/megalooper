@@ -26,6 +26,7 @@
     "setup-routing.scd",      // ~routingProfiles, ~applyRoutingProfile, the preflights
     "setup-midi.scd",         // ~setupMidiIO, and the numbers MIDI is bound to
     "setup-model.scd",        // ~setupLooper, ~wireLooperCallbacks, ~fallbackApply
+    "setup-granular.scd",     // the grains' parameters: their table, laws and readouts
     "setup-sa.scd",           // ~setupSA: the mixer, the chains, the drums (sa: true)
     "setup-miditargets.scd",  // the controls, and the command layer that drives them
     "setup-midimap.scd",      // ~setupMidiBindings: the MIDI router and its map

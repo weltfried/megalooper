@@ -29,6 +29,7 @@ var stub, install, statusOf;
 
 if(~definePresetFamily.isNil) { (dir +/+ "gui-presets.scd").load };
 (dir +/+ "gui-bbcut.scd").load;
+if(~granularParams.isNil) { (dir +/+ "setup-granular.scd").load };
 (dir +/+ "gui-granular.scd").load;
 
 // An Event per widget. Reads go through [\key] rather than .key because

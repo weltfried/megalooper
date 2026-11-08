@@ -143,6 +143,7 @@ if(File.exists(root)) { (root +/+ "*").pathMatch.do { |p|
                     \save, \load, \delete];
     if(~definePresetFamily.isNil) { (dir +/+ "gui-presets.scd").load };
     (dir +/+ "gui-bbcut.scd").load;
+    if(~granularParams.isNil) { (dir +/+ "setup-granular.scd").load };
     (dir +/+ "gui-granular.scd").load;
 
     ~tEq.("both windows registered a preset family",

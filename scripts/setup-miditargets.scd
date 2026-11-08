@@ -226,7 +226,7 @@
         format: hundredths,
         available: { ~looper.notNil and: { ~onsetThresholdSpec.notNil } }));
     // The granular layer's parameters, on the Grains tab's laws: its row of
-    // ~granularParams (gui-granular.scd), looked up when a message arrives, so
+    // ~granularParams (setup-granular.scd), looked up when a message arrives, so
     // without that table they do nothing. Every key the CC block names, and
     // every row of the table if it is loaded by now. They read as their rows
     // do (~granularFormat).
@@ -273,7 +273,7 @@
             fire: { ~looper !? { |l| l.rerollOnsetNotes } }, available: looper));
         // The Grains tab's Reset tweaks: every bend back to its default, the
         // meta-control left alone. Its own function, which writes the model
-        // only (gui-granular.scd).
+        // only (setup-granular.scd).
         add.('looper.granularResetTweaks', "Reset tweaks", "Grains", \trigger, (
             fire: { ~granularResetTweaks.value },
             available: { ~looper.notNil and: { ~granularResetTweaks.notNil } }));
