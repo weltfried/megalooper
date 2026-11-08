@@ -248,7 +248,10 @@ sweep and a mouse drag cover the same range in the same shape.
 view), or Cmd+M. Every control in the window is outlined in blue and says what
 drives it ("note 60"). Click one, and move a knob or press a switch on your
 controller: that now drives it. Shift-click instead adds one more, so a control
-can answer two switches. While a control waits, its mask is amber and counts
+can answer two switches. The Drums preset menu stands for several controls:
+a click on it lists every preset, **Next preset**, **Previous preset** and a
+knob over the list, and the one you pick waits for its switch (see
+[the drums' MIDI](drums.md#midi)). While a control waits, its mask is amber and counts
 down its 15 s, and so does the map bar above the footer. Esc cancels, and
 pressed again leaves. **Delete** (or the Delete key) takes the waiting
 control's MIDI away, and Cmd+Z or **Undo** brings it back.

@@ -138,6 +138,7 @@
     var slotNames = (steps: "Steps kit", onset: "Onset kit");
     var laneLabels = (note: "Note", altNote: "Alt", delay: "D (delay)", mute: "M (mute)", lock: "Lock");
     var looperFamily, effectsFamily, mixerFamily, drumsFamily, trimsFamily, windowFamily, synthFamily, countFamily;
+    var drumPresetsFamily;
     var addCount, addFx, addReset, addRandom, fxFurther, fxPlugins, addLevel, addMute, addTiming, addLane, addTrims, addPadTrim, addGroupTrim;
     var stripLabel, inForce, trimLaw, trimText;
 
@@ -492,6 +493,44 @@
             [0, 1, 2, 3].do { |lane| addLane.(which, lane) };
         };
     };
+    // The drums' presets (MegaSADrums.recallPreset), each recalled on the
+    // next bar line: one control per preset in the folder now, Next and
+    // Previous (from the one armed or last recalled, round at the ends), and
+    // a knob over the list. A preset's control is its file's name: it stays,
+    // greyed, once the file has gone, and drives a preset saved again under
+    // that name. Made again as presets are saved and deleted (gui-drums.scd,
+    // ~midiTargetsRefresh with \drumPresets). Picked in MIDI MAP mode from the
+    // Drums preset menu (~mapPick).
+    drumPresetsFamily = {
+        var dir = { currentEnvironment[\saDrumsPresetDir] };
+        var names = { (drums.value !? { |d| dir.value !? { |x| d.presetNames(x) } }) ? [] };
+        var recall = { |slug| drums.value !? { |d| slug !? { d.recallPreset(dir.value, slug) } } };
+        var current = { drums.value !? { |d| d.presetPendingSlug ? d.presetLoaded } };
+        var none = { "no drum presets saved yet" };
+        add.('sa.drums.preset.next', "Next preset", "Drums", \trigger, (group: "Presets",
+            fire: { drums.value !? { |d| recall.(d.presetStep(dir.value, 1)) } },
+            available: { names.value.notEmpty }, why: none));
+        add.('sa.drums.preset.previous', "Previous preset", "Drums", \trigger, (group: "Presets",
+            fire: { drums.value !? { |d| recall.(d.presetStep(dir.value, -1)) } },
+            available: { names.value.notEmpty }, why: none));
+        // A knob: its position picks a preset of the list, which lands on the
+        // next bar line; turned on before then, the last one picked lands.
+        // Made once there is a preset (a choice has items), and kept, greyed,
+        // once there are none again.
+        if(names.value.notEmpty) {
+            add.('sa.drums.preset.choose', "Preset", "Drums", \choice, choice.((group: "Presets",
+                items: names,
+                get: { current.value !? { |c| names.value.indexOfEqual(c) } },
+                set: { |i| names.value[(i ? 0).asInteger] !? { |slug| if(slug != current.value) { recall.(slug) } } },
+                available: { names.value.notEmpty }, why: none)));
+        };
+        names.value.do { |slug|
+            add.(("sa.drums.preset.recall." ++ slug).asSymbol, "Recall " ++ slug, "Drums", \trigger, (group: "Presets",
+                fire: { recall.(slug) },
+                available: { (dir.value !? { |x| File.exists(x +/+ slug ++ ".scd") }) == true },
+                why: { "no drum preset " ++ slug ++ " now" }));
+        };
+    };
     // One timing setting of a pattern, as the tab draws the pattern shown's:
     // Clock, Roll and Retrig Rate are menus, Retrig an On/Off switch, Shuffle
     // Len a box in whole steps, Global and the eight dials knobs on their
@@ -703,7 +742,8 @@
 
     [
         [\looper, looperFamily], [\effects, effectsFamily], [\mixer, mixerFamily],
-        [\drums, drumsFamily], [\trims, trimsFamily], [\synth, synthFamily], [\window, windowFamily],
+        [\drums, drumsFamily], [\drumPresets, drumPresetsFamily], [\trims, trimsFamily], [\synth, synthFamily],
+        [\window, windowFamily],
         [\count, countFamily]
     ].do { |pair|
         if(only.isNil or: { only == pair[0] }) { try { pair[1].value } { |err|
@@ -715,6 +755,7 @@
     // One family asked for: its controls alone (the effects' switches are made
     // above, with the first 36).
     if(only == \effects) { t = t.select { |x, id| id.asString.beginsWith("sa.fx") } };
+    if(only == \drumPresets) { t = t.select { |x, id| id.asString.beginsWith("sa.drums.preset.") } };
     t
 };
 )

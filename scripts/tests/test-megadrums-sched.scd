@@ -2487,6 +2487,79 @@ var fx = ~dsHalfFx.(), l = fx[\looper];
 ~tEq.("...nothing sent was ever cancelled", ~dsHits.(fx[\log]).count(_[\cancelled]), 0);
 }.value;
 
+// ---- A preset on the next bar line (recallPreset, for MIDI) ----------------
+// Two presets on the test kit: "kicks", a kick on every 16th, and "snares", a
+// snare on every 16th. A bar of 4/4 at 120 is the 2 s loop, from 92 on.
+{
+var dir = ~dsDir +/+ "presets", fx, d, heard = List.new, kicks, snares, grid, armedAt;
+var make = { |which, note|
+    ~dsPlain.(d, \main, (0: if(note == 36) { ~dsEvery } { [] }, 1: if(note == 38) { ~dsEvery } { [] }));
+    d.setLaneParam(\main, 0, \note, 36);
+    d.setLaneParam(\main, 1, \note, 38);
+    d.savePreset(dir, which);
+};
+var fresh = {
+    fx = ~dsMake.();
+    d = fx[\drums];
+    heard = List.new;
+    d.addDependant({ |obj, what ... args| if([\presetArmed, \presetLanded].includes(what)) { heard.add([what] ++ args) } });
+};
+fresh.();
+make.("snares", 38);
+make.("kicks", 36);
+~tEq.("the two presets are saved", d.presetNames(dir), ["kicks", "snares"]);
+
+// Stopped: at once.
+~tEq.("with the transport stopped a recall lands at once", [d.recallPreset(dir, "snares"), d.presetLoaded,
+    d.presetPendingSlug], [true, "snares", nil]);
+~tEq.("...saying so", heard.asArray, [[\presetLanded, "snares"]]);
+d.loadPreset(dir, "kicks");
+
+// Playing: on the next bar line.
+~dsStart.(fx, 92.0);
+~dsRun.(fx, 92.3);
+heard.clear;
+~tEq.("playing, a recall is armed", [d.recallPreset(dir, "snares"), d.presetPendingSlug, d.presetLoaded],
+    [true, "snares", "kicks"]);
+~tNear.("...for the next bar line", d.presetPendingAt, 94.0, 1e-6);
+~tEq.("...saying so", heard.collect(_[0..1]).asArray, [[\presetArmed, "snares"]]);
+~dsRun.(fx, 95.0);
+grid = { |note| ~dsGrid.(~dsOf.(~dsSounding.(fx[\log]), note)) };
+kicks = grid.(36);
+snares = grid.(38);
+~tAssert.("the kicks played up to the line", kicks.notEmpty and: { kicks.maxItem < 94.0 } and: { kicks.includesEqual(93.875) },
+    kicks.asString);
+~tAssert.("...and the snares from it, from the line's own 16th", snares.notEmpty and: { snares.minItem >= (94.0 - 1e-9) }
+    and: { (snares.minItem - 94.0).abs < 1e-6 }, snares.asString);
+~tEq.("...nothing sent was cancelled", ~dsHits.(fx[\log]).count(_[\cancelled]), 0);
+~tEq.("it landed, and says so", [d.presetLoaded, d.presetPendingSlug, heard.last], ["snares", nil, [\presetLanded, "snares"]]);
+
+// A line nearer than the lead is decided already: the one after.
+~dsRun.(fx, 95.95);
+d.recallPreset(dir, "kicks");
+~tNear.("a recall 50 ms before a line lands on the one after", d.presetPendingAt, 98.0, 1e-6);
+// Another before the line replaces it; the menu drops it.
+d.recallPreset(dir, "snares");
+~tEq.("a second recall before the line replaces the first", d.presetPendingSlug, "snares");
+d.loadPreset(dir, "kicks");
+~tEq.("the menu's recall drops it, and says so", [d.presetPendingSlug, d.presetLoaded, heard.last],
+    [nil, "kicks", [\presetArmed, nil, nil]]);
+// Next and Previous, from the one armed or last recalled, round at the ends.
+~tEq.("Next and Previous go round the folder", [d.presetStep(dir, 1), d.presetStep(dir, -1)], ["snares", "snares"]);
+d.recallPreset(dir, d.presetStep(dir, 1));
+~tEq.("...from the one armed", d.presetStep(dir, 1), "kicks");
+// A Stop lands it.
+fx[\drums].transportStop(fx[\wall]);
+~tEq.("a Stop lands the preset armed", [d.presetPendingSlug, d.presetLoaded], [nil, "snares"]);
+// A file that is not a preset changes nothing.
+File.use(dir +/+ "broken.scd", "w", { |f| f.write("42") });
+heard.clear;
+~tEq.("a file that is no preset is refused, nothing armed", [d.recallPreset(dir, "broken", List.new), d.presetPendingSlug,
+    heard.size], [false, nil, 0]);
+~tEq.("...as one that is not there", d.recallPreset(dir, "nowhere"), false);
+d.free;
+}.value;
+
 ~dsDropKits.();
 [\dsDir, \dsMakeKits, \dsDropKits, \dsReader, \dsMake, \dsMakeGap, \dsEvery, \dsPlain, \dsStart, \dsRun, \dsHits,
     \dsVoices, \dsVoicesSounding, \dsVoiceKey, \dsVoiceKeys, \dsSounding, \dsOf, \dsGrid, \dsKey, \dsKeys,

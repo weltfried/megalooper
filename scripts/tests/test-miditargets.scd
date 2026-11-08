@@ -17,7 +17,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 var dir = thisProcess.nowExecutingPath.dirname;
 var scripts = dir.dirname;
 var tmp = ~tTempPath.("miditargets-test");
-var saved, targets, kinds, tabs, idShape, families, familyOf, looperIds, phase1, forbidden, words;
+var saved, targets, kinds, tabs, idShape, presetIdShape, families, familyOf, looperIds, phase1, forbidden, words;
 var stub, sa, d, l, rec, reader, writeWav, writeKit, heard, act, near, offenders, count, there, source;
 var t, p, v, got, ids, map, route, sources, warned, live, keptTargets, before, id2, tid;
 
@@ -60,6 +60,8 @@ kinds = #[\trigger, \toggle, \continuous, \step, \choice, \light];
 tabs = ["Perform", "Grains", "Cutter", "Analysis", "Effects", "Drums", "Synth", "Rig", "Live", "Window"];
 // Dotted lower camel: words that start lower case, or a number (a pad's note).
 idShape = "^[a-z][a-zA-Z0-9]*(\\.([a-z][a-zA-Z0-9]*|[0-9]+))+$";
+// A drum preset's control ends in its file's name, a slug (Looper.presetSlug).
+presetIdShape = "^sa\\.drums\\.preset\\.recall\\.[a-z0-9]+(-[a-z0-9]+)*$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
 // (the trims follow the kits, so they come with SA only).
 families = [
@@ -80,7 +82,10 @@ families = [
     [\synth, "^sa\\.synth\\.(on|random|reset|division|root|scale|swing|" ++ MegaSAWave.params.collect { |x| x[\name] }.join("|") ++ ")$",
         7 + MegaSAWave.params.size],
     [\window, "^gui\\.view\\.(perform|sound|fx|drums|synth|setup|calibrate)$", 7],
-    [\count, "^count\\.(beatLight|countInLight|oddBarLight)$", 3]
+    [\count, "^count\\.(beatLight|countInLight|oddBarLight)$", 3],
+    // Next and Previous with no SA; the knob and a control per preset come
+    // with the presets.
+    [\drumPreset, "^sa\\.drums\\.preset\\.(next|previous|choose|recall\\.[a-z0-9]+(-[a-z0-9]+)*)$", 2]
 ];
 familyOf = { |id| families.select { |f| f[1].matchRegexp(id.asString) }.collect { |f| f[0] } };
 // The Looper's, as table 4.2 lists them: the transport, the switches, the
@@ -162,7 +167,7 @@ d.setKit(\onset, 'mt-onset');
 
 // These swap globals a running megalooper uses (~looper, ~megaSA, Live's
 // record switch), so they are put back however it ends.
-saved = [~looper, ~megaSA, ~liveRecordToggle, ~liveRecordSet, ~rp];
+saved = [~looper, ~megaSA, ~liveRecordToggle, ~liveRecordSet, ~rp, ~saDrumsPresetDir];
 protect {
     // ------------------------------------------------------------ on a Live rig --
     l = ~tLooper.();
@@ -203,7 +208,8 @@ protect {
     ~tEq.("every level, count and choice has its section in its pane as its group",
         offenders.({ |x| [\continuous, \step, \choice].includes(x[\kind]).not
             or: { x[\group].notNil } }), []);
-    ~tEq.("the ids are dotted lower camel", targets.keys.asArray.reject { |id| idShape.matchRegexp(id.asString) }, []);
+    ~tEq.("the ids are dotted lower camel, a drum preset's ending in its file's name",
+        targets.keys.asArray.reject { |id| idShape.matchRegexp(id.asString) or: { presetIdShape.matchRegexp(id.asString) } }, []);
     ~tEq.("...and no two differ only in case",
         targets.keys.asArray.collect { |id| id.asString.toLower }.asSet.size, targets.size);
     ~tEq.("every id is of exactly one of table 4.2's families",
@@ -219,8 +225,10 @@ protect {
         phase1.reject { |id| targets.includesKey(id) }, []);
     // A view of the window is shown, not set: the wizard's view is no
     // calibration setting.
-    ~tEq.("none of 4.3's is there: the rig's settings, kit menus, fields, presets, Keep, voices, steps",
-        targets.keys.asArray.reject { |id| id.asString.beginsWith("gui.view.") }.select { |id|
+    // But the drums' presets, recalled on the next bar line, at the duo's
+    // word (2026-11-08): the one family of presets a binding drives.
+    ~tEq.("none of 4.3's is there: the rig's settings, kit menus, fields, presets but the drums', Keep, voices, steps",
+        targets.keys.asArray.reject { |id| id.asString.beginsWith("gui.view.") or: { id.asString.beginsWith("sa.drums.preset.") } }.select { |id|
             var parts = id.asString.split($.).collect(_.asSymbol);
             parts.any { |w| forbidden.includes(w) }
                 or: { words.any { |w| id.asString.toLower.contains(w.toLower) } }
@@ -441,9 +449,11 @@ protect {
     v = [targets.size, count.(there)];
     ("  on SA: " ++ v[0] ++ " controls, " ++ v[1] ++ " there").postln;
     // The utility, texture and space effects' 82 come with their devices,
-    // which no chain holds to begin with.
+    // which no chain holds to begin with; the drums' Next and Previous with a
+    // preset saved (none here yet).
     ~tEq.("on SA every control is there: SA's and its kits' 6 trims beside the Looper's and Live's "
-        "(the views' 7 need the window, the effects in no chain their devices)", v, [live[0] + 6, ((live[0] + 6) - 7) - 82]);
+        "(the views' 7 need the window, the effects in no chain their devices, Next and Previous a preset)",
+        v, [live[0] + 6, ((live[0] + 6) - 7) - 82 - 2]);
 
     // ---------------------------------------------------- SA's, driven --
     p = MegaSAFx.param(\filterFreq);
@@ -490,6 +500,42 @@ protect {
         [true, [[\repeats, true]], true]);
     ~tEq.("the reverb sets on its slider's law, and says so",
         [heard.(d, { act.('sa.drums.reverbMix', [\position, 0.4]) }), d.reverbMix], [[[\mix, \reverbMix, 0.4]], 0.4]);
+    // The presets (MegaSADrums.recallPreset): with the transport stopped, as
+    // here, a recall lands at once. Their controls follow the folder.
+    ~saDrumsPresetDir = tmp +/+ "drum-presets";
+    got = ~midiTargetsBuild.(\drumPresets);
+    ~tEq.("with no presets, Next and Previous only, greyed, saying why",
+        [got.keys.asArray.sort, there.(got['sa.drums.preset.next']), got['sa.drums.preset.next'][\why].value],
+        [['sa.drums.preset.next', 'sa.drums.preset.previous'], false, "no drum presets saved yet"]);
+    d.savePreset(~saDrumsPresetDir, "Half time");
+    d.savePreset(~saDrumsPresetDir, "fill");
+    got = ~midiTargetsBuild.(\drumPresets);
+    ~tEq.("a preset saved is a control of its own, and the knob is there",
+        got.keys.asArray.sort, ['sa.drums.preset.choose', 'sa.drums.preset.next', 'sa.drums.preset.previous',
+            'sa.drums.preset.recall.fill', 'sa.drums.preset.recall.half-time']);
+    ~tEq.("...named for it, under Presets on the Drums tab",
+        [got['sa.drums.preset.recall.half-time'][\label], got['sa.drums.preset.recall.half-time'][\group],
+            got['sa.drums.preset.recall.half-time'][\path], got['sa.drums.preset.recall.half-time'][\kind]],
+        ["Recall half-time", "Presets", "Drums", \trigger]);
+    v = { |id, action| ~midiApply.(got[id], action, (msg: \cc)) };
+    ~tEq.("a preset's control recalls it, and the drums say so",
+        [heard.(d, { v.('sa.drums.preset.recall.fill', [\fire]) }).select { |x| x[0] == \presetLanded }, d.presetLoaded],
+        [[[\presetLanded, "fill"]], "fill"]);
+    v.('sa.drums.preset.next', [\fire]);
+    p = d.presetLoaded;
+    v.('sa.drums.preset.next', [\fire]);
+    ~tEq.("Next goes on through the folder, round at its end; Previous back",
+        [p, d.presetLoaded, { v.('sa.drums.preset.previous', [\fire]); d.presetLoaded }.value], ["half-time", "fill", "half-time"]);
+    v.('sa.drums.preset.choose', [\position, 0.1]);
+    ~tEq.("the knob picks a preset by its place in the list, and reads it back",
+        [d.presetLoaded, got['sa.drums.preset.choose'][\get].value, got['sa.drums.preset.choose'][\items].value],
+        ["fill", 0, ["fill", "half-time"]]);
+    d.deletePreset(~saDrumsPresetDir, "fill");
+    ~tEq.("a preset deleted: its control is greyed, saying why, and fires nothing",
+        [there.(got['sa.drums.preset.recall.fill']), got['sa.drums.preset.recall.fill'][\why].value,
+            { v.('sa.drums.preset.recall.fill', [\fire]); d.presetLoaded }.value],
+        [false, "no drum preset fill now", "fill"]);
+    d.deletePreset(~saDrumsPresetDir, "half-time");
     d.setLaneParam(\main, 0, \note, 50);
     got = heard.(d, { act.('sa.drums.livePattern.main', [\fire]) });
     ~tAssert.("Live pattern puts the main pattern back as the Live set has it, and says so",
@@ -766,6 +812,7 @@ protect {
             }], [0, []]);
 } {
     ~looper = saved[0]; ~megaSA = saved[1]; ~liveRecordToggle = saved[2]; ~liveRecordSet = saved[3]; ~rp = saved[4];
+    ~saDrumsPresetDir = saved[5];
     d !? { |x| x.free };
     sa !? { |x| x.free };
     ~tRemoveTree.(tmp);

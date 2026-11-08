@@ -136,6 +136,23 @@
 // this file mid-session keeps the tags of the views already built.
 ~mapTags = ~mapTags ? List.new;
 ~mapFnWatched = ~mapFnWatched ? List.new;   // the tooltips of tags that are functions
+// A tag that is a choice of controls, for a view that stands for several:
+// the Drums preset menu, a control per preset and Next, Previous and the
+// knob over them. In MIDI MAP mode a click on its mask lists them, and the
+// one picked is armed (gui-mapmode.scd). `items` answers [[words, id], ...]
+// when asked, so the list follows the folder.
+~mapPick = { |items| (mapPick: true, items: items) };
+~mapIsPick = { |tag| tag.isKindOf(Dictionary) and: { tag[\mapPick] == true } };
+// The controls a tag names now: a pick's, each of its items', else its one.
+~mapIdsOf = { |tag|
+    if(~mapIsPick.(tag)) { (tag[\items].value ? []).collect(_[1]) } { [tag.value].reject(_.isNil) }
+};
+// What drives a pick's controls, in words: "Recall half-time: PC 5; Next
+// preset: note 60", or nil when nothing does.
+~mapPickWords = { |tag|
+    var said = (tag[\items].value ? []).collect { |it| ~midiWords.(it[1]) !? { |w| it[0] ++ ": " ++ w } }.reject(_.isNil);
+    if(said.isEmpty) { nil } { said.join("; ") }
+};
 ~mapTag = { |view, id, tip|
     var paint;
     ~mapTags.add([view, id]);
@@ -145,7 +162,7 @@
     };
     tip !? {
         paint = { |v|
-            var w = ~midiWords.(id);
+            var w = if(~mapIsPick.(id)) { ~mapPickWords.(id) } { ~midiWords.(id) };
             v.toolTip_(case { w.isNil } { tip } { tip.isEmpty } { "MIDI: " ++ w } { tip ++ "\nMIDI: " ++ w })
         };
         ~midiWatch.(view, paint);

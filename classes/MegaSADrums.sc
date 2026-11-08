@@ -164,6 +164,10 @@ MegaSADrums {
     // in the hole only (prWants).
     var holeHist;
     var pendingLanding;
+    // A preset to recall on the next bar line (recallPreset): (slug:, clean:,
+    // at:), or nil; and the slug of the preset last recalled, from the menu or
+    // on a bar line.
+    var presetPending, <presetLoaded;
     // The Looper's half-time still to land or end (at:, speed:), as an edge
     // in the grid (see Half-time), or nil.
     var halfEdge;
@@ -1229,10 +1233,84 @@ MegaSADrums {
     }
 
     // True once applied; false, with nothing changed, if the file is missing
-    // or not a preset.
+    // or not a preset. At once (the menu): a recall armed for the next bar
+    // line is dropped.
     loadPreset { |dir, slug, warnings|
+        var ok;
         if(dir.isNil) { "MegaSADrums preset: no directory given.".warn; ^false };
-        ^this.prReadPreset(this.presetPath(dir, slug), warnings, true)
+        ok = this.prReadPreset(this.presetPath(dir, slug), warnings, true);
+        if(ok) {
+            presetLoaded = slug;
+            if(presetPending.notNil) { presetPending = nil; this.prNotify(\presetArmed, nil, nil) };
+        };
+        ^ok
+    }
+
+    // ---- A preset on the next bar line ----------------------------------------
+    // What a footswitch or a knob recalls (MIDI: sa.drums.preset.*). The
+    // preset is read and checked now: a file that is missing or no preset
+    // changes nothing and answers false. It lands where the next bar line is
+    // played, as half-time and a reading do: every step before the line plays
+    // the patterns in force, every one from it the preset's (the scheduler
+    // decides up to the line, then the preset goes in: prLandPreset, from
+    // pump). A line nearer than the lead is decided already, so it is the one
+    // after. With the transport not playing it lands at once. A recall before
+    // the line replaces the one armed; a recall from the menu drops it, and a
+    // Stop lands it. \presetArmed (slug, at; nil, nil when dropped) and
+    // \presetLanded (slug) say so. A preset with another kit starts it
+    // loading at the line, and the kit before plays until it has.
+    recallPreset { |dir, slug, warnings|
+        var path, notes = List.new, data, clean, wall, at;
+        if(alive.not or: { dir.isNil } or: { slug.isNil }) { ^false };
+        path = this.presetPath(dir, slug);
+        if(File.exists(path).not) { ("MegaSADrums preset: no such preset " ++ path.basename).warn; ^false };
+        data = Looper.readPresetFile(path, { |why| notes.add(why) });
+        clean = this.prValidatePreset(data, notes);
+        if(clean.isNil) { this.prPresetReport(path, warnings, "rejected — ", notes); ^false };
+        if(notes.notEmpty) { this.prPresetReport(path, warnings, notes.size.asString ++ " correction(s) — ", notes) };
+        wall = wallClock.value;
+        at = if(playing) { this.prNextBarTime(wall + lead + margin) };
+        presetPending = (slug: slug, clean: clean, at: at);
+        if(at.isNil) { this.prLandPreset(wall, true) } { this.prNotify(\presetArmed, slug, at) };
+        ^true
+    }
+
+    // The preset armed for the next bar line, and its line (wall time), or nil.
+    presetPendingSlug { ^presetPending !? { |p| p[\slug] } }
+    presetPendingAt { ^presetPending !? { |p| p[\at] } }
+
+    // The preset `step` after (1) or before (-1) the one armed or last
+    // recalled, in the folder's order, round at the ends; with none of them,
+    // the first (or the last). nil with no presets.
+    presetStep { |dir, step = 1|
+        var names = this.presetNames(dir), from, i;
+        if(names.isEmpty) { ^nil };
+        from = this.presetPendingSlug ? presetLoaded;
+        i = from !? { |f| names.indexOfEqual(f) };
+        ^names.wrapAt(if(i.isNil) { if(step > 0) { 0 } { -1 } } { i + step })
+    }
+
+    // The armed preset in: in pump, once the grid is about to be decided past
+    // its bar line (the steps before it are decided first, as they were);
+    // with `now`, at once.
+    prLandPreset { |wall, now = false|
+        var p = presetPending;
+        if(p.isNil) { ^this };
+        if(now.not and: { p[\at].notNil } and: { (wall + lead) < p[\at] }) { ^this };
+        presetPending = nil;
+        if(now.not and: { p[\at].notNil }) { this.prRun(wall, p[\at] - 1e-6) };
+        this.prApplyPreset(p[\clean]);
+        presetLoaded = p[\slug];
+        this.prNotify(\presetLanded, p[\slug]);
+    }
+
+    // The time of the first bar line after t, or nil where no grid plays.
+    prNextBarTime { |t|
+        var ep = this.prEpochAt(t), tick, bar;
+        if(ep.isNil) { ^nil };
+        tick = this.prTicksAt(ep, t);
+        bar = this.prBarAt(this.prSegAtTick(ep, tick), tick);
+        ^this.prTimeOfTick(ep, this.prTickOfBar(ep, bar + 1))
     }
 
     deletePreset { |dir, slug|
@@ -1622,6 +1700,8 @@ MegaSADrums {
         var edge;
         if(alive.not) { ^this };
         now = now ?? { thisThread.seconds };
+        // A preset armed for a bar line that will not come now goes in.
+        this.prLandPreset(wallClock.value, true);
         edge = now - this.class.loopAudioDelay;
         playHist = this.class.historyFrom(playHist, edge, false);
         this.prRequest([\cut, edge]);
@@ -2067,6 +2147,8 @@ MegaSADrums {
         busy = true;
         {
             this.prHousekeeping(wall);
+            // Before the steps past an armed preset's bar line are decided.
+            this.prLandPreset(wall);
             this.prRun(wall, wall + lead);
             this.prDrainJobs(wall);
             this.prUpdateBreakActive(wall);

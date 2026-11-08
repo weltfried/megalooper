@@ -176,22 +176,37 @@ if(~mapMode == true) { ~mapModeOff !? { |f| f.value } };
 // pattern shown. The label is short, for a narrow control: the first binding
 // without its channel, and how many more ("PC 8 +1"). Only what changed is set.
 ~mapRepaint = {
-    var words, armed, id, w, text, tip, tint, t;
+    var words, armed, id, w, text, tip, tint, t, ids, bound;
     if(~mapMode == true) {
         ~mapMasks = List.newFrom(~mapMasks.reject { |e| e[\view].isClosed or: { e[\mask].isClosed } });
         words = ~mapWordsFor.();
         armed = ~midiLearning !? { |l| l[\target] };
         ~mapMasks.do { |e|
-            id = e[\tag].value;
-            t = id !? { |i| (~midiTargets ? ())[i] };
-            w = id !? { |i| words[i] };
-            text = if(w.isNil) { "" } { w[0][1] ++ if(w.size > 1) { " +" ++ (w.size - 1) } { "" } };
-            tip = if(t.isNil) { "Not a control megalooper can map here" } {
-                t[\label] ++ (t[\group] !? { |g| " (" ++ g ++ ")" } ? "") ++ " — "
-                    ++ (w !? { |x| x.collect(_.first).join(", ") } ? "no MIDI")
-                    ++ "\nClick to map it; Shift-click to add another mapping."
+            if(~mapIsPick.(e[\tag])) {
+                // A pick (the Drums preset menu): what drives its first mapped
+                // control and how many more bindings its controls have; the
+                // tooltip lists them, and it is armed while one of them is.
+                ids = ~mapIdsOf.(e[\tag]);
+                bound = ids.select { |i| words[i].notNil };
+                w = bound.collect { |i| words[i] }.flatten(1);
+                text = if(w.isEmpty) { "" } { w[0][1] ++ if(w.size > 1) { " +" ++ (w.size - 1) } { "" } };
+                tip = (e[\tag][\items].value ? []).select { |it| words[it[1]].notNil }
+                    .collect { |it| it[0] ++ " — " ++ words[it[1]].collect(_.first).join(", ") };
+                tip = (if(tip.isEmpty) { "None of these mapped yet" } { tip.join("\n") })
+                    ++ "\nClick to pick which to map; Shift-click to add another mapping.";
+                tint = if(armed.notNil and: { ids.includes(armed) }) { \armed } { \map };
+            } {
+                id = e[\tag].value;
+                t = id !? { |i| (~midiTargets ? ())[i] };
+                w = id !? { |i| words[i] };
+                text = if(w.isNil) { "" } { w[0][1] ++ if(w.size > 1) { " +" ++ (w.size - 1) } { "" } };
+                tip = if(t.isNil) { "Not a control megalooper can map here" } {
+                    t[\label] ++ (t[\group] !? { |g| " (" ++ g ++ ")" } ? "") ++ " — "
+                        ++ (w !? { |x| x.collect(_.first).join(", ") } ? "no MIDI")
+                        ++ "\nClick to map it; Shift-click to add another mapping."
+                };
+                tint = if(armed.notNil and: { armed == id }) { \armed } { \map };
             };
-            tint = if(armed.notNil and: { armed == id }) { \armed } { \map };
             if(e[\text] != text) { e[\text] = text; e[\label].string_(text); e[\align] = ~mapLabelAlign.(e[\label], e[\mask]) };
             if(e[\tip] != tip) { e[\tip] = tip; e[\mask].toolTip_(tip) };
             if(e[\tint] != tint) {
@@ -209,14 +224,38 @@ if(~mapMode == true) { ~mapModeOff !? { |f| f.value } };
 ~mapClick = { |tag, add = false|
     var id;
     if(~mapMode == true) {
-        id = tag.value;
-        ~mapLeaving = false;
-        if(id.notNil and: { (~midiTargets ? ())[id].notNil }) {
-            ~midiLearnArm.(id, add == true);
+        if(~mapIsPick.(tag)) {
+            // A pick: its controls listed, and the one picked armed as if its
+            // own mask had been clicked.
+            ~mapPickShow.(tag, { |picked| ~mapClick.(picked, add) });
         } {
-            ~midiLearnDisarm.("That control can't be mapped here");
+            id = tag.value;
+            ~mapLeaving = false;
+            if(id.notNil and: { (~midiTargets ? ())[id].notNil }) {
+                ~midiLearnArm.(id, add == true);
+            } {
+                ~midiLearnDisarm.("That control can't be mapped here");
+            };
+            ~midiChanged.(\learn);
         };
+    };
+};
+
+// A pick's controls as a menu at the mouse, each with what drives it now;
+// `choose` gets the id picked. Those the router has not got (a preset saved
+// a moment ago, before its control is made) are left out. A function, so
+// the checks can pick without a menu on screen. The menu is kept until the
+// next, so Qt has it while it shows.
+~mapPickShow = { |tag, choose|
+    var items = (tag[\items].value ? []).select { |it| (~midiTargets ? ())[it[1]].notNil };
+    if(items.isEmpty) {
+        ~midiLearnDisarm.("Nothing here to map yet");
         ~midiChanged.(\learn);
+    } {
+        ~mapPickMenu = Menu(*items.collect { |it|
+            MenuAction(it[0] ++ (~midiWords.(it[1]) !? { |w| "   · " ++ w } ? ""), { choose.value(it[1]) })
+        });
+        ~mapPickMenu.front;
     };
 };
 

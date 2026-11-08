@@ -67,7 +67,7 @@
             state: { (chains: m.sessionInfo[\chains], mixer: ~actionsMixer.(m)) }.inEnvir));
         m.drums !? { |d|
             parts.put(\drums, (model: d,
-                skip: #[\playing, \breakActive, \kitState, \reverb],
+                skip: #[\playing, \breakActive, \kitState, \reverb, \presetArmed],
                 logged: #[\on],
                 state: { (drums: MegaRemote.drumsOf(d), synth: MegaRemote.synthOf(m)) }));
         };

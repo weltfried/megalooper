@@ -492,7 +492,9 @@ try {
             .findRegexp("'looper\\.[A-Za-z0-9.]+'|'sa\\.[A-Za-z0-9.]+'|'live\\.[A-Za-z0-9.]+'")
             .collect { |m| m[1].drop(1).drop(-1).asSymbol }.asSet;
         ids.do { |id|
-            if(targets.includesKey(id).not) {
+            // The drums' preset knob is made once a preset is saved (a choice
+            // has items); check-gui-maptags saves some and finds it.
+            if(targets.includesKey(id).not and: { id != 'sa.drums.preset.choose' }) {
                 ("  TAG " ++ path.basename ++ " names " ++ id ++ ", which the router does not have").postln;
                 bad = bad + 1;
             };

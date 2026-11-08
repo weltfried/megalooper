@@ -511,8 +511,25 @@
     save:       \savePreset,
     load:       \loadPreset,
     delete:     \deletePreset,
-    model:      { ~drumsPresetModel.() }
+    model:      { ~drumsPresetModel.() },
+    // The presets' MIDI controls (setup-miditargets.scd) follow the folder.
+    onList:     { |slugs|
+        if(slugs != ~drumsPresetsListed) {
+            ~drumsPresetsListed = slugs.copy;
+            ~midiTargetsRefresh !? { |f| f.value(\drumPresets) };
+        };
+    }
 ));
+
+// What the preset menu offers in MIDI MAP mode: [words, control] for every
+// preset in the folder (each recalled on the next bar line), Next, Previous
+// and, once there is a preset, the knob over the list (setup-miditargets.scd).
+~drumsPresetPicks = {
+    var names = (~drumsPresetModel.() !? { |d| ~presetDir.(\saDrums) !? { |x| d.presetNames(x) } }) ? [];
+    names.collect { |slug| ["Recall " ++ slug, ("sa.drums.preset.recall." ++ slug).asSymbol] }
+        ++ [["Next preset", 'sa.drums.preset.next'], ["Previous preset", 'sa.drums.preset.previous']]
+        ++ (if(names.notEmpty) { [["Preset: a knob over the list", 'sa.drums.preset.choose']] } { [] })
+};
 
 // ---- Model -> view -------------------------------------------------------------
 // Paint one widget from the model. `get` reads its value (at paint time, so
@@ -1541,6 +1558,11 @@
                     ~drumsPaint.(name);
                     if(name == \shuffleLength) { ~drumsParamNames.do { |n| ~drumsPaint.(n) } };
                 }; ~drumsRefreshTiles.() }.defer })
+            // A preset recalled from MIDI (MegaSADrums.recallPreset): armed for
+            // the next bar line, the bar's line says so; in, the bar shows it.
+            .put(\presetArmed, { |obj, what, slug| { slug !? { |s|
+                ~presetSetStatus.(\saDrums, s ++ " comes in on the next bar line") } }.defer })
+            .put(\presetLanded, { |obj, what, slug| { ~presetShow.(\saDrums, slug) }.defer })
             .put(\kit, { |obj, what, slot| { ~drumsPaint.(~drumsKitKey.(slot));
                 ~drumsPaint.(~drumsKitLineKey.(slot)) }.defer })
             .put(\kitState, { |obj, what, slot, state|
@@ -1623,6 +1645,10 @@
             )).margins_([22, 14, 22, 14]).spacing_(8))
         ).margins_(0).spacing_(0));
         ~drumsImportPlaced.();
+        // The preset menu in MIDI MAP mode: a click lists the presets'
+        // controls, and the one picked is mapped (~mapPick, gui-const.scd).
+        ~presetFamilies[\saDrums][\menu] !? { |menu|
+            ~mapTag.(menu, ~mapPick.(~drumsPresetPicks), menu.toolTip ? "") };
         ~drumsControllers = ~drumsWire.(d, m);
         ~drumsRefreshAll.();
     } };

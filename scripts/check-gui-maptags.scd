@@ -153,9 +153,11 @@ Routine {
         tags = ~mapLiveTags.();
         ("  " ++ tags.size ++ " views tagged").postln;
         ok.("views are tagged", tags.size > 0, tags.size.asString);
-        unknown = tags.select { |t| var id = t[1].value; id.isNil or: { ~midiTargets[id].isNil } };
+        // A pick (the Drums preset menu) names each of its controls.
+        unknown = tags.select { |t| var ids = ~mapIdsOf.(t[1]);
+            ids.isEmpty or: { ids.any { |id| ~midiTargets[id].isNil } } };
         ok.("each names a control the router has", unknown.isEmpty,
-            unknown.collect { |t| t[1].value.asString ++ " on a " ++ t[0].class }.asString);
+            unknown.collect { |t| ~mapIdsOf.(t[1]).asString ++ " on a " ++ t[0].class }.asString);
         // A Drums knob's tag, read with each pattern and page shown.
         covered = IdentitySet.new;
         pages = (MegaSASteps.pages ? [\chance]);
@@ -163,7 +165,7 @@ Routine {
             pages.do { |page|
                 ~drumsPattern = pattern;
                 ~drumsPage = page;
-                tags.do { |t| t[1].value !? { |id| covered.add(id) } };
+                tags.do { |t| ~mapIdsOf.(t[1]).do { |id| covered.add(id) } };
             };
         };
         ~drumsPattern = \main;
@@ -174,7 +176,7 @@ Routine {
         // The plugin's page has its sends' tiles.
         (MegaSAFx.keys ++ [\bias]).do { |key|
             ~effectsSelect.(key);
-            ~mapLiveTags.().do { |t| t[1].value !? { |id| covered.add(id) } };
+            ~mapLiveTags.().do { |t| ~mapIdsOf.(t[1]).do { |id| covered.add(id) } };
         };
         ~effectsSelect.(k);
         ok.("the plugin's eight sends are tagged on its page",
@@ -253,7 +255,12 @@ Routine {
         };
         var wrong = List.new, driven = 0, misfit = List.new, nameless = List.new, run, key0 = ~effectsSelected;
         run = {
-            ~mapLiveTags.().do { |tg|
+            // A pick's controls are triggers and a knob picked from its list:
+            // each must be the router's; its menu drives none of them itself.
+            ~mapLiveTags.().select { |tg| ~mapIsPick.(tg[1]) }.do { |tg|
+                ~mapIdsOf.(tg[1]).do { |id| if(~midiTargets[id].isNil) { nameless.add(id.asString ++ " in a pick") } };
+            };
+            ~mapLiveTags.().reject { |tg| ~mapIsPick.(tg[1]) }.do { |tg|
                 var id = tg[1].value, t = id !? { |i| ~midiTargets[i] }, why;
                 if(t.isNil) { nameless.add(id.asString ++ " on a " ++ tg[0].class) };
                 if(t.notNil) {
@@ -382,6 +389,44 @@ Routine {
         ok.("...and leaves no mask", ~mapMasks.isEmpty and: { e.every(_.isClosed) }, e.reject(_.isClosed).size.asString);
         ok.("...and no resize hook", hooked.every { |v| v.onResize.isNil }, hooked.select { |v| v.onResize.notNil }.size.asString);
         ok.("the hint row is the keys again", ~guiHintShows == \text);
+    });
+
+    // The Drums preset menu (~mapPick): in map mode a click lists every
+    // preset's control, Next, Previous and the knob over the list, and the
+    // one picked is armed. A preset saved is a control once the bar has read
+    // the folder again (its onList).
+    section.("the Drums preset menu picks a preset's control", {
+        var d = ~megaSA.drums, fam = ~presetFamilies[\saDrums], pick, shown, was;
+        d.savePreset(~saDrumsPresetDir, "half time");
+        d.savePreset(~saDrumsPresetDir, "fill");
+        ~presetRefreshList.(\saDrums);
+        tick.();
+        ok.("each preset saved is a control, with Next, Previous and the knob",
+            ['sa.drums.preset.recall.fill', 'sa.drums.preset.recall.half-time', 'sa.drums.preset.next',
+                'sa.drums.preset.previous', 'sa.drums.preset.choose'].every { |id| ~midiTargets[id].notNil },
+            ~midiTargets.keys.select { |id| id.asString.beginsWith("sa.drums.preset") }.asArray.sort.asString);
+        ~mapModeOn.();
+        tick.();
+        pick = ~mapMasks.detect { |x| x[\view] === fam[\menu] };
+        ok.("the preset menu has a mask", pick.notNil);
+        was = ~mapPickShow;
+        ~mapPickShow = { |tag, choose| shown = tag[\items].value.collect(_[0]); choose.value('sa.drums.preset.recall.fill') };
+        pick !? { |x| x[\mask].mouseDownAction.value(x[\mask], 5, 5, 0, 0, 1) };
+        tick.();
+        ~mapPickShow = was;
+        ok.("a click on it lists the presets, Next, Previous and the knob",
+            shown == ["Recall fill", "Recall half-time", "Next preset", "Previous preset", "Preset: a knob over the list"],
+            shown.asString);
+        ok.("...the one picked is armed, and the menu's mask turns amber",
+            ((~midiLearning !? { |l| l[\target] }) == 'sa.drums.preset.recall.fill') and: { pick !? { |x| x[\tint] == \armed } == true },
+            [~midiLearning !? { |l| l[\target] }, pick !? { |x| x[\tint] }].asString);
+        ~mapEscape.();
+        tick.();
+        ~mapModeLeave.();
+        tick.();
+        ok.("leaving, nothing mapped, asks nothing", ~mapMode == false);
+        ["fill", "half-time"].do { |slug| d.deletePreset(~saDrumsPresetDir, slug) };
+        ~presetRefreshList.(\saDrums);
     });
 
     // A kit loaded: the controls are made again (~midiTargetsRefresh), so its

@@ -210,7 +210,8 @@ The preset bar keeps both patterns (every step, length, lane and timing
 setting), the kits, their trims, the repeats, the reverb, the offset and the
 dice, if they are kept.
 Choosing a preset recalls it at once. The switch, the break and the levels
-are not in it.
+are not in it. From a footswitch or a knob a preset waits for the next bar
+line ([MIDI](#midi), below).
 
 **Start with this** keeps the same: the next start begins with them instead
 of megalooper's own. A kit set to **— none —** is kept so, and that part
@@ -225,7 +226,22 @@ In MIDI MAP mode you can map:
 - every lane's Note, Alt, Length, Lock, Delay and Mute;
 - the trims;
 - the **Drums** and **Onset kit** strips, their levels and mutes;
+- the **presets**: click the preset menu and pick from its list. Each preset
+  is a control of its own, so one footswitch can recall your fill and another
+  your half-time groove, and there are **Next preset**, **Previous preset**
+  (from the one last recalled, round at the ends) and **Preset**, a knob over
+  the list;
 - **Show Drums**, the view itself, in the MIDI map's list on Setup.
+
+A preset recalled from MIDI comes in on the **next bar line**: every step
+before the line plays the patterns you had, every one from it the preset's,
+and the preset bar says what is coming. A line closer than about a tenth of
+a second is the one after. Pressed again before then, the last preset pressed
+comes in; one chosen from the menu meanwhile wins, and a Stop brings the
+preset in at once. A preset with another kit starts it loading at the line,
+and the kit you had plays until it is ready. A preset's control follows its
+file's name: save again under that name and the footswitch keeps working; a
+preset deleted or renamed leaves its control greyed in the MIDI map's list.
 
 ## Where things are
 

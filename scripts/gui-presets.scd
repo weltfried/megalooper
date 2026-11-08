@@ -49,6 +49,9 @@
         // by whoever hears that it is (the Effects pane), not at once, when
         // the file is not there yet.
         async: false,
+        // Called with the slugs each time the list is read (the drums' MIDI
+        // controls follow it), or nil.
+        onList: nil,
         // --- view state ---
         items: [nil],
         loaded: nil,            // slug currently selected, or nil
@@ -144,6 +147,7 @@
     var slugs = ~presetModel.(key) !? { |l| l.perform(fam[\names], ~presetDir.(key)) } ? [];
     var idx;
     fam[\items] = [nil] ++ slugs;
+    fam[\onList] !? { |f| f.value(slugs) };
     fam[\menu] !? { |m|
         if(slugs.isEmpty) {
             // items_ resets value, so set value after.

@@ -112,9 +112,12 @@ chords), `granularResetTweaks`.
 `sa.drums.reverbMix`, `sa.drums.livePattern.<main|break>`, a pattern's
 settings as `sa.drums.<main|break>.<setting>`, a lane's as
 `sa.drums.<main|break>.lane<1-4>.<note|altNote|delay|mute|lock>` and
-`…lane<1-4>.length.<page>` (`chance`, `alt`, `velo` or `roll`), and the
+`…lane<1-4>.length.<page>` (`chance`, `alt`, `velo` or `roll`), the
 trims as `sa.drums.trim.<slot>.<note>` and `sa.drums.groupTrim.<slot>.<group>`,
-where the slot is `steps` or `onset`.
+where the slot is `steps` or `onset`, and the presets as
+`sa.drums.preset.recall.<file name>`, `sa.drums.preset.next`,
+`sa.drums.preset.previous` and `sa.drums.preset.choose` (the knob over the
+list), each landing on the next bar line.
 
 **The synth:** `sa.synth.on`, `sa.synth.swing`, `sa.synth.random`,
 `sa.synth.reset`, and the sequence's and the Wave synth's settings as
