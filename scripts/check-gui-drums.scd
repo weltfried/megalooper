@@ -55,8 +55,8 @@ var run = { |to| while { now < (to - 1e-9) } { now = (now + 0.01).min(to); d.pum
 var near = { |a, b| a.notNil and: { [a.red - b.red, a.green - b.green, a.blue - b.blue].every { |x| x.abs < 0.01 } } };
 
 (scripts +/+ "tests" +/+ "_harness.scd").load;   // ~tStubServer
-["setup-routing.scd", "setup-midi.scd", "setup-sa.scd", "setup-miditargets.scd", "gui-const.scd", "gui-theme.scd",
-    "gui-presets.scd", "gui-analysis.scd", "gui-sa.scd", "gui-drums.scd", "gui-shell.scd"].do { |f| (scripts +/+ f).load };
+(scripts +/+ "parts.scd").load;
+~megalooperLoadParts.(scripts);
 ~rp = (sa: true);
 ~saDrumsPresetDir = tmp;
 File.mkdir(tmp);

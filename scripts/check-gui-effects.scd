@@ -36,8 +36,8 @@ MegaFiles.alwaysSync = true;
 stub = ~tStubServer.();
 msgs = stub[\msgs];
 
-["setup-routing.scd", "setup-midi.scd", "setup-sa.scd", "setup-miditargets.scd", "gui-const.scd", "gui-theme.scd",
-    "gui-presets.scd", "gui-sa.scd", "gui-effects.scd", "gui-shell.scd"].do { |f| (scripts +/+ f).load };
+(scripts +/+ "parts.scd").load;
+~megalooperLoadParts.(scripts);
 MegaSA.loadSynthDefs;
 ~rp = (sa: true);
 ~saFxPresetDir = tmp;

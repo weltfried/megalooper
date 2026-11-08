@@ -42,13 +42,8 @@ var noWidget = IdentityDictionary[
 ];
 
 (scripts +/+ "tests" +/+ "_harness.scd").load;
-[
-    "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd",
-    "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-status.scd", "gui-perform.scd",
-    "gui-bbcut.scd", "gui-granular.scd", "gui-analysis.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd",
-    "gui-effects.scd", "gui-drums.scd", "gui-synth.scd", "gui-rig.scd", "gui-calibrate.scd",
-    "gui-shell.scd", "gui-wiring.scd"
-].do { |f| (scripts +/+ f).load };
+(scripts +/+ "parts.scd").load;
+~megalooperLoadParts.(scripts);
 tmp = ~tTempPath.("check-gui-maptags");
 File.mkdir(tmp);
 ~midiUserRootOverride = tmp +/+ "user";

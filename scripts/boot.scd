@@ -1,41 +1,10 @@
 // megalooper — boot the server, build the instrument, open the windows.
 //
-// This file is the orchestrator and nothing else. The parts live beside it and
-// are loaded below; each one only DEFINES functions, so loading is free and the
-// call order here is the whole startup sequence:
-//
-//   setup-routing.scd  ~routingProfiles, ~applyRoutingProfile, the preflights
-//   setup-midi.scd     ~setupMidiIO, and the numbers MIDI is bound to
-//   setup-model.scd    ~setupLooper, ~wireLooperCallbacks, ~fallbackApply
-//   setup-sa.scd       ~setupSA: Megalooper SA's mixer and drums, on profiles
-//                      with sa: true
-//   setup-miditargets.scd  ~midiTargetsBuild: every control MIDI can drive
-//   setup-midimap.scd  ~setupMidiBindings: the MIDI router and its map
-//   setup-remote.scd   ~remoteApply: AI apps let in or not (MegaRemote), and
-//                      ~remoteRevert, the AI's last change taken back
-//   setup-actions.scd  ~actionsApply: Log every action on or off (MegaActionLog)
-//   gui-const.scd      ranges, menu contents, lifetimes. No window.
-//   gui-theme.scd      the stage theme: palettes, type, tiles, bars, segments
-//   gui-presets.scd    the preset bar's logic, shared by every preset family
-//   gui-status.scd     the status band and strip + ~buildMidiMonitorPanel
-//   gui-perform.scd    ~buildPerformPane: the layers, the actions, the arc, the level
-//   gui-bbcut.scd      ~buildBBCutPane: the Cutter, Sound's left half
-//   gui-granular.scd   ~buildGranularPane: the Grains, Sound's right half
-//   gui-analysis.scd   ~buildAnalysisPane: the monitor feed, counts, onset
-//                      notes, export (Setup)
-//   gui-sa.scd         the mixer's levels (Perform) and ~buildSARigSection's
-//                      pointer to them (Setup)
-//   gui-midimap.scd    ~buildMidiMapSection: the MIDI map (Setup)
-//   gui-mapmode.scd    MIDI Map mode: the MIDI MAP button, masks, the map bar
-//   gui-effects.scd    ~buildEffectsPane: SA's effects, Bias FX and presets
-//   gui-drums.scd      ~buildDrumsPane: SA's drums, their patterns, kits and
-//                      presets
-//   gui-synth.scd      ~buildSynthPane: SA's note sequencer and Wave synth
-//   gui-rig.scd        ~buildRigPane: routing, timing, levels, MIDI (Setup)
-//   gui-calibrate.scd  ~buildCalibratePane: the wizard, and its summary
-//   gui-shell.scd      ~buildGuiWindow: THE window — the top bar, the status
-//                      band, the views and the footer
-//   gui-wiring.scd     ~wireLooperController, ~doExport
+// This file is the orchestrator and nothing else. The parts live beside it,
+// listed in their order in parts.scd, the one list the checks and tests load
+// too; each part only DEFINES functions, so loading is free and the call order
+// below is the whole startup sequence. What each part holds is said beside its
+// name there.
 //
 // The GUI is ONE window (docs/dev/stage-ui.md): a top bar, Perform's status band
 // (folded to a strip on the other views), four views of panes — Perform,
@@ -129,37 +98,9 @@ if(File.exists(~sessionDir).not) { File.mkdir(~sessionDir) };
 };
 if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };
 
-[
-    "setup-routing.scd",
-    "setup-midi.scd",
-    "setup-model.scd",
-    "setup-sa.scd",
-    "setup-miditargets.scd",
-    "setup-midimap.scd",
-    "setup-remote.scd",
-    "setup-actions.scd",
-    // Order matters three times over: gui-const.scd defines the ranges and
-    // colours everything else reads; gui-presets.scd must precede the two files
-    // that register preset families at load time; and gui-shell.scd must come
-    // after every pane file, because ~buildGuiWindow calls their builders.
-    "gui-const.scd", "gui-theme.scd",
-    "gui-presets.scd",
-    "gui-status.scd",
-    "gui-perform.scd",
-    "gui-bbcut.scd",
-    "gui-granular.scd",
-    "gui-analysis.scd",
-    "gui-sa.scd",
-    "gui-midimap.scd",
-    "gui-mapmode.scd",
-    "gui-effects.scd",
-    "gui-drums.scd",
-    "gui-synth.scd",
-    "gui-rig.scd",
-    "gui-calibrate.scd",
-    "gui-shell.scd",
-    "gui-wiring.scd"
-].do { |f| (~megalooperScripts +/+ f).load };
+// Every part, in its order (parts.scd).
+(~megalooperScripts +/+ "parts.scd").load;
+~megalooperLoadParts.(~megalooperScripts);
 
 (
 // Which rig. launcher.scd (the Desktop icon) sets ~launcherProfile from its

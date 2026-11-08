@@ -16,10 +16,8 @@ var ok = { |label, cond, detail|
       ("  FAIL  " ++ label ++ " — " ++ (detail ? "")).postln };
 };
 (scripts +/+ "tests" +/+ "_harness.scd").load;
-["setup-routing.scd", "setup-midi.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd",
-    "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-rig.scd"].do { |f|
-    (scripts +/+ f).load;
-};
+(scripts +/+ "parts.scd").load;
+~megalooperLoadParts.(scripts);
 ~rigLabelWidth = 130;
 devs = (
     inputs: [(name: "MacBook Pro Microphone", channels: 1), (name: "Interface", channels: 4)],

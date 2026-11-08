@@ -18,11 +18,8 @@ var ok = { |label, cond, detail|
       ("  FAIL  " ++ label ++ " — " ++ (detail ? "")).postln };
 };
 (scripts +/+ "tests" +/+ "_harness.scd").load;
-["setup-routing.scd", "setup-midi.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd", "setup-remote.scd",
-    "setup-actions.scd", "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-sa.scd", "gui-midimap.scd",
-    "gui-mapmode.scd", "gui-rig.scd", "gui-shell.scd", "gui-drums.scd"].do { |f|
-    (scripts +/+ f).load;
-};
+(scripts +/+ "parts.scd").load;
+~megalooperLoadParts.(scripts);
 ~midiUserRootOverride = ~tTempPath.("check-gui-ai");
 ~midiWriteSync = true;
 MegaFiles.alwaysSync = true;

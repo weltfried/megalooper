@@ -28,13 +28,8 @@ var stub, sstub, m, d, tmp, now = 1000.0, take, tau, shots = List.new, failed = 
 // The release as it ships, not the tests' fixtures: saSystem and no map.
 ~routingProfilesExtra = nil;
 ~midiShippedDirOverride = nil;
-[
-    "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd",
-    "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-status.scd", "gui-perform.scd",
-    "gui-bbcut.scd", "gui-granular.scd", "gui-analysis.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd",
-    "gui-effects.scd", "gui-drums.scd", "gui-synth.scd", "gui-rig.scd", "gui-calibrate.scd",
-    "gui-shell.scd", "gui-wiring.scd"
-].do { |f| (scripts +/+ f).load };
+(scripts +/+ "parts.scd").load;
+~megalooperLoadParts.(scripts);
 tmp = ~tTempPath.("render-screens");
 File.mkdir(tmp);
 File.mkdir(out);

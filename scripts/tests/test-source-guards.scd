@@ -315,11 +315,11 @@ var family = drums.find("~definePresetFamily.(\\saDrums,") !? { |i| drums.copyRa
 // A pane that drives through the command layer needs it loaded: a script
 // that loads one without setup-miditargets.scd finds ~controlDo nil, and a
 // nil called in sclang answers nil, so every widget would do nothing without
-// a word (check-gui-drums.scd did, 2026-11-08). Until one parts list is
-// shared (docs/dev/architecture.md, 5, step 3), every script that loads such
-// a pane and builds a pane or the window must load the command layer too.
-// (Loading a gui file only for its functions, as some tests do for tables
-// that belong lower down, needs no command layer: step 2 moves those.)
+// a word (check-gui-drums.scd did, 2026-11-08). The scripts that build the
+// window's panes load every part through parts.scd now (below); this still
+// holds one that would build a pane from parts it loads one by one. (Loading
+// a gui file only for its functions, as some tests do for tables that belong
+// lower down, needs no command layer: step 2 moves those.)
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 var scripts = root +/+ "scripts";
@@ -333,9 +333,40 @@ var missing = loaders.select { |path|
     var builds = text.contains("~buildGuiWindow.(") or: { text.findRegexp("~build[A-Z][A-Za-z]*Pane\\.\\(").notEmpty };
     builds and: { panes.any { |pane| text.contains("\"" ++ pane ++ "\"") } }
         and: { text.contains("\"setup-miditargets.scd\"").not }
+        and: { text.contains("~megalooperLoadParts.(").not }
 }.collect { |path| PathName(path).fileName };
 ~tAssert.("the panes that drive through ~controlDo are found", panes.size >= 5, panes.asString);
 ~tAssert.("every script that builds one of them loads the command layer (setup-miditargets.scd) too",
     missing.isEmpty, "missing in " ++ missing.join(", "));
+}.value;
+
+// One list of the parts (docs/dev/architecture.md, 5, step 3): parts.scd.
+// Boot, the checks and the tests load the window's parts through it, so none
+// can leave one out unknowingly. Every setup- and gui- file is in it, every
+// file it lists is there, and no other script lists parts of its own: three
+// part names in a row, as a list to load has them. (This file names the
+// files it reads, which is no list to load.)
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var scripts = root +/+ "scripts";
+var parts = (scripts +/+ "parts.scd").load;
+var onDisk = ((scripts +/+ "setup-*.scd").pathMatch ++ (scripts +/+ "gui-*.scd").pathMatch)
+    .collect { |path| PathName(path).fileName }.sort;
+var listing = { |text|
+    text.findRegexp("\"(setup|gui)-[a-z-]+\\.scd\"[ \t]*,[ \t\n]*\"(setup|gui)-[a-z-]+\\.scd\"[ \t]*,[ \t\n]*\"(setup|gui)-[a-z-]+\\.scd\"").notEmpty
+};
+var listers = ((scripts +/+ "*.scd").pathMatch ++ (scripts +/+ "tests" +/+ "*.scd").pathMatch
+    ++ (scripts +/+ "sa" +/+ "*.scd").pathMatch).reject { |path|
+    ["parts.scd", "test-source-guards.scd"].includesEqual(PathName(path).fileName)
+}.select { |path| listing.(File.readAllString(path) ? "") }.collect { |path| PathName(path).fileName };
+var boot = File.readAllString(scripts +/+ "boot.scd") ? "";
+~tAssert.("parts.scd answers the parts", parts.isKindOf(Array) and: { parts.size >= 20 }, parts.asString);
+~tEq.("every setup- and gui- file is a part, and every part is a file", (parts ? []).copy.sort, onDisk);
+~tEq.("…each once", (parts ? []).asSet.size, (parts ? []).size);
+~tAssert.("no script lists parts of its own", listers.isEmpty, "found in " ++ listers.join(", "));
+~tAssert.("boot.scd loads every part through parts.scd",
+    boot.contains("\"parts.scd\").load") and: { boot.contains("~megalooperLoadParts.(~megalooperScripts)") });
+~tAssert.("…and the guard sees a list where there is one",
+    listing.("[\"setup-a.scd\", \"gui-b.scd\",\n    \"gui-c.scd\"]") and: { listing.("\"gui-b.scd\"").not });
 }.value;
 

@@ -27,16 +27,9 @@
 (
 var dir = thisProcess.nowExecutingPath !? { |p| p.dirname }
     ?? { Looper.repoRoot +/+ "scripts" };
-var parts = [
-    "setup-routing.scd", "setup-midi.scd", "setup-model.scd", "setup-sa.scd", "setup-miditargets.scd", "setup-midimap.scd", "setup-remote.scd",
-    "setup-actions.scd",
-    "gui-const.scd", "gui-theme.scd", "gui-presets.scd", "gui-status.scd", "gui-perform.scd",
-    "gui-bbcut.scd", "gui-granular.scd", "gui-analysis.scd", "gui-sa.scd", "gui-midimap.scd", "gui-mapmode.scd", "gui-effects.scd",
-    "gui-drums.scd", "gui-synth.scd",
-    "gui-rig.scd",
-    "gui-calibrate.scd", "calibrate-measure.scd",
-    "gui-shell.scd", "gui-wiring.scd"
-];
+// Boot's parts, from the one list (parts.scd), and the wizard's measuring
+// script, which the Calibrate pane loads when it is asked to measure.
+var parts = (dir +/+ "parts.scd").load ++ ["calibrate-measure.scd"];
 // launcher.scd builds its window at load time, so it is parsed but never
 // loaded here — loading it would open a window in a headless check. Note that
 // gui-shell.scd IS loaded: it is the only file that constructs a Window, and it
@@ -56,7 +49,7 @@ var parts = [
 // likewise: one renders through a VST plugin and exits, the other boots a
 // server on the interface.
 var alsoParse = [
-    "boot.scd", "check.scd", "launcher.scd", "check-onset-notes.scd",
+    "parts.scd", "boot.scd", "check.scd", "launcher.scd", "check-onset-notes.scd",
     "check-chain-align.scd", "check-loop-phase.scd", "check-gui.scd", "check-gui-effects.scd",
     "check-gui-drums.scd", "check-gui-midimap.scd", "check-gui-maptags.scd", "check-gui-ai.scd", "check-gui-audio.scd",
     "eval_meter_analyzer.scd", "probe-meter.scd", "replay-session.scd",

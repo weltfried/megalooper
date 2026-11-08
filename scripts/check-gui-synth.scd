@@ -44,9 +44,8 @@ var tick = { 0.1.wait };
 var run = { |to| while { now < (to - 1e-9) } { now = (now + 0.01).min(to); d.pump(now) } };
 
 (scripts +/+ "tests" +/+ "_harness.scd").load;   // ~tStubServer, ~tMegaSA, ~tLooper
-["setup-routing.scd", "setup-midi.scd", "setup-sa.scd", "setup-miditargets.scd", "gui-const.scd", "gui-theme.scd",
-    "gui-presets.scd", "gui-analysis.scd", "gui-sa.scd", "gui-drums.scd", "gui-synth.scd", "gui-shell.scd"].do { |f|
-    (scripts +/+ f).load };
+(scripts +/+ "parts.scd").load;
+~megalooperLoadParts.(scripts);
 ~rp = (sa: true);
 File.mkdir(tmp);
 ~saSynthPresetDir = tmp +/+ "synth-presets";
