@@ -1,7 +1,8 @@
 // Preset storage: the part both families share.
 //
-// How a preset is STORED is one implementation — a file per preset holding a
-// single SC literal — parameterised by Looper.prPresetFamilies. What a preset
+// How a preset is STORED is one implementation — a JSON file per preset,
+// nothing in it run (an SC literal until 2026-11-08, carried over once by
+// Looper.migratePresets) — parameterised by Looper.prPresetFamilies. What a preset
 // CONTAINS is per-family and covered by test-bbcut-presets.scd and
 // test-granular-presets.scd. This file exercises the shared half, on real
 // files in a temp directory, for both families through their named entry
@@ -24,7 +25,11 @@ families = Looper.prPresetFamilies;
 ~tEq.("both families are declared", families.keys.asArray.sort, [\bbcut, \granular]);
 families.keysValuesDo { |key, f|
     ~tAssert.(key ++ ": has a label", f[\label].isString, "got " ++ f[\label]);
-    [\data, \string, \apply, \summary].do { |role|
+    ~tAssert.(key ++ ": names its file's format", f[\format].isString and: { f[\format].beginsWith("megalooper ") },
+        "got " ++ f[\format]);
+    ~tAssert.(key ++ ": orders its fields, the header first",
+        f[\order].isArray and: { f[\order].keep(3) == [\version, \name, \savedAt] }, "got " ++ f[\order]);
+    [\data, \version, \apply, \summary].do { |role|
         ~tAssert.(key ++ ": " ++ role ++ " names a real method",
             f[role].notNil and: { Looper.findRespondingMethodFor(f[role]).notNil },
             "Looper has no " ++ f[role]);
@@ -48,6 +53,8 @@ families.keysValuesDo { |key, f|
 
 if(File.exists(root)) { (root +/+ "*").pathMatch.do { |p|
     (p +/+ "*.scd").pathMatch.do { |f| File.delete(f) };
+    (p +/+ "*.json").pathMatch.do { |f| File.delete(f) };
+    (p +/+ MegaFiles.migratedMarker).pathMatch.do { |f| File.delete(f) };
 } };
 
 [
@@ -95,31 +102,60 @@ if(File.exists(root)) { (root +/+ "*").pathMatch.do { |p|
         l.perform(names, root +/+ "does-not-exist"), []);
     ~tEq.(key ++ ": listing a nil directory is empty", l.perform(names, nil), []);
 
-    // A hand-edited file that no longer parses must be refused, not thrown:
-    // .interpret on a broken literal raises, and these files invite editing.
-    File.use(dir +/+ "broken.scd", "w") { |f| f.write("( this is not ]] valid") };
+    // A hand-edited file that no longer parses must be refused, not thrown.
+    File.use(dir +/+ "broken.json", "w") { |f| f.write("{ this is not ]] valid") };
     ~tEq.(key ++ ": an unparseable file is refused", l.perform(load, dir, "broken"), false);
-    File.delete(dir +/+ "broken.scd");
+    File.delete(dir +/+ "broken.json");
 
-    // A file that parses to something that is not a preset reaches the
-    // validator, which rejects by file rather than throwing.
-    File.use(dir +/+ "notapreset.scd", "w") { |f| f.write("42") };
-    ~tEq.(key ++ ": a parseable non-preset is refused",
-        l.perform(load, dir, "notapreset"), false);
-    File.delete(dir +/+ "notapreset.scd");
+    // JSON that is no object, another family's preset, or one from a newer
+    // megalooper: refused whole, before the validator sees it.
+    [
+        ["a parseable non-preset", "42"],
+        ["a file of another kind", "{\"format\": \"megalooper drums\", \"version\": 1}"],
+        ["the other family's preset", "{\"format\": \"" ++ Looper.prPresetFamilies[if(key == \bbcut) { \granular } { \bbcut }][\format] ++ "\"}"],
+        ["a preset from a newer megalooper", "{\"format\": \"" ++ Looper.prPresetFamilies[key][\format] ++ "\", \"version\": 99}"]
+    ].do { |x|
+        File.use(dir +/+ "notapreset.json", "w") { |f| f.write(x[1]) };
+        ~tEq.(key ++ ": " ++ x[0] ++ " is refused", l.perform(load, dir, "notapreset"), false);
+    };
+    File.delete(dir +/+ "notapreset.json");
 
-    // A file whose code throws while the literal is half built, read where
-    // the answer is an operand. Run on the caller's stack, the half-built
-    // literal stayed there: this came out as a Symbol (the key it had
-    // reached), and inside an array literal it threw. Looper.readPresetFile
-    // runs it on a Routine's own.
-    File.use(dir +/+ "throws.scd", "w") { |f|
+    // An old .scd is no preset: never listed, never run, its name loads nothing.
+    ~tPresetRan = nil;
+    File.use(dir +/+ "trap.scd", "w") { |f| f.write("~tPresetRan = true; (version: 1, name: \"trap\")") };
+    ~tEq.(key ++ ": an .scd beside the presets is not listed", l.perform(names, dir), []);
+    ~tEq.(key ++ ": ...its name loads nothing, and nothing in it runs", [l.perform(load, dir, "trap"), ~tPresetRan], [false, nil]);
+    File.delete(dir +/+ "trap.scd");
+
+    // ---- the old presets carried over, once (Looper.migratePresets) ----
+    c[2].value;
+    File.use(dir +/+ "old-take.scd", "w") { |f|
+        f.write("// an old preset\n" ++ l.perform((key ++ "PresetData").asSymbol, "Old Take").asCompileString) };
+    File.use(dir +/+ "broken-old.scd", "w") { |f| f.write("( this is not ]] valid") };
+    File.use(dir +/+ "throws-old.scd", "w") { |f|
         f.write("(version: 1, name: \"bad\", amp: nil.foo, voices: [(enabled: true, amp: 0.5)])") };
-    ~tEq.(key ++ ": a preset that throws while it is read, in an expression: 1000 + load(...).binaryValue is 1000",
-        1000 + (l.perform(load, dir, "throws").binaryValue), 1000);
-    ~tEq.(key ++ ": ...and inside a literal the caller is building", [\before, l.perform(load, dir, "throws"), \after],
-        [\before, false, \after]);
-    File.delete(dir +/+ "throws.scd");
+    c[3].value;
+    {
+        var oldText = MegaFiles.readText(dir +/+ "old-take.scd");
+        var moved = Looper.migratePresets(key, dir);
+        ~tEq.(key ++ ": the old presets that read are carried over; one that does not parse or throws is not",
+            [moved, l.perform(names, dir)], [["old-take"], ["old-take"]]);
+        ~tEq.(key ++ ": ...the old files stay where they are, as they were, and the folder is marked",
+            [MegaFiles.readText(dir +/+ "old-take.scd") == oldText, File.exists(dir +/+ "broken-old.scd"),
+                File.exists(dir +/+ "throws-old.scd"), MegaFiles.migrated(dir)], [true, true, true, true]);
+        ~tEq.(key ++ ": ...the carried one loads, and plays as it did", [l.perform(load, dir, "old-take"), c[4].value], [true, c[5]]);
+        ~tAssert.(key ++ ": ...written as this family's JSON",
+            (MegaFiles.parseObject(MegaFiles.readText(dir +/+ "old-take.json")) !? { |o| o.at("format") })
+                == Looper.prPresetFamilies[key][\format]);
+        File.use(dir +/+ "later.scd", "w") { |f| f.write("~tPresetRan = true; (version: 1)") };
+        ~tEq.(key ++ ": once marked, a folder is not carried over again: a .scd put there later is never run",
+            [Looper.migratePresets(key, dir), ~tPresetRan, File.exists(dir +/+ "later.json")], [[], nil, false]);
+        ["old-take.scd", "old-take.json", "broken-old.scd", "throws-old.scd", "later.scd", MegaFiles.migratedMarker]
+            .do { |n| File.delete(dir +/+ n) };
+        ~tEq.(key ++ ": a missing or nil folder carries nothing, and is not made",
+            [Looper.migratePresets(key, root +/+ "nowhere"), File.exists(root +/+ "nowhere"), Looper.migratePresets(key, nil)],
+            [[], false, []]);
+    }.value;
 };
 
 // Both families share the slug, so one name resolves to one file stem on

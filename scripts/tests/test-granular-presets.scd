@@ -1,6 +1,6 @@
 // Granular presets: capture, serialise, validate, recall.
 //
-// Preset files are plain SC literals and are documented as hand-editable, so
+// Preset files are JSON (SC literals until 2026-11-08) and hand-editable, so
 // the validator's contract is "fail soft by field, reject by file, never
 // throw". These tests are mostly that contract.
 
@@ -31,15 +31,19 @@ data = l.granularPresetData("My Test");
 
 // ---- serialise and read back --------------------------------------------
 
-str = l.granularPresetString(data);
-parsed = ~tCheck.("the serialised preset compiles", { str.compile.value });
+str = l.granularPresetText(data);
+parsed = MegaFiles.parseObject(str);
+~tAssert.("the serialised preset is one JSON object, a granular preset",
+    parsed.isKindOf(MegaJsonObject) and: { parsed.at("format") == Looper.granularPresetFormat }, str.keep(200));
+parsed = MegaFiles.eventOf(parsed);
 ~tAssert.("...and yields an Event", parsed.isKindOf(Dictionary),
     "got a " ++ parsed.class);
 ~tEq.("round trip preserves size", parsed[\size], 2.5);
 ~tEq.("round trip preserves a negative value", parsed[\scan], -1.5);
-~tAssert.("the file leads with comments, not a trailing one",
-    str.beginsWith("//"),
-    "a trailing comment would make interpret return nil");
+~tEq.("...one field a line, in the table's order after the header",
+    str.split($\n).drop(1).keep(Looper.granularPresetFields.size + 6).collect { |line| line.stripWhiteSpace.split($:)[0] },
+    ["format", "version", "name", "savedAt", "env", "followChords"].collect { |k| "\"" ++ k ++ "\"" }
+        ++ Looper.granularPresetFields.collect { |f| "\"" ++ f[0] ++ "\"" });
 
 // ---- recall --------------------------------------------------------------
 
@@ -63,7 +67,7 @@ var captured, roundTripped;
 level.granularAmp = 0.31;
 captured = level.granularPresetData("level test");
 ~tNear.("capture stores the level", captured[\amp], 0.31, 1e-9);
-roundTripped = level.granularPresetString(captured).compile.value;
+roundTripped = MegaFiles.eventOf(MegaFiles.parseObject(level.granularPresetText(captured)));
 ~tNear.("the file round trips the level", roundTripped[\amp], 0.31, 1e-9);
 level.granularAmp = 0.9;
 level.applyGranularPreset(roundTripped);
@@ -168,7 +172,7 @@ var clean = l.prValidateGranularPreset(
     l.granularPresetSlug(String.fill(400, $a)).size <= 64,
     "got " ++ l.granularPresetSlug(String.fill(400, $a)).size ++ " chars");
 ~tEq.("path is the slug under the given directory",
-    l.granularPresetPath("/tmp/presets", "My Test"), "/tmp/presets/my-test.scd");
+    l.granularPresetPath("/tmp/presets", "My Test"), "/tmp/presets/my-test.json");
 
 // Both preset families share prPresetSlug, so a name must resolve to the same
 // file stem on either side — otherwise the two windows would disagree about

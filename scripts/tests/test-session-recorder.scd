@@ -161,15 +161,15 @@ var paths = LooperSessionRecorder.pathsFor(dir, "260928_183000");
 // nil and non-finite numbers become null, the one token every reader accepts.
 {
 ~tEq.("an event serialises with sorted keys",
-    LooperSessionRecorder.json((b: 1, a: "x", c: [1, 2.5], d: (e: true))),
+    MegaFiles.json((b: 1, a: "x", c: [1, 2.5], d: (e: true))),
     "{\"a\": \"x\", \"b\": 1, \"c\": [1, 2.5], \"d\": {\"e\": true}}");
 ~tEq.("a quote and a backslash are escaped",
-    LooperSessionRecorder.json("say \"hi\" \\ bye"), "\"say \\\"hi\\\" \\\\ bye\"");
-~tEq.("nil is null", LooperSessionRecorder.json(nil), "null");
-~tEq.("a symbol is a string", LooperSessionRecorder.json(\lengthAnchored), "\"lengthAnchored\"");
-~tEq.("infinity is null", LooperSessionRecorder.json(inf), "null");
-~tEq.("not-a-number is null", LooperSessionRecorder.json(0/0), "null");
-~tEq.("false is false", LooperSessionRecorder.json(false), "false");
+    MegaFiles.json("say \"hi\" \\ bye"), "\"say \\\"hi\\\" \\\\ bye\"");
+~tEq.("nil is null", MegaFiles.json(nil), "null");
+~tEq.("a symbol is a string", MegaFiles.json(\lengthAnchored), "\"lengthAnchored\"");
+~tEq.("infinity is null", MegaFiles.json(inf), "null");
+~tEq.("not-a-number is null", MegaFiles.json(0/0), "null");
+~tEq.("false is false", MegaFiles.json(false), "false");
 }.value;
 
 // ---- the event log: round trip ---------------------------------------------

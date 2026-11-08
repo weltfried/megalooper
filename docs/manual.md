@@ -1304,9 +1304,9 @@ voice (procedure, cut synth, effects, ratio, amp, pan and all procedure
 parameters) plus the Mix/Insert/Gate mode — under a name. Two cutter presets
 ship with megalooper and are copied into your folder on the first start.
 
-- **Save** writes `bbcut/<name>.scd` in your megalooper folder ([Where your
+- **Save** writes `bbcut/<name>.json` in your megalooper folder ([Where your
   files are](../README.md#where-your-files-are)). The name is slugged, so
-  "Broken 3/2" becomes `broken-3-2.scd`. The button says what one click will
+  "Broken 3/2" becomes `broken-3-2.json`. The button says what one click will
   do: **Save new** for a new name, **Save** for the preset you loaded, and
   **Overwrite** for another one, which then reads **Overwrite?** and writes on
   the second click.
@@ -1318,8 +1318,10 @@ ship with megalooper and are copied into your folder on the first start.
   was loaded. **Delete** arms for 4 s and removes the file on the second click;
   it leaves the running cutter alone. **↻** rescans the folder for files added
   outside megalooper.
-- Preset files are plain SuperCollider literals, safe to hand-edit or commit.
-  Unknown procedures/synths/effects, out-of-range numbers, parameters left over
+- Preset files are JSON, safe to hand-edit or commit; nothing in them is run.
+  Presets saved by an older megalooper were SuperCollider files (`.scd`): the
+  first start carries each over to JSON beside it once, and leaves the old
+  file where it was. Unknown procedures/synths/effects, out-of-range numbers, parameters left over
   from another procedure and missing parameters are all corrected on load, with
   one summary warning in the log; only a file that isn't a preset at all
   is refused, and then the running cutter is untouched. A file saved by a newer

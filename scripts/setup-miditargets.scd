@@ -531,7 +531,7 @@
         names.value.do { |slug|
             add.(("sa.drums.preset.recall." ++ slug).asSymbol, "Recall " ++ slug, "Drums", \trigger, (group: "Presets",
                 fire: { recall.(slug) },
-                available: { (dir.value !? { |x| File.exists(x +/+ slug ++ ".scd") }) == true },
+                available: { (drums.value !? { |d| dir.value !? { |x| File.exists(d.presetPath(x, slug)) } }) == true },
                 why: { "no drum preset " ++ slug ++ " now" }));
         };
     };

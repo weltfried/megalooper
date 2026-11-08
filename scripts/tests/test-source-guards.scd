@@ -485,3 +485,44 @@ var found = List.new;
 };
 ~tAssert.("every synth a class makes names its target", found.isEmpty, "untargeted at " ++ found.join(", "));
 }.value;
+
+// ---- one JSON encoder, and no new parseJSON readers ----------------------
+// docs/dev/architecture.md 3.7 and 5, step 7. megalooper writes JSON one way:
+// MegaFiles.json / jsonOn / jsonString (the recorder's stream encoder and the
+// Looper's sidecar escaper were folded into it on 2026-11-08). A class may
+// keep a json* method only as a one-line delegate to MegaFiles.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var found = List.new;
+(root +/+ "classes" +/+ "*.sc").pathMatch.reject { |p| PathName(p).fileName == "MegaFiles.sc" }.do { |path|
+    (File.readAllString(path) ? "").split($\n).do { |line, i|
+        if(line.stripWhiteSpace.findRegexp("^\\*?json[A-Za-z]* *\\{").notEmpty and: { line.contains("^MegaFiles.").not }) {
+            found.add(PathName(path).fileName ++ ":" ++ (i + 1));
+        };
+    };
+};
+~tAssert.("no class but MegaFiles encodes JSON (a json* method only delegates)", found.isEmpty, found.join(", "));
+}.value;
+
+// sclang's parseJSON answers every number and boolean as a String, and its
+// Dictionaries take no new key (feedback: parseJSON dicts are full); a file
+// megalooper reads is read with MegaFiles.parseObject (MegaJsonReader), which
+// keeps every value's kind. These read with parseJSON still; the list only
+// shrinks: a file here that reads with it no more fails until it is taken
+// off. Tools, offline scripts and tests are not app code, and not held.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var allowed = ["LooperMidiMap.sc", "LooperSessionRecorder.sc", "MegaSADrumsFx.sc", "MegaSAKit.sc",
+    "setup-midimap.scd", "setup-routing.scd", "setup-sa.scd"];
+var app = (root +/+ "classes" +/+ "*.sc").pathMatch ++ (root +/+ "scripts" +/+ "setup-*.scd").pathMatch
+    ++ (root +/+ "scripts" +/+ "gui-*.scd").pathMatch
+    ++ ["boot.scd", "launcher.scd", "parts.scd"].collect { |n| root +/+ "scripts" +/+ n };
+var readers = app.select { |path|
+    (File.readAllString(path) ? "").split($\n).any { |line|
+        var cut = line.find("//");
+        (if(cut.isNil) { line } { line.copyRange(0, cut - 1) }).contains(".parseJSON")
+    }
+}.collect { |p| PathName(p).fileName };
+~tEq.("no new parseJSON reader in the app (MegaFiles.parseObject keeps kinds), and none listed that reads with it no more",
+    readers.asArray.sort, allowed.copy.sort);
+}.value;

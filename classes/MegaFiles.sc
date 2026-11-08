@@ -117,22 +117,86 @@ MegaFiles {
     }
 
     // Any value on one line: an object's members in their own order
-    // (MegaJsonObject) or sorted by key (a Dictionary), nil as null.
+    // (MegaJsonObject) or sorted by key (a Dictionary), Symbols as strings,
+    // nil and numbers JSON can't say as null. The one encoder: every file and
+    // log megalooper writes goes through it (jsonOn).
     *json { |v|
-        ^case
-        { v.isNil } { "null" }
-        { v.isKindOf(Boolean) } { v.asString }
-        { v.isNumber } { this.jsonNumber(v) }
-        { v.isKindOf(String) or: { v.isKindOf(Symbol) } } { this.jsonString(v.asString) }
+        var s = CollStream(String.new(256));
+        this.jsonOn(s, v);
+        ^s.contents
+    }
+
+    // The same, into a stream: a 4 KB drums state in a third of the time
+    // that joining strings at every depth took. `pause`, if given, is called
+    // after every member: a writer running in a Routine can wait there, so a
+    // long value is written a piece at a time (MegaActionLog's states). A Ref
+    // holds JSON already written, put in as it is. Until 2026-11-08 this was
+    // LooperSessionRecorder's, beside a second encoder here.
+    *jsonOn { |s, v, pause|
+        var keys;
+        case
+        { v.isNil }                    { s << "null" }
+        { v.isKindOf(Ref) }            { s << v.value }
+        { v.isKindOf(Boolean) }        { s << v.asString }
+        { v.isNumber }                 { s << this.jsonNumber(v) }
+        { v.isString }                 { this.jsonStringOn(s, v) }
+        { v.isKindOf(Symbol) }         { this.jsonStringOn(s, v) }
         { v.isKindOf(MegaJsonObject) } {
-            "{" ++ v.keys.collect { |k, i| this.jsonString(k) ++ ": " ++ this.json(v.values[i]) }.join(", ") ++ "}"
+            s << "{";
+            v.keys.do { |k, i|
+                if(i > 0) { s << ", " };
+                this.jsonStringOn(s, k) << ": ";
+                this.jsonOn(s, v.values[i], pause);
+                pause.value;
+            };
+            s << "}";
         }
-        { v.isKindOf(Dictionary) } {
-            "{" ++ v.keys.asArray.sort { |a, b| a.asString < b.asString }.collect { |k|
-                this.jsonString(k.asString) ++ ": " ++ this.json(v[k]) }.join(", ") ++ "}"
+        { v.isKindOf(Dictionary) }     {
+            keys = this.sortedKeys(v);
+            s << "{";
+            keys.do { |k, i|
+                if(i > 0) { s << ", " };
+                this.jsonStringOn(s, k[0]) << ": ";
+                this.jsonOn(s, v[k[1]], pause);
+                pause.value;
+            };
+            s << "}";
         }
-        { v.isKindOf(SequenceableCollection) } { "[" ++ v.collect { |x| this.json(x) }.asArray.join(", ") ++ "]" }
-        { this.jsonString(v.asString) }
+        { v.isSequenceableCollection } {
+            s << "[";
+            v.do { |x, i|
+                if(i > 0) { s << ", " };
+                this.jsonOn(s, x, pause);
+            };
+            s << "]";
+        }
+        { this.jsonStringOn(s, v.asString) };
+        ^s
+    }
+
+    // A String as JSON, into a stream. Nearly every one (a key, a kit's
+    // name) needs no escaping and goes in as it is: a log written at every
+    // turn of a knob makes no copies it can do without, so the language's
+    // garbage collector has less to catch up on in the middle of a bar.
+    *jsonStringOn { |s, str|
+        str = str.asString;
+        if(this.prPlain(str)) { s << "\"" << str << "\"" } { s << this.jsonString(str) };
+        ^s
+    }
+
+    // Whether a String holds nothing JSON escapes: no backslash, no quote
+    // (includes is a primitive: no copy), no control character (measured
+    // 2026-11-08: no dearer than the five includes it replaced, on a 4.5 KB
+    // state). Bytes past ASCII (UTF-8) read as negative codes, and are plain.
+    *prPlain { |str|
+        ^str.includes($\\).not and: { str.includes($").not }
+            and: { str.every { |c| c.ascii.inclusivelyBetween(0, 31).not } }
+    }
+
+    // A Dictionary's keys, sorted as Strings, each made a String once:
+    // [[string, key], ...].
+    *sortedKeys { |d|
+        ^d.keys.asArray.collect { |k| [k.asString, k] }.sort { |a, b| a[0] <= b[0] }
     }
 
     // `text` to `path`, whole or not at all: written beside it under a name
@@ -182,19 +246,164 @@ MegaFiles {
         ^result
     }
 
+    // ---- a preset as an Event ----------------------------------------------
+    // A preset (the drums', the cutter's, the grains') is a JSON object read
+    // into the Event its SC literal once was: keys Symbols, lists Arrays, the
+    // rest as they are. Nothing in it is ever run; a field the family wants
+    // as a Symbol is made one by the family's validator, as a hand-edited
+    // literal's was.
+
+    // An Event as a file's text: one field a line, the fields in `order`
+    // first, then any others sorted, the same in every object within; a list
+    // of lists or objects a list a line (a lane of steps, a voice), anything
+    // else on one line. Reads and hand-edits as the SC literals did.
+    *jsonText { |v, order, pad = ""|
+        var in = pad ++ "  ", keys;
+        order = order ? [];
+        ^case
+        { v.isKindOf(Dictionary) and: { v.isEmpty } } { "{}" }
+        { v.isKindOf(Dictionary) } {
+            keys = order.select { |k| v.includesKey(k) }
+                ++ v.keys.asArray.reject { |k| order.includes(k) }.sort { |a, b| a.asString < b.asString };
+            "{\n" ++ keys.collect { |k| in ++ this.jsonString(k.asString) ++ ": " ++ this.jsonText(v[k], order, in) }
+                .join(",\n") ++ "\n" ++ pad ++ "}"
+        }
+        { v.isString.not and: { v.isArray } and: { v.notEmpty }
+            and: { v.every { |x| x.isString.not and: { x.isArray or: { x.isKindOf(Dictionary) } } } } } {
+            "[\n" ++ v.collect { |x| in ++ this.json(x) }.join(",\n") ++ "\n" ++ pad ++ "]"
+        }
+        { this.json(v) }
+    }
+
+    // A parsed value (parseObject) as an SC literal had it: an object an
+    // Event with Symbol keys, a list an Array, the rest as it is.
+    *eventOf { |v|
+        var e;
+        ^case
+        { v.isKindOf(MegaJsonObject) } {
+            e = ();
+            v.keysValuesDo { |k, x| e.put(k.asSymbol, this.eventOf(x)) };
+            e
+        }
+        { v.isString.not and: { v.isArray } } { v.collect { |x| this.eventOf(x) } }
+        { v }
+    }
+
+    // A preset file as an Event of its fields (without `format`), or nil
+    // after telling `why` (a function) why not: one that is missing, not
+    // JSON, not a `format` file or from a newer megalooper (versionOf) is
+    // refused whole.
+    *readEvent { |path, format, newest = 1, what = "megalooper file", why|
+        var text = this.readText(path), obj, version, data;
+        if(text.isNil) { why.value("it is not there or can't be read"); ^nil };
+        obj = this.parseObject(text);
+        if(obj.isString) { why.value(obj); ^nil };
+        version = this.versionOf(obj, format, newest, what);
+        if(version.isString) { why.value(version); ^nil };
+        data = this.eventOf(obj);
+        data.removeAt(\format);
+        ^data
+    }
+
+    // `data` to `path` as readEvent reads it, `format` named first, whole or
+    // not at all (writeNow): nil when written, else why not.
+    *writeEvent { |path, data, format, order|
+        ^this.writeNow(path, this.eventText(data, format, order), this.readsBackAsObject)
+    }
+    *eventText { |data, format, order|
+        ^this.jsonText(data.copy.put(\format, format), [\format] ++ (order ? [])) ++ "\n"
+    }
+
+    // A write's check (write, writeNow): good when the text reads back as a
+    // JSON object.
+    *readsBackAsObject {
+        ^{ |text| if(this.parseObject(text).isKindOf(MegaJsonObject)) { nil } { "it did not read back" } }
+    }
+
+    // ---- the old presets, SC literals, carried over once -------------------
+    // Until 2026-11-08 a preset was an SC literal (<slug>.scd), run when read:
+    // a shared preset was a program (docs/dev/architecture.md 3.7).
+    //
+    // A file's SC literal, run the old way: compiled, then run on a Routine's
+    // own stack under try. An error inside interpreted code, even one caught,
+    // leaves that code's half-built expression on the stack of the thread
+    // that ran it (measured, SC 3.14.1), and the caller's next expression then
+    // works on it: `1000 + load(...).binaryValue` came out as the Symbol the
+    // literal had reached. A Routine has a stack of its own. Answers the
+    // value, or nil after telling `why` (a function) "it does not parse" or
+    // "failed to run — <error>". Only for carrying an old file over, and for
+    // the files of yours that are code by design (your rigs, profiles.scd).
+    *runLiteral { |path, why|
+        var fn, data;
+        fn = (this.readText(path) ? "").compile;
+        if(fn.isNil) { why.value("it does not parse"); ^nil };
+        try { Routine { data = fn.value }.next } { |err|
+            why.value("failed to run — " ++ err.errorString);
+            data = nil;
+        };
+        ^data
+    }
+
+    // A folder's old presets carried over, once: `convert` (the old path, the
+    // JSON path beside it; true once that is written) for each .scd, then a
+    // marker file (.presets-json) left in the folder, whether there was
+    // anything to carry or not, so a .scd put there later is never run. The
+    // .scd files stay where they are, untouched: an older megalooper still
+    // reads them. Answers the slugs carried over ([] when marked already).
+    *migrateFolder { |dir, convert|
+        var moved = List.new;
+        if(dir.isNil or: { File.exists(dir).not } or: { this.migrated(dir) }) { ^[] };
+        (dir +/+ "*.scd").pathMatch.sort.do { |old|
+            if(convert.value(old, old.splitext[0] ++ ".json") == true) {
+                moved.add(PathName(old).fileNameWithoutExtension)
+            };
+        };
+        this.markMigrated(dir);
+        ^moved.asArray
+    }
+    *migratedMarker { ^".presets-json" }
+    *migrated { |dir| ^File.exists(dir +/+ this.migratedMarker) }
+    *markMigrated { |dir|
+        File.mkdir(dir);
+        File.use(dir +/+ this.migratedMarker, "w", { |f|
+            f.write("megalooper reads the presets here as JSON (.json) since 2026-11-08. The .scd files beside\n"
+                "them are the old ones, as they were, for an older megalooper: this one never reads them.\n") });
+    }
+
+    // One old preset carried over: run the old way one last time (runLiteral)
+    // and written as `json` (writeEvent) unless that is there already; the
+    // old file is left as it is. True once written or there; false, with
+    // `why` (a function) told, when it does not read as an Event or was not
+    // written.
+    *migrateFile { |old, json, format, order, why|
+        var notes = List.new, data, failed;
+        data = this.runLiteral(old, { |w| notes.add(w) });
+        if(data.isKindOf(Dictionary).not) {
+            why.value(if(notes.isEmpty) { "it is not an Event" } { notes.join("; ") });
+            ^false
+        };
+        if(File.exists(json)) { ^true };
+        failed = this.writeEvent(json, data, format, order);
+        if(failed.notNil) { why.value(failed); ^false };
+        ^true
+    }
+
     // ---- a folder of yours, first made -------------------------------------
     // What megalooper once kept in its own folder (the repo) and now keeps in
     // yours: `to` is made, and the files of `from` matching `pattern` are
-    // copied into it. Once: `to` being there is the marker, so a file you
-    // delete later does not come back. Copied, never moved: what lay in
-    // `from` stays. Answers the names copied (none when `from` holds none),
-    // or nil when `to` was there and nothing was done.
+    // copied into it (`pattern` may be a list of them). Once: `to` being
+    // there is the marker, so a file you delete later does not come back.
+    // Copied, never moved: what lay in `from` stays. Answers the names copied
+    // (none when `from` holds none), or nil when `to` was there and nothing
+    // was done.
     *adopt { |from, to, pattern = "*.scd"|
         var paths;
         if(File.exists(to)) { ^nil };
         File.mkdir(to);
         if(File.exists(to).not) { ^nil };
-        paths = if(from.notNil and: { File.exists(from) }) { (from +/+ pattern).pathMatch.sort } { [] };
+        paths = if(from.notNil and: { File.exists(from) }) {
+            (if(pattern.isString) { [pattern] } { pattern }).collect { |p| (from +/+ p).pathMatch }.flatten.asSet.asArray.sort
+        } { [] };
         ^paths.select { |p| (try { File.copy(p, to +/+ p.basename); true } { false }) == true }
             .collect { |p| p.basename }
     }

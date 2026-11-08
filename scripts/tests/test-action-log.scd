@@ -168,10 +168,10 @@ rec.instVarAt(\logFile).close;
 rec.instVarPut(\logFile, nil);
 ~tEq.("no log open: logEvents says so", rec.logEvents([[\act, [\what, \x], nil]]), false);
 s = CollStream(String.new);
-LooperSessionRecorder.jsonOn(s, (a: [1, 2], b: (c: "q\"t")), { pauses = pauses + 1 });
+MegaFiles.jsonOn(s, (a: [1, 2], b: (c: "q\"t")), { pauses = pauses + 1 });
 ~tEq.("jsonOn: the same text, with a pause after every member", [s.contents, pauses],
     ["{\"a\": [1, 2], \"b\": {\"c\": \"q\\\"t\"}}", 3]);
-~tEq.("...and as json gives it", LooperSessionRecorder.json((a: [1, 2], b: (c: "q\"t"))), s.contents);
+~tEq.("...and as json gives it", MegaFiles.json((a: [1, 2], b: (c: "q\"t"))), s.contents);
 }.value;
 
 // ---- the wiring: the real parts --------------------------------------------------------------------

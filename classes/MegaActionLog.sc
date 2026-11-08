@@ -221,7 +221,7 @@ MegaActionLog {
                         stream = CollStream(String.new(8192));
                         mark = Main.elapsedTime;
                         pause = { if((Main.elapsedTime - mark) > slice) { this.prYield; mark = Main.elapsedTime } };
-                        LooperSessionRecorder.jsonOn(stream, st, pause);
+                        MegaFiles.jsonOn(stream, st, pause);
                         rec.logEvent(\state, [\part, part, \state, Ref(stream.contents)]);
                     };
                     this.prYield;

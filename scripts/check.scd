@@ -301,7 +301,7 @@ if(~breakMacroCc.inclusivelyBetween(0, 127).not) {
 };
 
 [\granularPresetNames, \granularPresetSlug, \granularPresetPath,
- \granularPresetData, \granularPresetString, \granularPresetVersion,
+ \granularPresetData, \granularPresetText, \granularPresetVersion,
  \applyGranularPreset, \saveGranularPreset, \loadGranularPreset,
  \deleteGranularPreset].do { |sel|
     if(Looper.findRespondingMethodFor(sel).isNil) {

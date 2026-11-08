@@ -793,7 +793,7 @@ data = MegaFiles.parseObject(text);
 ~tAssert.("...one JSON object, a drums preset of version 1, nothing run to read it",
     data.isKindOf(MegaJsonObject) and: { data.at("format") == MegaSADrums.presetFormat } and: { data.at("version") == 1 },
     text.keep(200));
-data = MegaSADrums.fromJson(data);
+data = MegaFiles.eventOf(data);
 ~tEq.("...holding both patterns, the kits, trims, Beat Repeat and its grid, the reverb, the offset and the dice (and not on/off or the break)",
     data !? { |x| x.keys.asArray.sort }, [\break, \dice, \format, \groupTrims, \main, \name, \offsetMs, \onsetKit, \padTrims,
         \repeatGrid, \repeats, \reverbMix, \savedAt, \stepsKit, \version]);
@@ -922,7 +922,7 @@ write.(dir +/+ "old.scd", oldText);
 write.(dir +/+ "notapreset.scd", "[1, 2]");
 ~tEq.("migratePresets carries an old preset over: its slug", d.migratePresets(dir), ["old"]);
 ~tEq.("...written as JSON beside it, the old file left as it was, and the folder marked",
-    [File.exists(dir +/+ "old.json"), MegaFiles.readText(dir +/+ "old.scd"), File.exists(dir +/+ ".drums-json")],
+    [File.exists(dir +/+ "old.json"), MegaFiles.readText(dir +/+ "old.scd"), File.exists(dir +/+ ".presets-json")],
     [true, oldText, true]);
 ~tEq.("...one that is no preset stays where it is, and is not listed",
     [File.exists(dir +/+ "notapreset.scd"), d.presetNames(dir)], [true, ["old"]]);
@@ -933,7 +933,7 @@ write.(dir +/+ "later.scd", "~bfTrap = 2; (version: 1, reverbMix: 0.9)");
 ~tEq.("once only: a .scd put there later is neither carried over nor run",
     [d.migratePresets(dir), ~bfTrap, d.presetNames(dir)], [[], nil, ["old"]]);
 File.mkdir(dir2);
-~tEq.("a folder with nothing to carry is marked all the same", [d.migratePresets(dir2), File.exists(dir2 +/+ ".drums-json")],
+~tEq.("a folder with nothing to carry is marked all the same", [d.migratePresets(dir2), File.exists(dir2 +/+ ".presets-json")],
     [[], true]);
 // The old reader's own stack (Looper.readPresetFile) still guards a file whose
 // code throws while its literal is half built.

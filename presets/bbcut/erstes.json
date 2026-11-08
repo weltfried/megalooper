@@ -1,0 +1,10 @@
+{
+  "format": "megalooper bbcut",
+  "version": 1,
+  "name": "erstes",
+  "savedAt": "260918_144339",
+  "mode": "insert",
+  "voices": [
+    {"amp": 1.0, "enabled": true, "fx": [], "pan": 0.0, "params": {"cutchance": 0.5, "maxblock": 4, "minblock": 2, "phraselength": 4, "repeats": 2, "rollchance": 0.50261780104712}, "proc": "break", "ratio": 1.0, "synth": "cutbuf2"}
+  ]
+}

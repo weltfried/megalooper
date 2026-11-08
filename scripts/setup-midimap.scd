@@ -117,7 +117,7 @@
     var others = { |d, skip, indent|
         if(d.isKindOf(Dictionary).not) { "" } {
             d.keys.asArray.reject { |k| skip.includesEqual(k) }.sort.collect { |k|
-                ",\n" ++ indent ++ j.(k) ++ ": " ++ LooperSessionRecorder.json(d[k])
+                ",\n" ++ indent ++ j.(k) ++ ": " ++ MegaFiles.json(d[k])
             }.join
         }
     };

@@ -517,6 +517,8 @@ protect {
         [got['sa.drums.preset.recall.half-time'][\label], got['sa.drums.preset.recall.half-time'][\group],
             got['sa.drums.preset.recall.half-time'][\path], got['sa.drums.preset.recall.half-time'][\kind]],
         ["Recall half-time", "Presets", "Drums", \trigger]);
+    ~tEq.("...and there while its file is (the drums' own file name: JSON since 2026-11-08)",
+        [there.(got['sa.drums.preset.recall.fill']), there.(got['sa.drums.preset.recall.half-time'])], [true, true]);
     v = { |id, action| ~midiApply.(got[id], action, (msg: \cc)) };
     ~tEq.("a preset's control recalls it, and the drums say so",
         [heard.(d, { v.('sa.drums.preset.recall.fill', [\fire]) }).select { |x| x[0] == \presetLanded }, d.presetLoaded],

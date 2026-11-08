@@ -100,7 +100,7 @@ l.prGranularFollow;
 // In a granular preset, by name; one from before it plays as it did.
 data = l.granularPresetData("x");
 ~tEq.("a granular preset holds it", data[\followChords], true);
-~tAssert.("...and its file says it", l.granularPresetString(data).contains("followChords: true"));
+~tAssert.("...and its file says it", l.granularPresetText(data).contains("\"followChords\": true"));
 l.granularFollowChords = false;
 ~tEq.("...and puts it back", [l.applyGranularPreset(data), l.granularFollowChords], [true, true]);
 warnings = List.new;

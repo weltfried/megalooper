@@ -47,7 +47,7 @@ statusOf = { |key| ~presetFamily.(key)[\statusText][\string] };
 ~granularPresetDir = root +/+ "granular";
 [~bbcutPresetDir, ~granularPresetDir].do { |d|
     if(File.exists(d).not) { File.mkdir(d) };
-    (d +/+ "*.scd").pathMatch.do { |f| File.delete(f) };
+    (d +/+ "*.json").pathMatch.do { |f| File.delete(f) };
 };
 
 // ---- the full flow, on the granular family ------------------------------
@@ -86,7 +86,7 @@ fam[\nameField][\string] = "Frozen Cathedral";
 ~tEq.("the menu points at it", fam[\menu][\value], 1);
 ~tEq.("Delete is now enabled", fam[\deleteButton][\enabled], true);
 ~tAssert.("the file exists",
-    File.exists(~granularPresetDir +/+ "frozen-cathedral.scd"), "not written");
+    File.exists(~granularPresetDir +/+ "frozen-cathedral.json"), "not written");
 
 // Saving back the preset you LOADED is one click. It is not a clobber — the
 // file being replaced is the one you have open — and confirming it taught the
@@ -100,8 +100,7 @@ fam[\nameField][\string] = "Frozen Cathedral";
 ~tEq.("one click commits it", statusOf.(\granular), "Saved frozen-cathedral");
 ~tEq.("...without arming", fam[\saveArmed], false);
 ~tNear.("...and the new value is on disk",
-    File.readAllString(~granularPresetDir +/+ "frozen-cathedral.scd")
-        .interpret[\size], 3.25, 1e-9);
+    MegaFiles.parseObject(File.readAllString(~granularPresetDir +/+ "frozen-cathedral.json")).at("size"), 3.25, 1e-9);
 ~looper.granularSize = 2.5;
 ~saveGranularPreset.();     // put 2.5 back, for the recall test below
 
@@ -158,7 +157,7 @@ fam[\nameField][\string] = "Decoy Two";        // still armed, different name
 // Back to one preset, so the folder assertions further down still describe it.
 ~presetDisarm.(\granular);
 ["decoy-one", "decoy-two"].do { |slug|
-    File.delete(~granularPresetDir +/+ slug ++ ".scd")
+    File.delete(~granularPresetDir +/+ slug ++ ".json")
 };
 ~loadGranularPreset.("frozen-cathedral");
 ~refreshGranularPresetList.();
@@ -177,7 +176,7 @@ fam[\nameField][\string] = "something else";
 // A slug with no file behind it: report it and rescan, rather than leaving the
 // menu claiming something that is gone.
 ~tEq.("loading a missing file reports failure", ~loadGranularPreset.("ghost"), false);
-~tEq.("...and says which", statusOf.(\granular), "Missing file: ghost.scd");
+~tEq.("...and says which", statusOf.(\granular), "Missing file: ghost.json");
 
 // Deleted outside megalooper while OTHER presets remain: the rescan must clear
 // the selection and say so, because the menu index of everything below the
@@ -185,7 +184,7 @@ fam[\nameField][\string] = "something else";
 fam[\nameField][\string] = "Keeper";
 ~saveGranularPreset.();
 fam[\loaded] = "frozen-cathedral";
-File.delete(~granularPresetDir +/+ "frozen-cathedral.scd");
+File.delete(~granularPresetDir +/+ "frozen-cathedral.json");
 ~refreshGranularPresetList.();
 ~tAssert.("a vanished preset clears the selection, with a reason",
     statusOf.(\granular).contains("gone from disk"), statusOf.(\granular));
@@ -199,7 +198,7 @@ File.delete(~granularPresetDir +/+ "frozen-cathedral.scd");
 // is on the record rather than a surprise.
 fam[\loaded] = "keeper";
 ~granularPresetSetStatus.("something else entirely");
-File.delete(~granularPresetDir +/+ "keeper.scd");
+File.delete(~granularPresetDir +/+ "keeper.json");
 ~refreshGranularPresetList.();
 ~tEq.("the last preset vanishing clears the selection", fam[\loaded], nil);
 ~tEq.("...silently — the empty menu label is the explanation",
@@ -295,7 +294,7 @@ fam[\nameFocused] = false;
     ~presetFamilies[key][\items] = [nil];
 };
 [~bbcutPresetDir, ~granularPresetDir].do { |d|
-    (d +/+ "*.scd").pathMatch.do { |f| File.delete(f) };
+    (d +/+ "*.json").pathMatch.do { |f| File.delete(f) };
 };
 ~looper            = savedLooper;
 ~bbcutPresetDir    = savedBDir;

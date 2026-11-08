@@ -378,7 +378,7 @@ d = ctx[\chains][0][\devices].detect { |x| x[\type] == \plugin };
 ~tEq.("...and each chain's delay in seconds", [ctx[\lg], ctx[\ll]],
     [sa.guitarChain.latency(48000) / 48000, sa.loopChain.latency(48000) / 48000]);
 ~tAssert.("...beside what the Looper says itself", ctx[\threshold].notNil and: { ctx[\state] == \empty } and: { ctx[\fallback].notNil });
-line = MegaFiles.parseObject(LooperSessionRecorder.json(ctx));
+line = MegaFiles.parseObject(MegaFiles.json(ctx));
 ~tAssert.("the header is JSON that reads, the chains a list in it", line.isKindOf(MegaJsonObject) and: { line.at("chains").isKindOf(Array) }
     and: { line.at("chains")[0].at("devices").size == sa.guitarChain.devices.size }, line.asString);
 ~looper.sessionExtras = { (state: \hijacked, threshold: -1, more: 7) };

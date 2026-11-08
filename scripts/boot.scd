@@ -90,10 +90,21 @@ if(File.exists(~sessionDir).not) { File.mkdir(~sessionDir) };
     [~saDrumsPresetDir, "sa" +/+ "drum-presets", "drum presets"]
 ].do { |x|
     var from = ~megalooperRoot +/+ "presets" +/+ x[1];
-    var took = MegaFiles.adopt(from, x[0]);
+    var took = MegaFiles.adopt(from, x[0], ["*.json", "*.scd"]);
     if(took.notNil and: { took.notEmpty }) {
         ("megalooper: your " ++ x[2] ++ " are now in " ++ x[0] ++ ": " ++ took.size
             ++ " copied from " ++ from ++ ", where they stay.").postln;
+    };
+};
+// Presets were SC literals until 2026-11-08, run when read; they are JSON
+// now, nothing in them run. A folder's old ones are carried over once
+// (Looper.migratePresets; the drums' in ~setupSADrums): written as JSON
+// beside them, the .scd files left as they were for an older megalooper.
+[[\bbcut, ~bbcutPresetDir, "BBCut"], [\granular, ~granularPresetDir, "Granular"]].do { |x|
+    var moved = Looper.migratePresets(x[0], x[1]);
+    if(moved.notEmpty) {
+        ("megalooper: " ++ moved.size ++ " " ++ x[2] ++ " preset(s) of yours are JSON now (" ++ x[1]
+            ++ "); the old .scd files stay beside them, as they were, for an older megalooper.").postln;
     };
 };
 if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };

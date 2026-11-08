@@ -28,13 +28,19 @@ data = l.bbcutPresetData("Round Trip");
 ~tEq.("captures one voice", data[\voices].size, 1);
 ~tEq.("captures the proc", data[\voices][0][\proc], \warp);
 
-str = l.bbcutPresetString(data);
-parsed = ~tCheck.("the serialised preset compiles", { str.compile.value });
+// The file is JSON, nothing in it run (since 2026-11-08): Symbols come back
+// as Strings, and the validator makes them Symbols again.
+str = l.bbcutPresetText(data);
+parsed = MegaFiles.parseObject(str);
+~tAssert.("the serialised preset is one JSON object, a BBCut preset",
+    parsed.isKindOf(MegaJsonObject) and: { parsed.at("format") == Looper.bbcutPresetFormat }, str.keep(200));
+parsed = MegaFiles.eventOf(parsed);
 ~tAssert.("...and yields an Event", parsed.isKindOf(Dictionary),
     "got a " ++ parsed.class);
-~tAssert.("the file leads with comments, not a trailing one",
-    str.beginsWith("//"),
-    "a trailing comment would make interpret return nil");
+~tEq.("...its fields in the file's order, a voice a line",
+    str.split($\n).keep(7).collect { |line| line.stripWhiteSpace.keep(9) },
+    ["{", "\"format\":", "\"version\"", "\"name\": \"", "\"savedAt\"", "\"mode\": \"", "\"voices\":"]);
+~tEq.("...the proc a String in the file", parsed[\voices][0][\proc], "warp");
 
 l.setVoiceProc(0, \break); l.setVoiceRatio(0, 1); l.setVoiceAmp(0, 0.2);
 l.setVoicePan(0, 0);

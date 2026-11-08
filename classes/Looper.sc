@@ -3078,7 +3078,7 @@ Looper {
         var fmtArr, jesc, det, jstr, file;
 
         fmtArr = { |arr| "[" ++ arr.collect({ |x| x.asString }).join(", ") ++ "]" };
-        jesc   = { |s| "\"" ++ s.asString.replace("\\", "\\\\").replace("\"", "\\\"") ++ "\"" };
+        jesc   = { |s| MegaFiles.jsonString(s) };
 
         // The analyzer's guess at export time (may carry an \error symbol).
         det = if(lastResult.isNil) { "null" } {
@@ -3286,16 +3286,18 @@ Looper {
     // are server resources and are deliberately excluded — a preset describes
     // what to build, never what is currently built.
     //
-    // On disk: one file per preset, holding a single SC literal written with
-    // asCompileString and read back with .interpret. Symbols, Integers and
-    // Floats all survive the round trip. Floats store at ~14 digits, so a 2/3
-    // ratio comes back as 0.66666666666667 — inaudible, and the GUI's ratio
-    // menu selects by nearest match anyway.
+    // On disk: one JSON file per preset (<slug>.json, "megalooper bbcut"),
+    // nothing in it run (docs/dev/architecture.md 3.7; until 2026-11-08 an SC
+    // literal, carried over once: Looper.migratePresets). Integers and Floats
+    // survive the round trip; Symbols come back as Strings and the validator
+    // makes them Symbols again, as it did for a hand-edited literal. Floats
+    // store at ~14 digits, so a 2/3 ratio comes back as 0.66666666666667 —
+    // inaudible, and the GUI's ratio menu selects by nearest match anyway.
 
     bbcutPresetVersion { ^1 }
+    *bbcutPresetFormat { ^"megalooper bbcut" }
 
-    // Plain Events / Arrays / Symbols / numbers only, so the whole structure
-    // survives asCompileString -> file -> interpret unchanged.
+    // Plain Events / Arrays / Symbols / numbers only, as JSON holds them.
     bbcutPresetData { |name|
         ^(
             version: this.bbcutPresetVersion,
@@ -3319,37 +3321,9 @@ Looper {
         )
     }
 
-    // One voice per line, keys in a fixed order. Event:storeOn would emit hash
-    // order and wrap every 5 entries, which makes for noisy diffs in a file
-    // that lives in git; the values themselves still go through
-    // asCompileString, so the body stays a single interpretable expression.
-    bbcutVoiceString { |vd|
-        ^"( enabled: "  ++ vd[\enabled].asCompileString
-        ++ ", proc: "   ++ vd[\proc].asCompileString
-        ++ ", synth: "  ++ vd[\synth].asCompileString
-        ++ ", fx: "     ++ vd[\fx].asCompileString
-        ++ ", ratio: "  ++ vd[\ratio].asCompileString
-        ++ ", amp: "    ++ vd[\amp].asCompileString
-        ++ ", pan: "    ++ vd[\pan].asCompileString
-        ++ ", params: " ++ vd[\params].asCompileString
-        ++ " )"
-    }
-
-    // Comments must come FIRST: a trailing comment would leave interpret
-    // returning nil.
-    bbcutPresetString { |data|
-        var voiceLines = data[\voices].collect { |vd| "        " ++ this.bbcutVoiceString(vd) };
-        ^"// megalooper BBCut preset — a SuperCollider literal, safe to hand-edit.\n"
-        ++ "// Unknown or out-of-range values are corrected on load (see the post window).\n"
-        ++ "(\n"
-        ++ "    version: " ++ data[\version] ++ ",\n"
-        ++ "    name: "    ++ data[\name].asCompileString ++ ",\n"
-        ++ "    savedAt: " ++ data[\savedAt].asCompileString ++ ",\n"
-        ++ "    mode: "    ++ data[\mode].asCompileString ++ ",\n"
-        ++ "    voices: [\n"
-        ++ voiceLines.join(",\n") ++ "\n"
-        ++ "    ]\n"
-        ++ ")\n"
+    // The file's text: one field a line, a voice a line (MegaFiles.jsonText).
+    bbcutPresetText { |data|
+        ^MegaFiles.eventText(data, Looper.bbcutPresetFormat, Looper.prPresetFamilies[\bbcut][\order])
     }
 
     // Fail-soft by field, reject by file. A preset is user-editable text that
@@ -3565,32 +3539,20 @@ Looper {
         ^slug.keep(64)
     }
 
-    // What a preset file holds: its code compiled, then run on a Routine's
-    // own stack under try. An error inside interpreted code, even one caught,
-    // leaves that code's half-built expression on the stack of the thread
-    // that ran it (measured, SC 3.14.1), and the caller's next expression then
-    // works on it: `1000 + load(...).binaryValue` came out as the Symbol the
-    // literal had reached. A Routine has a stack of its own. Answers the value,
-    // or nil after telling `why` (a function) "it does not parse" or "failed
-    // to run — <error>". Every preset family reads its files through this:
-    // the Looper's (prLoadPreset), MegaSA's effects and Megalooper SA's drums.
-    *readPresetFile { |path, why|
-        var fn, data;
-        fn = (File.readAllString(path) ? "").compile;
-        if(fn.isNil) { why.value("it does not parse"); ^nil };
-        try { Routine { data = fn.value }.next } { |err|
-            why.value("failed to run — " ++ err.errorString);
-            data = nil;
-        };
-        ^data
-    }
+    // An SC literal file run the old way, on a Routine's own stack under try
+    // (MegaFiles.runLiteral, which says why). No preset is read this way any
+    // more: only your rigs (profiles.scd, code by design) and the files of
+    // before the chains, carried over once.
+    *readPresetFile { |path, why| ^MegaFiles.runLiteral(path, why) }
 
     // ---- Shared preset storage ------------------------------------------
     //
     // The two families differ in what a preset CONTAINS, not in how it is
-    // stored: one file per preset holding a single SC literal, written with
-    // asCompileString and read back with .interpret. Storage is therefore
-    // written once below, and this table is the whole difference between them.
+    // stored: one JSON file per preset (MegaFiles.writeEvent, whole or not at
+    // all; MegaFiles.readEvent, nothing run). Storage is therefore written
+    // once below, and this table is the whole difference between them:
+    // `format` names the file's kind, `order` its fields' order, `what` the
+    // kind in a refusal, `version` the newest this build reads (a method).
     //
     // `summary` names the method that describes a saved preset in one line for
     // the post window — the only other thing the two sides did differently.
@@ -3598,48 +3560,51 @@ Looper {
         ^(
             bbcut: (
                 label:   "BBCut",
+                format:  this.bbcutPresetFormat,
+                what:    "megalooper BBCut preset",
+                order:   #[\version, \name, \savedAt, \mode, \voices],
+                version: \bbcutPresetVersion,
                 data:    \bbcutPresetData,
-                string:  \bbcutPresetString,
                 apply:   \applyBBCutPreset,
                 summary: \prBBCutPresetSummary
             ),
             granular: (
                 label:   "Granular",
+                format:  this.granularPresetFormat,
+                what:    "megalooper granular preset",
+                order:   #[\version, \name, \savedAt, \env, \followChords]
+                    ++ this.granularPresetFields.collect { |f| f[0] },
+                version: \granularPresetVersion,
                 data:    \granularPresetData,
-                string:  \granularPresetString,
                 apply:   \applyGranularPreset,
                 summary: \prGranularPresetSummary
             )
         )
     }
 
-    // Slugs only. Reading each file's display name would mean interpreting every
-    // file just to build a menu, and interpret executes arbitrary code — do that
-    // only for a preset the user explicitly loads.
+    // Slugs only, of the JSON files: an old .scd is not a preset any more
+    // (migratePresets carries those over once), and a menu reads no file.
     presetNames { |dir|
         if(dir.isNil or: { File.exists(dir).not }) { ^[] };
-        ^(dir +/+ "*.scd").pathMatch
+        ^(dir +/+ "*.json").pathMatch
             .collect { |p| PathName(p).fileNameWithoutExtension }
             .sort
     }
 
-    presetPath { |dir, name| ^dir +/+ this.prPresetSlug(name) ++ ".scd" }
+    presetPath { |dir, name| ^dir +/+ this.prPresetSlug(name) ++ ".json" }
 
     prSavePreset { |family, dir, name|
         var f = Looper.prPresetFamilies[family];
-        var slug, path, file, data;
+        var slug, path, data, why;
         if(dir.isNil) { (f[\label] ++ " preset: no directory given.").warn; ^nil };
         slug = this.prPresetSlug(name);
-        path = dir +/+ slug ++ ".scd";
+        path = this.presetPath(dir, slug);
         data = this.perform(f[\data], name);
-        if(File.exists(dir).not) { File.mkdir(dir) };
-        file = File(path, "w");
-        if(file.isOpen.not) {
-            (f[\label] ++ " preset: could not write " ++ path).warn;
+        why = MegaFiles.writeEvent(path, data, f[\format], f[\order]);
+        if(why.notNil) {
+            (f[\label] ++ " preset: could not write " ++ path ++ " (" ++ why ++ ")").warn;
             ^nil
         };
-        file.write(this.perform(f[\string], data));
-        file.close;
         (f[\label] ++ " preset saved: " ++ slug ++ " ("
             ++ this.perform(f[\summary], data) ++ ").").postln;
         ^slug
@@ -3653,7 +3618,7 @@ Looper {
             (f[\label] ++ " preset: no such preset " ++ path.basename).warn;
             ^false
         };
-        data = Looper.readPresetFile(path, { |why|
+        data = MegaFiles.readEvent(path, f[\format], this.perform(f[\version]), f[\what], { |why|
             (f[\label] ++ " preset: " ++ path.basename ++ ": " ++ why).warn;
         });
         if(data.isNil) { ^false };
@@ -3665,6 +3630,20 @@ Looper {
         if(File.exists(path).not) { ^false };
         File.delete(path);
         ^true
+    }
+
+    // A family's old presets in `dir` (SC literals, <slug>.scd) carried over
+    // to JSON, once (MegaFiles.migrateFolder: each read the old way one last
+    // time and written beside it; the .scd files stay where they are, for an
+    // older megalooper, and a marker says the folder is done). Class-side: a
+    // boot does it before there is a Looper. Answers the slugs carried over.
+    *migratePresets { |family, dir|
+        var f = this.prPresetFamilies[family];
+        ^MegaFiles.migrateFolder(dir, { |old, json|
+            MegaFiles.migrateFile(old, json, f[\format], f[\order], { |why|
+                (f[\label] ++ " preset " ++ old.basename ++ " was not carried over to JSON (" ++ why
+                    ++ "); it stays as it was, and is not read.").warn })
+        })
     }
 
     // One line each, for the save confirmation in the post window.
@@ -3692,10 +3671,9 @@ Looper {
     // ===================================================================
     // Granular presets
     // ===================================================================
-    // Same shape as the BBCut presets above, deliberately: one file per preset
-    // holding a single SC literal, written with asCompileString and read back
-    // with .interpret, and `dir` passed in rather than derived because this
-    // class is compiled through a symlink in Extensions.
+    // Same shape as the BBCut presets above, deliberately: one JSON file per
+    // preset ("megalooper granular"), and `dir` passed in rather than derived
+    // because this class is compiled through a symlink in Extensions.
     //
     // One table drives the file's field order, the validator's ranges and the
     // apply, so those three cannot drift apart — which is the failure mode a
@@ -3718,6 +3696,7 @@ Looper {
     }
 
     granularPresetVersion { ^1 }
+    *granularPresetFormat { ^"megalooper granular" }
 
     granularPresetSlug  { |name| ^this.prPresetSlug(name) }
     granularPresetPath  { |dir, name| ^this.presetPath(dir, name) }
@@ -3740,21 +3719,9 @@ Looper {
         ^data
     }
 
-    // Comments FIRST: a trailing comment would leave interpret returning nil.
-    granularPresetString { |data|
-        var lines = Looper.granularPresetFields.collect { |f|
-            "    " ++ f[0].asString ++ ": " ++ data[f[0]].asCompileString
-        };
-        ^"// megalooper granular preset — a SuperCollider literal, safe to hand-edit.\n"
-        ++ "// Unknown or out-of-range values are corrected on load (see the post window).\n"
-        ++ "(\n"
-        ++ "    version: " ++ data[\version] ++ ",\n"
-        ++ "    name: "    ++ data[\name].asCompileString ++ ",\n"
-        ++ "    savedAt: " ++ data[\savedAt].asCompileString ++ ",\n"
-        ++ "    env: "     ++ data[\env].asCompileString ++ ",\n"
-        ++ "    followChords: " ++ (data[\followChords] == true).asCompileString ++ ",\n"
-        ++ lines.join(",\n") ++ "\n"
-        ++ ")\n"
+    // The file's text: one field a line (MegaFiles.jsonText).
+    granularPresetText { |data|
+        ^MegaFiles.eventText(data, Looper.granularPresetFormat, Looper.prPresetFamilies[\granular][\order])
     }
 
     // Fail-soft by field, reject by file — the same contract the BBCut

@@ -252,7 +252,11 @@ preset deleted or renamed leaves its control greyed in the MIDI map's list.
 - **Drum presets** are in `sa/drum-presets/` in your megalooper folder
   (`~/Library/Application Support/SuperCollider/megalooper/`).
 - **The drums a start begins with** (the pane's **Start with this**) are in
-  `sa/kept-drums/drums.scd` there.
+  `sa/kept-drums/drums.json` there.
+- Both are JSON files, safe to hand-edit; nothing in them is run. Presets and
+  kept drums saved by an older megalooper were SuperCollider files (`.scd`):
+  the first start carries each over to JSON beside it once, and leaves the
+  old file where it was.
 
 ## The kit file
 

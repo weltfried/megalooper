@@ -114,6 +114,18 @@ o.add("alpha", [true, nil, \sym, "str", 2.5], "x");
 ~tEq.("an object's members go out in their own order", MegaFiles.json(o), "{\"zed\": 1, \"alpha\": [true, null, \"sym\", \"str\", 2.5]}");
 ~tEq.("...a Dictionary's sorted by name", MegaFiles.json((b: 1, a: (d: inf, c: "x"))), "{\"a\": {\"c\": \"x\", \"d\": null}, \"b\": 1}");
 ~tEq.("what was written reads back the same", MegaFiles.json(MegaFiles.parseObject(MegaFiles.json(o))), MegaFiles.json(o));
+// One encoder (since 2026-11-08: the recorder's stream encoder folded in):
+// the fast path for plain strings must not let a control character through.
+~tEq.("the one encoder writes any string so it reads back, a control character as \\u, in a key too",
+    [MegaFiles.parseObject(MegaFiles.json((s: nasty))).at("s"), MegaFiles.json("x" ++ 1.asAscii),
+        MegaFiles.json(("k" ++ 1.asAscii).asSymbol), MegaFiles.json("g/é"), MegaFiles.json(Ref("[1,2]"))],
+    [nasty, "\"x\\u0001\"", "\"k\\u0001\"", "\"g/é\"", "[1,2]"]);
+{
+    var s = CollStream(String.new), pauses = 0;
+    MegaFiles.jsonOn(s, (a: [1, 2], b: (c: "q\"t")), { pauses = pauses + 1 });
+    ~tEq.("...into a stream, pausing after every member, as json writes it",
+        [s.contents, pauses], [MegaFiles.json((a: [1, 2], b: (c: "q\"t"))), 3]);
+}.value;
 got = 311.0913;
 ~tEq.("a number written and read is written the same again", MegaFiles.jsonNumber(MegaFiles.parseObject("{\"x\": "
     ++ MegaFiles.jsonNumber(got) ++ "}").at("x")), MegaFiles.jsonNumber(got));
@@ -171,6 +183,75 @@ File.use(root +/+ "deep" +/+ "mine" +/+ "b.scd", "w", { |f| f.write("mine now") 
 ~tEq.("with no old folder, yours is made empty",
     [MegaFiles.adopt(root +/+ "never", root +/+ "fresh"), File.exists(root +/+ "fresh"), MegaFiles.adopt(nil, root +/+ "fresh2")], [[], true, []]);
 ~tEq.("another kind of file by its pattern", MegaFiles.adopt(root +/+ "old", root +/+ "texts", "*.txt"), ["note.txt"]);
+~tEq.("...or several kinds, each file once", MegaFiles.adopt(root +/+ "old", root +/+ "both", ["*.txt", "*.scd", "a.*"]),
+    ["a.scd", "b.scd", "note.txt"]);
+
+// ---- a preset as an Event (the drums', the cutter's, the grains') -----------------
+{
+    var data = (version: 1, name: "Take \"1\"", mode: \insert, lanes: [[1, 0], [0, 1]], voices: [(amp: 0.5, fx: [\rev])],
+        empty: (), inner: (b: 2, a: 1), ratio: 2/3);
+    var order = [\version, \name, \voices, \a];
+    var text = MegaFiles.eventText(data, "megalooper test", order), back, said = List.new, lines;
+    lines = text.split($\n);
+    ~tEq.("an Event as a file: the format first, then the fields in the order given, the others sorted",
+        lines.select { |l| l.beginsWith("  \"") }.collect { |l| l.stripWhiteSpace.split($:)[0] },
+        ["format", "version", "name", "voices", "empty", "inner", "lanes", "mode", "ratio"].collect { |k| "\"" ++ k ++ "\"" });
+    ~tEq.("...a list of lists or objects a line each, an empty object {}, a nested object in the same order",
+        [lines.includesEqual("    [0, 1]"), lines.includesEqual("    {\"amp\": 0.5, \"fx\": [\"rev\"]}"),
+            lines.includesEqual("  \"empty\": {},"), lines.includesEqual("    \"a\": 1,")], [true, true, true, true]);
+    back = MegaFiles.eventOf(MegaFiles.parseObject(text));
+    ~tEq.("...read back as the Event it was: Symbol keys, Arrays, numbers of their kind, Symbols as Strings",
+        [back[\name], back[\mode], back[\lanes], back[\voices][0][\fx], back[\inner][\a].class, back[\empty] !? { |e| e.isKindOf(Dictionary) and: { e.isEmpty } }, back[\format]],
+        ["Take \"1\"", "insert", [[1, 0], [0, 1]], ["rev"], Integer, true, "megalooper test"]);
+    ~tNear.("...a Float to ~14 digits", back[\ratio], 2/3, 1e-12);
+    path = root +/+ "events" +/+ "take.json";
+    ~tEq.("writeEvent writes it whole, and readEvent reads it without its format",
+        [MegaFiles.writeEvent(path, data, "megalooper test", order), MegaFiles.readEvent(path, "megalooper test", 1, "test file", { |w| said.add(w) }) !? { |e| [e[\name], e[\format]] }],
+        [nil, ["Take \"1\"", nil]]);
+    [
+        ["a missing file", root +/+ "events" +/+ "none.json", nil, "it is not there or can't be read"],
+        ["no JSON", root +/+ "events" +/+ "bad.json", "( version: 1 )", "it is not JSON"],
+        ["another kind", root +/+ "events" +/+ "other.json", "{\"format\": \"megalooper drums\"}", "it is not a test file"],
+        ["a newer version", root +/+ "events" +/+ "newer.json", "{\"format\": \"megalooper test\", \"version\": 2}", "it is from a newer megalooper"]
+    ].do { |c|
+        said = List.new;
+        c[2] !? { |t| File.use(c[1], "w", { |f| f.write(t) }) };
+        ~tAssert.("readEvent refuses " ++ c[0] ++ " whole, and says why",
+            MegaFiles.readEvent(c[1], "megalooper test", 1, "test file", { |w| said.add(w) }).isNil
+                and: { said.size == 1 } and: { said[0].beginsWith(c[3]) }, said.asString);
+    };
+}.value;
+
+// ---- the old presets, SC literals, carried over once -------------------------------
+{
+    var dir = root +/+ "olds", said = List.new, moved;
+    ~tMegaFilesRan = nil;
+    File.mkdir(dir);
+    File.use(dir +/+ "good.scd", "w", { |f| f.write("// a comment\n( version: 1, name: \"good\", mode: 'gate' )") });
+    File.use(dir +/+ "throws.scd", "w", { |f| f.write("( version: 1, amp: nil.foo )") });
+    File.use(dir +/+ "number.scd", "w", { |f| f.write("42") });
+    File.use(dir +/+ "there.scd", "w", { |f| f.write("( version: 1, name: \"old\" )") });
+    File.use(dir +/+ "there.json", "w", { |f| f.write("{\"format\": \"megalooper test\", \"name\": \"mine\"}") });
+    ~tEq.("runLiteral: an SC literal run on a stack of its own; one that throws is nil, and the caller's sum is whole",
+        [MegaFiles.runLiteral(dir +/+ "good.scd", { |w| said.add(w) }) !? { |e| e[\mode] },
+            1000 + (MegaFiles.runLiteral(dir +/+ "throws.scd", { |w| said.add(w) }) ? 0), said.size],
+        [\gate, 1000, 1]);
+    said = List.new;
+    moved = MegaFiles.migrateFolder(dir, { |old, json| MegaFiles.migrateFile(old, json, "megalooper test", [\version], { |w| said.add(old.basename) }) });
+    ~tEq.("migrateFolder: each .scd carried over that reads as an Event (one already there counts, untouched); the others said",
+        [moved, said.asArray.sort, MegaFiles.readEvent(dir +/+ "good.json", "megalooper test", 1, "test", nil) !? { |e| e[\mode] },
+            MegaFiles.readText(dir +/+ "there.json").contains("mine")],
+        [["good", "there"], ["number.scd", "throws.scd"], "gate", true]);
+    ~tEq.("...the old files stay, and the folder is marked",
+        [(dir +/+ "*.scd").pathMatch.size, MegaFiles.migrated(dir)], [4, true]);
+    File.use(dir +/+ "later.scd", "w", { |f| f.write("~tMegaFilesRan = true; ( version: 1 )") });
+    ~tEq.("...once: a .scd put there later is never run",
+        [MegaFiles.migrateFolder(dir, { |old, json| MegaFiles.migrateFile(old, json, "megalooper test", nil, nil) }), ~tMegaFilesRan], [[], nil]);
+    File.mkdir(root +/+ "olds-empty");
+    ~tEq.("...a folder with nothing to carry is marked all the same; a missing one is not made",
+        [MegaFiles.migrateFolder(root +/+ "olds-empty", nil), MegaFiles.migrated(root +/+ "olds-empty"),
+            MegaFiles.migrateFolder(root +/+ "olds-none", nil), File.exists(root +/+ "olds-none")], [[], true, [], false]);
+}.value;
 
 // The boot's folders: everything megalooper saves goes under your folder. The
 // repo's presets/ is named only as what the first boot copies from.
@@ -183,7 +264,9 @@ text = MegaFiles.readText(Looper.repoRoot +/+ "scripts" +/+ "boot.scd") ? "";
 ~tAssert.("...which is the scratch one when a test moved it",
     text.contains("~userRoot          = ~midiUserRootOverride ?? { MegaFiles.userRoot };"));
 ~tEq.("the boot names the repo's presets folder once: as what the first boot copies from",
-    [text.findAll("~megalooperRoot +/+ \"presets\"").size, text.contains("MegaFiles.adopt(from, x[0])")], [1, true]);
+    [text.findAll("~megalooperRoot +/+ \"presets\"").size, text.contains("MegaFiles.adopt(from, x[0], [\"*.json\", \"*.scd\"])")], [1, true]);
+~tAssert.("...and carries the cutter's and the grains' old presets over to JSON after it",
+    text.find("MegaFiles.adopt(from, x[0]") !? { |a| text.find("Looper.migratePresets(x[0], x[1])") !? { |m| m > a } } == true);
 
 ~tRemoveTree.(root);
 ~tAssert.("the scratch folder is gone again", File.exists(root).not);

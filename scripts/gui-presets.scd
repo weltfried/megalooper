@@ -43,7 +43,7 @@
         names: nil, slug: nil,  // the model's selectors
         save: nil, load: nil, delete: nil,
         model: nil,             // function answering the model; nil = ~looper
-        ext: ".scd",            // what a preset's file ends in (a sound's: ".json")
+        ext: ".json",           // what a preset's file ends in (every family's is JSON since 2026-11-08)
         // True if the model's save answers before the file is written (a
         // sound waits for its plugin's state): the list is then read again
         // by whoever hears that it is (the Effects pane), not at once, when
@@ -263,7 +263,7 @@
 ~presetLoad = { |key, slug|
     var fam  = ~presetFamilies[key];
     var dir  = ~presetDir.(key);
-    var ext  = fam[\ext] ? ".scd";
+    var ext  = fam[\ext] ? ".json";
     var path = dir +/+ slug ++ ext;
     var ok = false;
     if(File.exists(path).not) {

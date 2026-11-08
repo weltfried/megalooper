@@ -525,8 +525,15 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
         p.do { |c| if("[]*?\\".includes(c)) { out = out ++ "\\" }; out = out ++ c.asString };
         out
     };
+    // Dotfiles too (a folder's .presets-json marker, MegaFiles.migrated);
+    // glob's ".*" also answers "." and "..", which are never followed.
     var rm = { |p|
-        (quote.(p) +/+ "*").pathMatch.do { |x| if(x.last == $/) { rm.(x.drop(-1)) } { File.delete(x) } };
+        ((quote.(p) +/+ "*").pathMatch ++ (quote.(p) +/+ ".*").pathMatch).do { |x|
+            var bare = if(x.last == $/) { x.drop(-1) } { x };
+            if(bare.endsWith("/.").not and: { bare.endsWith("/..").not }) {
+                if(x.last == $/) { rm.(bare) } { File.delete(x) }
+            };
+        };
         File.delete(p);
     };
     if(path.notNil and: { path.beginsWith(PathName.tmp) } and: { File.exists(path) }) { rm.(path) };
