@@ -40,9 +40,11 @@
 // be built before the routing profile is resolved.
 (
 // ---- Small builders -------------------------------------------------------------------
-// The words for a control's footswitch: its key, and the first binding the
-// MIDI map has for it ("R · PC 4"). Kept as the map changes (~midiWatch).
-~performSw = { |key, id|
+// The words for a control's footswitch: its key (~controlKeys), and the first
+// binding the MIDI map has for it ("R · PC 4"). Kept as the map changes
+// (~midiWatch).
+~performSw = { |id|
+    var key = ~controlKeyFor !? { |f| f.(id) };
     var w = ~midiWords.(id);
     var first = w !? { |s| s.split($,).first.stripWhiteSpace };
     (key ? "") ++ (if(key.notNil and: { first.notNil }) { " · " } { "" }) ++ (first ? "")
@@ -245,12 +247,13 @@
 };
 
 // An action tile: the label, its footswitch words top right, the line under it.
-~performAction = { |key, label, keyChar, id, action, tip|
+// It presses its control (~controlDo), as its key and its footswitch do.
+~performAction = { |key, label, id, tip|
     var tile = ~midiTip.(LooperTile().states_([[label, ~gt[\ink], ~gt[\panel]]]).cycles_(false)
         .border_(~gt[\line]).borderWidth_(2).align_(\left).font_(~guiSans.(17, true))
         // Both columns of tiles the same width: a long label is drawn smaller.
-        .fixedHeight_(56).minWidth_(120).action_({ ~looper !? { |l| action.(l) } }), id, tip);
-    ~midiWatch.(tile, { |t| t.sw_(~performSw.(keyChar, id)) });
+        .fixedHeight_(56).minWidth_(120).action_({ ~controlDo.(id, \press, nil, \gui) }), id, tip);
+    ~midiWatch.(tile, { |t| t.sw_(~performSw.(id)) });
     ~performActions[key] = tile;
     tile
 };
@@ -322,7 +325,7 @@
         .states_([["EMPTY", ~gt[\mute], nil], ["FORWARD", Color.white, ~gt[\loop]], ["REVERSE", Color.white, ~gt[\loop]],
             ["EMPTY · REVERSE", ~gt[\loop], nil], ["REVERSE NEXT", ~gt[\onacc], ~gt[\armed]],
             ["FORWARD NEXT", ~gt[\onacc], ~gt[\armed]]])
-        .action_({ ~looper !? { |lp| lp.reverse } }),
+        .action_({ ~controlDo.('looper.reverse', \press, nil, \gui) }),
         'looper.reverse', "Play the loop backwards, or forwards again, from the next loop, as half-time lands; "
             "again before then, it is taken back. Key V.");
     ~feedbackSlider = ~mapTag.(~guiBar.(\loop)
@@ -334,21 +337,21 @@
     ~performLengthLabel = ~performValue.("—");
     ~performMultiplyTile = ~midiTip.(LooperTile().states_([["× 2  Multiply", ~gt[\ink], nil]]).cycles_(false)
         .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
-        .action_({ ~looper !? { |lp| lp.multiply } }),
+        .action_({ ~controlDo.('looper.multiply', \press, nil, \gui) }),
         'looper.multiply', "Extend the loop by a whole number of repetitions. Key M.");
-    ~midiWatch.(~performMultiplyTile, { |t| t.sw_(~performSw.("M", 'looper.multiply')) });
+    ~midiWatch.(~performMultiplyTile, { |t| t.sw_(~performSw.('looper.multiply')) });
     // Half-time (docs/dev/rc600-picks.md, 3a), painted from the model: off,
     // armed (lands on the next loop), HALF, ending (with the pass).
     ~performHalfTile = ~midiTip.(LooperTile().cycles_(false)
         .states_([["½  Half-time", ~gt[\ink], nil], ["½  armed", ~gt[\onacc], ~gt[\armed]],
             ["½  HALF", Color.white, ~gt[\loop]], ["½  ending", ~gt[\onacc], ~gt[\armed]]])
         .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
-        .action_({ ~looper !? { |lp| lp.toggleHalfTime } }),
+        .action_({ ~controlDo.('looper.halfTime', \press, nil, \gui) }),
         'looper.halfTime', "The loop at half speed, an octave down, the drums and the synth's notes at half tempo with it. "
             "Lands on the next loop; again, it ends with the pass. Key L.");
-    ~midiWatch.(~performHalfTile, { |t| t.sw_(~performSw.("L", 'looper.halfTime')) });
+    ~midiWatch.(~performHalfTile, { |t| t.sw_(~performSw.('looper.halfTime')) });
     loopCol = ~performColumn.((key: \loop, name: "Loop",
-        sw: { ~performSw.("V", 'looper.reverse') },
+        sw: { ~performSw.('looper.reverse') },
         toggle: ~performLoopToggle,
         rows: [
             ~performParam.("Feedback", ~feedbackLabel, ~feedbackSlider),
@@ -358,7 +361,7 @@
 
     // ---- Cutter ------------------------------------------------------------------------
     ~bbcutButton = ~midiTip.(~guiLayerTile.(\cut)
-        .action_({ ~looper !? { |lp| lp.bbcut = lp.bbcut.not } }),
+        .action_({ ~controlDo.('looper.bbcut', \press, nil, \gui) }),
         'looper.bbcut', "Turn the breakbeat cutter on/off (key B). Refused, and left dark, with no analysed take.");
     // Mix vs the dry loop, à la Ableton Beat Repeat.
     ~bbcutModeSeg = ~guiSeg.(["Mix", "Insert", "Gate"], (height: 30, base: \panel,
@@ -383,7 +386,7 @@
         "The cutter's voices and what each plays, with its effects. Filled while the cutter runs and\n"
             "the voice is on. Add and edit them on the Sound view (key 2).");
     cutCol = ~performColumn.((key: \cut, name: "Cutter", view: \sound,
-        sw: { ~performSw.("B", 'looper.bbcut') },
+        sw: { ~performSw.('looper.bbcut') },
         toggle: ~bbcutButton, note: false,
         rows: [
             VLayout(~guiText.("Mode", 14, ~gt[\mute]), ~bbcutModeSeg[\view]).spacing_(5).margins_(0),
@@ -394,7 +397,7 @@
 
     // ---- Grains ------------------------------------------------------------------------
     ~granularPerformButton = ~midiTip.(~guiLayerTile.(\grain)
-        .action_({ ~looper !? { |lp| lp.toggleGranular } }),
+        .action_({ ~controlDo.('looper.granular', \press, nil, \gui) }),
         'looper.granular', "Turn the granular layer on/off (key G). Refused, and left dark, with no loop.");
     // Writes to the model only; the SimpleController pushes value changes
     // back to bar and label, so CC 118 stays in sync.
@@ -413,7 +416,7 @@
         "Which way Morph leans, the grains' pitch, their window and, when on, the chords they follow.\n"
             "Filled while the grains play. Set them on the Sound view (key 2).");
     grainCol = ~performColumn.((key: \grain, name: "Grains", view: \sound,
-        sw: { ~performSw.("G", 'looper.granular') },
+        sw: { ~performSw.('looper.granular') },
         toggle: ~granularPerformButton, note: false,
         rows: [
             ~performParam.("Morph", ~granularLabel, ~granularSlider),
@@ -436,10 +439,10 @@
     ~performOnsetNotesTile = if(sa) {
         ~guiLayerTile.(\drum, "Onset notes", "Onset notes", 28).font_(~guiSans.(14, true))
     } { ~guiLayerTile.(\drum) };
-    ~midiTip.(~performOnsetNotesTile.action_({ ~looper !? { |lp| lp.onsetNotes = lp.onsetNotes.not } }),
+    ~midiTip.(~performOnsetNotesTile.action_({ ~controlDo.('looper.onsetNotes', \press, nil, \gui) }),
         'looper.onsetNotes', "Play the loop's onsets as a drum part, locked to the loop: it keeps going\n"
             "when you stop playing, and repeats exactly.");
-    if(sa) { ~midiWatch.(~performOnsetNotesTile, { |t| t.sw_(~performSw.(nil, 'looper.onsetNotes')) }) };
+    if(sa) { ~midiWatch.(~performOnsetNotesTile, { |t| t.sw_(~performSw.('looper.onsetNotes')) }) };
 
     // ---- Megalooper SA: Effects and Drums ----------------------------------------------
     if(sa) {
@@ -484,7 +487,7 @@
             "Off: they keep time but stay silent until you switch them on (the tile above,\n"
             "or their footswitch). Overdubs leave them as they are. Kept for the next start.";
         drumCol = ~performColumn.((key: \drum, name: "Drums", view: \drums,
-            sw: { ~performSw.(nil, 'sa.drums.on') },
+            sw: { ~performSw.('sa.drums.on') },
             toggle: ~performDrumsTile,
             rows: [
                 ~performParam.("Kit", ~performDrumsKitLabel, ~performDrumsKit),
@@ -516,7 +519,7 @@
                 .action_({ ~megaSA !? { |m| m.wave.randomize; ~performPaintSynth.() } }),
                 'sa.synth.random', "Every setting of the Wave synth at random but its level and glide.");
             synthCol = ~performColumn.((key: \synth, name: "Synth", view: \synth,
-                sw: { ~performSw.(nil, 'sa.synth.on') },
+                sw: { ~performSw.('sa.synth.on') },
                 toggle: ~performSynthTile,
                 rows: [
                     ~performParam.("Cutoff", ~performSynthCutoffLabel, ~performSynthCutoff),
@@ -532,30 +535,28 @@
         // In the Drums' colour: they are a drum part, and no Drums column
         // shares this rig's Perform.
         drumCol = ~performColumn.((key: \drum, name: "Onset notes", view: \setup, page: \analysis,
-            sw: { ~performSw.(nil, 'looper.onsetNotes') },
+            sw: { ~performSw.('looper.onsetNotes') },
             toggle: ~performOnsetNotesTile,
             rows: [~performParam.("Chance", ~performOnsetChanceLabel, ~performOnsetChance)]));
     };
     columns = [loopCol, cutCol, grainCol] ++ (if(sa) { [fxCol, drumCol] ++ (synthCol !? { [synthCol] } ? []) } { [drumCol] });
 
     // ---- Actions ---------------------------------------------------------------------------
-    ~performAction.(\trigger, "Trigger", "R", 'looper.trigger', { |lp| lp.trigger },
+    ~performAction.(\trigger, "Trigger", 'looper.trigger',
         "Record / play / overdub — the one multi-purpose transport.");
-    ~performAction.(\stop, "Stop", "S", 'looper.stop', { |lp| lp.stopPlayback }, "Stop playback.");
-    ~breakButton = ~performAction.(\break, "Break", "K", 'looper.break', { |lp| lp.fireBreak },
+    ~performAction.(\stop, "Stop", 'looper.stop', "Stop playback.");
+    ~breakButton = ~performAction.(\break, "Break", 'looper.break',
         "Silence the looper from now until the downbeat the loop count below picks out.\n"
             "The loop keeps running underneath — only the output goes away — so the timing\n"
             "holds and the loop returns exactly where it would have been.");
-    ~nextReadingButton = ~performAction.(\reading, "Next reading", "A", 'looper.nextReading',
-        { |lp| lp.nextReading },
+    ~nextReadingButton = ~performAction.(\reading, "Next reading", 'looper.nextReading',
         "Move the take to the analyser's NEXT reading of it — the meter that scored second,\n"
             "then third, round to its own answer. Lands on a loop boundary where the bar line\n"
             "agrees, so nothing jumps; the audio and the onset notes never change.");
-    ~dissolveButton = ~performAction.(\dissolve, "Dissolve", "D", 'looper.dissolve', { |lp| lp.toggleDissolve },
+    ~dissolveButton = ~performAction.(\dissolve, "Dissolve", 'looper.dissolve',
         "Run the ending over the bar count below; press again to abort and restore.\n"
             "The cutter goes first, then the body of the loop, and the grains last.");
-    ~nextLoopButton = ~performAction.(\chain, "Rec next loop", "N", 'looper.recordNextLoop',
-        { |lp| lp.recordNextLoop },
+    ~nextLoopButton = ~performAction.(\chain, "Rec next loop", 'looper.recordNextLoop',
         if(~returnChannel.notNil) {
             "Record the next loop while this one plays. Starts and ends on a loop boundary,\n"
                 "at a whole number of repetitions."
@@ -565,11 +566,11 @@
     // A rig with no return channel has nothing to chain FROM: inert and
     // labelled, rather than a tile that does nothing.
     ~nextLoopButton.enabled_(~returnChannel.notNil);
-    ~performAction.(\undo, "Undo", "U", 'looper.undo', { |lp| lp.undo }, "Drop the last overdub.");
+    ~performAction.(\undo, "Undo", 'looper.undo', "Drop the last overdub.");
     // Destructive, and single-click — exactly like the C key and the
     // footswitch it mirrors. A confirmation here and not there would make the
     // tile the odd one out rather than the safe one.
-    ~performAction.(\clear, "Clear", "C", 'looper.clear', { |lp| lp.clear },
+    ~performAction.(\clear, "Clear", 'looper.clear',
         "Throw the loop away. Single click, like the key — there is no confirmation.");
 
     // The counts the Break and Dissolve tiles run over.

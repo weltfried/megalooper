@@ -263,7 +263,7 @@ s.waitForBoot {
     // says so: after the window, whose views and preset bars it hears too.
     ~actionsApply.();
 
-    "Boot complete. R=trigger S=stop M=multiply U=undo V=reverse G=granular B=bbcut K=break D=dissolve C=clear N=next-loop A=reading".postln;
+    ("Boot complete. Keys: " ++ ~controlKeysLine.() ++ " · E export.").postln;
     ("MIDI: " ++ (~midiMap !? { |m| m.name } ? "no map") ++ ", set on the Setup view; MIDI MAP (top right) maps a control. ~midiLog = false to silence the MIDI log.").postln;
     "Name fields (export, presets): click to type, Enter or Esc gives the keys back.".postln;
     ("Views: " ++ ~guiViewOrder.collect { |k| ~guiViewNumbers[k].asString ++ " " ++ ~guiViewLabels[k] }.join(" · ")

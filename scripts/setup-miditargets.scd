@@ -4,11 +4,13 @@
 // lists them. docs/dev/midi-map.md, section 4, is the design: every control its
 // table 4.2 names is here, and none of those 4.3 leaves out.
 //
-// Loaded by boot.scd; defines only, runs nothing. One entry point:
+// Loaded by boot.scd; defines only, runs nothing. Entry points:
 //   ~midiTargetsBuild — answers every control, as an IdentityDictionary
 //                       id -> Event. ~setupMidiBindings calls it. Given
 //                       \effects it answers SA's effects' controls alone,
 //                       for ~midiTargetsRefresh after a chain edit.
+//   ~controlDo        — drives one control by id, from any input: MIDI, the
+//                       keys, the window (the command layer, at the end).
 (
 // ---- The controls ------------------------------------------------------------
 // Every control a binding can drive, by id, as an Event:
@@ -757,5 +759,123 @@
     if(only == \effects) { t = t.select { |x, id| id.asString.beginsWith("sa.fx") } };
     if(only == \drumPresets) { t = t.select { |x, id| id.asString.beginsWith("sa.drums.preset.") } };
     t
+};
+
+// ---- The command layer -----------------------------------------------------------
+// docs/dev/architecture.md, 5, step 1. The controls above are the one list of
+// what can be driven; this is the one way to drive them, whatever drives:
+// MIDI (the router's ~midiApply, setup-midimap.scd), the keys (~controlKeys,
+// below; gui-shell.scd's ~guiKeyDown) and the window's tiles. A control acts
+// through its model's own methods, as it always did, so what changes is only
+// that the same press means the same thing from every input.
+//
+//   ~controlDo.(id, verb, value, source)
+//       Drives the control `id`, if it is there now (its `available`):
+//         \press     what a tile or a key means: a trigger fires, a switch
+//                    flips, a choice steps on, a level goes to the end
+//                    further from where it is (the default)
+//         \fire      a trigger
+//         \flip      a switch (or, as MIDI's note on a level, its far end)
+//         \set       to `value`, in the control's own units
+//         \position  to `value` along its law, 0..1, as its widget moves
+//         \next      a choice's next item
+//       `source` says what drove it: \midi, \key, \gui, \ai. It is
+//       ~controlSource while the control acts, for whoever wants to know
+//       whose a change was (the action log, once it is told: architecture.md
+//       5, step 1). Answers what the control's action answered, or nil if
+//       there is no such control or it is not there now.
+//   ~controlApply.(target, action, binding, source)
+//       The same verbs on a control already looked up: `action` is [verb,
+//       value], as LooperMidiMap.decide answers it, and `binding` a MIDI
+//       binding whose range (\min, \max) narrows \position and the ends, or
+//       nil for the whole travel.
+//
+// The registry is built by ~setupMidiBindings at boot; a window or a check
+// that drives a control before then gets it built here.
+~controlSource = nil;
+~controlWarned = Set.new;
+~controlTargets = { ~midiTargets ?? { ~midiTargets = ~midiTargetsBuild.() } };
+~controlDo = { |id, verb = \press, value, source|
+    var target = ~controlTargets.()[id];
+    case
+    { target.isNil } {
+        if(~controlWarned.includes(id).not) {
+            ~controlWarned.add(id);
+            ("megalooper: no control " ++ id.asCompileString ++ " to drive. Said once.").warn;
+        };
+        nil
+    }
+    { target[\available].notNil and: { target[\available].value != true } } { nil }
+    { ~controlApply.(target, [verb, value], nil, source) }
+};
+~controlApply = { |target, action, binding, source|
+    var verb = action[0], kind = target[\kind];
+    var min = binding !? { |b| b[\min] }, max = binding !? { |b| b[\max] };
+    var at = { |c| LooperMidiMap.valueAt(c, target[\fromPos], target[\toPos], min, max) };
+    var put = { |v| target[\set].value(if(kind == \step) { v.round.asInteger } { v }) };
+    var was = ~controlSource;
+    var lo, hi, cur, n;
+    if(verb == \press) { verb = if(kind == \trigger) { \fire } { \flip } };
+    ~controlSource = source;
+    {
+        case
+        { verb == \fire } { target[\fire].value }
+        { verb == \flip } {
+            case
+            { kind == \toggle } {
+                if(target[\flip].notNil) { target[\flip].value } { target[\set].value(target[\get].value != true) }
+            }
+            { kind == \choice } {
+                n = (target[\items].value ? []).size;
+                if(n > 0) { target[\set].value(((target[\get].value ? -1) + 1).mod(n)) };
+            }
+            {
+                // A knob's two ends: to the one further from where it is.
+                lo = at.(0);
+                hi = at.(1);
+                cur = target[\get].value;
+                put.(if((cur - lo).abs > (cur - hi).abs) { lo } { hi });
+            }
+        }
+        { verb == \set } {
+            if(target[\set].notNil) { target[\set].value(action[1]) } {
+                if((target[\get].value == true) != action[1]) { target[\flip].value };
+            }
+        }
+        { verb == \position } {
+            if(kind == \choice) {
+                n = (target[\items].value ? []).size;
+                if(n > 0) { target[\set].value(LooperMidiMap.choiceIndex(action[1], n)) };
+            } { put.(at.(action[1])) };
+        }
+        { verb == \end } { put.(at.(if(action[1] == \max) { 1 } { 0 })) }
+        { verb == \next } {
+            n = (target[\items].value ? []).size;
+            if(n > 0) { target[\set].value(((target[\get].value ? -1) + 1).mod(n)) };
+        };
+    }.protect { ~controlSource = was }
+};
+
+// ---- The keys ---------------------------------------------------------------------
+// The window's letter keys, each a control pressed (~controlDo's \press) as
+// its tile or footswitch is: one table, which the key handler (gui-shell.scd),
+// the Perform tiles' key letters and the boot's line all read. Lower case, and
+// only with no Cmd or Ctrl held (~guiKeyDown). The window's own keys (1-7, T,
+// H, E, Esc, Backspace) are not controls and stay in ~guiKeyDown.
+~controlKeys = [
+    [$r, 'looper.trigger'], [$s, 'looper.stop'], [$m, 'looper.multiply'], [$u, 'looper.undo'],
+    [$v, 'looper.reverse'], [$l, 'looper.halfTime'], [$g, 'looper.granular'], [$b, 'looper.bbcut'],
+    [$k, 'looper.break'], [$d, 'looper.dissolve'], [$c, 'looper.clear'],
+    [$n, 'looper.recordNextLoop'], [$a, 'looper.nextReading']
+];
+// The control a key presses, or nil.
+~controlKeyTarget = { |char| (~controlKeys.detect { |k| k[0] == char }) !? { |k| k[1] } };
+// The key that presses a control, as a tile shows it ("R"), or nil.
+~controlKeyFor = { |id| (~controlKeys.detect { |k| k[1] == id }) !? { |k| k[0].toUpper.asString } };
+// Every key and what it presses, for the boot's line: "R Trigger · S Stop · …".
+~controlKeysLine = {
+    ~controlKeys.collect { |k|
+        k[0].toUpper.asString ++ " " ++ ((~controlTargets.()[k[1]] !? { |t| t[\label] }) ? k[1].asString)
+    }.join(" · ")
 };
 )

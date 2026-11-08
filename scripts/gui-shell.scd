@@ -392,20 +392,9 @@
     { (key == ~guiKeyEscape) and: { ~guiView == \calibrate } } { ~guiSetupShow.(\rig); true }
     { char == $t } { { ~guiThemeToggle.() }.defer(0); true }
     { char == $h } { ~guiHelpToggle.(); true }
-    { char == $r } { ~looper !? { |l| l.trigger } }
-    { char == $s } { ~looper !? { |l| l.stopPlayback } }
-    { char == $m } { ~looper !? { |l| l.multiply } }
-    { char == $u } { ~looper !? { |l| l.undo } }
-    { char == $v } { ~looper !? { |l| l.reverse } }
-    { char == $l } { ~looper !? { |l| l.toggleHalfTime } }
-    { char == $g } { ~looper !? { |l| l.toggleGranular } }
-    { char == $b } { ~looper !? { |l| l.bbcut = l.bbcut.not } }
-    { char == $k } { ~looper !? { |l| l.fireBreak } }
-    { char == $d } { ~looper !? { |l| l.toggleDissolve } }
-    { char == $c } { ~looper !? { |l| l.clear } }
-    { char == $n } { ~looper !? { |l| l.recordNextLoop } }
-    { char == $a } { ~looper !? { |l| l.nextReading } }
-    { char == $e } { ~doExport.value };
+    { char == $e } { ~doExport.value }
+    // The letters that press a control (~controlKeys, setup-miditargets.scd).
+    { (~controlKeyTarget !? { |f| f.(char) }).notNil } { ~controlDo.(~controlKeyTarget.(char), \press, nil, \key) };
 };
 
 // ---- The loop position ----------------------------------------------------------------

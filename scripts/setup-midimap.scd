@@ -840,45 +840,9 @@
     { nil }
 };
 
-// An action of LooperMidiMap.decide, carried out on a control.
-~midiApply = { |target, action, binding|
-    var verb = action[0], kind = target[\kind];
-    var at = { |c| LooperMidiMap.valueAt(c, target[\fromPos], target[\toPos], binding[\min], binding[\max]) };
-    var put = { |v| target[\set].value(if(kind == \step) { v.round.asInteger } { v }) };
-    var lo, hi, cur, n;
-    case
-    { verb == \fire } { target[\fire].value }
-    { verb == \flip } {
-        case
-        { kind == \toggle } {
-            if(target[\flip].notNil) { target[\flip].value } { target[\set].value(target[\get].value != true) }
-        }
-        { kind == \choice } { ~midiApply.(target, [\next], binding) }
-        {
-            // A knob's two ends: to the one further from where it is.
-            lo = at.(0);
-            hi = at.(1);
-            cur = target[\get].value;
-            put.(if((cur - lo).abs > (cur - hi).abs) { lo } { hi });
-        }
-    }
-    { verb == \set } {
-        if(target[\set].notNil) { target[\set].value(action[1]) } {
-            if((target[\get].value == true) != action[1]) { target[\flip].value };
-        }
-    }
-    { verb == \position } {
-        if(kind == \choice) {
-            n = (target[\items].value ? []).size;
-            if(n > 0) { target[\set].value(LooperMidiMap.choiceIndex(action[1], n)) };
-        } { put.(at.(action[1])) };
-    }
-    { verb == \end } { put.(at.(if(action[1] == \max) { 1 } { 0 })) }
-    { verb == \next } {
-        n = (target[\items].value ? []).size;
-        if(n > 0) { target[\set].value(((target[\get].value ? -1) + 1).mod(n)) };
-    };
-};
+// An action of LooperMidiMap.decide, carried out on a control: the command
+// layer's verbs (~controlApply, setup-miditargets.scd), driven by MIDI.
+~midiApply = { |target, action, binding| ~controlApply.(target, action, binding, \midi) };
 
 // ---- Sending back ----------------------------------------------------------------
 // docs/dev/midi-map.md 5.7. A controller that takes MIDI back (the Faderfox UC4
