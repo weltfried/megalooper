@@ -168,6 +168,8 @@ MegaSADrums {
     // at:), or nil; and the slug of the preset last recalled, from the menu or
     // on a bar line.
     var presetPending, <presetLoaded;
+    // The presets' files (MegaSADrumsPresets), made when first asked for.
+    var presetsPart;
     // The Looper's half-time still to land or end (at:, speed:), as an edge
     // in the grid (see Half-time), or nil.
     var halfEdge;
@@ -1255,6 +1257,30 @@ MegaSADrums {
     // JSON beside them); the old files stay where they are, untouched, so an
     // older megalooper still finds them, and are never read again here.
 
+    // ---- The presets' files (MegaSADrumsPresets) --------------------------------
+    // The codec, made when first asked for: what a preset holds, its text, a
+    // file read, checked and applied, the old files carried over.
+    presetsPart { ^presetsPart ?? { presetsPart = MegaSADrumsPresets(this) } }
+    presetData { |name| ^this.presetsPart.data(name) }
+    presetText { |data| ^this.presetsPart.text(data) }
+    applyPresetData { |data, warnings| ^this.presetsPart.applyData(data, warnings) }
+    migratePresets { |dir| ^this.presetsPart.migrate(dir) }
+    prMigrateFile { |old, json| ^this.presetsPart.migrateFile(old, json) }
+    prPresetDataAt { |path, notes| ^this.presetsPart.dataAt(path, notes) }
+    prWritePreset { |path, name| ^this.presetsPart.write(path, name) }
+    prReadPreset { |path, warnings, loud = true| ^this.presetsPart.read(path, warnings, loud) }
+    prPresetReport { |path, warnings, head, notes| this.presetsPart.report(path, warnings, head, notes) }
+    prValidatePreset { |data, notes| ^this.presetsPart.validate(data, notes) }
+    prApplyPreset { |clean| this.presetsPart.apply(clean) }
+    prPresetSummary { ^this.presetsPart.summary }
+    *prFieldOrder { ^MegaSADrumsPresets.fieldOrder }
+    // A preset's trim tables in whole (per kit key), as it was saved: the
+    // presets' part applies them here (nil: those left as they are).
+    prPutTrims { |pads, groups|
+        pads !? { padTrims = pads };
+        groups !? { groupTrims = groups };
+    }
+
     *presetVersion { ^1 }
     *presetFormat { ^"megalooper drums" }
 
@@ -1387,273 +1413,6 @@ MegaSADrums {
         };
         if(File.exists(path).not) { ^false };
         ^this.prReadPreset(path, warnings, true)
-    }
-
-    // A folder's old presets (SC literals, <slug>.scd) carried over to JSON,
-    // once (MegaFiles.migrateFolder: the .scd files stay where they are, and
-    // a marker says the folder is done). One that does not read as a preset
-    // is said. Answers the slugs carried over.
-    migratePresets { |dir|
-        ^MegaFiles.migrateFolder(dir, { |old, json| this.prMigrateFile(old, json) })
-    }
-
-    prMigrateFile { |old, json|
-        ^MegaFiles.migrateFile(old, json, this.class.presetFormat, this.class.prFieldOrder, { |why|
-            ("MegaSADrums: " ++ old.basename ++ " was not carried over to JSON (" ++ why
-                ++ "); it stays as it was, and is not read.").warn })
-    }
-
-    // What a preset holds, as an Event: kits as Strings (keys may have
-    // dashes; "none" for a slot left without a kit, which an Event literal
-    // could not hold as nil), trims as [kit, note or group, dB] rows.
-    presetData { |name|
-        var kitOf = { |slot| (kitRequested[slot] !? { |k| k.asString }) ? this.class.noKit };
-        var rows = { |tables|
-            var out = List.new;
-            tables.keys.asArray.sort.do { |kit|
-                tables[kit].keys.asArray.sort.do { |k|
-                    out.add([kit.asString, if(k.isKindOf(Symbol)) { k.asString } { k }, tables[kit][k].asFloat]);
-                };
-            };
-            out.asArray
-        };
-        ^(version: this.class.presetVersion, name: (name ? "").asString, savedAt: Date.getDate.stamp,
-            stepsKit: kitOf.(\steps), onsetKit: kitOf.(\onset),
-            repeats: repeats, reverbMix: reverbMix.asFloat, offsetMs: offsetMs.asFloat,
-            dice: keptDice ? false, repeatGrid: repeatGrid.asString,
-            padTrims: rows.(padTrims), groupTrims: rows.(groupTrims),
-            main: patterns[\main].deepCopy, break: patterns[\break].deepCopy)
-    }
-
-    // The file: JSON, one field a line, a lane of steps a line, so it reads
-    // and hand-edits as the SC literal did (MegaFiles.jsonText). `data` as
-    // presetData answers it, or an old preset's as it was read: every field
-    // it holds is written.
-    presetText { |data|
-        ^MegaFiles.eventText(data, this.class.presetFormat, this.class.prFieldOrder)
-    }
-
-    // The fields in the file's order: the header, the kits and the mix, the
-    // trims, the patterns, and a pattern's own; any others after, sorted.
-    *prFieldOrder {
-        ^#[\version, \name, \savedAt, \stepsKit, \onsetKit, \repeats, \repeatGrid,
-            \reverbMix, \offsetMs, \dice, \padTrims, \groupTrims, \main, \break, \steps, \lengths,
-            \globalLength, \lock, \note, \altNote, \delay, \mute, \clockSpeed, \rollRate, \shuffle,
-            \shuffleLength, \globalShuffle, \autoRetrigger, \autoTriggerRate] ++ MegaSASteps.subs
-    }
-
-    // A preset file read as an Event of its fields, or nil (why, in `notes`):
-    // JSON only, nothing run. One that is not a drums preset, or is from a
-    // newer megalooper, is refused whole.
-    prPresetDataAt { |path, notes|
-        ^MegaFiles.readEvent(path, this.class.presetFormat, this.class.presetVersion,
-            "megalooper drums preset", { |why| notes.add(why) })
-    }
-
-    // Whole or not at all (MegaFiles.write): beside it, read back, moved over.
-    prWritePreset { |path, name|
-        var why = MegaFiles.writeEvent(path, this.presetData(name), this.class.presetFormat, this.class.prFieldOrder);
-        if(why.notNil) { ("MegaSADrums preset: could not write " ++ path ++ " (" ++ why ++ ")").warn; ^false };
-        ^true
-    }
-
-    prReadPreset { |path, warnings, loud = true|
-        var notes = List.new, data, clean;
-        if(File.exists(path).not) {
-            if(loud) { ("MegaSADrums preset: no such preset " ++ path.basename).warn };
-            ^false
-        };
-        data = this.prPresetDataAt(path, notes);
-        clean = data !? { this.prValidatePreset(data, notes) };
-        if(clean.isNil) {
-            this.prPresetReport(path, warnings, "rejected — ", notes);
-            ^false
-        };
-        this.prApplyPreset(clean);
-        if(notes.notEmpty) { this.prPresetReport(path, warnings, notes.size.asString ++ " correction(s) — ", notes) };
-        ^true
-    }
-
-    prPresetReport { |path, warnings, head, notes|
-        if(warnings.notNil) { warnings.addAll(notes) } {
-            ("MegaSADrums preset " ++ path.basename ++ ": " ++ head ++ notes.join("; ")).warn;
-        };
-    }
-
-    // The whole check, before anything is touched: an Event of what to apply
-    // (a field left out keeps what is playing), or nil to refuse the file.
-    prValidatePreset { |data, notes|
-        var clean, version, known;
-        var number = { |key, lo, hi|
-            var v = data[key];
-            case
-            { v.isNil } { nil }
-            { v.isNumber.not or: { v.isNaN } or: { v.abs == inf } } {
-                notes.add(key.asString ++ " " ++ v.asCompileString ++ " is not a number (kept)");
-                nil
-            }
-            { (v < lo) or: { v > hi } } {
-                notes.add(key.asString ++ " " ++ v ++ " -> " ++ v.clip(lo, hi) ++ " (range)");
-                v.clip(lo, hi)
-            }
-            { v }
-        };
-        // A kit's key, \none for "none" (or false: the slot emptied on
-        // purpose), or nil to keep the kit playing.
-        var kitKey = { |key, slot|
-            var v = data[key];
-            case
-            { v.isNil } { nil }
-            { (v == false) or: { (v.isKindOf(String) or: { v.isKindOf(Symbol) }) and: { v.asString == this.class.noKit } } } {
-                \none
-            }
-            { (v.isKindOf(String) or: { v.isKindOf(Symbol) }).not or: { v.asString.isEmpty } } {
-                notes.add(key.asString ++ " " ++ v.asCompileString ++ " is not a kit's key (kept)");
-                nil
-            }
-            { this.kitKeys.includes(v.asSymbol).not } {
-                notes.add(key.asString ++ ": no kit " ++ v ++ " in " ++ kitDir ++ " (the " ++ slot ++ " kit stays)");
-                nil
-            }
-            { v.asSymbol }
-        };
-        if(data.isKindOf(Dictionary).not) { notes.add("not a preset (expected an Event)"); ^nil };
-        version = data[\version] ? 1;
-        if(version.isNumber.not) { notes.add("its version " ++ version.asCompileString ++ " is not a number"); ^nil };
-        if(version.asInteger > this.class.presetVersion) {
-            notes.add("version " ++ version ++ " is newer than this build (" ++ this.class.presetVersion ++ ")");
-            ^nil
-        };
-        clean = (name: (data[\name] ? "").asString);
-        [\main, \break].do { |which|
-            var said = List.new;
-            if(data[which].isNil) {
-                notes.add("no " ++ which ++ " pattern -> the default");
-                clean.put(which, MegaSASteps.livePattern(which));
-            } {
-                clean.put(which, MegaSASteps.cleanPattern(data[which], which, said));
-                said.do { |s| notes.add(which.asString ++ ": " ++ s) };
-            };
-        };
-        clean.put(\stepsKit, kitKey.(\stepsKit, \steps));
-        clean.put(\onsetKit, kitKey.(\onsetKit, \onset));
-        clean.put(\padTrims, this.prCleanTrims(data[\padTrims], \padTrims, notes, { |k|
-            if(k.isNumber and: { (k - k.round).abs < 1e-9 } and: { k >= 0 } and: { k <= 127 }) { k.round.asInteger }
-        }));
-        clean.put(\groupTrims, this.prCleanTrims(data[\groupTrims], \groupTrims, notes, { |k|
-            if((k.isKindOf(String) or: { k.isKindOf(Symbol) }) and: { k.asString.notEmpty }) { k.asSymbol }
-        }));
-        case
-        { data[\repeats].isNil } { }
-        { (data[\repeats] == true) or: { data[\repeats] == false } } { clean.put(\repeats, data[\repeats]) }
-        { notes.add("repeats " ++ data[\repeats].asCompileString ++ " is not true or false (kept)") };
-        clean.put(\reverbMix, number.(\reverbMix, 0, 1));
-        clean.put(\offsetMs, number.(\offsetMs, -15, 50));
-        case
-        { data[\dice].isNil } { }
-        { data[\dice] == false } { clean.put(\dice, false) }
-        { data[\dice].isInteger and: { data[\dice] >= 0 } } { clean.put(\dice, data[\dice]) }
-        { notes.add("dice " ++ data[\dice].asCompileString ++ " is not a seed (0 or more) or false (kept)") };
-        case
-        { data[\repeatGrid].isNil } { }
-        { #["bars", "live"].includesEqual(data[\repeatGrid].asString) } { clean.put(\repeatGrid, data[\repeatGrid].asSymbol) }
-        { notes.add("repeatGrid " ++ data[\repeatGrid].asCompileString ++ " is not \"bars\" or \"live\" (kept)") };
-        known = #[\version, \name, \savedAt, \main, \break, \stepsKit, \onsetKit, \padTrims, \groupTrims,
-            \repeats, \repeatGrid, \reverbMix, \offsetMs, \dice];
-        data.keys.do { |k| if(known.includes(k).not) { notes.add(k.asString ++ " is no drums field (ignored)") } };
-        ^clean
-    }
-
-    // Trim rows [kit, key, dB] as the tables keep them (kit -> key -> dB), or
-    // nil for no field (the trims in force stay). A row that is not usable is
-    // dropped, a level out of -24..+12 held to it.
-    prCleanTrims { |rows, label, notes, keyOf|
-        var out;
-        if(rows.isNil) { ^nil };
-        if(rows.isKindOf(SequenceableCollection).not or: { rows.isString }) {
-            notes.add(label.asString ++ " is not a list of [kit, key, dB] (the trims stay)");
-            ^nil
-        };
-        out = IdentityDictionary.new;
-        rows.do { |row|
-            var kit, key, db;
-            if(row.isKindOf(SequenceableCollection) and: { row.isString.not } and: { row.size == 3 }) {
-                kit = row[0];
-                key = keyOf.(row[1]);
-                db = row[2];
-            };
-            if(((kit.isKindOf(String) or: { kit.isKindOf(Symbol) }) and: { kit.asString.notEmpty }).not
-                or: { key.isNil } or: { db.isNumber.not } or: { db.isNaN } or: { db.abs == inf }) {
-                notes.add(label.asString ++ " " ++ row.asCompileString ++ " is not [kit, key, dB] (dropped)");
-            } {
-                if((db < -24) or: { db > 12 }) {
-                    notes.add(label.asString ++ " " ++ row.asCompileString ++ " -> " ++ db.clip(-24, 12) ++ " dB (range)");
-                };
-                if(out[kit.asSymbol].isNil) { out.put(kit.asSymbol, IdentityDictionary.new) };
-                out[kit.asSymbol].put(key, db.clip(-24, 12).asFloat);
-            };
-        };
-        ^out
-    }
-
-    // What presetData answered, applied as a preset file is: checked whole
-    // first, and refused (false, nothing changed) if it does not hold.
-    // `warnings`, a List, gets the corrections. An AI app's revert
-    // (MegaRemote) puts the drums back so.
-    applyPresetData { |data, warnings|
-        var notes = List.new, clean = this.prValidatePreset(data, notes);
-        warnings !? { |w| w.addAll(notes) };
-        if(clean.isNil) { ^false };
-        this.prApplyPreset(clean);
-        ^true
-    }
-
-    // Apply a checked preset through the setters, so every change reaches
-    // the server and its notification: the kits first (setKit, if it names
-    // others), the trims (each one that moved for the kits in the slots
-    // notified), the patterns, Beat Repeat and its grid, the reverb, the
-    // offset and the dice.
-    prApplyPreset { |clean|
-        var oldPads = padTrims, oldGroups = groupTrims;
-        [[\stepsKit, \steps], [\onsetKit, \onset]].do { |pair|
-            var key = clean[pair[0]];
-            case
-            { key == \none } { if(this.kitEmptied(pair[1]).not) { this.setKit(pair[1], nil) } }
-            { key.notNil and: { key != this.kit(pair[1]) } } { this.setKit(pair[1], key) };
-        };
-        clean[\padTrims] !? { |t| padTrims = t };
-        clean[\groupTrims] !? { |t| groupTrims = t };
-        [\steps, \onset].do { |slot|
-            var key = this.kit(slot);
-            key !? {
-                this.prTrimsMoved(oldPads[key], padTrims[key]).do { |note|
-                    this.prNotify(\padTrim, slot, note, this.padTrim(slot, note));
-                };
-                this.prTrimsMoved(oldGroups[key], groupTrims[key]).do { |group|
-                    this.prNotify(\groupTrim, slot, group, this.groupTrim(slot, group));
-                };
-            };
-        };
-        [\main, \break].do { |which| this.prReplacePattern(which, clean[which]) };
-        clean[\repeats] !? { |flag| if(flag != repeats) { this.setRepeats(flag) } };
-        clean[\repeatGrid] !? { |mode| this.setRepeatGrid(mode) };
-        clean[\reverbMix] !? { |v| this.setReverbMix(v) };
-        clean[\offsetMs] !? { |v| this.setOffsetMs(v) };
-        clean[\dice] !? { |v| this.setDice(v) };
-    }
-
-    // The keys whose trims differ between two tables (key -> dB, either nil).
-    prTrimsMoved { |a, b|
-        var keys = IdentitySet.new;
-        a !? { a.keys.do { |k| keys.add(k) } };
-        b !? { b.keys.do { |k| keys.add(k) } };
-        ^keys.asArray.select { |k| ((a !? { |t| t[k] }) ? 0) != ((b !? { |t| t[k] }) ? 0) }
-    }
-
-    // For the post window: what a save holds, in a few words.
-    prPresetSummary {
-        var said = [\main, \break].collect { |w| w.asString ++ (if(this.edited(w)) { " edited" } { " as shipped" }) };
-        ^said.join(", ") ++ "; kits " ++ (this.kit(\steps) ? "none") ++ " and " ++ (this.kit(\onset) ? "none")
     }
 
     // ---- The Looper -------------------------------------------------------
