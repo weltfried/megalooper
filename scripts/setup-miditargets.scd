@@ -880,9 +880,8 @@
         (~midiTargets ? ()).keysValuesDo { |id, t| if(fresh[id].isNil) { fresh.put(id, t) } };
         ~midiTargets = fresh;
         // The Rig tab's list and picker are made again, with the new names,
-        // although the map is the same.
-        ~midiGui !? { |g| g[\shownMap] = nil; g[\pickStale] = true };
-        ~midiChanged.(\map);
+        // although the map is the same (~midiGuiHeard, gui-midimap.scd).
+        ~midiChanged !? { |f| f.(\controls) };
     };
 };
 

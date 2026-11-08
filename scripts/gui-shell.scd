@@ -318,7 +318,8 @@
             .put(\say, { |obj, what, words, kind| { ~guiSay.(words, kind) }.defer })
             .put(\aiApps, { { ~guiAiPaint !? { |f| f.value } }.defer })
             .put(\aiChanges, { { ~guiAiPaint !? { |f| f.value } }.defer })
-            .put(\actionsLog, { { ~actionsPaint !? { |f| f.value } }.defer });
+            .put(\actionsLog, { { ~actionsPaint !? { |f| f.value } }.defer })
+            .put(\midi, { |obj, what, kind| ~midiGuiHeard !? { |f| f.value(kind) } });
     };
 };
 ~guiSetTyping = { |flag|

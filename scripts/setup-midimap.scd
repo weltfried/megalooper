@@ -511,8 +511,7 @@
 // Nothing is built again; the router asks each control's `available` as a
 // message comes, so it needs nothing.
 ~midiTargetsRepaint = {
-    ~midiGui !? { |g| g[\shownMap] = nil };
-    ~midiChanged !? { |f| f.(\map) };
+    ~midiChanged !? { |f| f.(\available) };
 };
 
 // ---- Editing -----------------------------------------------------------------------
@@ -639,12 +638,12 @@
 // The Rig tab's MIDI section repaints from this, once per burst of changes and
 // never from the MIDI thread (5.5): it keeps the latest state and one pending
 // AppClock task. ~midiGuiRefresh is gui-midimap.scd's, nil without a window.
-~midiChanged = { |what|
-    if(~midiGuiPending != true) {
-        ~midiGuiPending = true;
-        { ~midiGuiPending = false; ~midiGuiRefresh !? { |f| f.value } }.defer;
-    };
-};
+// What changed in MIDI (\map, \learn, \mapMode, \inputs, \defaults, \sweep;
+// \controls when the registry was made again, \available when only which of
+// its controls are there changed), said on the app's own model (setup-app.scd):
+// the window's MIDI section repaints from it, once a tick (~midiGuiHeard,
+// gui-midimap.scd). Before, this called the section's refresh itself.
+~midiChanged = { |what| ~app !? { |a| a.changed(\midi, what) } };
 
 // ---- The router ------------------------------------------------------------------
 // Is a binding a knob or a pedal on a level, a count or a choice (pitch bend,

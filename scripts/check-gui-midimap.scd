@@ -58,6 +58,8 @@ Routine {
     view = ~buildMidiMapSection.();
     w = Window("MIDI section check", Rect(0, 0, 900, 700));
     w.layout = VLayout(view);
+    // It hears what MIDI says changed as the real window does (~appWatch).
+    ~appWatch.();
     g = ~midiGui;
     tick.();
     ok.("the section builds", view.notNil and: { view.isClosed.not });

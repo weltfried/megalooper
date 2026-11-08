@@ -278,6 +278,20 @@
     ~midiGui = IdentityDictionary.new;
 };
 
+// What MIDI says changed (setup-midimap.scd's ~midiChanged, on the app's own
+// model; the window hears it, ~appWatch): new controls make the list and the
+// picker stale, controls that came or went the list; the section repaints
+// once a tick, however many changes come in it.
+~midiGuiHeard = { |kind|
+    if((kind == \controls) or: { kind == \available }) {
+        ~midiGui !? { |g| g[\shownMap] = nil; if(kind == \controls) { g[\pickStale] = true } };
+    };
+    if(~midiGuiPending != true) {
+        ~midiGuiPending = true;
+        { ~midiGuiPending = false; ~midiGuiRefresh !? { |f| f.value } }.defer;
+    };
+};
+
 ~buildMidiMapSection = {
     var view = View(), g = IdentityDictionary.new;
     // The stage look: a switch is a tile, a menu takes the theme's ground.
