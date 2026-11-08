@@ -466,29 +466,9 @@
     { "not in this megalooper" }
 };
 
-// The controls made again once a kit is in force (gui-drums.scd): the trims
-// are made for the pads of the kits loaded (setup-miditargets.scd), so the
-// new kit's pads get theirs, under its names. A control the new build doesn't
-// make, a pad only the old kit had, is kept as it was: not there now, so a
-// binding on it is greyed, not lost. Swapped in with one assignment.
-// Given \effects, only SA's effects' controls are made again: after a chain
-// edit (gui-effects.scd), so a second Delay has its own before its switch is
-// tagged, and a removed device's stay, greyed, for Undo to bring back.
-~midiTargetsRefresh = { |family|
-    var fresh = try { ~midiTargetsBuild.(family) } { |err|
-        ("megalooper: the MIDI controls could not be made again (" ++ err.errorString
-            ++ "); the ones there were stay.").warn;
-        nil
-    };
-    fresh !? {
-        (~midiTargets ? ()).keysValuesDo { |id, t| if(fresh[id].isNil) { fresh.put(id, t) } };
-        ~midiTargets = fresh;
-        // The Rig tab's list and picker are made again, with the new names,
-        // although the map is the same.
-        ~midiGui !? { |g| g[\shownMap] = nil; g[\pickStale] = true };
-        ~midiChanged.(\map);
-    };
-};
+// The registry's own lifecycle (~midiTargetsRefresh, and how it follows the
+// models: ~midiTargetsFollow, ~midiTargetsMark, ~midiTargetsFlush) is the
+// command layer's, in setup-miditargets.scd: a pane needs it with no map.
 
 // The same controls, but which of them are there changed (a chain edit on SA
 // removed or brought back a device): the Rig tab's list greys its rows anew.
@@ -1533,6 +1513,8 @@
             ~midiPart.(\proxy, { ~midiProxyPolytouch.(val, num, chan, src) });
         };
     });
+    // The controls made from the models follow them from now on.
+    ~midiTargetsFollow.();
     ~midiChanged.(\map);
     ~midiMap
 };

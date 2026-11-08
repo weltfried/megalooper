@@ -127,6 +127,14 @@ log.clear; state[\choice] = 0;
 ~midiApply.(fake['x.choice'], [\flip], (msg: \note));
 ~tEq.("…and a note on a choice steps it on", log.asArray, [[\choice, 1]]);
 
+// One family made again with no registry yet makes every family: alone, it
+// would be all a control could find.
+~midiTargets = nil; ~looper = nil; ~megaSA = nil;
+~rp = ~routingProfiles[~defaultRoutingProfile];
+~midiTargetsRefresh.(\drumPresets);
+~tAssert.("a family made again with no registry yet makes every family",
+    ~midiTargets.notNil and: { ~midiTargets['looper.trigger'].notNil }, (~midiTargets ? ()).keys.asArray.keep(5));
+
 // The registry built when nothing has built it yet.
 ~midiTargets = nil; ~looper = nil; ~megaSA = nil;
 ~rp = ~routingProfiles[~defaultRoutingProfile];
@@ -197,6 +205,50 @@ ids = ~controlKeys.collect(_[1]);
 ~tAssert.("the boot's line names every key by its control's label",
     ~controlKeysLine.().contains("R Trigger") and: { ~controlKeysLine.().contains("L Half-time") },
     ~controlKeysLine.());
+
+// ---- The registry follows the models ---------------------------------------------
+// The controls made from what the models hold (SA's chains' devices, the
+// kits' pads) are made again when that changes, by the control layer itself
+// (setup-midimap.scd, ~midiTargetsFollow): no pane needs to be up. Made again
+// here means ~midiTargetsRefresh asked, by family.
+{
+    var asked = List.new, refreshWas = ~midiTargetsRefresh, sa = (), d = (), mine;
+    sa[\drums] = d;
+    ~midiTargetsRefresh = { |family| asked.add(family) };
+    ~midiTargetsStale = nil;
+    ~megaSA = sa;
+    ~midiTargetsFollow.();
+    sa.changed(\chain, \guitar, \insert, \delay2, 1);
+    ~tEq.("a chain edit marks the effects' controls to be made again", ~midiTargetsStale.asArray, [\effects]);
+    sa.changed(\chain, \guitar, \move, \delay2, 0);
+    ~midiTargetsFlush.();
+    ~tEq.("…and a burst of edits has them made again once", asked.asArray, [\effects]);
+    ~tEq.("…and nothing is marked after", ~midiTargetsStale, nil);
+    asked.clear;
+    sa.changed(\level, \guitar, 0.5);
+    ~midiTargetsFlush.();
+    ~tEq.("another notification marks nothing", asked.asArray, []);
+    d.changed(\kitState, \steps, \loading);
+    ~tEq.("a kit still loading marks nothing", ~midiTargetsStale, nil);
+    d.changed(\kitState, \steps, \ready);
+    ~midiTargetsFlush.();
+    ~tEq.("a kit that settled has every control made again (its pads' trims)", asked.asArray, [nil]);
+    asked.clear;
+    ~midiTargetsFlush.(\effects);
+    ~tEq.("a pane's flush makes its family again even with nothing marked", asked.asArray, [\effects]);
+    asked.clear;
+    mine = sa.dependants.size;
+    ~midiTargetsFollow.();
+    ~tEq.("following again lets go of what it followed before", sa.dependants.size, mine);
+    sa.changed(\chain, \loop, \remove, \echo, 0);
+    ~midiTargetsFlush.();
+    ~tEq.("…so an edit is not marked twice", asked.asArray, [\effects]);
+    ~megaSA = nil;
+    ~midiTargetsFollow.();
+    ~tEq.("with no SA it follows nothing, and lets go of the old one", sa.dependants.size, mine - 1);
+    ~midiTargetsRefresh = refreshWas;
+    ~midiTargetsStale = nil;
+}.value;
 
 ~midiTargets = saved[0]; ~looper = saved[1]; ~megaSA = saved[2]; ~controlSource = saved[3]; ~rp = saved[4];
 }.value;

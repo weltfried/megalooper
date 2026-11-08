@@ -177,6 +177,7 @@ var callables = [
     \saFxVariationsFile, \saLoadFxVariations, \saApplyVariation, \saSaveVariation, \saDeleteVariation,
     \midiTargetsBuild, \midiRouteWith, \midiRoute, \midiApply,
     \controlDo, \controlApply, \controlTargets, \controlKeyTarget, \controlKeyFor, \controlKeysLine,
+    \midiTargetsFollow, \midiTargetsMark, \midiTargetsFlush,
     \midiProxyOk, \midiProxyNoteOn, \midiProxyNoteOff, \midiProxyCc, \midiProxyProgram,
     \midiProxyBend, \midiProxyTouch, \midiProxyPolytouch, \midiPart, \midiFreeOldResponders,
     \midiMapReport,

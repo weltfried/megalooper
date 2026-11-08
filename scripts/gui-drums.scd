@@ -696,8 +696,9 @@
 // kit that did not load says so on the bar's status line as well as its own.
 ~drumsKitChanged = { |slot, state|
     // The MIDI controls for the new kit's pads, under its names, before the
-    // trims are built again and tagged (setup-midimap.scd).
-    ~midiTargetsRefresh !? { |f| f.value };
+    // trims are built again and tagged: the control layer follows the kits
+    // itself (setup-midimap.scd); this makes sure it has by now.
+    ~midiTargetsFlush !? { |f| f.(\all) };
     if(slot == \steps) {
         ~drumsRefreshNoteItems.();
         4.do { |lane| ~drumsRefreshLaneRow.(lane) };

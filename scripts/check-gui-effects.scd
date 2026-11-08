@@ -672,11 +672,14 @@ Routine {
             ['sa.fxOn.delay2', 'sa.fx.delay2.delayTimeR', 'sa.fxReset.delay2'].every { |id|
                 ~mapTags.any { |e| (e[1] == id) and: { e[0].isClosed.not } } },
             ~mapTags.collect { |e| e[1] }.select { |id| id.asString.contains("delay2") }.asString);
-        // (The MIDI map is not loaded here: what the pane asks of it is.)
+        // (The MIDI map is not loaded here: what the pane asks of it is. The
+        // control layer follows the chains itself; the pane has it make the
+        // effects' controls again before it tags the new rows.)
         ~checkAsked = List.new;
-        ~midiTargetsRefresh = { |family| ~checkAsked.add(family) };
+        ~checkFlushWas = ~midiTargetsFlush;
+        ~midiTargetsFlush = { |family| ~checkAsked.add(family) };
         ~effectsChainChanged.();
-        ~midiTargetsRefresh = nil;
+        ~midiTargetsFlush = ~checkFlushWas;
         ok.("...and a chain edit has the effects' controls, and only them, made again for the MIDI map",
             ~checkAsked.asArray == [\effects], ~checkAsked.asString);
         ok.("...and the button that puts its settings back reads Reset",

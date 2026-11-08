@@ -253,8 +253,8 @@ var offenders = List.new;
 }.value;
 
 // One way to drive a control (docs/dev/architecture.md, 5, step 1): the keys,
-// the Perform pane, the top bar, the status band, the Grains, Cutter, Synth
-// and Drums panes, the SA strips and Setup's Analysis page press their
+// the Perform pane, the top bar, the status band, the Grains, Cutter, Synth,
+// Drums and FX panes, the SA strips and Setup's Analysis page press their
 // controls through the command layer
 // (~controlDo), so a key, a tile and a footswitch mean the same thing. A
 // widget's action calling the Looper or SA's models itself again is the drift
@@ -270,10 +270,12 @@ var models = ["~looper !?", "~looper.", "~megaSA !?", "~megaSA.", "~drumsModel !
 // No control drives these: the cutter's voice editor (its voices come and
 // go), the onset notes' channel and offset, the chords' window, the note
 // sequencer's switches and boxes that have none (triplet, dotted, scale, first,
-// last), the instrument menu, the drums' repeat grid and their kept dice.
+// last), the instrument menu, the drums' repeat grid and their kept dice, and
+// the chains' edits (a device inserted; moving and removing one are menu items
+// that drive the models in lines this guard does not read).
 var noControl = ["setVoiceSynth(", "setVoiceRatio(", "setVoiceAmp(", "onsetNoteChannel =",
     "onsetNoteOffsetMs =", "chordMinPerWindow =", "setNoteSetting(name, bt.value", "setNoteSetting(name, n.value",
-    "setInstrument(", "setRepeatGrid(", "keepDice("];
+    "setInstrument(", "setRepeatGrid(", "keepDice(", "insertDevice(", "insertPlugin("];
 var direct = { |file, isAction|
     var found = List.new;
     (File.readAllString(root +/+ "scripts" +/+ file) ? "").split($\n).do { |line, i|
@@ -286,9 +288,9 @@ var direct = { |file, isAction|
 };
 var widget = { |code| code.contains(".action_({") or: { code.contains("action: {") } };
 var widgets = ["gui-perform.scd", "gui-shell.scd", "gui-status.scd", "gui-granular.scd", "gui-bbcut.scd",
-    "gui-analysis.scd", "gui-sa.scd", "gui-synth.scd", "gui-drums.scd"].collect { |f| direct.(f, widget) }.flatten;
+    "gui-analysis.scd", "gui-sa.scd", "gui-synth.scd", "gui-drums.scd", "gui-effects.scd"].collect { |f| direct.(f, widget) }.flatten;
 var keys = direct.("gui-shell.scd", { |code| code.contains("{ char == $") });
-~tAssert.("the widgets of Perform, the top bar, the status band, Grains, Cutter, Analysis, the SA strips, Synth and Drums drive their controls through ~controlDo",
+~tAssert.("the widgets of Perform, the top bar, the status band, Grains, Cutter, Analysis, the SA strips, Synth, Drums and FX drive their controls through ~controlDo",
     widgets.isEmpty, "found at " ++ widgets.join(", "));
 ~tAssert.("…and the keys do too", keys.isEmpty, "found at " ++ keys.join(", "));
 ~tAssert.("…and the guard reads the widgets it guards",

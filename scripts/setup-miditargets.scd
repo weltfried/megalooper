@@ -11,6 +11,8 @@
 //                       for ~midiTargetsRefresh after a chain edit.
 //   ~controlDo        — drives one control by id, from any input: MIDI, the
 //                       keys, the window (the command layer, at the end).
+//   ~midiTargetsRefresh, ~midiTargetsFollow — the registry made again, and
+//                       following the models (SA's chains, the kits) itself.
 (
 // ---- The controls ------------------------------------------------------------
 // Every control a binding can drive, by id, as an Event:
@@ -854,6 +856,76 @@
             if(n > 0) { target[\set].value(((target[\get].value ? -1) + 1).mod(n)) };
         };
     }.protect { ~controlSource = was }
+};
+
+// ---- The registry's lifecycle ----------------------------------------------------
+// The controls made again once a kit is in force: the trims
+// are made for the pads of the kits loaded (above), so the
+// new kit's pads get theirs, under its names. A control the new build doesn't
+// make, a pad only the old kit had, is kept as it was: not there now, so a
+// binding on it is greyed, not lost. Swapped in with one assignment.
+// Given \effects, only SA's effects' controls are made again: after a chain
+// edit, so a second Delay has its own before its switch is
+// tagged, and a removed device's stay, greyed, for Undo to bring back.
+~midiTargetsRefresh = { |family|
+    // One family is made again over the registry there is; with none yet,
+    // every family is made (one family alone would be all a control could
+    // find, and every other control would be missing).
+    var fresh = try { ~midiTargetsBuild.(if(~midiTargets.isNil) { nil } { family }) } { |err|
+        ("megalooper: the MIDI controls could not be made again (" ++ err.errorString
+            ++ "); the ones there were stay.").warn;
+        nil
+    };
+    fresh !? {
+        (~midiTargets ? ()).keysValuesDo { |id, t| if(fresh[id].isNil) { fresh.put(id, t) } };
+        ~midiTargets = fresh;
+        // The Rig tab's list and picker are made again, with the new names,
+        // although the map is the same.
+        ~midiGui !? { |g| g[\shownMap] = nil; g[\pickStale] = true };
+        ~midiChanged.(\map);
+    };
+};
+
+// The registry follows the models itself (docs/dev/architecture.md, 5, step
+// 1): the controls made from what the models hold now (SA's chains' devices,
+// the kits' pads) are made again when that changes, whether a window is up or
+// not. A chain edit or a kit that settles marks the families it touches; a
+// burst of them is made again once, at the next AppClock tick. A pane about to
+// tag what changed flushes first (~midiTargetsFlush), so a new device has its
+// controls before its switch is tagged, whichever of the two the tick runs
+// first. ~midiTargetsFollow subscribes to the models (~setupMidiBindings
+// calls it), and lets go of the ones it followed before.
+~midiTargetsStale = nil;
+~midiTargetsMark = { |family|
+    var first = ~midiTargetsStale.isNil;
+    ~midiTargetsStale = (~midiTargetsStale ? IdentitySet.new).add(family ? \all);
+    if(first) { AppClock.sched(0, { ~midiTargetsFlush.(); nil }.inEnvir) };
+};
+// Made again now: what is marked, and `family` (or every family, \all).
+~midiTargetsFlush = { |family|
+    var stale = ~midiTargetsStale;
+    ~midiTargetsStale = nil;
+    if(family.notNil) { stale = (stale ? IdentitySet.new).add(family) };
+    stale !? {
+        if(stale.includes(\all)) { ~midiTargetsRefresh.() } { stale.do { |f| ~midiTargetsRefresh.(f) } };
+    };
+};
+~midiTargetsFollow = {
+    (~midiTargetsFollowing ? []).do { |x| x[0].removeDependant(x[1]) };
+    ~midiTargetsFollowing = List.new;
+    ~megaSA !? { |m|
+        var chains = { |obj, what| if(what == \chain) { ~midiTargetsMark.(\effects) } }.inEnvir;
+        var drums = if(m.isKindOf(Dictionary) or: { m.respondsTo(\drums) }) { m.drums };
+        m.addDependant(chains);
+        ~midiTargetsFollowing.add([m, chains]);
+        // A kit that settled in a slot: its pads' trims, under its names.
+        drums !? { |d|
+            var kits = { |obj, what, slot, state|
+                if((what == \kitState) and: { state != \loading }) { ~midiTargetsMark.(\all) } }.inEnvir;
+            d.addDependant(kits);
+            ~midiTargetsFollowing.add([d, kits]);
+        };
+    };
 };
 
 // ---- The keys ---------------------------------------------------------------------

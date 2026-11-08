@@ -272,6 +272,11 @@
     var m = ~megaSA;
     var dev = id ? p[\fx];
     var val = m.param(dev, p[\name]);
+    // Its control (~controlDo), where the device has controls; set
+    // directly where it has none.
+    var target = if(~effectsHasTargets.(dev)) { ~effectsParamTarget.(dev, p[\name]) };
+    var drive = { |verb, value, direct|
+        if(target.notNil) { ~controlDo.(target, verb, value, \gui) } { ~megaSA !? { |mm| mm.setParam(dev, p[\name], direct) } } };
     var readout = ~guiMonoText.(~effectsFormat.(p, val), 13, ~gt[\ink]).align_(\right);
     var control;
     if(p[\choices].notNil) {
@@ -281,19 +286,18 @@
             .background_(~gt[\panel]).stringColor_(~gt[\ink])
             .items_(p[\choices].collect { |pair| pair[1] })
             .value_(p[\choices].collect { |pair| pair[0] }.indexIn(val))
-            .action_({ |menu|
-                ~megaSA !? { |mm| mm.setParam(dev, p[\name], p[\choices][menu.value][0]) } });
+            .action_({ |menu| drive.(\set, menu.value, p[\choices][menu.value][0]) });
         ~effectsWidgets.put(p[\name], (menu: control, readout: readout, param: p));
     } {
         control = ~guiBar.(\fx, 14)
             .origin_(if(p[\centered] == true) { 0.5 } { 0 })
             .neutral_(if(p[\centered] == true) { 0.5 } { nil })
             .value_(~effectsUnmap.(p, val))
-            .action_({ |k| ~megaSA !? { |mm| mm.setParam(dev, p[\name], ~effectsMap.(p, k.value)) } })
+            .action_({ |k| drive.(\position, k.value, ~effectsMap.(p, k.value)) })
             .mouseDownAction_({ |k, x, y, mods, button, clicks|
                 ~effectsHeld = p[\name];
                 if(clicks == 2) {
-                    ~megaSA !? { |mm| mm.setParam(dev, p[\name], p[\spec].default) };
+                    drive.(\set, p[\spec].default, p[\spec].default);
                     true
                 } { nil };
             })
@@ -332,11 +336,11 @@
     { |t, mods|
         var id = ~effectsDeviceOf.(key) !? { |d| d.id };
         case
-        { mods.isNil } { id !? { ~megaSA.setFx(id, t.value == 1) } }
+        { mods.isNil } { id !? { ~controlDo.(("sa.fxOn." ++ id).asSymbol, \set, t.value == 1, \gui) } }
         { ~effectsOnSwitch.(t) } {
             if((Main.elapsedTime - (~effectsSwitchedAt ? -1)) > 0.4) {
                 ~effectsSwitchedAt = Main.elapsedTime;
-                id !? { ~megaSA.fx(id) !? { |on| ~megaSA.setFx(id, on.not) } } };
+                id !? { ~controlDo.(("sa.fxOn." ++ id).asSymbol, \flip, nil, \gui) } };
         }
         { ~effectsSelect.(key) };
     }
@@ -450,10 +454,8 @@
         var tile = LooperTile().states_([[n.asString, ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line]).cycles_(false)
             .font_(~guiMono.(13, true)).fixedHeight_(28).fixedWidth_(44)
             .action_({
-                ~megaSA !? { |m|
-                    if(m.pluginSend(dev.id, n).not) {
-                        ~presetSetStatus.(\saFx, dev.name ++ " is not open: nothing was sent.", true) };
-                };
+                if(~megaSA.notNil and: { ~controlDo.(id, \press, nil, \gui) != true }) {
+                    ~presetSetStatus.(\saFx, dev.name ++ " is not open: nothing was sent.", true) };
             });
         ~mapTag.(tile, id, tip);
         tile
@@ -516,14 +518,18 @@
         rows = params.clump(~effectsPerRow).collect { |row|
             HLayout(*(row.collect { |p| ~effectsKnobCell.(p, key) } ++ [nil])).spacing_(30).margins_(0)
         };
-        reset = small.("Reset", 104, { ~megaSA !? { |mm| mm.resetFx(key) } });
+        reset = small.("Reset", 104, {
+            if(~effectsHasTargets.(key)) { ~controlDo.(("sa.fxReset." ++ key).asSymbol, \press, nil, \gui) }
+                { ~megaSA !? { |mm| mm.resetFx(key) } } });
         // A device's reset is a MIDI target: its tip says what it is bound
         // to (~mapTag keeps that line up to date).
         tip = "Every setting of this effect back to its starting value, which each\n"
             "bar's tip gives. A double-click does it for one bar.";
         if(~effectsHasTargets.(key)) { ~mapTag.(reset, ("sa.fxReset." ++ key).asSymbol, tip) } { reset.toolTip_(tip) };
         // Random, beside it: every setting at once, to try sounds out.
-        random = small.("Random", 104, { ~megaSA !? { |mm| mm.randomizeFx(key) } });
+        random = small.("Random", 104, {
+            if(~effectsHasTargets.(key)) { ~controlDo.(("sa.fxRandom." ++ key).asSymbol, \press, nil, \gui) }
+                { ~megaSA !? { |mm| mm.randomizeFx(key) } } });
         tip = "Every setting of this effect at a random value, to try out sounds.\n"
             "The levels it ends on (Output, the filter's Makeup) stay where they are.\n"
             "Undo random takes a draw back; Reset puts the starting values back;\n"
@@ -814,10 +820,12 @@
         ] ++ if(d.isPlugin) {
             [(label: "Open its window", section: \device, enabled: d.plugin.notNil, action: { d.plugin !? { |p| p.editor } })]
         } {
-            [(label: "Random", section: \device, enabled: true, action: { m.randomizeFx(d.id) }),
+            [(label: "Random", section: \device, enabled: true,
+                action: { ~controlDo.(("sa.fxRandom." ++ d.id).asSymbol, \press, nil, \gui) }),
                 (label: "Undo random", section: \device, enabled: m.randomBackCount(d.id) > 0,
                     action: { m.undoRandomFx(d.id) }),
-                (label: "Reset", section: \device, enabled: true, action: { m.resetFx(d.id) })]
+                (label: "Reset", section: \device, enabled: true,
+                    action: { ~controlDo.(("sa.fxReset." ++ d.id).asSymbol, \press, nil, \gui) })]
         } ++ pane
     }
 };
@@ -1071,8 +1079,9 @@
     ~effectsSelectNext = nil;
     ~megaSA !? {
         // The effects' controls first, so a new device has its own before
-        // its switch is tagged.
-        ~midiTargetsRefresh !? { |f| f.(\effects) };
+        // its switch is tagged: the control layer follows the chains itself
+        // (setup-midimap.scd); this makes sure it has by now.
+        ~midiTargetsFlush !? { |f| f.(\effects) };
         ~effectsBuildRows.();
         case
         { next.notNil and: { ~effectsSelectable.(next) } } { ~effectsSelect.(next) }
