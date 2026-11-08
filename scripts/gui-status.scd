@@ -930,7 +930,7 @@
     ~guiReadingHint.setProperty(\wordWrap, false);
     ~revertReadingButton = ~mapTag.(LooperTile().states_([["Revert ↺", ~gt[\ink], nil]])
         .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(92, 28)).pad_(6)
-        .action_({ ~looper !? { |l| l.revertReading } }),
+        .action_({ ~controlDo.('looper.revertReading', \press, nil, \gui) }),
         'looper.revertReading', "Back to what the analyser heard, on the next loop boundary.");
     // Overdub meter detection, beside Revert because what it changes is the
     // reading this line shows; here alone, on every view, and the footer says
@@ -939,14 +939,14 @@
     ~statusDubMeterButton = ~mapTag.(LooperTile().cycles_(false)
         .states_([["○ Overdub meter", ~gt[\ink], nil], ["● Overdub meter", ~gt[\onacc], ~gt[\ink]]])
         .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(140, 28)).pad_(6)
-        .action_({ ~looper !? { |l| l.analyzeOverdubs = l.analyzeOverdubs.not } }),
+        .action_({ ~controlDo.('looper.analyzeOverdubs', \press, nil, \gui) }),
         'looper.analyzeOverdubs',
         "Derive the meter from a rhythmic overdub when the first take had no beat. It runs\n"
             "when an overdub ends, only while the loop has no meter yet, so it cannot change\n"
             "the tempo under you. It listens to overdubs only while it is on.");
     ~statusDetectNowButton = ~mapTag.(LooperTile().states_([["Detect now", ~gt[\ink], nil]]).cycles_(false)
         .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(96, 28)).pad_(6)
-        .action_({ ~looper !? { |l| l.detectMeterFromOverdub(true) } }),
+        .action_({ ~controlDo.('looper.detectMeterFromOverdub', \press, nil, \gui) }),
         'looper.detectMeterFromOverdub',
         "Read the meter from the last overdub now, even if the loop already has one.\n"
             "The footer says so when it finds none.");

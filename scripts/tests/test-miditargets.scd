@@ -340,10 +340,12 @@ protect {
     ~tAssert.("the grain window's items are the Grains pane's tiles (Looper.granularEnvNames)",
         (targets['looper.granularEnv'][\items] == Looper.granularEnvNames)
             and: { source.("gui-granular.scd").contains("~guiSeg.(Looper.granularEnvNames,") });
+    // Perform's tiles drive this control by their index (~controlDo), so
+    // their order is the items' order.
     ~tAssert.("the cutter's mode items are Perform's tiles, in their order",
         (targets['looper.bbcutMode'][\items] == ["Mix", "Insert", "Gate"])
             and: { source.("gui-perform.scd").contains("~guiSeg.([\"Mix\", \"Insert\", \"Gate\"],") }
-            and: { source.("gui-perform.scd").contains("lp.bbcutMode = [\\mix, \\insert, \\gate][i]") });
+            and: { source.("gui-perform.scd").contains("~controlDo.('looper.bbcutMode', \\set, i, \\gui)") });
     ~tEq.("an effect's menu items are its choices' labels, as the Effects tab lists them",
         MegaSAFx.params.select { |q| q[\choices].notNil }.reject { |q|
             targets[("sa.fx." ++ q[\name]).asSymbol][\items] == q[\choices].collect { |c| c[1] } }.collect { |q| q[\name] }

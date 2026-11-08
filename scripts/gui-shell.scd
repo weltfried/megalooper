@@ -517,7 +517,7 @@
     ~guiSessionRecTip = nil;
     ~guiSessionRecLabel = LooperTile().cycles_(false).align_(\center).fixedHeight_(52).minWidth_(200)
         .font_(~guiMono.(15, true)).subFont_(~guiMono.(11, false)).pad_(16)
-        .action_({ ~looper !? { |l| l.toggleSessionRecording } });
+        .action_({ ~controlDo.('looper.sessionRecording', \press, nil, \gui) });
     ~sessionRecButton = ~midiTip.(~guiSessionRecLabel, 'looper.sessionRecording',
         case
         { (~rp !? { |r| r[\live] }) != false } {

@@ -272,12 +272,12 @@
 // A Wave synth setting as a bar to drag (0..1 along its knob's spec), held
 // while the hand is on it so the four-a-second repaint leaves it be.
 ~performSynthBar = { |name, tip|
-    var p = MegaSAWave.param(name);
+    var id = ("sa.synth." ++ name).asSymbol;
     ~mapTag.(~guiBar.(\synth)
-        .action_({ |sl| ~megaSA !? { |m| m.wave.set(name, p[\spec].map(sl.value)); ~performPaintSynth.() } })
+        .action_({ |sl| ~controlDo.(id, \position, sl.value, \gui); ~performPaintSynth.() })
         .mouseDownAction_({ |sl| ~performSynthHeld = name; nil })
         .mouseUpAction_({ |sl| ~performSynthHeld = nil; ~performPaintSynth.(); nil }),
-        ("sa.synth." ++ name).asSymbol, tip)
+        id, tip)
 };
 
 // A bar under a caption of its own, the caption saying what it is and what
@@ -330,7 +330,7 @@
             "again before then, it is taken back. Key V.");
     ~feedbackSlider = ~mapTag.(~guiBar.(\loop)
         .value_(l !? { |lp| lp.feedback } ? 1)
-        .action_({ |sl| ~looper !? { |lp| lp.feedback = sl.value } }),
+        .action_({ |sl| ~controlDo.('looper.feedback', \position, sl.value, \gui) }),
         'looper.feedback');
     ~feedbackLabel = ~performValue.((l !? { |lp| lp.feedback } ? 1).round(0.01).asString);
     ~performLengthBar = ~performReadBar.(\loop);
@@ -366,7 +366,7 @@
     // Mix vs the dry loop, à la Ableton Beat Repeat.
     ~bbcutModeSeg = ~guiSeg.(["Mix", "Insert", "Gate"], (height: 30, base: \panel,
         font: ~guiSans.(14),
-        action: { |i| ~looper !? { |lp| lp.bbcutMode = [\mix, \insert, \gate][i] } }));
+        action: { |i| ~controlDo.('looper.bbcutMode', \set, i, \gui) }));
     ~mapTag.(~bbcutModeSeg[\view], 'looper.bbcutMode',
         "How the cutter sits against the dry loop:\n"
             "Mix: dry loop plus the cut repetitions on top.\n"
@@ -403,12 +403,12 @@
     // back to bar and label, so CC 118 stays in sync.
     ~granularSlider = ~mapTag.(~guiBar.(\grain)
         .value_(l !? { |lp| lp.granularMorph } ? 0)
-        .action_({ |sl| ~looper !? { |lp| lp.granularMorph = sl.value } }),
+        .action_({ |sl| ~controlDo.('looper.granularMorph', \position, sl.value, \gui) }),
         'looper.granularMorph', "Morph: 0 the frozen drone, 1 the pulsed scan in time with the loop.");
     ~granularLabel = ~performValue.((l !? { |lp| lp.granularMorph } ? 0).round(0.01).asString);
     ~performGrainAmp = ~mapTag.(~guiBar.(\grain)
         .value_(l !? { |lp| lp.granularAmp } ? 0.3)
-        .action_({ |sl| ~looper !? { |lp| lp.granularAmp = sl.value } }),
+        .action_({ |sl| ~controlDo.('looper.granularAmp', \position, sl.value, \gui) }),
         'looper.granularAmp', "The granular layer's level against the dry loop.");
     ~performGrainAmpLabel = ~performValue.((l !? { |lp| lp.granularAmp } ? 0.3).round(0.01).asString);
     // The shape, a chip per part, where a grey line at the foot said it.
@@ -430,7 +430,7 @@
     // the Drums; the other rigs give them a column of their own, below.
     ~performOnsetChance = ~mapTag.(~guiBar.(\drum)
         .value_(l !? { |lp| lp.onsetNoteChance } ? 1)
-        .action_({ |sl| ~looper !? { |lp| lp.onsetNoteChance = sl.value } }),
+        .action_({ |sl| ~controlDo.('looper.onsetNoteChance', \position, sl.value, \gui) }),
         'looper.onsetNoteChance',
         "How likely each onset is to sound: 100 % is every hit as played. Which hits drop out\n"
             "is fixed per take, so the thinned part still repeats exactly. Re-roll on Setup ›\n"
@@ -472,7 +472,7 @@
                 ~performParam.("Drums", ~performFxDrumsLabel, ~performFxDrumsChips)
             ]));
         ~performDrumsTile = ~midiTip.(~guiLayerTile.(\drum)
-            .action_({ ~drumsModel !? { |f| f.value !? { |d| d.setOn(d.on.not) } } }),
+            .action_({ ~controlDo.('sa.drums.on', \press, nil, \gui) }),
             'sa.drums.on', "The steps on or off, as their footswitch does.");
         ~performDrumsKit = ~performReadBar.(\drum);
         ~performDrumsKitLabel = ~performValue.("—");
@@ -503,7 +503,7 @@
         // those three are the Wave synth's and grey.
         if(~megaSA.respondsTo(\wave)) {
             ~performSynthTile = ~midiTip.(~guiLayerTile.(\synth)
-                .action_({ ~synthModel !? { |f| f.value !? { |d| d.setNotesOn(d.notesOn.not); ~performPaintSynth.() } } }),
+                .action_({ ~controlDo.('sa.synth.on', \press, nil, \gui); ~performPaintSynth.() }),
                 'sa.synth.on', "The note sequencer on or off, from the moment you hear it, as its footswitch does.");
             ~performSynthCutoff = ~performSynthBar.(\waveCutoff,
                 "The Wave synth's filter: drag it while the line plays. Each note takes the cutoff\n"
@@ -516,7 +516,7 @@
             // a size smaller than its neighbours' words, and less margin.
             ~performSynthRandom = ~midiTip.(LooperTile().states_([["Random sound", ~gt[\ink], nil]]).cycles_(false)
                 .border_(~gt[\line]).font_(~guiSans.(12, true)).pad_(4).fixedHeight_(32).minWidth_(60)
-                .action_({ ~megaSA !? { |m| m.wave.randomize; ~performPaintSynth.() } }),
+                .action_({ ~controlDo.('sa.synth.random', \press, nil, \gui); ~performPaintSynth.() }),
                 'sa.synth.random', "Every setting of the Wave synth at random but its level and glide.");
             synthCol = ~performColumn.((key: \synth, name: "Synth", view: \synth,
                 sw: { ~performSw.('sa.synth.on') },
@@ -574,20 +574,18 @@
         "Throw the loop away. Single click, like the key — there is no confirmation.");
 
     // The counts the Break and Dissolve tiles run over.
-    stepper = { |id, lo, hi, val, set, tip|
+    stepper = { |id, lo, hi, val, tip|
         ~mapTag.(NumberBox().canFocus_(false)
             .clipLo_(lo).clipHi_(hi).step_(1).scroll_step_(1).decimals_(0)
             .font_(~guiMono.(14, true)).background_(~gt[\panel]).normalColor_(~gt[\ink])
             .fixedSize_(Size(52, 28)).align_(\center)
             .value_(val)
-            .action_({ |nb| ~looper !? { |lp| set.(lp, nb.value) } }), id, tip)
+            .action_({ |nb| ~controlDo.(id, \set, nb.value, \gui) }), id, tip)
     };
     ~breakLoopsField = stepper.('looper.breakLoops', 1, 8, l !? { |lp| lp.breakLoops } ? 1,
-        { |lp, v| lp.breakLoops = v },
         "How many loop passes a break covers, counting the one you struck it in.\n"
             "So 1 — the default — comes back on the NEXT downbeat; 2 buys a full pass on top of it.");
     ~dissolveLoopsField = stepper.('looper.dissolveBars', 1, 32, l !? { |lp| lp.dissolveLoops } ? 4,
-        { |lp, v| lp.dissolveLoops = v },
         "How many loop passes the ending takes, from the press: 4 by default.\n"
             "Passes, as a break counts them, whatever bars the analyser read.");
     steppers = HLayout(
@@ -600,7 +598,7 @@
     // The control the whole piece is shaped with.
     ~intensitySlider = ~midiTip.(~guiBar.(\ink, 16)
         .value_(l !? { |lp| lp.intensity } ? 1)
-        .action_({ |sl| ~looper !? { |lp| lp.intensity = sl.value } }),
+        .action_({ |sl| ~controlDo.('looper.intensity', \position, sl.value, \gui) }),
         'looper.intensity',
         "The expression pedal's control. Heel: the dry loop, with the cutter running but\n"
             "barely chopping and no grains. Toe: the cutter chopping as dialled in and the\n"
@@ -618,7 +616,7 @@
     // level and the automatic level are in the status band above.
     ~performThresholdBar = ~mapTag.(~guiBar.(\ink, 16)
         .value_(~onsetThresholdSpec.unmap(l !? { |lp| lp.onsetThreshold } ? 0.5))
-        .action_({ |sl| ~looper !? { |lp| lp.onsetThreshold = ~onsetThresholdSpec.map(sl.value) } }),
+        .action_({ |sl| ~controlDo.('looper.onsetThreshold', \position, sl.value, \gui) }),
         'looper.onsetThreshold',
         "The onset threshold: how sharp an attack must be to count as an onset. The\n"
             "default, 0.5, works at any tap level (the automatic level, under the lamp).\n"

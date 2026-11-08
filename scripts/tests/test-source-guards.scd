@@ -251,3 +251,32 @@ var offenders = List.new;
 ~tAssert.("...and the scan still frees the synth it made",
     File.readAllString(root +/+ "scripts" +/+ "calibrate-measure.scd").contains("scan.free;"));
 }.value;
+
+// One way to drive a control (docs/dev/architecture.md, 5, step 1): the keys,
+// the Perform pane, the top bar and the status band press their controls
+// through the command layer (~controlDo), so a key, a tile and a footswitch
+// mean the same thing. A widget's action calling the Looper or SA's models
+// itself again is the drift this ended: the keys calling Looper selectors of
+// their own, Perform's drums tile a method its footswitch did not. Reads (a
+// painter asking the model) are not actions and are left alone.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var models = ["~looper !?", "~megaSA !?", "~drumsModel !?", "~synthModel !?"];
+var direct = { |file, isAction|
+    var found = List.new;
+    (File.readAllString(root +/+ "scripts" +/+ file) ? "").split($\n).do { |line, i|
+        var cut = line.find("//");
+        var code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
+        if(isAction.(code) and: { models.any { |m| code.contains(m) } }) { found.add(file ++ ":" ++ (i + 1)) };
+    };
+    found.asArray
+};
+var widget = { |code| code.contains(".action_({") or: { code.contains("action: {") } };
+var widgets = ["gui-perform.scd", "gui-shell.scd", "gui-status.scd"].collect { |f| direct.(f, widget) }.flatten;
+var keys = direct.("gui-shell.scd", { |code| code.contains("{ char == $") });
+~tAssert.("Perform's, the top bar's and the status band's widgets drive their controls through ~controlDo",
+    widgets.isEmpty, "found at " ++ widgets.join(", "));
+~tAssert.("…and the keys do too", keys.isEmpty, "found at " ++ keys.join(", "));
+~tAssert.("…and the guard reads the widgets it guards",
+    (File.readAllString(root +/+ "scripts" +/+ "gui-perform.scd") ? "").contains("~controlDo.(id, \\press, nil, \\gui)"));
+}.value;
