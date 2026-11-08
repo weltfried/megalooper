@@ -171,6 +171,42 @@
 };
 ~midiSettingsSave = { |action| ~midiSettingsWrite.(~midiSettingsNow.(), action) };
 
+// One choice kept under "gui" in settings.json (the theme, the help lines,
+// and the switches the setup scripts keep: the fallback meter, AI apps, Log
+// every action, the drums' new loop), and read back. They were the window's
+// (gui-theme.scd, whose names forward here), and the setup scripts reached up
+// to the window to keep theirs (docs/dev/architecture.md, 5, step 2).
+//
+// A Dictionary from parseJSON is built with no free slot, so a key put into
+// it that it doesn't have fails (_BasicPut, "Index out of range"): the raw
+// settings and their "gui" are copied into fresh ones before the choice goes
+// in. A missing settings.json starts fresh ones anyway, which is how the
+// checks missed it until there was a file.
+~settingsDictCopy = { |d|
+    var c = Dictionary.new;
+    if(d.isKindOf(Dictionary)) { d.keysValuesDo { |k, v| c.put(k, v) } };
+    c
+};
+~prefSave = { |key, value, what|
+    var s = ~midiSettingsNow !? { |f| f.value };
+    var raw, gui;
+    if(s.notNil and: { ~midiSettingsSave.notNil }) {
+        raw = ~settingsDictCopy.(s[\raw]);
+        gui = ~settingsDictCopy.(raw["gui"]);
+        gui.put(key, value);
+        raw.put("gui", gui);
+        s[\raw] = raw;
+        ~midiSettingsSave.({ |ok, why|
+            if(ok != true) { ("megalooper: " ++ (what ? key) ++ " was not kept: " ++ (why ? "")).warn };
+        });
+    };
+};
+~prefSaved = { |key|
+    var raw = ~midiSettingsNow !? { |f| f.value[\raw] };
+    var gui = raw !? { |r| r["gui"] };
+    if(gui.isKindOf(Dictionary)) { gui[key] }
+};
+
 // The map a rig uses: your choice for it in settings.json, else the one its
 // profile names (setup-routing.scd's midiMap:), else none.
 ~midiMapNameFor = { |rigName, settings|

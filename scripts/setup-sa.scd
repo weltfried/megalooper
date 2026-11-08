@@ -737,13 +737,13 @@
 ~saDrumsNewLoopKey = "drumsNewLoop";
 ~saDrumsNewLoopApply = {
     ~megaSA !? { |m| m.drums !? { |d|
-        d.newLoopOff = (~guiPrefSaved !? { |f| f.value(~saDrumsNewLoopKey) }) == "off" } }
+        d.newLoopOff = (~prefSaved !? { |f| f.value(~saDrumsNewLoopKey) }) == "off" } }
 };
 ~saDrumsNewLoopSet = { |off|
     ~megaSA !? { |m| m.drums !? { |d| d.newLoopOff = off == true } };
     // Perform's switch shows what was set (it does not move itself).
     ~performNewLoopSeg !? { |sg| ~guiSegSet !? { |f| f.value(sg, (off == true).binaryValue) } };
-    ~guiPrefSave !? { |f| f.value(~saDrumsNewLoopKey, if(off == true) { "off" } { "play" }, "the drums' new-loop switch") };
+    ~prefSave !? { |f| f.value(~saDrumsNewLoopKey, if(off == true) { "off" } { "play" }, "the drums' new-loop switch") };
 };
 
 ~setupSA = {

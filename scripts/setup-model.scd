@@ -209,11 +209,11 @@
 //   ~fallbackSet.(true)  on, kept; false off
 ~fallbackPrefKey = "fallbackMeter";
 ~fallbackDefault = "off";
-~fallbackOnSaved = { ((~guiPrefSaved !? { |f| f.value(~fallbackPrefKey) }) ? ~fallbackDefault) == "on" };
+~fallbackOnSaved = { ((~prefSaved !? { |f| f.value(~fallbackPrefKey) }) ? ~fallbackDefault) == "on" };
 ~fallbackApply = { MeterAnalyzer.fallbackOn = ~fallbackOnSaved.() };
 ~fallbackSet = { |on|
     MeterAnalyzer.fallbackOn = on == true;
-    ~guiPrefSave !? { |f| f.value(~fallbackPrefKey, if(on == true) { "on" } { "off" }, "the fallback meter's switch") };
+    ~prefSave !? { |f| f.value(~fallbackPrefKey, if(on == true) { "on" } { "off" }, "the fallback meter's switch") };
     ~rigFallbackPaint !? { |f| f.value };
 };
 

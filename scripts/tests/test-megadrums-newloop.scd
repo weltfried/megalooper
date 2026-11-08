@@ -48,11 +48,11 @@ said = heard.(d, { l.changed(\state, \recording) });
 ~tAssert.("already off, nothing more is done", said.select { |x| x[0] == \on }.isEmpty, said.asString);
 
 // ---- kept in settings.json, through setup-sa.scd's two functions ---------------
-wasSave = ~guiPrefSave;
-wasSaved = ~guiPrefSaved;
+wasSave = ~prefSave;
+wasSaved = ~prefSaved;
 saved = ();
-~guiPrefSave = { |key, value| saved.put(key.asSymbol, value) };
-~guiPrefSaved = { |key| saved[key.asSymbol] };
+~prefSave = { |key, value| saved.put(key.asSymbol, value) };
+~prefSaved = { |key| saved[key.asSymbol] };
 (Looper.repoRoot +/+ "scripts" +/+ "setup-sa.scd").load;
 ~megaSA = sa;
 ~saDrumsNewLoopSet.(false);
@@ -65,8 +65,8 @@ d.newLoopOff = false;
 saved = ();
 ~saDrumsNewLoopApply.();
 ~tEq.("with nothing kept, the drums play", d.newLoopOff, false);
-~guiPrefSave = wasSave;
-~guiPrefSaved = wasSaved;
+~prefSave = wasSave;
+~prefSaved = wasSaved;
 ~megaSA = nil;
 sa.free;
 }.value;

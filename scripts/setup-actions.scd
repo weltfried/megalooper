@@ -24,7 +24,7 @@
 // Unless settings.json says otherwise.
 ~actionsDefault = "off";
 
-~actionsOn = { ((~guiPrefSaved !? { |f| f.value(~actionsPrefKey) }) ? ~actionsDefault) == "on" };
+~actionsOn = { ((~prefSaved !? { |f| f.value(~actionsPrefKey) }) ? ~actionsDefault) == "on" };
 
 // The Looper's own switches, for its state.
 ~actionsLooperState = { |l|
@@ -105,7 +105,7 @@
 ~actionsSet = { |on|
     on = on == true;
     if(on != ~actionsOn.()) {
-        ~guiPrefSave !? { |f| f.value(~actionsPrefKey, if(on) { "on" } { "off" }, "the Log every action switch") };
+        ~prefSave !? { |f| f.value(~actionsPrefKey, if(on) { "on" } { "off" }, "the Log every action switch") };
         ~actionsApply.();
         ~guiSay !? { |f| f.value(if(on) { "Every action is logged from now on" } { "Actions are not logged" }) };
     };

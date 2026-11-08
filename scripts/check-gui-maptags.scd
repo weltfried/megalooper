@@ -522,7 +522,7 @@ Routine {
         var tabSub = { |i| ~bbcutVoiceTabsHolder.children.select { |c| c.isKindOf(LooperTile) }[i] !? { |t| t.sub } ? "" };
         var procTile, procName, was = [~looper.inChannelCount, ~looper.bbcutMode];
         // (The New loop switch keeps its choice in settings.json: caught here, never written.)
-        var wasPrefSave = ~guiPrefSave, kept, col;
+        var wasPrefSave = ~prefSave, kept, col;
         ~wireLooperController.();
         click.(~inChannelSeg, 1);
         tick.();
@@ -532,7 +532,7 @@ Routine {
         tick.();
         ok.("...Mono clicked, one channel, and the switch says Mono",
             [~looper.inChannelCount, ~inChannelSeg[\view].value] == [1, 0], [~looper.inChannelCount, ~inChannelSeg[\view].value].asString);
-        ~guiPrefSave = { |key, value| kept = [key, value] };
+        ~prefSave = { |key, value| kept = [key, value] };
         col = ~performNewLoopSeg !? { |sg| sg[\view] };
         while { col.notNil and: { col !== ~performColumns[\drum][\band].parent } } { col = col.parent };
         ok.("New loop: the switch is in Perform's Drums column, at Play",
@@ -550,7 +550,7 @@ Routine {
         ok.("...and it shows the drums' own setting when Perform is painted", ~performNewLoopSeg[\view].value == 1);
         ~megaSA.drums.newLoopOff = false;
         ~performPaintDrums.();
-        ~guiPrefSave = wasPrefSave;
+        ~prefSave = wasPrefSave;
         click.(~bbcutModeSegSound, 0);
         tick.();
         ok.("the cutter's mode: Mix clicked, the looper mixes and the switch says Mix",

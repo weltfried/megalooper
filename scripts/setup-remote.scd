@@ -20,7 +20,7 @@
 
 ~remotePrefKey = "aiApps";
 
-~remoteOn = { (~guiPrefSaved !? { |f| f.value(~remotePrefKey) }) == "on" };
+~remoteOn = { (~prefSaved !? { |f| f.value(~remotePrefKey) }) == "on" };
 
 ~remoteSource = {
     (looper: ~looper, sa: ~megaSA, profile: ~routingProfile, drumsPresetDir: ~saDrumsPresetDir,
@@ -64,7 +64,7 @@
 ~remoteSet = { |on|
     on = on == true;
     if(on != ~remoteOn.()) {
-        ~guiPrefSave !? { |f| f.value(~remotePrefKey, if(on) { "on" } { "off" }, "the AI apps switch") };
+        ~prefSave !? { |f| f.value(~remotePrefKey, if(on) { "on" } { "off" }, "the AI apps switch") };
         ~remoteApply.();
         ~guiSay !? { |f| f.value(if(on) { "AI apps may connect" } { "AI apps are shut out" }) };
     };

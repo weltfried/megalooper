@@ -171,38 +171,14 @@
     var name = if(gui.isKindOf(Dictionary)) { gui["theme"] };
     name !? { |n| n.asString.asSymbol }
 };
-// A Dictionary from parseJSON is built with no free slot, so a key put into
-// it that it doesn't have fails (_BasicPut, "Index out of range"): the raw
-// settings and their "gui" are copied into fresh ones before the theme goes
-// in. A missing settings.json starts fresh ones anyway, which is how the
-// checks missed it until there was a file.
-~guiDictCopy = { |d|
-    var c = Dictionary.new;
-    if(d.isKindOf(Dictionary)) { d.keysValuesDo { |k, v| c.put(k, v) } };
-    c
-};
 ~guiThemeSave = { |name| ~guiPrefSave.("theme", name.asString, "the theme") };
-// One of the window's choices kept under "gui" in settings.json (the theme,
-// the help lines), and read back.
-~guiPrefSave = { |key, value, what|
-    var s = ~midiSettingsNow !? { |f| f.value };
-    var raw, gui;
-    if(s.notNil and: { ~midiSettingsSave.notNil }) {
-        raw = ~guiDictCopy.(s[\raw]);
-        gui = ~guiDictCopy.(raw["gui"]);
-        gui.put(key, value);
-        raw.put("gui", gui);
-        s[\raw] = raw;
-        ~midiSettingsSave.({ |ok, why|
-            if(ok != true) { ("megalooper: " ++ (what ? key) ++ " was not kept: " ++ (why ? "")).warn };
-        });
-    };
-};
-~guiPrefSaved = { |key|
-    var raw = ~midiSettingsNow !? { |f| f.value[\raw] };
-    var gui = raw !? { |r| r["gui"] };
-    if(gui.isKindOf(Dictionary)) { gui[key] }
-};
+// The choices kept under "gui" in settings.json are the settings' own
+// (~prefSave, ~prefSaved and ~settingsDictCopy, setup-midimap.scd, beside the
+// file they are written to): the setup scripts keep theirs there too. The
+// window keeps these names.
+~guiDictCopy = { |d| ~settingsDictCopy.(d) };
+~guiPrefSave = { |key, value, what| ~prefSave.(key, value, what) };
+~guiPrefSaved = { |key| ~prefSaved.(key) };
 
 // ---- Help lines -----------------------------------------------------------------------
 // The sentences that explain how a page works, not what is going on: the "?"
