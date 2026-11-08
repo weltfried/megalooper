@@ -281,12 +281,8 @@
         } {
             "=> no chords detected".postln;
         };
-        // The window hears of the take's result as it hears of everything
-        // else, from the model (the export fields, the key, the Grains' chords
-        // line: gui-wiring.scd). The Looper itself sends nothing when a
-        // result lands (docs/dev/architecture.md 3.6); until it does, it is
-        // said here, as the Looper will say it.
-        ~looper.changed(\result, r);
+        // The window hears of the result from the Looper itself (\result,
+        // Looper.prSetResult), for this and for every other way it changes.
     };
 
     // Drives Live's scale system from the chord routine. Looper's
@@ -295,9 +291,7 @@
     ~looper.onChordChange = { |seg|
         ~ableton.sendMsg("/live/song/set/root_note", seg.root.asInteger);
         ~ableton.sendMsg("/live/song/set/scale_name", seg.scaleName);
-        // The window's key follows (gui-wiring.scd), told as it is told of
-        // everything else.
-        ~looper.changed(\chord, seg);
+        // The window's key hears it from the Looper itself (\chord).
     };
 };
 )

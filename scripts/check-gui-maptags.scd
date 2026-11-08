@@ -599,6 +599,11 @@ Routine {
         ~looper.changed(\chord, (rootName: "D", scaleName: "dorian"));
         tick.();
         ok.("the chord playing names the key", ~rootLabel.string == "D dorian", ~rootLabel.string);
+        ~looper.changed(\result, nil);
+        tick.();
+        ok.("a loop cleared (no result) shows no key and leaves the export fields",
+            (~rootLabel.string == "—") and: { ~exportNumField.value == 7 },
+            [~rootLabel.string, ~exportNumField.value].asString);
         // Each from the other state: the class starts with it on, the app
         // switches it off at boot, so either may be showing now.
         ~prefSave = { };

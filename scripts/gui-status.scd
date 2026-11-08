@@ -1057,10 +1057,10 @@
         // The automatic level moved by half a dB or more (twice a second at most).
         tapGain: { ~statusPaintThreshold !? { |f| f.() } },
         analyzeOverdubs: { ~statusPaintDubMeter !? { |f| f.() } },
-        // A take's result: a dash for the key with no chords (setup-model.scd
-        // says it for the Looper); the chord playing names it.
+        // The result in force (Looper.prSetResult; nil once cleared): a dash
+        // for the key with no chords; the chord playing names it.
         result: { |looper, what, r|
-            if(r.chordSegments.isNil or: { r.chordSegments.isEmpty }) {
+            if(r.isNil or: { r.chordSegments.isNil } or: { r.chordSegments.isEmpty }) {
                 ~rootLabel !? { |t| if(t.isClosed.not) { t.string_("—") } } } },
         chord: { |looper, what, seg|
             ~rootLabel !? { |t| if(t.isClosed.not) { t.string_(seg.rootName ++ " " ++ seg.scaleName) } } }

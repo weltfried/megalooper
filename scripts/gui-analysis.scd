@@ -561,14 +561,17 @@
 ~analysisWatch = {
     var onsets = { ~onsetNotesRefresh !? { |f| f.() } };
     var handlers = (
-        // A take's result (setup-model.scd says it for the Looper): the
-        // training-export fields pre-filled with the analyser's guess, so only
-        // its mistakes need correcting before an export.
+        // The result in force (Looper.prSetResult: a take, a reading, an
+        // undo; nil once cleared, which leaves them): the training-export
+        // fields pre-filled with it, so only its mistakes need correcting
+        // before an export.
         result: { |looper, what, r|
-            ~exportNumField !? { |f| r.numerator !? { |n| if(f.isClosed.not) { f.value_(n) } } };
-            ~exportBarsField !? { |f| if(f.isClosed.not) { f.value_((r.k ? 1).max(1)) } };
-            ~exportDenomField !? { |f|
-                r.denominator !? { |d| ~exportDenoms.indexOf(d.asInteger) !? { |i| if(f.isClosed.not) { f.value_(i) } } } } },
+            r !? {
+                ~exportNumField !? { |f| r.numerator !? { |n| if(f.isClosed.not) { f.value_(n) } } };
+                ~exportBarsField !? { |f| if(f.isClosed.not) { f.value_((r.k ? 1).max(1)) } };
+                ~exportDenomField !? { |f|
+                    r.denominator !? { |d| ~exportDenoms.indexOf(d.asInteger) !? { |i| if(f.isClosed.not) { f.value_(i) } } } };
+            } },
         // The threshold is set on Perform: its value here.
         onsetThreshold: { |looper, what, val|
             ~wireBar.(nil, ~analysisThresholdLabel, nil, val.round(0.01).asString);

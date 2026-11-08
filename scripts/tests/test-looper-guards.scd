@@ -97,6 +97,22 @@ r = heard.(l, { l.finishNextLoopRecord(0) });
     ~tEq.("a cutter starting is taken back by a " ++ c[0], [l.bbcutEnabling, r.isPlaying], [false, false]);
 };
 
+// ---- the result in force, said ----------------------------------------------------------
+// Looper.prSetResult: every change of lastResult says \result (the window, the
+// export fields), where only a new take's analysis reached anyone, through
+// the onAnalysis slot that undo, clear and multiply never called.
+l = playing.();
+~tPut.(l, \lastResult, (k: 1, n: 4, bars: [4], loopDur: 1.0, numerator: 4, denominator: 4, tau: 0.25, sub: 1));
+r = heard.(l, { l.multiply });
+~tAssert.("a multiply says the result it scaled", said.(r, \result).any { |x| x[1] !? { |res| res[\k] == 2 } ? false },
+    said.(r, \result).asString);
+r = heard.(l, { l.undo });
+~tAssert.("an undo says the result it brought back", said.(r, \result).any { |x| x[1] !? { |res| res[\k] == 1 } ? false },
+    said.(r, \result).asString);
+r = heard.(l, { l.clear });
+~tEq.("a clear says there is none", said.(r, \result).collect { |x| x[1] }, [nil]);
+~tEq.("...and the looper keeps none", l.lastResult, nil);
+
 // ---- free ------------------------------------------------------------------------------
 l = playing.();
 ht = Routine { loop { 10.wait } }.play(SystemClock);

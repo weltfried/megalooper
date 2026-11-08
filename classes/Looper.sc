@@ -1010,6 +1010,17 @@ Looper {
         this.changed(\state, newState);
     }
 
+    // The analysis in force, and \result said with it (the result, or nil):
+    // the one place lastResult is written (a take, an overdub's meter, a
+    // reading landing, a multiply or a chain scaling it, undo, clear). Before
+    // 2026-11-08 nothing was said, the window polled the result's identity,
+    // and only the onAnalysis slot heard of it, which undo, clear and multiply
+    // never called (docs/dev/architecture.md 3.6).
+    prSetResult { |r|
+        lastResult = r;
+        this.changed(\result, r);
+    }
+
     // Multi-purpose transport, per Ableton's Looper spec.
     trigger {
         case
@@ -1445,7 +1456,7 @@ Looper {
             };
             // The length the segments cover: a multiplied loop repeats them.
             result[\chordPeriod] = result.loopDur;
-            lastResult = result;
+            this.prSetResult(result);
             // What the analyser heard, and the reading in force is its own.
             analysedResult = result;
             readingIndex = 0;
@@ -1845,7 +1856,7 @@ Looper {
             (first + (result[\downbeatOffset] ? 0)).mod(loopSecs);
         result[\fromOverdub] = true;
 
-        lastResult = result;
+        this.prSetResult(result);
         analysedResult = result;
         readingIndex = 0;
         this.prCancelReading;
@@ -3768,7 +3779,7 @@ Looper {
         buffer !? { |b| b.zero };
         startFrame = 0;
         loopFrames = 0;
-        lastResult = nil;
+        this.prSetResult(nil);
         analysedResult = nil;
         readingIndex = 0;
         undoState = nil;
@@ -4539,7 +4550,7 @@ Looper {
         landAt  = p[\at];
         respawn = bbcut and: { Looper.prReadingChangesCutter(lastResult, result) };
         landingFrom = lastResult;
-        lastResult = result;
+        this.prSetResult(result);
         if(respawn) { this.enableBBCut };
         // Conditional, so a landing whose boundary has passed — which is how
         // the headless tests drive this — runs straight through without a yield.
@@ -4965,19 +4976,20 @@ Looper {
     // Copies the Event first: snapshotForUndo stores lastResult BY REFERENCE,
     // so mutating in place would rewrite the undo state as well.
     prScaleResultLength { |factor|
-        var f = factor.asInteger.max(1);
+        var f = factor.asInteger.max(1), r;
         if(lastResult.isNil or: { f == 1 }) { ^this };
-        lastResult = lastResult.copy;
-        lastResult[\k] = (lastResult[\k] ? 1) * f;
-        lastResult[\n] = (lastResult[\n] ? 1) * f;
-        lastResult[\bars] !? { |b| lastResult[\bars] = (b ! f).flatten };
+        r = lastResult.copy;
+        r[\k] = (r[\k] ? 1) * f;
+        r[\n] = (r[\n] ? 1) * f;
+        r[\bars] !? { |b| r[\bars] = (b ! f).flatten };
         // Take the length from the frames actually in play rather than
         // multiplying the old value, so it cannot drift from the audio.
         if(server.notNil and: { server.sampleRate.notNil } and: { loopFrames > 0 }) {
-            lastResult[\loopDur] = loopFrames / server.sampleRate;
+            r[\loopDur] = loopFrames / server.sampleRate;
         } {
-            lastResult[\loopDur] = (lastResult[\loopDur] ? 0) * f;
+            r[\loopDur] = (r[\loopDur] ? 0) * f;
         };
+        this.prSetResult(r);
     }
 
     // What the take being played was heard to hold, for an AI app
@@ -5014,7 +5026,7 @@ Looper {
         undoBuffer.copyData(buffer);
         startFrame = undoState.startFrame;
         loopFrames = undoState.loopFrames;
-        lastResult = undoState.lastResult;
+        this.prSetResult(undoState.lastResult);
         analysedResult = undoState.analysedResult;
         readingIndex   = undoState.readingIndex ? 0;
         this.prCancelReading;
@@ -5132,6 +5144,8 @@ Looper {
                         segments[i + 1][\start]
                     } { loopSecs };
                     onChordChange.value(seg);
+                    // And to whoever listens (the window's key).
+                    this.changed(\chord, seg);
                     // At half-time each segment lasts twice as long.
                     ((nextStart - seg[\start]) / speed).wait;
                 };
