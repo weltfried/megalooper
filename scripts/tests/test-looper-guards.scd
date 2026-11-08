@@ -97,6 +97,18 @@ r = heard.(l, { l.finishNextLoopRecord(0) });
     ~tEq.("a cutter starting is taken back by a " ++ c[0], [l.bbcutEnabling, r.isPlaying], [false, false]);
 };
 
+// ---- a reading armed for the loop as it was --------------------------------------------
+// Taken back by a multiply and by the next loop's swap, as by a new take and an
+// undo: it would land at the old length, mid-pass in the new loop.
+[[\multiply, { |lp| lp.multiply }], [\swap, { |lp| ~tPut.(lp, \nextRecState, \recording);
+    ~tPut.(lp, \nextRecReps, 2); lp.finishNextLoopRecord(0) }]].do { |c|
+    l = playing.();
+    ~tPut.(l, \pendingReading, (index: 1, at: SystemClock.seconds + 1, result: (loopDur: 1.0)));
+    r = heard.(l, { c[1].value(l) });
+    ~tEq.("a reading armed before a " ++ c[0] ++ " is taken back", l.pendingReading, nil);
+    ~tAssert.("...and the window is told", said.(r, \reading).any { |x| x[1].isNil }, r.asString);
+};
+
 // ---- the result in force, said ----------------------------------------------------------
 // Looper.prSetResult: every change of lastResult says \result (the window, the
 // export fields), where only a new take's analysis reached anyone, through

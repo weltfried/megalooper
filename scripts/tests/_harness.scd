@@ -276,8 +276,10 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 // every write sent is carried out: the last by the time scsynth carries it out
 // (of two at one time, the later sent), from the stub's `writes`; or nil if it
 // never wrote one. 15 is /n_set; the pairs after the node ID are the key/value
-// list. A stub whose sendMsg a test replaced keeps no `writes` for those
-// messages: then `msgs`, in the order sent.
+// list. 9 is /s_new: the controls a synth was made with are its first values
+// (a real Synth made on the stub, Synth(\x, args, server), carries them there,
+// not in an /n_set). A stub whose sendMsg a test replaced keeps no `writes`
+// for those messages: then `msgs`, in the order sent.
 ~tLastSet = { |looper, synth, key|
     var srv   = ~tGet.(looper, \server);
     var log   = srv[\writes] ?? { srv[\msgs].collect { |m| [0, m] } };
@@ -288,6 +290,9 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
             var m = w[1];
             if((m[0] == 15) and: { m[1] == id } and: { w[0] >= foundAt }) {
                 m.copyToEnd(2).pairsDo { |k, v| if(k == key) { found = v; foundAt = w[0] } };
+            };
+            if((m[0] == 9) and: { m[2] == id } and: { w[0] >= foundAt }) {
+                m.copyToEnd(5).pairsDo { |k, v| if(k == key) { found = v; foundAt = w[0] } };
             };
         };
     };

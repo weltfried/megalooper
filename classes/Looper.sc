@@ -2379,6 +2379,8 @@ Looper {
         nextRecRoutine = nil;
         // Snapshot the OLD loop first so Undo can revert the swap.
         this.snapshotForUndo;
+        // A reading armed for the old loop has nothing to land on (multiply's).
+        this.prCancelReading;
         // Double-buffer swap: the freshly recorded buffer becomes active; the
         // old active buffer becomes the scratch for the next capture.
         tmp = buffer; buffer = nextBuffer; nextBuffer = tmp;
@@ -4972,6 +4974,11 @@ Looper {
             ^this.prRefused(\multiply, "the loop would not fit the buffer")
         };
         this.snapshotForUndo;
+        // A reading armed for the loop as it was would land at its length, on
+        // its boundary, which is mid-pass in the longer one (the gesture fuzz
+        // found it, 2026-11-08): taken back, as a new take and an undo take
+        // theirs. Next reading arms one for the loop as it is now.
+        this.prCancelReading;
         (1..(factor - 1)).do { |i|
             buffer.copyData(buffer,
                 dstStartAt: startFrame + (loopFrames * i),

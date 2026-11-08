@@ -54,6 +54,7 @@ var mixerStub, midiStub, rig, newEngine;
 var weights;
 var noteBalance, gateOf;
 var rampTo, rampDone, cutterOn, newTake, stepDrums, takeResult, readingLands;
+var armNextLoop, nextLoopRecords, nextLoopLands, whenPlayable;
 var gestures, invariants, restInvariants;
 var violations, counts, seen, record, check;
 
@@ -115,6 +116,27 @@ takeResult = {
 rig = {
     var l = ~tLooper.();
     var take = takeResult.();
+    var srv = ~tGet.(l, \server);
+    // Buffers and busses on the stub (objects only, nothing allocated): an
+    // overdub snapshots for undo, a multiply copies, the next loop's swap and
+    // an undo spawn an engine. Thirty seconds, so a few multiplies fit.
+    ~tPut.(l, \buffer, Buffer.new(srv, 30 * 48000, 1, 0));
+    ~tPut.(l, \undoBuffer, Buffer.new(srv, 30 * 48000, 1, 1));
+    ~tPut.(l, \nextBuffer, Buffer.new(srv, 30 * 48000, 1, 2));
+    ~tPut.(l, \outBus, Bus.audio(srv, 2));
+    // The engine's phase, answered at once as the clock predicts it: a real
+    // bus on the stub would never answer, and a break waits for that answer
+    // to show its countdown.
+    ~tPut.(l, \phaseBus, (index: 7, get: { |self, action|
+        action.value(((SystemClock.seconds - (~tGet.(l, \loopStartTime) ? 0)) * l.speed).mod(l.loopDuration.max(0.001))) }));
+    // Every synth a real call makes on the stub its own node, from 5000, apart
+    // from the stub synths the rig hands out (1001 up).
+    ~tCountIds.(srv, 5000);
+    ~tPut.(l, \insertBus, Bus.control(srv, 1));
+    ~tPut.(l, \tapGainBus, Bus.control(srv, 1));
+    ~tPut.(l, \startFrame, 0);
+    // No overdub analysis: it listens for OSC, which a fuzz has no business with.
+    ~tPut.(l, \analyzeOverdubs, false);
     ~tPut.(l, \state, \playing);
     ~tPut.(l, \loopFrames, (3.5 * 48000).asInteger);
     ~tPut.(l, \lastResult, take);
@@ -160,6 +182,32 @@ cutterOn = { |l|
     ~tPut.(l, \bbcut, true);
     l.bbcutVoices.do { |v| if(v[\mixer].isNil) { v[\mixer] = mixerStub.() } };
     l.prApplyMixes;
+};
+
+// The trigger as the player presses it on a loop: an overdub, its end, a
+// stopped loop played. Not on an empty or recording looper, whose take needs
+// the analyser and a server (newTake models the take instead).
+whenPlayable = { |l, f| if([\playing, \overdubbing, \stopped].includes(l.state)) { f.value(l) } };
+
+// (M) Rec next loop armed: what armNextLoopRecord leaves language-side, its
+// routine aside (it waits for the boundary on the wall clock).
+armNextLoop = { |l|
+    if((l.state == \playing) and: { ~tGet.(l, \nextRecState) == \idle } and: { l.prAtHalfTime.not }) {
+        ~tPut.(l, \nextRecState, \armed);
+        ~tPut.(l, \nextRecReps, (1..3).choose);
+        l.changed(\nextRecState, \armed);
+    };
+};
+// (M) The boundary came: the next loop records.
+nextLoopRecords = { |l|
+    if(~tGet.(l, \nextRecState) == \armed) {
+        ~tPut.(l, \nextRecState, \recording);
+        l.changed(\nextRecState, \recording);
+    };
+};
+// The next loop in: the real swap, as its routine calls it at the boundary.
+nextLoopLands = { |l|
+    if([\recording, \stopping].includes(~tGet.(l, \nextRecState))) { l.finishNextLoopRecord(0) };
 };
 
 // (M) The player records again over a stopped or cleared looper.
@@ -240,7 +288,17 @@ gestures = [
     [\newTake,          6, { |l| newTake.(l) }],
     [\nextReading,      3, { |l| l.nextReading }],
     [\revertReading,    2, { |l| l.revertReading }],
-    [\readingLands,     3, { |l| readingLands.(l) }]
+    [\readingLands,     3, { |l| readingLands.(l) }],
+    // The transport, and the next loop (2026-11-08: none of these were drawn,
+    // and the faults the review found were among them).
+    [\trigger,          6, { |l| whenPlayable.(l, { l.trigger }) }],
+    [\multiply,         3, { |l| l.multiply }],
+    [\undo,             3, { |l| l.undo }],
+    [\halfTime,         3, { |l| l.toggleHalfTime }],
+    [\armNextLoop,      3, { |l| armNextLoop.(l) }],
+    [\nextLoopRecords,  3, { |l| nextLoopRecords.(l) }],
+    [\nextLoopLands,    3, { |l| nextLoopLands.(l) }],
+    [\takeNextLoopBack, 2, { |l| if(~tGet.(l, \nextRecState) == \armed) { l.recordNextLoop } }]
 ];
 
 // ----------------------------------------------------------- invariants -----
@@ -260,6 +318,34 @@ noteBalance = { |l|
 gateOf = { |l| ~tLastSet.(l, ~tGet.(l, \masterSynth), \breakAmp) ? 1 };
 
 invariants = [
+    // An overdub and the next loop refuse each other both ways (Looper's
+    // prRefusal): the swap used to set \playing over a running overdub.
+    [\no_overdub_while_a_next_loop_is_on, { |l, ctx|
+        var bad = List.new;
+        if((l.state == \overdubbing) and: { ~tGet.(l, \nextRecState) != \idle }) {
+            bad.add("overdubbing while the next loop is " ++ ~tGet.(l, \nextRecState)) };
+        bad
+    }],
+
+    // The reading in force describes the loop that plays: a multiply, the next
+    // loop's swap and an undo change both together, or the cutter and the
+    // count work to a length the audio does not have.
+    [\the_reading_in_force_is_as_long_as_the_loop, { |l, ctx|
+        var bad = List.new, r = l.lastResult, frames = ~tGet.(l, \loopFrames);
+        if(r.notNil and: { frames > 0 } and: { [\playing, \overdubbing].includes(l.state) }
+            and: { ((r[\loopDur] ? 0) - (frames / 48000)).abs > 0.002 }) {
+            bad.add("the reading says " ++ r[\loopDur] ++ " s, the loop is " ++ (frames / 48000) ++ " s") };
+        bad
+    }],
+
+    // A cutter starting has the routine that will bring it in (and that a stop
+    // takes back), or nothing will ever clear bbcutEnabling.
+    [\a_starting_cutter_has_its_routine, { |l, ctx|
+        var bad = List.new;
+        if(l.bbcutEnabling and: { ~tGet.(l, \bbcutEnableRoutine).isNil }) { bad.add("bbcutEnabling with no routine") };
+        bad
+    }],
+
     [\every_control_stays_in_its_declared_range, { |l, ctx|
         var bad = List.new;
         if((l.intensity < 0) or: { l.intensity > 1 }) {
