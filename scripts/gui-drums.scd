@@ -502,6 +502,12 @@
 // empty), their trims, Beat Repeat, the reverb and the offset; the on/off
 // switch, the break and the mixer levels stay where the footswitches and
 // faders put them.
+//
+// Picked from the menu, a preset loads AT ONCE (loadPreset); its MIDI
+// controls recall it on the next bar line (recallPreset, setup-miditargets.scd).
+// Two timings on purpose, the player's decision (2026-11-08): the menu is a
+// pick you look at, a footswitch a move in time. test-source-guards.scd holds
+// both, so making them one command can't quietly change either.
 ~definePresetFamily.(\saDrums, (
     label:      "Drums",
     statusIdle: "Pick a preset to recall it · Save keeps both patterns, the kits and their trims",

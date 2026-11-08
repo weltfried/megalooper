@@ -289,3 +289,18 @@ var keys = direct.("gui-shell.scd", { |code| code.contains("{ char == $") });
 ~tAssert.("…and the guard reads the widgets it guards",
     (File.readAllString(root +/+ "scripts" +/+ "gui-perform.scd") ? "").contains("~controlDo.(id, \\press, nil, \\gui)"));
 }.value;
+
+// A drum preset has two timings on purpose (the player's decision,
+// 2026-11-08): picked from the Drums view's menu it loads at once, from its
+// MIDI controls it lands on the next bar line. Not one command that drifted:
+// unifying the two must not change either (docs/dev/architecture.md, 6).
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var drums = File.readAllString(root +/+ "scripts" +/+ "gui-drums.scd") ? "";
+var targets = File.readAllString(root +/+ "scripts" +/+ "setup-miditargets.scd") ? "";
+var family = drums.find("~definePresetFamily.(\\saDrums,") !? { |i| drums.copyRange(i, (i + 600).min(drums.size - 1)) } ? "";
+~tAssert.("the Drums view's preset menu loads a preset at once (loadPreset)",
+    family.contains("load:       \\loadPreset,"), family.copyRange(0, 80));
+~tAssert.("…and its MIDI controls recall one on the next bar line (recallPreset)",
+    targets.contains("d.recallPreset(dir.value, slug)"));
+}.value;
