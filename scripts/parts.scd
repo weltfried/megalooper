@@ -23,6 +23,7 @@
 (
 ~megalooperParts = [
     "setup-boot.scd",         // the boot's steps: the first that throws says where
+    "setup-app.scd",          // the app's own model (~app) and ~say, for the player
     "setup-routing.scd",      // ~routingProfiles, ~applyRoutingProfile, the preflights
     "setup-midi.scd",         // ~setupMidiIO, and the numbers MIDI is bound to
     "setup-model.scd",        // ~setupLooper, ~wireLooperCallbacks, ~fallbackApply

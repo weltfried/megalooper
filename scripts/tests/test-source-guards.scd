@@ -374,7 +374,7 @@ var boot = File.readAllString(scripts +/+ "boot.scd") ? "";
 // The setup scripts stand below the window (docs/dev/architecture.md, 5,
 // step 2): none reads a global that only a gui file defines. It started at 54
 // (a MIDI control's law was a pane's, the settings' helpers the theme's), and
-// was 17 after step 4's first part. What is left is named here, and the list
+// was 14 after step 4's first two parts. What is left is named here, and the list
 // only shrinks: a name no setup script reads from the window any more fails
 // until it is taken off. Most of it is a setup script writing a widget
 // itself, which step 4 ends (models notify, panes listen); the window's own
@@ -383,10 +383,11 @@ var boot = File.readAllString(scripts +/+ "boot.scd") ? "";
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 var scripts = root +/+ "scripts";
 var allowed = [
-    // a setup script writing or painting the window itself (step 4; the
+    // a setup script reading or showing the window itself (step 4; the
     // analysis' export fields and key, the Grains' chords line, the fallback
-    // and new-loop switches are the panes' own now)
-    \actionsPaint, \guiAiPaint, \guiSay, \guiView, \presetShow, \presetFamilies,
+    // and new-loop switches, the status line's words and the AI and action
+    // log switches are the window's own now, through ~app)
+    \guiView, \presetShow, \presetFamilies,
     \midiGui, \midiGuiRefresh, \midiMonitorPush,
     // the window's own controls, which drive the window (Show a view)
     \guiSelectView, \guiViewOrder, \guiWindow,

@@ -43,6 +43,9 @@ Routine {
     // Shown, but see-through: a widget in a window never shown is never
     // visible, whatever it was told.
     w.alpha_(0).front;
+    // It listens to the app's own model as the real window does (the status
+    // line's words, the switch and Revert painted from what setup-remote says).
+    ~appWatch.();
     tick.();
     ok.("the section builds, the switch off with no settings.json saying otherwise",
         section.isClosed.not and: { ~remoteSeg[\view].value == 0 } and: { ~remoteOn.() == false });

@@ -102,7 +102,7 @@
                 if(on == true) { ~actionLog !? { |a| a.writeStates } } }.inEnvir);
         };
     };
-    ~actionsPaint !? { |f| f.value };
+    ~app !? { |a| a.changed(\actionsLog, ~actionsOn.()) };
 };
 
 ~actionsSet = { |on|
@@ -110,7 +110,7 @@
     if(on != ~actionsOn.()) {
         ~prefSave !? { |f| f.value(~actionsPrefKey, if(on) { "on" } { "off" }, "the Log every action switch") };
         ~actionsApply.();
-        ~guiSay !? { |f| f.value(if(on) { "Every action is logged from now on" } { "Actions are not logged" }) };
+        ~say !? { |f| f.value(if(on) { "Every action is logged from now on" } { "Actions are not logged" }) };
     };
 };
 

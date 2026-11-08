@@ -26,7 +26,7 @@
     (looper: ~looper, sa: ~megaSA, profile: ~routingProfile, drumsPresetDir: ~saDrumsPresetDir,
         synthPresetDir: ~saSynthPresetDir, soundDir: ~saFxPresetDir, grainsPresetDir: ~granularPresetDir,
         cutterPresetDir: ~bbcutPresetDir, grainParams: ~granularParams,
-        say: { |msg| ~guiSay !? { |f| f.value(msg) } }.inEnvir,
+        say: { |msg| ~say !? { |f| f.value(msg) } }.inEnvir,
         // The sets recorded before (list_sets, get_set), and where the
         // playhead is as Perform's count predicts it (gui-status.scd).
         sessionDir: ~sessionDir,
@@ -55,10 +55,12 @@
     ~megaRemote = nil;
     if(~remoteOn.()) {
         ~megaRemote = MegaRemote(~remoteSource.inEnvir).start;
+        // The AI's changes, for the window's Revert (~app's \aiChanges): this
+        // model comes and goes with the switch, ~app stays.
         ~remoteWatcher = SimpleController(~megaRemote)
-            .put(\aiChanges, { { ~guiAiPaint !? { |f| f.value } }.defer });
+            .put(\aiChanges, { ~app !? { |a| a.changed(\aiChanges) } });
     };
-    ~guiAiPaint !? { |f| f.value };
+    ~app !? { |a| a.changed(\aiApps, ~remoteOn.()) };
 };
 
 ~remoteSet = { |on|
@@ -66,14 +68,14 @@
     if(on != ~remoteOn.()) {
         ~prefSave !? { |f| f.value(~remotePrefKey, if(on) { "on" } { "off" }, "the AI apps switch") };
         ~remoteApply.();
-        ~guiSay !? { |f| f.value(if(on) { "AI apps may connect" } { "AI apps are shut out" }) };
+        ~say !? { |f| f.value(if(on) { "AI apps may connect" } { "AI apps are shut out" }) };
     };
 };
 
 ~remoteRevert = {
     var answer = ~megaRemote !? { |r| r.revert(nil) };
     if(answer.notNil and: { answer.at("ok") != true }) {
-        ~guiSay !? { |f| f.value(answer.at("error"), \bad) };
+        ~say !? { |f| f.value(answer.at("error"), \bad) };
     };
 };
 
@@ -111,7 +113,7 @@
 
 ~remoteCopyConfig = {
     var cmd = ~remoteClipboard ?? { MegaFiles.clipboardCommand };
-    var say = { |msg, kind| { ~guiSay !? { |f| f.value(msg, kind) } }.defer };
+    var say = { |msg, kind| ~say !? { |f| f.value(msg, kind) } };
     if(cmd.isNil) { say.("No clipboard here: the config is in docs/ai.md", \bad) } {
         ("printf '%s' " ++ ~remoteConfigText.().shellQuote ++ " | " ++ cmd).unixCmd({ |code|
             if(code == 0) { say.("Copied: paste it into the app's config (Claude Desktop: Settings > Developer > Edit Config)") }
@@ -122,7 +124,7 @@
 
 ~remoteInstallExtension = {
     var out = MegaFiles.userRoot +/+ "megalooper.mcpb";
-    var say = { |msg, kind| { ~guiSay !? { |f| f.value(msg, kind) } }.defer };
+    var say = { |msg, kind| ~say !? { |f| f.value(msg, kind) } };
     say.("Making the extension…");
     ((~remoteRepo.() +/+ "tools" +/+ "make-mcpb.sh").shellQuote ++ " " ++ out.shellQuote).unixCmd({ |code|
         if(code != 0) { say.("The extension was not made (" ++ code ++ "; the post window says why)", \bad) } {

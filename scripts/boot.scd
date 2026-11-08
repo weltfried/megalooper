@@ -203,11 +203,11 @@ s.waitForBoot {
         // the status line says on what, or what gave way.
         if(~audioRestarted == true) {
             ~audioRestarted = false;
-            ~guiSay.(if((~rp[\audioNotes] ? []).notEmpty) { ~rp[\audioNotes].join(" ") }
+            ~say.(if((~rp[\audioNotes] ? []).notEmpty) { ~rp[\audioNotes].join(" ") }
                 { "Started again on " ++ ~audioDeviceLabel.(~rp) ++ (~audioMapAdopted !? { |m| ". " ++ m } ? "") },
                 if((~rp[\audioNotes] ? []).notEmpty) { \bad });
         } {
-            ~audioMapAdopted !? { |m| ~guiSay.(m) };
+            ~audioMapAdopted !? { |m| ~say.(m) };
         };
     });
     ~bootStep.("AI apps and the action log", {

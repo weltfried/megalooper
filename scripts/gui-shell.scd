@@ -305,6 +305,22 @@
     ~guiToast = (msg: msg.asString, kind: kind ? \info, at: Main.elapsedTime);
     ~guiFooterRefresh.();
 };
+// What the app's own model says (~app, setup-app.scd), for as long as the
+// window lives: words for the status line, and the switches the setup scripts
+// keep (AI apps, the AI's changes for Revert, Log every action) painted where
+// they are shown. Deferred: it may be said from any thread.
+~guiTeardowns = ~guiTeardowns ? ();
+~guiTeardowns[\app] = { ~appController !? { |c| c.remove }; ~appController = nil };
+~appWatch = {
+    ~guiTeardowns[\app].value;
+    ~app !? { |a|
+        ~appController = SimpleController(a)
+            .put(\say, { |obj, what, words, kind| { ~guiSay.(words, kind) }.defer })
+            .put(\aiApps, { { ~guiAiPaint !? { |f| f.value } }.defer })
+            .put(\aiChanges, { { ~guiAiPaint !? { |f| f.value } }.defer })
+            .put(\actionsLog, { { ~actionsPaint !? { |f| f.value } }.defer });
+    };
+};
 ~guiSetTyping = { |flag|
     ~guiTyping = flag == true;
     ~guiHintRowRefresh.();
@@ -924,6 +940,8 @@
     ~guiWindow.onClose_({
         ~guiTeardowns.keysValuesDo { |k, f| f.value };
     });
+    // The app's own model, heard from now until the window closes.
+    ~appWatch.();
 
     // ---- The CPU tile, once a second, for as long as this window lives ----------------
     AppClock.sched(0, {
