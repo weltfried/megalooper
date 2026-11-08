@@ -306,4 +306,24 @@
     ~refreshGranularPresetList.();
     pane
 };
+
+// ---- What the Grains pane hears from the Looper (~guiWatch, gui-wiring.scd) ----------
+// One handler per parameter of the table its rows come from, so adding a
+// granular control never means coming back here.
+~granularWatch = {
+    var chords = { ~granularPaintChords !? { |f| f.() } };
+    var handlers = (
+        granular: { ~granularPaintHeader !? { |f| f.() } },
+        granularEnv: { |looper, what, val| ~granularEnvSeg !? { ~granularPaintEnv !? { |f| f.(val) } } },
+        granularFollowChords: chords,
+        // What the take gives them to follow: a new result, another reading,
+        // a loop recorded or cleared.
+        result: chords, readingIndex: chords, state: chords
+    );
+    (~granularParams ? []).do { |p|
+        handlers.put(p[\key], { |looper, what, val| ~granularRefreshOne !? { |f| f.(what, val) } });
+    };
+    ~guiUnwatch.(\granular);
+    ~guiWatch.(\granular, ~looper, handlers);
+};
 )

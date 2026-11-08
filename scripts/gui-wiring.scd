@@ -1,23 +1,24 @@
-// megalooper — the MVC wiring, and the export action the keyboard shares.
+// megalooper — how a view hears its model (~guiWatch), and the export action
+// the keyboard shares.
 //
 // Loaded LAST by boot.scd; defines only, runs nothing. Entry points:
+//   ~guiWatch, ~guiUnwatch — the one way a view hears a model (below)
+//   ~wireLooperController — every pane's watch on the Looper, again. Each pane
+//                           keeps its own (gui-status.scd's ~statusWatch,
+//                           gui-perform.scd's ~performWatch, and so on); this
+//                           runs them all after the window is built, after a
+//                           pane is rebuilt, and when ~looper is another.
 //   ~doExport             — export the current loop using the export fields
-//   ~wireLooperController — SimpleController subscriptions. Must run AFTER the
-//                           window and all its panes exist: it wires widgets
-//                           from the status band and from every pane file.
 //
-// Setters on ~looper fire `this.changed(\key, val)`; SimpleController.put
-// dispatches. Updates are .defer'd so they always land on AppClock — a MIDIdef
-// callback fires from a different thread, and touching a Qt view from there is
-// a crash rather than a glitch.
+// A model says `changed(\key, val)`; a view's watch hears it, on AppClock: a
+// MIDIdef callback fires from another thread, and touching a Qt view from
+// there is a crash rather than a glitch.
 //
-// EVERY widget reach is nil-guarded. The window is built once and the panes
-// once each, so most of these guards never fire in a healthy session — but a
-// pane builder that throws half way leaves its globals pointing at destroyed Qt
-// objects, and an unguarded handler would then throw on every model event for
-// the rest of the session, which is a far worse failure than a control that
-// quietly stops tracking. The painters (gui-status.scd, gui-perform.scd) guard
-// themselves.
+// EVERY widget reach is nil-guarded. A pane builder that throws half way
+// leaves its globals pointing at destroyed Qt objects, and an unguarded
+// handler would then throw on every model event for the rest of the session,
+// which is a far worse failure than a control that quietly stops tracking.
+// The painters (gui-status.scd, gui-perform.scd) guard themselves.
 (
 // Export the current loop using whatever is in the export fields. Shared by the
 // Export button (Setup) and the 'e' key binding; evaluated at call time so the
@@ -54,253 +55,47 @@
     };
 };
 
-~wireLooperController = {
-    ~looperController !? { |c| c.remove };
-    ~looperController = SimpleController(~looper)
-        // A take's result (setup-model.scd says it for the Looper): the
-        // training-export fields pre-filled with the analyser's guess, so only
-        // its mistakes need correcting before an export; the key, a dash with
-        // no chords; the Grains' chords line, what the take gives them.
-        .put(\result, { |looper, what, r|
-            {
-                ~exportNumField !? { |f| r.numerator !? { |n| if(f.isClosed.not) { f.value_(n) } } };
-                ~exportBarsField !? { |f| if(f.isClosed.not) { f.value_((r.k ? 1).max(1)) } };
-                ~exportDenomField !? { |f|
-                    r.denominator !? { |d| ~exportDenoms.indexOf(d.asInteger) !? { |i| if(f.isClosed.not) { f.value_(i) } } } };
-                if(r.chordSegments.isNil or: { r.chordSegments.isEmpty }) {
-                    ~rootLabel !? { |t| if(t.isClosed.not) { t.string_("—") } } };
-                ~granularPaintChords !? { |f| f.() };
-            }.defer;
-        })
-        // The chord playing now (setup-model.scd says it for the Looper).
-        .put(\chord, { |looper, what, seg|
-            { ~rootLabel !? { |t| if(t.isClosed.not) { t.string_(seg.rootName ++ " " ++ seg.scaleName) } } }.defer;
-        })
-        // The state block says the feedback while overdubbing, and only then.
-        .put(\feedback, { |looper, what, val|
-            { ~wireBar.(~feedbackSlider, ~feedbackLabel, val, val.round(0.01).asString);
-              if(looper.state == \overdubbing) { ~statusPaintLook.() } }.defer;
-        })
-        // Morph appears on Perform and on Sound, so it is the one granular
-        // parameter with a hand-written handler; the rest are wired
-        // generically below.
-        .put(\granularMorph, { |looper, what, val|
-            { ~wireBar.(~granularSlider, ~granularLabel, val, val.round(0.01).asString);
-              ~granularRefreshOne !? { |f| f.(\granularMorph, val) };
-              ~performPaintGrains !? { |f| f.() } }.defer;
-        })
-        .put(\bbcut, { |looper, what, val|
-            { ~performPaintCutter !? { |f| f.() };
-              ~bbcutPaintHeader !? { |f| f.() };
-              // The Sound tab carries a dot while the cutter runs, so it is
-              // visible with the view hidden — which is when you need it.
-              ~guiRefreshTabs !? { |f| f.() } }.defer;
-        })
-        // The set recorder. Both surfaces write to the model, so a footswitch
-        // press paints the tile and a click is indistinguishable from a
-        // footswitch press — the same contract every other toggle here has.
-        .put(\sessionRecording, { |looper, what, val|
-            { ~guiSessionRecPaint !? { |f| f.() } }.defer;
-        })
-        .put(\bbcutMode, { |looper, what, val|
-            { ~performPaintCutter !? { |f| f.() };
-              ~bbcutPaintHeader !? { |f| f.() } }.defer;
-        })
-        // One coarse refresh per wholesale state change (preset recall today,
-        // any other bulk path later). Deliberately NOT a rebuild on
-        // \bbcutVoices: that fires from setVoiceAmp/setVoicePan on every pixel
-        // of a slider drag, and ~renderBBCutEditor removes and rebuilds the
-        // whole panel — it would destroy the slider under the mouse mid-gesture.
-        .put(\bbcutState, { |looper, what, val|
-            // Voice tabs FIRST: they clamp ~bbcutSelVoice, so a preset with
-            // fewer voices can't leave the editor reading a nil voice.
-            { ~renderBBCutVoiceMenu    !? { |f| f.() };
-              ~renderBBCutEditor       !? { |f| f.() };   // repaints the arc readout
-              ~refreshBBCutPresetButtons !? { |f| f.() };
-              ~performPaintCutter !? { |f| f.() } }.defer;
-        })
-        // Perform's Cutter column and the density row: a drag on a voice's
-        // amp or pan says this per pixel, so at most every 50 ms.
-        .put(\bbcutVoices, { |looper, what, val|
-            ~guiSoon.(\cutter, { ~performPaintCutter !? { |f| f.() }; ~bbcutRefreshDensity !? { |f| f.() } });
-        })
-        .put(\nextRecState, { |looper, what, val|
-            { ~performPaintActions !? { |f| f.() } }.defer;
-        })
-        .put(\declickMs, { |looper, what, val|
-            { ~wireBar.(~declickSlider, ~declickLabel, val / ~declickMax, val.round(0.1).asString ++ " ms") }.defer;
-        })
-        .put(\abletonSyncMs, { |looper, what, val|
-            { ~wireBar.(~syncSlider, ~syncLabel, (val / (2 * ~syncMax)) + 0.5,
-                (if(val > 0) { "+" } { "" }) ++ val.round(0.1).asString ++ " ms") }.defer;
-        })
-        .put(\latencyMs, { |looper, what, val|
-            { ~wireBar.(~latencySlider, ~latencyLabel, val / ~latencyMax, val.round(0.1).asString ++ " ms");
-                ~rigPaintLatencyNote !? { |f| f.value } }.defer;
-        })
-        // nil, or the recorded input itself, both mean "no clean tap" — item 0.
-        .put(\analysisChannel, { |looper, what, val|
-            var idx = if(val.notNil and: { val != looper.inChannel }) { 1 } { 0 };
-            { ~analysisSourceMenu !? { |m| m.value = idx };
-              ~statusAnalysisLabel !? { |t|
-                t.string_(if(idx == 1) {
-                    "Clean tap · dry ch " ++ (val + 1)
-                } {
-                    "Same as input (processed)"
-                }) } }.defer;
-        })
-        // ---- the status band (gui-status.scd) and Perform's tiles ----------------------
-        .put(\state, { |looper, what, val|
-            { ~statusPaintState !? { |f| f.() };
-              ~statusPaintTake !? { |f| f.() };
-              ~granularPaintChords !? { |f| f.() };
-              ~performPaintLoop !? { |f| f.() };
-              ~performPaintActions !? { |f| f.() } }.defer;
-        })
-        // A break is the looper deliberately going silent. With no indicator
-        // that is indistinguishable from the audio having failed, which is the
-        // last ambiguity you want on stage: the state block wears the hatch.
-        .put(\break, { |looper, what, val|
-            { ~statusPaintState !? { |f| f.() };
-              ~performPaintCounting !? { |f| f.() } }.defer;
-        })
-        .put(\intensity, { |looper, what, val|
-            { ~wireBar.(~intensitySlider, ~intensityLabel, val, val.round(0.01).asString) }.defer;
-            // The Cutter's density row shows the value at FULL arc, so the
-            // reading beside it has to follow the pedal or that row would be
-            // telling only half the truth. The pedal is swept all set long:
-            // at most every 50 ms.
-            ~guiSoon.(\cutter, { ~performPaintCutter !? { |f| f.() }; ~bbcutRefreshDensity !? { |f| f.() } });
-        })
-        // Only the edges: the 30 Hz \dissolvePos stream is painted by the
-        // shell's own poll, not by a deferred handler per frame.
-        .put(\dissolving, { |looper, what, val|
-            { ~statusPaintState !? { |f| f.() };
-              ~performPaintCounting !? { |f| f.() } }.defer;
-        })
-        .put(\dissolveLoops, { |looper, what, val|
-            { ~dissolveLoopsField !? { |f| if(f.isClosed.not) { f.value = val } };
-              ~performPaintCounting !? { |f| f.() } }.defer;
-        })
-        .put(\breakLoops, { |looper, what, val|
-            { ~breakLoopsField !? { |f| if(f.isClosed.not) { f.value = val } };
-              ~performPaintCounting !? { |f| f.() } }.defer;
-        })
-        // A reading armed (val is the pending Event) or landed / cancelled
-        // (nil). The countdown is painted by the shell's poll.
-        .put(\reading, { |looper, what, val|
-            { ~statusPaintTake !? { |f| f.() } }.defer;
-        })
-        .put(\readingIndex, { |looper, what, val|
-            { ~statusPaintTake !? { |f| f.() }; ~granularPaintChords !? { |f| f.() } }.defer;
-        })
-        .put(\reverse, { |looper, what, val|
-            { ~performPaintLoop !? { |f| f.() } }.defer;
-        })
-        // A reverse armed for the next loop, or taken back: its tile.
-        .put(\reverseArmed, { |looper, what, val|
-            { ~performPaintLoop !? { |f| f.() } }.defer;
-        })
-        // Half-time armed, on, ending or over: its tile, and the take's ½.
-        .put(\halfTime, { |looper, what, val|
-            { ~performPaintLoop !? { |f| f.() }; ~statusRepaintGrids !? { |f| f.() } }.defer;
-        })
-        .put(\granular, { |looper, what, val|
-            { ~performPaintGrains !? { |f| f.() };
-              ~granularPaintHeader !? { |f| f.() };
-              ~guiRefreshTabs !? { |f| f.() } }.defer;
-        })
-        // A take the analysis tap heard far below the input: the take's hint
-        // says it until the next take, and the footer for a moment.
-        .put(\tapStarved, { |looper, what, gap|
-            { ~statusPaintTake !? { |f| f.() };
-              gap !? { ~guiSay !? { |f| f.("The analysis tap was " ++ gap.round.asInteger
-                  ++ " dB under the input: the reading may be wrong", \bad) } } }.defer;
-        })
-        // An action the Looper would not take, from any surface: the footer
-        // says so for 2.6 s, and the tile it was asked from stays dark.
-        .put(\refused, { |looper, what, action, why|
-            { ~guiSay !? { |f| f.("Refused: " ++ (why ? action), \bad) } }.defer;
-        })
-        // ---- The onset threshold: Perform's bar, Setup › Analysis's value ------------------
-        .put(\onsetThreshold, { |looper, what, val|
-            { ~wireBar.(~performThresholdBar, ~performThresholdLabel,
-                ~onsetThresholdSpec.unmap(val), val.round(0.01).asString);
-              ~wireBar.(nil, ~analysisThresholdLabel, nil, val.round(0.01).asString);
-              ~statusPaintThreshold !? { |f| f.() };
-              ~analysisPaintTapGain !? { |f| f.() } }.defer;
-        })
-        // The automatic level moved by half a dB or more (Looper's tracker,
-        // twice a second at most): the status band's line under the lamp and
-        // the Analysis page's readout.
-        .put(\tapGain, { |looper, what, val|
-            { ~statusPaintThreshold !? { |f| f.() };
-              ~analysisPaintTapGain !? { |f| f.() } }.defer;
-        })
-        .put(\analysisMonitor, { |looper, what, val|
-            { ~analysisPaintMonitor !? { |f| f.() } }.defer;
-        })
-        .put(\analyzeOverdubs, { |looper, what, val|
-            { ~statusPaintDubMeter !? { |f| f.() } }.defer;
-        })
-        // A successful overdub detection: the footer says what it found, on
-        // whichever view is up. onAnalysis already handles Live and the
-        // export fields, and the status band's take picks the new result up
-        // on its next poll.
-        .put(\overdubDetected, { |looper, what, r|
-            var txt = "Meter from the overdub: " ++ MeterAnalyzer.sigString(r)
-                ++ " @ " ++ r[\bpm].round(0.1) ++ " BPM · " ++ r[\k] ++ " bars · "
-                ++ r[\onsetCount] ++ " onsets";
-            { ~guiSay !? { |f| f.value(txt) } }.defer;
-        })
-        .put(\transportMode, { |looper, what, val|
-            { ~transportModeSeg !? { |s| ~guiSegSet.(s, ~transportModes.indexOf(val) ? 0) };
-              ~performPaintActions !? { |f| f.() } }.defer;
-        })
-        .put(\inChannelCount, { |looper, what, val|
-            { ~inChannelSeg !? { |s| ~guiSegSet.(s, ~inChannelCounts.indexOf(val) ? 0) } }.defer;
-        });
-
-    // ---- onset notes (gui-analysis.scd, and Perform's switch and Chance) ----
-    // Every one of these repaints the same small panel, so they share a single
-    // handler rather than each carrying its own widget list. \onsetNotePattern
-    // is the model telling us a take was analysed and the pattern changed size.
-    [\onsetNotes, \onsetNote, \onsetNoteChannel, \onsetNoteVelLo, \onsetNoteVelHi,
-     \onsetNoteDynRange, \onsetNoteGateMs, \onsetNoteOffsetMs,
-     \onsetNoteChance, \onsetNotePattern].do { |key|
-        ~looperController.put(key, { |looper, what, val|
-            { ~onsetNotesRefresh !? { |f| f.() };
-              ~performPaintOnsetNotes !? { |f| f.() } }.defer;
-        });
-    };
-
-    // ---- granular (gui-granular.scd, and Perform's Grains column) ---------
-    // One handler per exposed parameter, generated from the same table that
-    // renders the Grains pane, so adding a granular control never means
-    // remembering to come back here. Morph is skipped: it has the hand-written
-    // handler above, and SimpleController.put REPLACES by key — a second one
-    // would silently orphan Perform's bar.
-    //
-    // Nil-guarded on the whole table: setup-granular.scd is optional, and a
-    // session that never loaded it just gets no granular subscriptions.
-    ~granularParams !? { |params|
-        params.do { |p|
-            if(p[\key] != \granularMorph) {
-                ~looperController.put(p[\key], { |looper, what, val|
-                    { ~granularRefreshOne !? { |f| f.(what, val) };
-                      if(what == \granularAmp) { ~performPaintGrainAmp !? { |f| f.(val) } };
-                      if(what == \granularPitch) { ~performPaintGrains !? { |f| f.() } } }.defer;
-                });
-            };
+// ---- One rule for how a view hears its model ------------------------------------
+// docs/dev/architecture.md, 5, step 4. A view hears a model's changes through
+// ~guiWatch, and only through it:
+//   ~guiWatch.(owner, model, (key: { |model, what ... args| }, ...))
+//       one SimpleController on `model`, every handler run on AppClock (a
+//       model may say a change from any thread: MIDI's, OSC's, a routine's),
+//       kept under `owner` (a pane: \perform, \status, \granular ...)
+//   ~guiUnwatch.(owner)
+//       every controller `owner` holds, removed. A pane's watch removes its
+//       own first, so watching again after a rebuild never doubles one up;
+//       the window's teardown removes every owner's.
+// Several owners may watch the same key of the same model: each has its own
+// controller (SimpleController.put replaces by key within one controller, so
+// one shared controller made two panes on one key overwrite each other).
+~guiWatchers = ~guiWatchers ? IdentityDictionary.new;
+~guiWatch = { |owner, model, handlers|
+    var c;
+    model !? {
+        c = SimpleController(model);
+        handlers.keysValuesDo { |key, fn|
+            c.put(key, { |m, what ... args| { fn.valueArray([m, what] ++ args) }.defer });
         };
-        ~looperController.put(\granularEnv, { |looper, what, val|
-            { ~granularEnvSeg !? { |s| ~granularPaintEnv !? { |f| f.(val) } };
-              ~performPaintGrains !? { |f| f.() } }.defer;
-        });
-        // The chords switch.
-        ~looperController.put(\granularFollowChords, { |looper, what, val|
-            { ~granularPaintChords !? { |f| f.() } }.defer;
-        });
+        ~guiWatchers[owner] = (~guiWatchers[owner] ? List.new).add(c);
     };
+    c
+};
+~guiUnwatch = { |owner|
+    (~guiWatchers[owner] ? []).do { |c| c.remove };
+    ~guiWatchers.removeAt(owner);
+};
+~guiTeardowns = ~guiTeardowns ? ();
+~guiTeardowns[\watch] = { ~guiWatchers.keys.copy.do { |owner| ~guiUnwatch.(owner) } };
+
+// Every pane's watch on the Looper, again: after ~looper is another, or a pane
+// was rebuilt. Each pane holds its own handlers, in its own file, for the
+// keys that touch its own widgets (gui-status.scd, gui-perform.scd,
+// gui-granular.scd, gui-bbcut.scd, gui-rig.scd, gui-analysis.scd,
+// gui-shell.scd). Until 2026-11-08 this was one controller that knew every
+// pane's widgets.
+~wireLooperController = {
+    [\statusWatch, \performWatch, \granularWatch, \bbcutWatch, \rigWatch, \analysisWatch, \shellWatch]
+        .do { |k| currentEnvironment[k] !? { |f| f.value } };
 };
 )

@@ -412,4 +412,29 @@
     ~guiSwapPane.(\midi, pane);
     pane
 };
+
+// ---- What the Rig page hears from the Looper (~guiWatch, gui-wiring.scd) --------------
+~rigWatch = {
+    ~guiUnwatch.(\rig);
+    ~guiWatch.(\rig, ~looper, (
+        declickMs: { |looper, what, val|
+            ~wireBar.(~declickSlider, ~declickLabel, val / ~declickMax, val.round(0.1).asString ++ " ms") },
+        abletonSyncMs: { |looper, what, val|
+            ~wireBar.(~syncSlider, ~syncLabel, (val / (2 * ~syncMax)) + 0.5,
+                (if(val > 0) { "+" } { "" }) ++ val.round(0.1).asString ++ " ms") },
+        latencyMs: { |looper, what, val|
+            ~wireBar.(~latencySlider, ~latencyLabel, val / ~latencyMax, val.round(0.1).asString ++ " ms");
+            ~rigPaintLatencyNote !? { |f| f.value } },
+        // nil, or the recorded input itself, both mean "no clean tap": item 0.
+        analysisChannel: { |looper, what, val|
+            var idx = if(val.notNil and: { val != looper.inChannel }) { 1 } { 0 };
+            ~analysisSourceMenu !? { |m| m.value = idx };
+            ~statusAnalysisLabel !? { |t|
+                t.string_(if(idx == 1) { "Clean tap · dry ch " ++ (val + 1) } { "Same as input (processed)" }) } },
+        transportMode: { |looper, what, val|
+            ~transportModeSeg !? { |s| ~guiSegSet.(s, ~transportModes.indexOf(val) ? 0) } },
+        inChannelCount: { |looper, what, val|
+            ~inChannelSeg !? { |s| ~guiSegSet.(s, ~inChannelCounts.indexOf(val) ? 0) } }
+    ));
+};
 )

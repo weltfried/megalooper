@@ -1189,4 +1189,39 @@
 
     panel
 };
+
+// ---- What the status band hears from the Looper (~guiWatch, gui-wiring.scd) --------
+~statusWatch = {
+    ~guiUnwatch.(\status);
+    ~guiWatch.(\status, ~looper, (
+        // The state block says the feedback while overdubbing, and only then.
+        feedback: { |looper| if(looper.state == \overdubbing) { ~statusPaintLook.() } },
+        state: { ~statusPaintState !? { |f| f.() }; ~statusPaintTake !? { |f| f.() } },
+        // A break is the looper deliberately going silent: the state block
+        // wears the hatch, or it would look like the audio had failed.
+        break: { ~statusPaintState !? { |f| f.() } },
+        // Only the edges: the 30 Hz \dissolvePos stream is the shell's poll's.
+        dissolving: { ~statusPaintState !? { |f| f.() } },
+        // A reading armed (the pending Event) or landed / cancelled (nil); the
+        // countdown is the shell's poll's.
+        reading: { ~statusPaintTake !? { |f| f.() } },
+        readingIndex: { ~statusPaintTake !? { |f| f.() } },
+        // Half-time: the take's ½.
+        halfTime: { ~statusRepaintGrids !? { |f| f.() } },
+        // A take the analysis tap heard far below the input: the take's hint
+        // says it until the next take (the footer says it too: the shell's).
+        tapStarved: { ~statusPaintTake !? { |f| f.() } },
+        onsetThreshold: { ~statusPaintThreshold !? { |f| f.() } },
+        // The automatic level moved by half a dB or more (twice a second at most).
+        tapGain: { ~statusPaintThreshold !? { |f| f.() } },
+        analyzeOverdubs: { ~statusPaintDubMeter !? { |f| f.() } },
+        // A take's result: a dash for the key with no chords (setup-model.scd
+        // says it for the Looper); the chord playing names it.
+        result: { |looper, what, r|
+            if(r.chordSegments.isNil or: { r.chordSegments.isEmpty }) {
+                ~rootLabel !? { |t| if(t.isClosed.not) { t.string_("—") } } } },
+        chord: { |looper, what, seg|
+            ~rootLabel !? { |t| if(t.isClosed.not) { t.string_(seg.rootName ++ " " ++ seg.scaleName) } } }
+    ));
+};
 )

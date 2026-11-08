@@ -322,6 +322,28 @@
             .put(\midi, { |obj, what, kind| ~midiGuiHeard !? { |f| f.value(kind) } });
     };
 };
+// What the shell hears from the Looper (~guiWatch, gui-wiring.scd): the tabs'
+// dots (the cutter and the grains running, visible with their view hidden,
+// which is when it matters), the top bar's Record the set, and the footer's
+// words for what the Looper refused, found or worried about.
+~shellWatch = {
+    var tabs = { ~guiRefreshTabs !? { |f| f.() } };
+    ~guiUnwatch.(\shell);
+    ~guiWatch.(\shell, ~looper, (
+        bbcut: tabs, granular: tabs,
+        sessionRecording: { ~guiSessionRecPaint !? { |f| f.() } },
+        // An action the Looper would not take, from any surface: the footer
+        // says so for 2.6 s, and the tile it was asked from stays dark.
+        refused: { |looper, what, action, why| ~guiSay !? { |f| f.("Refused: " ++ (why ? action), \bad) } },
+        tapStarved: { |looper, what, gap|
+            gap !? { ~guiSay !? { |f| f.("The analysis tap was " ++ gap.round.asInteger
+                ++ " dB under the input: the reading may be wrong", \bad) } } },
+        overdubDetected: { |looper, what, r|
+            ~guiSay !? { |f| f.("Meter from the overdub: " ++ MeterAnalyzer.sigString(r)
+                ++ " @ " ++ r[\bpm].round(0.1) ++ " BPM · " ++ r[\k] ++ " bars · "
+                ++ r[\onsetCount] ++ " onsets") } }
+    ));
+};
 ~guiSetTyping = { |flag|
     ~guiTyping = flag == true;
     ~guiHintRowRefresh.();

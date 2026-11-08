@@ -616,6 +616,37 @@ Routine {
         ~prefSave = wasPrefSave;
     });
 
+    // The panes watch the Looper themselves (~guiWatch, one owner each) where
+    // one controller in gui-wiring.scd used to: every key that controller
+    // handled is still heard by a pane, and a key two panes paint has two
+    // owners, not one handler replacing the other.
+    section.("every key the old hub heard is heard by a pane", {
+        var hub = [\abletonSyncMs, \analysisChannel, \analysisMonitor, \analyzeOverdubs, \bbcut, \bbcutMode,
+            \bbcutState, \bbcutVoices, \break, \breakLoops, \declickMs, \dissolveLoops, \dissolving, \feedback,
+            \granular, \granularEnv, \granularFollowChords, \granularMorph, \halfTime, \inChannelCount,
+            \intensity, \latencyMs, \nextRecState, \onsetThreshold, \overdubDetected, \reading, \readingIndex,
+            \refused, \reverse, \reverseArmed, \sessionRecording, \state, \tapGain, \tapStarved, \transportMode,
+            \result, \chord, \onsetNotes, \onsetNote, \onsetNoteChannel, \onsetNoteVelLo, \onsetNoteVelHi,
+            \onsetNoteDynRange, \onsetNoteGateMs, \onsetNoteOffsetMs, \onsetNoteChance, \onsetNotePattern]
+            ++ ~granularParams.collect { |p| p[\key] };
+        var heard = { |owner| (~guiWatchers[owner] ? []).collect { |c| (c.instVarAt(\actions) ? ()).keys.asArray }.flatten.asSet };
+        var all;
+        ~wireLooperController.();
+        all = ~guiWatchers.keys.asArray.collect { |o| heard.(o) }.inject(Set.new, { |a, b| a | b });
+        ok.("every key the old hub heard is heard by a pane", hub.every { |k| all.includes(k) },
+            hub.reject { |k| all.includes(k) }.asString);
+        ok.("...the panes are the seven that hear the Looper",
+            [\status, \perform, \granular, \bbcut, \rig, \analysis, \shell].every { |o| ~guiWatchers[o].notNil },
+            ~guiWatchers.keys.asArray.asString);
+        ok.("...a key two panes paint has two owners (the threshold: Perform, the status band, Analysis)",
+            [\perform, \status, \analysis].every { |o| heard.(o).includes(\onsetThreshold) });
+        ~wireLooperController.();
+        ok.("...and watching again doubles nothing", ~guiWatchers[\perform].size == 1, ~guiWatchers[\perform].size.asString);
+        ~looper.changed(\declickMs, 4.0);
+        tick.();
+        ok.("a Rig setting moved on the model moves its slider's readout", ~declickLabel.string == "4.0 ms", ~declickLabel.string);
+    });
+
     section.("the CPU tile", {
         var srv = ~looper.server, look = { [~guiCpuTile.states[0][0], ~guiCpuTile.sub, ~guiCpuTile.states[0][1]] };
         var near = { |a, b| a.notNil and: { [a.red - b.red, a.green - b.green, a.blue - b.blue].every { |x| x.abs < 0.01 } } };

@@ -1000,4 +1000,44 @@
     }) ++ "\nNamed at the stop with the tempo and signature to set a DAW to: "
         "<stamp>-165.04bpm-7-8-master.wav (no tempo: <stamp>-master.wav)."
 };
+
+// ---- What Perform hears from the Looper (~guiWatch, gui-wiring.scd) -----------------
+~performWatch = {
+    var counting = { ~performPaintCounting !? { |f| f.() } };
+    var cutter = { ~performPaintCutter !? { |f| f.() } };
+    var loop = { ~performPaintLoop !? { |f| f.() } };
+    var actions = { ~performPaintActions !? { |f| f.() } };
+    var grains = { ~performPaintGrains !? { |f| f.() } };
+    var onsets = { ~performPaintOnsetNotes !? { |f| f.() } };
+    var handlers = (
+        feedback: { |looper, what, val| ~wireBar.(~feedbackSlider, ~feedbackLabel, val, val.round(0.01).asString) },
+        granularMorph: { |looper, what, val|
+            ~wireBar.(~granularSlider, ~granularLabel, val, val.round(0.01).asString); grains.() },
+        granularAmp: { |looper, what, val| ~performPaintGrainAmp !? { |f| f.(val) } },
+        granularPitch: grains, granularEnv: grains, granular: grains,
+        bbcut: cutter, bbcutMode: cutter, bbcutState: cutter,
+        // A drag on a voice's amp or pan says this per pixel, and the pedal
+        // sweeps the arc all set long: at most every 50 ms.
+        bbcutVoices: { ~guiSoon.(\performCutter, cutter) },
+        intensity: { |looper, what, val|
+            ~wireBar.(~intensitySlider, ~intensityLabel, val, val.round(0.01).asString);
+            ~guiSoon.(\performCutter, cutter) },
+        nextRecState: actions, transportMode: actions,
+        state: { loop.(); actions.() },
+        break: counting, dissolving: counting,
+        dissolveLoops: { |looper, what, val|
+            ~dissolveLoopsField !? { |f| if(f.isClosed.not) { f.value = val } }; counting.() },
+        breakLoops: { |looper, what, val|
+            ~breakLoopsField !? { |f| if(f.isClosed.not) { f.value = val } }; counting.() },
+        reverse: loop, reverseArmed: loop, halfTime: loop,
+        onsetThreshold: { |looper, what, val|
+            ~wireBar.(~performThresholdBar, ~performThresholdLabel,
+                ~onsetThresholdSpec.unmap(val), val.round(0.01).asString) }
+    );
+    // The onset notes' switch and Chance.
+    [\onsetNotes, \onsetNote, \onsetNoteChannel, \onsetNoteVelLo, \onsetNoteVelHi, \onsetNoteDynRange,
+        \onsetNoteGateMs, \onsetNoteOffsetMs, \onsetNoteChance, \onsetNotePattern].do { |k| handlers.put(k, onsets) };
+    ~guiUnwatch.(\perform);
+    ~guiWatch.(\perform, ~looper, handlers);
+};
 )

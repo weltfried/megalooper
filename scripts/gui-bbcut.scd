@@ -367,4 +367,26 @@
     ~guiSwapPane.(\cutter, pane);
     pane
 };
+
+// ---- What the Cutter pane hears from the Looper (~guiWatch, gui-wiring.scd) -----------
+~bbcutWatch = {
+    var header = { ~bbcutPaintHeader !? { |f| f.() } };
+    var density = { ~guiSoon.(\bbcutDensity, { ~bbcutRefreshDensity !? { |f| f.() } }) };
+    ~guiUnwatch.(\bbcut);
+    ~guiWatch.(\bbcut, ~looper, (
+        bbcut: header, bbcutMode: header,
+        // One coarse refresh per wholesale change (a preset recalled). Not a
+        // rebuild on \bbcutVoices: a drag on a voice's amp or pan says that
+        // per pixel, and the rebuild would destroy the slider under the mouse.
+        // Voice tabs FIRST: they clamp ~bbcutSelVoice, so a preset with fewer
+        // voices can't leave the editor reading a nil voice.
+        bbcutState: {
+            ~renderBBCutVoiceMenu !? { |f| f.() };
+            ~renderBBCutEditor !? { |f| f.() };
+            ~refreshBBCutPresetButtons !? { |f| f.() } },
+        // The density row shows the value at FULL arc, so the reading beside it
+        // follows the pedal and the voices: at most every 50 ms.
+        bbcutVoices: density, intensity: density
+    ));
+};
 )
