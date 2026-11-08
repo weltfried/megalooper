@@ -80,19 +80,6 @@
 ));
 
 // ---- Readouts --------------------------------------------------------------------
-// A Wave synth setting as its readout says it: a choice by its name, else
-// the value times its scale (seconds as ms, 0..1 as %), in its units.
-~synthFormat = { |p, v|
-    var x;
-    case
-    { v.isNil } { "—" }
-    { p[\choices].notNil } { (p[\choices].detect { |c| c[0] == v } !? { |c| c[1] }) ? v.asString }
-    {
-        x = v * (p[\scale] ? 1);
-        (if((p[\spec].step >= 1) or: { x.abs >= 100 }) { x.round.asInteger } { if(x.abs >= 10) { x.round(0.1) } { x.round(0.01) } }).asString
-            ++ (p[\units] ? "")
-    }
-};
 
 // ---- Model -> view ---------------------------------------------------------------
 ~synthPaint = { |key|

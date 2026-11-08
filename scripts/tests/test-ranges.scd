@@ -113,7 +113,7 @@ params.do { |p|
 // slider's ends ARE the model's, so every reachable threshold is settable by
 // hand, and that is worth asserting rather than assuming.
 if(~onsetThresholdSpec.isNil) {
-    (thisProcess.nowExecutingPath.dirname.dirname +/+ "gui-const.scd").load;
+    (thisProcess.nowExecutingPath.dirname.dirname +/+ "setup-laws.scd").load;
 };
 ~tAssert.("the threshold spec loaded", ~onsetThresholdSpec.notNil,
     "~onsetThresholdSpec is nil");

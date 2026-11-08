@@ -49,7 +49,7 @@ case
     (scripts +/+ "setup-sa.scd").load;
     (scripts +/+ "setup-miditargets.scd").load;
     (scripts +/+ "setup-midimap.scd").load;
-    if(~onsetThresholdSpec.isNil) { (scripts +/+ "gui-const.scd").load };
+    if(~onsetThresholdSpec.isNil) { (scripts +/+ "setup-laws.scd").load };
     if(~granularParams.isNil) { (scripts +/+ "setup-granular.scd").load };
     (dir +/+ "legacy-midi-bindings.scd").load;
     saved = [~looper, ~megaSA, ~midiOut, ~liveRecordToggle, ~midiLog, ~midiMonitorPush, ~rp,

@@ -29,13 +29,11 @@ if(~setupMidiIO.isNil) { (scripts +/+ "setup-midi.scd").load };
 if(~saGuitarBank.isNil) { (scripts +/+ "setup-sa.scd").load };
 (scripts +/+ "setup-miditargets.scd").load;
 if(~midiApply.isNil) { (scripts +/+ "setup-midimap.scd").load };
-if(~onsetThresholdSpec.isNil) { (scripts +/+ "gui-const.scd").load };
+if(~onsetThresholdSpec.isNil) { (scripts +/+ "setup-laws.scd").load };
 if(~definePresetFamily.isNil) { (scripts +/+ "gui-presets.scd").load };
 if(~granularParams.isNil) { (scripts +/+ "setup-granular.scd").load };
-if(~midiNoteName.isNil) { (scripts +/+ "gui-analysis.scd").load };
-if(~saLevelSpec.isNil) { (scripts +/+ "gui-sa.scd").load };
-if(~effectsMap.isNil) { (scripts +/+ "gui-effects.scd").load };
-if(~drumsTrimSpec.isNil) { (scripts +/+ "gui-drums.scd").load };
+// The laws and readouts its controls use are setup-laws.scd's, loaded above:
+// no pane is needed to know them (docs/dev/architecture.md, 5, step 2).
 
 // Equal, numbers to within 1e-9.
 near = { |a, b| if(a.isNumber and: { b.isNumber }) { (a - b).abs < 1e-9 } { a == b } };

@@ -34,26 +34,6 @@
 ~syncMax    = 150;  // Live-sync slider half-range in ms (slider spans ±this,
                     // so 300 ms end to end). Raised from 100 once a rig needed
                     // -116; check.scd fails if a profile sits outside it.
-// Onset threshold: the header slider's scale and the law it moves on. Onsets'
-// useful range is roughly 0.1–1; 2.0 leaves headroom for a very noisy input.
-// The floor matches Looper's own clip, so the slider's ends ARE the model's.
-~onsetThresholdMin = 0.01;
-~onsetThresholdMax = 2.0;
-// EXPONENTIAL, not linear. Threshold is a level, and the settings worth
-// distinguishing are bunched at the bottom: on a linear 0–2 slider everything
-// from "admits ghost onsets" to "just right" lived in the first tenth of the
-// travel, so setting a low threshold by hand meant nudging one pixel at a time.
-// Exponential spends the travel where the decisions are: a nudge of 1% of the
-// travel moves the threshold by about 5% of its CURRENT value wherever you are,
-// so the control feels the same at 0.05 as at 1.0. Measured against the old
-// linear slider, 1% of travel at 0.1 moves 0.005 instead of 0.02 — four times
-// finer — at the cost of being coarser above ~0.4, which is the end nobody
-// tunes in. The default 0.5 sits at about three quarters of the travel.
-//
-// One spec, mapped by the slider, the controller CC and the label alike: a
-// second copy of this law anywhere would drift, and a knob that disagreed with
-// the slider under it is worse than either.
-~onsetThresholdSpec = ControlSpec(~onsetThresholdMin, ~onsetThresholdMax, \exp);
 ~inChannelCounts = [1, 2];
 ~inChannelLabels = ["Mono", "Stereo"];
 // Meters offered for the length-anchored fallback (see MeterAnalyzer).

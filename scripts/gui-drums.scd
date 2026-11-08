@@ -100,44 +100,12 @@
     roll: Color.new(0.76, 0.52, 0.92)
 );
 
-// A setting as the device shows it: a choice's label, On or Off, or the number
-// in its units, with as many decimals as its size deserves.
-~drumsFormat = { |p, val|
-    var c = p[\choices], shown;
-    case
-    { val.isNil } { "—" }
-    { p[\bool] == true } { if(val == true) { "On" } { "Off" } }
-    { c.notNil } { (c.detect { |pair| pair[0] == val } !? { |pair| pair[1] }) ? val.asString }
-    {
-        shown = case
-            { p[\spec].step >= 1 } { val.round.asInteger.asString }
-            { val.abs >= 10 } { val.round(0.1).asString }
-            { val.round(0.01).asString };
-        (if((p[\centered] == true) and: { val > 0 }) { "+" } { "" }) ++ shown ++ (p[\units] ? "")
-    }
-};
 
-~drumsDbText = { |db|
-    var v = (db ? 0).round(0.5);
-    (if(v > 0) { "+" } { "" }) ++ v.asString
-};
 
 // A control's tooltip. (It once added the original device's own help text,
 // which is Ableton's to publish, not ours; `device` is kept for the callers.)
 ~drumsTip = { |tip, device| tip ? "" };
 
-// "42 HiHat Closed Carbon · F#1": the note, the slot's pad on it ("(empty)"
-// where the kit in force has none, nothing with no kit), and the note in
-// Live's octave numbering (~midiNoteName, gui-analysis.scd) last, so a menu
-// too narrow for all of it cuts the least telling part.
-~drumsNoteText = { |d, note, slot = \steps|
-    var name = d !? { |dd| dd.padName(slot, note) };
-    var kit = d !? { |dd| dd.kitFor(slot) };
-    var noteName = ~midiNoteName !? { |f| f.(note) };
-    [note.asString, name ?? { if(kit.notNil) { "(empty)" } }].reject(_.isNil).join(" ")
-        ++ ((noteName !? { |n| " · " ++ n }) ? "")
-};
-~drumsNoteItems = { |d| (36..51).collect { |n| ~drumsNoteText.(d, n) } };
 
 // A pad's name cut to its first word, for a 50 px knob: "HiHat", "Kick". The
 // tooltip has the whole name.
@@ -412,7 +380,6 @@
 };
 
 // ---- Trims -------------------------------------------------------------------
-~drumsTrimSpec = ControlSpec(-24, 12, \lin, 0.5, 0, " dB");
 
 // The kit playing in a slot if it is the one asked for: trims are kept per kit
 // key, so while another kit loads there is nothing honest to trim.
@@ -421,20 +388,6 @@
     if(kit.notNil and: { kit.key == d.kit(slot) }) { kit }
 };
 
-// The groups a layer trim is for: every group but the kit's main one (the one
-// most pads play first). Kit-Carbon + layer gets one, for the KJ stand-ins
-// under Kit-Carbon, whose balance Live's files cannot tell (both sources are
-// normalised); a kit of one group gets none.
-~drumsLayerGroups = { |kit|
-    var counts = IdentityDictionary.new, main;
-    if(kit.groupKeys.size < 2) { [] } {
-        kit.pads.do { |pad|
-            pad[\layers].first !? { |l| counts.put(l[\group], (counts[l[\group]] ? 0) + 1) };
-        };
-        main = counts.keys.asArray.sort.maxItem { |g| counts[g] };
-        kit.groupKeys.reject { |g| g == main }
-    }
-};
 
 // The notes the patterns play: every lane's Note and Alt, in both patterns.
 ~drumsUsedNotes = { |d|
@@ -1445,7 +1398,6 @@
 };
 
 // ---- Mix -------------------------------------------------------------------------
-~drumsReverbSpec = ControlSpec(0, 1, \lin, 0, 0.1508);
 ~drumsOffsetSpec = ControlSpec(-15, 50, \lin, 0.5, 0);
 ~drumsStripLabels = (drums: "Drums:", onsetKit: "Onset kit:");
 ~drumsStripTips = (

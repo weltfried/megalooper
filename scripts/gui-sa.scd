@@ -12,8 +12,6 @@
 // wherever it shows, and both follow MegaSA's \level and \mute, a drag on the
 // other tab included.
 (
-// Levels in dB on the sliders, amplitudes in the model. -60 is as good as off.
-~saLevelSpec = ControlSpec(-60, 6, \lin, 0.5, 0, " dB");
 
 // The slider the mouse is holding: its strip's \level does not move it under
 // the hand (the readout still follows), so the drag and the model never fight
@@ -21,10 +19,7 @@
 // tab is not under the hand, so it follows the drag like any other change.
 ~saLevelHeld = nil;
 
-~saStripLabels = (guitar: "Instrument:", bass: "Instrument 2:", loop: "Loop:", drums: "Drums:", onsetKit: "Onset kit:",
-    synth: "Synth:", master: "Master:");
 
-~saLevelText = { |amp| (amp ? 0).ampdb.max(-60).round(0.5).asString ++ " dB" };
 
 // Paint a row of `table` (strip -> (slider:, readout:, mute:)) from the model.
 ~saPaintLevel = { |table, key, amp|

@@ -216,7 +216,7 @@
             get: { ~looper !? { |l| l.perform(key) } }, set: { |v| ~looper.perform(key.asSetter, v) },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
     };
-    // The threshold on its bar's exponential law (gui-const.scd). On Perform,
+    // The threshold on its bar's exponential law (setup-laws.scd). On Perform,
     // under the Arc, where the Looper level was, since 2026-11-07 (on the
     // Analysis page from 2026-11-05). A map that binds it (the TSMEGA's CC 7)
     // drives it.
@@ -403,9 +403,9 @@
     };
     // One setting, as the Effects tab draws it (gui-effects.scd): one picked
     // from a list is a menu of its choices' labels, every other one a knob on
-    // its ControlSpec (~effectsMap and ~effectsUnmap, which are the spec's own
-    // curve, so the spec stands for them while gui-effects.scd is not loaded),
-    // read through ~effectsFormat. A knob set in whole steps (Coarse, Pitch L
+    // its ControlSpec (~effectsMap and ~effectsUnmap, setup-laws.scd, which are
+    // the spec's own curve, so the spec stands for them where those are not
+    // loaded), read through ~effectsFormat. A knob set in whole steps (Coarse, Pitch L
     // and R, Bit Depth) is a count. Through setFxParam (a further device's:
     // setParam), which holds a value to its range and step and notifies
     // \fxParam. `dev` is a further device's id, nil for the default one.
@@ -442,8 +442,8 @@
     stripLabel = { |k| ((~saStripLabels !? { |names| names[k] }) ? stripNames[k] ? k).asString.replace(":", "") };
     // A level as its slider moves it (~saLevelRow): in dB on ~saLevelSpec's
     // travel, set as the amplitude MegaSA keeps, and read as ~saLevelText
-    // reads it. Until gui-sa.scd is loaded it is not there, and its law
-    // stands still rather than throwing.
+    // reads it (setup-laws.scd). Where those are not loaded it is not there,
+    // and its law stands still rather than throwing.
     addLevel = { |k|
         add.(("sa.level." ++ k).asSymbol, stripLabel.(k) ++ " level", "Rig", \continuous, (group: "Levels",
             get: { ~megaSA !? { |m| m.level(k) !? { |a| a.ampdb.max(-60) } } },

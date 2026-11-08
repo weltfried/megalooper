@@ -55,28 +55,7 @@
 );
 
 // ---- Value <-> knob -------------------------------------------------------
-// A knob's travel is 0..1. Every setting goes through its ControlSpec, so the
-// curve (exp for frequencies and times) is the table's, not this file's.
-~effectsUnmap = { |p, val| p[\spec].unmap(val) };
-~effectsMap = { |p, pos| p[\spec].map(pos) };
 
-// The readout: the setting in the units the Live device shows (`scale` turns
-// seconds into ms, 0..1 into %), as many decimals as the size deserves.
-~effectsFormat = { |p, val|
-    var c = p[\choices];
-    var shown, text;
-    if(c.notNil) {
-        c[c.collect { |pair| pair[0] }.indexIn(val)][1]
-    } {
-        shown = val * (p[\scale] ? 1);
-        text = case
-            { p[\spec].step >= 1 and: { (p[\scale] ? 1) == 1 } } { shown.round.asInteger.asString }
-            { shown.abs >= 100 } { shown.round.asInteger.asString }
-            { shown.abs >= 10 } { shown.round(0.1).asString }
-            { shown.round(0.01).asString };
-        text ++ (p[\units] ? "")
-    }
-};
 
 // ---- View state -----------------------------------------------------------
 // Emptied on close and on every rebuild, so a notification arriving after the

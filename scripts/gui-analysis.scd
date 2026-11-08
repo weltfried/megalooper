@@ -99,14 +99,6 @@
     ~analysisDirty = true;
 };
 
-// Note names in ABLETON's octave numbering (middle C = C3, so note 60 is C3 and
-// the drum rack's first pad, 36, is C1). SC's own convention is an octave higher;
-// matching Live is what makes the number in this window agree with the pad you
-// are about to drop a sample onto.
-~midiNoteName = { |num|
-    var names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-    names[num.asInteger % 12] ++ (num.asInteger.div(12) - 2)
-};
 
 // The onset-notes readout: how many hits are in the pattern and how long one
 // pass of it is. Empty is the normal state until a take has been analysed, so it

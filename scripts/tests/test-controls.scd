@@ -24,7 +24,7 @@ if(~routingProfiles.isNil) { (scripts +/+ "setup-routing.scd").load };
 if(~saGuitarBank.isNil) { (scripts +/+ "setup-sa.scd").load };
 (scripts +/+ "setup-miditargets.scd").load;
 if(~midiApply.isNil) { (scripts +/+ "setup-midimap.scd").load };
-if(~onsetThresholdSpec.isNil) { (scripts +/+ "gui-const.scd").load };
+if(~onsetThresholdSpec.isNil) { (scripts +/+ "setup-laws.scd").load };
 if(~guiKeyDown.isNil) { (scripts +/+ "gui-shell.scd").load };
 
 saved = [~midiTargets, ~looper, ~megaSA, ~controlSource, ~rp];

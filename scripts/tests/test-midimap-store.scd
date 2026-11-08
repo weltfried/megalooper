@@ -21,7 +21,7 @@ if(~saGuitarBank.isNil) { (scripts +/+ "setup-sa.scd").load };
 if(~routingProfiles.isNil) { (scripts +/+ "setup-routing.scd").load };
 if(~midiTargetsBuild.isNil) { (scripts +/+ "setup-miditargets.scd").load };
 if(~midiRouteWith.isNil) { (scripts +/+ "setup-midimap.scd").load };
-if(~onsetThresholdSpec.isNil) { (scripts +/+ "gui-const.scd").load };
+if(~onsetThresholdSpec.isNil) { (scripts +/+ "setup-laws.scd").load };
 if(~granularParams.isNil) { (scripts +/+ "setup-granular.scd").load };
 
 saved = [~midiUserRootOverride, ~midiWriteSync, ~routingProfile, ~looper, ~midiOut, ~midiLog, ~midiMonitorPush,
