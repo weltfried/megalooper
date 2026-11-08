@@ -22,6 +22,7 @@
 // no list.
 (
 ~megalooperParts = [
+    "setup-boot.scd",         // the boot's steps: the first that throws says where
     "setup-routing.scd",      // ~routingProfiles, ~applyRoutingProfile, the preflights
     "setup-midi.scd",         // ~setupMidiIO, and the numbers MIDI is bound to
     "setup-model.scd",        // ~setupLooper, ~wireLooperCallbacks, ~fallbackApply

@@ -76,6 +76,7 @@ var files = [
     "test-miditargets.scd",
     "test-midi-equivalence.scd",
     "test-controls.scd",
+    "test-boot-steps.scd",
     "test-midimap-learn.scd",
     "test-midimap-store.scd",
     "test-midiback.scd",

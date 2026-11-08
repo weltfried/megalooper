@@ -27,7 +27,7 @@ var scriptDir = thisProcess.nowExecutingPath !? { |p| p.dirname }
 var prefsPath = Platform.userAppSupportDir +/+ "megalooper-launcher.txt";
 var profileKeys, deviceOf, presentDevices, isPresent, labelFor;
 var lastUsed, startIdx, saved, lastBuffer;
-var win, menu, bufferMenu, statusText, startButton, setStatus, refresh;
+var win, menu, bufferMenu, statusText, startButton, setStatus, refresh, failed;
 // The audio settings, on saSystem: the devices there are (devs), what is
 // chosen (audio), and the menus that choose it.
 var devs, audio, usesAudio, audioView, inMenu, outMenu, instMenu, bassMenu, rescan;
@@ -283,6 +283,24 @@ win.layout_(VLayout(
                         bufferMenu.enabled = false;
                         audioView.enabled = false;
                         setStatus.("Booting on " ++ key ++ " — windows will open shortly.");
+                        // A start that stopped, before the server (thrown out
+                        // of boot.scd's load) or after it (a step of the
+                        // boot's, setup-boot.scd): Start again, and where.
+                        // The banner and stack trace go to the log; the window
+                        // gets the one-line version.
+                        failed = { |words|
+                            booted = false;
+                            menu.enabled = true;
+                            bufferMenu.enabled = true;
+                            audioView.enabled = usesAudio.(key);
+                            startButton.enabled = true;
+                            startButton.states_([["Start megalooper",
+                                Color.white, Color.new(0.2, 0.55, 0.3)]]);
+                            setStatus.(words ++ " — see ~/Library/Logs/megalooper.log", true);
+                        };
+                        ~bootFailed = { |step, err|
+                            { failed.("Start stopped at " ++ step ++ ": " ++ err.errorString) }.defer };
+                        ~bootFinished = { { setStatus.("Running on " ++ key ++ ".") }.defer };
                         // Deferred so this click returns and the label/status
                         // above actually repaint before boot.scd blocks the
                         // language during its synchronous setup.
@@ -290,19 +308,7 @@ win.layout_(VLayout(
                             protect {
                                 (scriptDir +/+ "boot.scd").load;
                             } { |err|
-                                if(err.notNil) {
-                                    booted = false;
-                                    menu.enabled = true;
-                                    bufferMenu.enabled = true;
-                                    audioView.enabled = usesAudio.(key);
-                                    startButton.enabled = true;
-                                    startButton.states_([["Start megalooper",
-                                        Color.white, Color.new(0.2, 0.55, 0.3)]]);
-                                    // The banner and stack trace go to the log;
-                                    // the window gets the one-line version.
-                                    setStatus.("Boot failed: " ++ err.errorString
-                                        ++ " — see ~/Library/Logs/megalooper.log", true);
-                                };
+                                if(err.notNil) { failed.("Boot failed: " ++ err.errorString) };
                             };
                         }.defer(0.1);
                     };

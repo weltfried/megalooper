@@ -103,6 +103,9 @@ if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };
 ~megalooperLoadParts.(~megalooperScripts);
 
 (
+// A new boot: no step has run, none has failed (setup-boot.scd).
+~bootReset.();
+
 // Which rig. launcher.scd (the Desktop icon) sets ~launcherProfile from its
 // dropdown and that wins; from the IDE it is nil, so the default defined
 // alongside the profile table in setup-routing.scd is used. To change rigs
@@ -133,104 +136,117 @@ if(File.exists(~saFxPresetDir).not) { File.mkdir(~saFxPresetDir) };
 ~audioMapAdopted !? { |said| ("megalooper: " ++ said ++ ".").postln };
 
 s.boot;
+// What follows the server runs as named steps (setup-boot.scd): the first
+// that throws stops the boot there and says where, in the post window and on
+// the launcher's status line, instead of leaving it on "Booting…".
 s.waitForBoot {
-    s.meter;
-    ~checkSampleRate.();
-    // The buffer it runs at, for the boot line and the top bar's rig block.
-    ~audioBuffer = ~audioBufferRunning.(s);
-    // The round trip the devices report, which a rig without Live starts its
-    // overdub latency from (setup-model.scd's ~latencyStart).
-    ~latencyReport = if(~rp[\live] == false) { ~audioRoundTripReported.(s) };
+    ~bootStep.("the server", {
+        s.meter;
+        ~checkSampleRate.();
+        // The buffer it runs at, for the boot line and the top bar's rig block.
+        ~audioBuffer = ~audioBufferRunning.(s);
+        // The round trip the devices report, which a rig without Live starts its
+        // overdub latency from (setup-model.scd's ~latencyStart).
+        ~latencyReport = if(~rp[\live] == false) { ~audioRoundTripReported.(s) };
+    });
+    ~bootStep.("MIDI", {
+        // MIDI I/O first: the Looper is constructed with ~midiOut and sends its
+        // MIDI clock through it.
+        ~setupMidiIO.();
+    });
+    ~bootStep.("Megalooper SA", {
+        // Megalooper SA: the mixer goes up BEFORE the Looper, which writes its
+        // loop to the mixer's bus instead of the interface (~outChannel).
+        // On any other rig, an SA left over from an earlier boot in this session
+        // goes, so nothing (the tempo callback) talks to it.
+        if(~rp[\sa] == true) { ~setupSA.() } { ~megaSA !? { |m| m.free }; ~megaSA = nil };
+    });
+    ~bootStep.("the looper", {
+        // DESTRUCTIVE — frees any previous Looper, and with it the loop buffers.
+        ~setupLooper.();
+        ~wireLooperCallbacks.();
 
-    // MIDI I/O first: the Looper is constructed with ~midiOut and sends its
-    // MIDI clock through it.
-    ~setupMidiIO.();
+        // Constructing a Looper only STARTS the server-side work (buffer allocs, two
+        // server.syncs, then the SynthDefs); the rest of this routine would otherwise
+        // run to completion long before any of it lands. The analysis window starts
+        // its monitor synth as it opens, so without this wait that s_new hit a server
+        // that had never heard of \looperAnalysisMonitor — button on, lamp dead.
+        ~looper.waitForReady;
+        // SA's loop effects go right after the Looper's master synth, so nothing
+        // may add synths to the default group before this.
+        if(~rp[\sa] == true) { ~setupSALooper.() };
+    });
+    ~bootStep.("the MIDI map", {
+        // Responders need ~looper to exist. The rig's MIDI map is loaded here
+        // (setup-midimap.scd); a map's bindings for SA's effects and drums do
+        // nothing on a rig without them.
+        ~setupMidiBindings.();
+        // The fallback meter on or off, as settings.json (read just above) says:
+        // off unless switched on (setup-model.scd).
+        ~fallbackApply.();
+    });
+    ~bootStep.("the window", {
+        // Builds the window, its status band and every pane, in the theme kept in
+        // settings.json (read by ~setupMidiBindings above). Cannot run before
+        // ~applyRoutingProfile above: the Perform and Rig panes read
+        // ~returnChannel and ~analysisChannel to decide what to disable.
+        ~guiThemeName = ~guiThemeSaved.() ? ~guiThemeName;
+        ~guiHelpShown = ~guiPrefSaved.("help") != "hidden";
+        // Whether a new loop starts with the drums off, as kept beside the theme.
+        if(~rp[\sa] == true) { ~saDrumsNewLoopApply.() };
+        ~buildGuiWindow.();
 
-    // Megalooper SA: the mixer goes up BEFORE the Looper, which writes its
-    // loop to the mixer's bus instead of the interface (~outChannel).
-    // On any other rig, an SA left over from an earlier boot in this session
-    // goes, so nothing (the tempo callback) talks to it.
-    if(~rp[\sa] == true) { ~setupSA.() } { ~megaSA !? { |m| m.free }; ~megaSA = nil };
+        // Last: this one subscribes widgets from the header and EVERY pane.
+        ~wireLooperController.();
 
-    // DESTRUCTIVE — frees any previous Looper, and with it the loop buffers.
-    ~setupLooper.();
-    ~wireLooperCallbacks.();
-
-    // Constructing a Looper only STARTS the server-side work (buffer allocs, two
-    // server.syncs, then the SynthDefs); the rest of this routine would otherwise
-    // run to completion long before any of it lands. The analysis window starts
-    // its monitor synth as it opens, so without this wait that s_new hit a server
-    // that had never heard of \looperAnalysisMonitor — button on, lamp dead.
-    ~looper.waitForReady;
-    // SA's loop effects go right after the Looper's master synth, so nothing
-    // may add synths to the default group before this.
-    if(~rp[\sa] == true) { ~setupSALooper.() };
-
-    // Responders need ~looper to exist. The rig's MIDI map is loaded here
-    // (setup-midimap.scd); a map's bindings for SA's effects and drums do
-    // nothing on a rig without them.
-    ~setupMidiBindings.();
-    // The fallback meter on or off, as settings.json (read just above) says:
-    // off unless switched on (setup-model.scd).
-    ~fallbackApply.();
-
-    // Builds the window, its status band and every pane, in the theme kept in
-    // settings.json (read by ~setupMidiBindings above). Cannot run before
-    // ~applyRoutingProfile above: the Perform and Rig panes read
-    // ~returnChannel and ~analysisChannel to decide what to disable.
-    ~guiThemeName = ~guiThemeSaved.() ? ~guiThemeName;
-    ~guiHelpShown = ~guiPrefSaved.("help") != "hidden";
-    // Whether a new loop starts with the drums off, as kept beside the theme.
-    if(~rp[\sa] == true) { ~saDrumsNewLoopApply.() };
-    ~buildGuiWindow.();
-
-    // Last: this one subscribes widgets from the header and EVERY pane.
-    ~wireLooperController.();
-
-    // Started again by the Rig page's Apply and restart (setup-routing.scd):
-    // the status line says on what, or what gave way.
-    if(~audioRestarted == true) {
-        ~audioRestarted = false;
-        ~guiSay.(if((~rp[\audioNotes] ? []).notEmpty) { ~rp[\audioNotes].join(" ") }
-            { "Started again on " ++ ~audioDeviceLabel.(~rp) ++ (~audioMapAdopted !? { |m| ". " ++ m } ? "") },
-            if((~rp[\audioNotes] ? []).notEmpty) { \bad });
-    } {
-        ~audioMapAdopted !? { |m| ~guiSay.(m) };
-    };
-
-    // AI apps (setup-remote.scd): let in if the Setup view's switch says so.
-    ~remoteApply.();
-    // Every action logged (setup-actions.scd), if the Analysis page's switch
-    // says so: after the window, whose views and preset bars it hears too.
-    ~actionsApply.();
-
-    ("Boot complete. Keys: " ++ ~controlKeysLine.() ++ " · E export.").postln;
-    ("MIDI: " ++ (~midiMap !? { |m| m.name } ? "no map") ++ ", set on the Setup view; MIDI MAP (top right) maps a control. ~midiLog = false to silence the MIDI log.").postln;
-    "Name fields (export, presets): click to type, Enter or Esc gives the keys back.".postln;
-    ("Views: " ++ ~guiViewOrder.collect { |k| ~guiViewNumbers[k].asString ++ " " ++ ~guiViewLabels[k] }.join(" · ")
-        ++ " (keys 1-6). A filled square on a tab means that part is running. T switches the theme.").postln;
-    ("BBCut presets in " ++ ~bbcutPresetDir ++ " ("
-        ++ ~looper.bbcutPresetNames(~bbcutPresetDir).size ++ " saved).").postln;
-    ("Granular presets in " ++ ~granularPresetDir ++ " ("
-        ++ ~looper.granularPresetNames(~granularPresetDir).size ++ " saved).").postln;
-    ("AI apps: " ++ if(~megaRemote.notNil) { "let in (" ++ MegaRemote.handshakePath ++ ")" }
-        { "off; the Setup view's AI APPS switch lets them in (docs/ai.md)" } ++ ".").postln;
-    if(~rp[\sa] == true) {
-        // ~inChannel is the Looper's (the guitar chain's bus) by now; the
-        // guitar's own input is the profile's.
-        ("megalooper on " ++ ~audioDeviceLabel.(~rp) ++ " at " ++ s.sampleRate.round ++ " Hz, "
-            ++ ~audioBufferRunningLabel.(~audioBuffer) ++ ": instrument on input "
-            ++ (~rp[\inChannel] + 1) ++ " through "
-            ++ (~megaSA.guitarPlugin !? { |p| p.name } ? "nothing (dry)")
-            ++ ", the mix on outputs 1/2.").postln;
-        "The effects and their sounds: the FX view (3). The drums: the Drums view (4). Levels: Setup (5).".postln;
-        ("Sounds in " ++ ~saFxPresetDir ++ " ("
-            ++ ~megaSA.soundNames(~saFxPresetDir).size ++ " saved). The kept one: " ++ ~saKeptPath.() ++ ".").postln;
-        // A kit still loading says so: its buffers come in the background.
-        ("Drums: " ++ ~saDrumsKitLine.(\steps) ++ "; " ++ ~saDrumsKitLine.(\onset)
-            ++ (~midiBindingWords.('sa.drums.on') !? { |w| ". " ++ w ++ " switches the steps on and off" } ? "") ++ ".").postln;
-        ("Drum presets in " ++ ~saDrumsPresetDir ++ " ("
-            ++ (~saDrumsPresetDir +/+ "*.scd").pathMatch.size ++ " saved).").postln;
-    };
+        // Started again by the Rig page's Apply and restart (setup-routing.scd):
+        // the status line says on what, or what gave way.
+        if(~audioRestarted == true) {
+            ~audioRestarted = false;
+            ~guiSay.(if((~rp[\audioNotes] ? []).notEmpty) { ~rp[\audioNotes].join(" ") }
+                { "Started again on " ++ ~audioDeviceLabel.(~rp) ++ (~audioMapAdopted !? { |m| ". " ++ m } ? "") },
+                if((~rp[\audioNotes] ? []).notEmpty) { \bad });
+        } {
+            ~audioMapAdopted !? { |m| ~guiSay.(m) };
+        };
+    });
+    ~bootStep.("AI apps and the action log", {
+        // AI apps (setup-remote.scd): let in if the Setup view's switch says so.
+        ~remoteApply.();
+        // Every action logged (setup-actions.scd), if the Analysis page's switch
+        // says so: after the window, whose views and preset bars it hears too.
+        ~actionsApply.();
+    });
+    ~bootStep.("the boot's report", {
+        ("Boot complete. Keys: " ++ ~controlKeysLine.() ++ " · E export.").postln;
+        ("MIDI: " ++ (~midiMap !? { |m| m.name } ? "no map") ++ ", set on the Setup view; MIDI MAP (top right) maps a control. ~midiLog = false to silence the MIDI log.").postln;
+        "Name fields (export, presets): click to type, Enter or Esc gives the keys back.".postln;
+        ("Views: " ++ ~guiViewOrder.collect { |k| ~guiViewNumbers[k].asString ++ " " ++ ~guiViewLabels[k] }.join(" · ")
+            ++ " (keys 1-6). A filled square on a tab means that part is running. T switches the theme.").postln;
+        ("BBCut presets in " ++ ~bbcutPresetDir ++ " ("
+            ++ ~looper.bbcutPresetNames(~bbcutPresetDir).size ++ " saved).").postln;
+        ("Granular presets in " ++ ~granularPresetDir ++ " ("
+            ++ ~looper.granularPresetNames(~granularPresetDir).size ++ " saved).").postln;
+        ("AI apps: " ++ if(~megaRemote.notNil) { "let in (" ++ MegaRemote.handshakePath ++ ")" }
+            { "off; the Setup view's AI APPS switch lets them in (docs/ai.md)" } ++ ".").postln;
+        if(~rp[\sa] == true) {
+            // ~inChannel is the Looper's (the guitar chain's bus) by now; the
+            // guitar's own input is the profile's.
+            ("megalooper on " ++ ~audioDeviceLabel.(~rp) ++ " at " ++ s.sampleRate.round ++ " Hz, "
+                ++ ~audioBufferRunningLabel.(~audioBuffer) ++ ": instrument on input "
+                ++ (~rp[\inChannel] + 1) ++ " through "
+                ++ (~megaSA.guitarPlugin !? { |p| p.name } ? "nothing (dry)")
+                ++ ", the mix on outputs 1/2.").postln;
+            "The effects and their sounds: the FX view (3). The drums: the Drums view (4). Levels: Setup (5).".postln;
+            ("Sounds in " ++ ~saFxPresetDir ++ " ("
+                ++ ~megaSA.soundNames(~saFxPresetDir).size ++ " saved). The kept one: " ++ ~saKeptPath.() ++ ".").postln;
+            // A kit still loading says so: its buffers come in the background.
+            ("Drums: " ++ ~saDrumsKitLine.(\steps) ++ "; " ++ ~saDrumsKitLine.(\onset)
+                ++ (~midiBindingWords.('sa.drums.on') !? { |w| ". " ++ w ++ " switches the steps on and off" } ? "") ++ ".").postln;
+            ("Drum presets in " ++ ~saDrumsPresetDir ++ " ("
+                ++ (~saDrumsPresetDir +/+ "*.scd").pathMatch.size ++ " saved).").postln;
+        };
+    });
+    ~bootFinish.();
 };
 )

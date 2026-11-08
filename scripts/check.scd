@@ -171,6 +171,7 @@ var callables = [
     \midiTargetsBuild, \midiRouteWith, \midiRoute, \midiApply,
     \controlDo, \controlApply, \controlTargets, \controlKeyTarget, \controlKeyFor, \controlKeysLine,
     \midiTargetsFollow, \midiTargetsMark, \midiTargetsFlush,
+    \bootReset, \bootStep, \bootFinish,
     \midiProxyOk, \midiProxyNoteOn, \midiProxyNoteOff, \midiProxyCc, \midiProxyProgram,
     \midiProxyBend, \midiProxyTouch, \midiProxyPolytouch, \midiPart, \midiFreeOldResponders,
     \midiMapReport,
