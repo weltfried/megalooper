@@ -29,6 +29,7 @@
     "setup-model.scd",        // ~setupLooper, ~wireLooperCallbacks, ~fallbackApply
     "setup-granular.scd",     // the grains' parameters: their table, laws and readouts
     "setup-laws.scd",         // the controls' laws and readouts, for the panes and MIDI
+    "setup-count.scd",        // the loop's count and its lights, for the window, MIDI and the AI
     "setup-sa.scd",           // ~setupSA: the mixer, the chains, the drums (sa: true)
     "setup-miditargets.scd",  // the controls, and the command layer that drives them
     "setup-midimap.scd",      // ~setupMidiBindings: the MIDI router and its map

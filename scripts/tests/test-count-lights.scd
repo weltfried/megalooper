@@ -16,7 +16,7 @@ var keys, saved, l, learn, out, sent, open, step, sends, settings, now, r78, une
 if(~setupMidiIO.isNil) { (scripts +/+ "setup-midi.scd").load };
 if(~midiTargetsBuild.isNil) { (scripts +/+ "setup-miditargets.scd").load };
 if(~midiRouteWith.isNil) { (scripts +/+ "setup-midimap.scd").load };
-if(~countLightStep.isNil) { (scripts +/+ "gui-status.scd").load };
+if(~countLightStep.isNil) { (scripts +/+ "setup-count.scd").load };
 
 // ---- what a light is to the map ---------------------------------------------------
 b = (msg: \note, num: 64, chan: 0);

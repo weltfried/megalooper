@@ -223,7 +223,7 @@ l.nextReading;
 l.stopPlayback;
 
 // ---- the count at half speed (gui-status.scd) ---------------------------------------------------
-if(~countPosAt.isNil) { (scripts +/+ "gui-status.scd").load };
+if(~countPosAt.isNil) { (scripts +/+ "setup-count.scd").load };
 wasLooper = ~looper; wasAnchor = ~countAnchor; wasDelay = ~countDelay;
 l = fresh.();
 ~tPut.(l, \speed, 0.5);

@@ -374,12 +374,12 @@ var boot = File.readAllString(scripts +/+ "boot.scd") ? "";
 // The setup scripts stand below the window (docs/dev/architecture.md, 5,
 // step 2): none reads a global that only a gui file defines. 54 did at the
 // review (a MIDI control's law was a pane's, the settings' helpers the
-// theme's); 24 were named when this guard came in, 10 after step 4's first
-// parts. What is left is named here, and the list only shrinks: a name no
-// setup script reads from the window any more fails until it is taken off.
+// theme's); 24 were named when this guard came in, 7 once the count moved
+// below the window (setup-count.scd). What is left is named here, and the
+// list only shrinks: a name no setup script reads from the window any more
+// fails until it is taken off.
 // Left: the window's own controls (Show a view) and its view in the set's
-// header, the MIDI monitor's feed, the AI's preset shown in a bar, and the
-// count's state, which the status band computes.
+// header, the MIDI monitor's feed, and the AI's preset shown in a bar.
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 var scripts = root +/+ "scripts";
@@ -391,9 +391,7 @@ var allowed = [
     \guiView, \presetShow, \presetFamilies,
     \midiMonitorPush,
     // the window's own controls, which drive the window (Show a view)
-    \guiSelectView, \guiViewOrder, \guiWindow,
-    // the count's state, computed in the status band
-    \countLights, \countLightClock, \countPosAt
+    \guiSelectView, \guiViewOrder, \guiWindow
 ];
 var code = { |path|
     (File.readAllString(path) ? "").split($\n).collect { |line|

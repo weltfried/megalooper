@@ -220,6 +220,7 @@ o = at.(1.0, (error: \lengthAnchored, numerator: 7, denominator: 8, tau: 0.5, su
     var r78 = (numerator: 7, denominator: 8, tau: 0.25, sub: 1, k: 2, loopDur: 3.5, bpm: 120, n: 14, phase: 0);
     var at = { |now| ~countCompute.(now) };
     var gb = { |s| s[\c] !? { |c| [c[\bar], c[\group], c[\groupBeat]] } };
+    if(~countAt.isNil) { (scripts +/+ "setup-count.scd").load };
     if(~countCompute.isNil) { (scripts +/+ "gui-status.scd").load };
     ~looper = l;
     ~countDelay = 0;
