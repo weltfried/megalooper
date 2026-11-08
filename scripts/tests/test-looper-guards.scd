@@ -113,6 +113,27 @@ r = heard.(l, { l.clear });
 ~tEq.("a clear says there is none", said.(r, \result).collect { |x| x[1] }, [nil]);
 ~tEq.("...and the looper keeps none", l.lastResult, nil);
 
+// ---- Cmd-period ----------------------------------------------------------------------
+// It freed every node and stopped every routine: the looper forgets them,
+// stops saying it plays, and stops answering ready, as MegaSA does.
+l = playing.();
+~tPut.(l, \ready, true);
+~tPut.(l, \midiClockRoutine, Routine { });
+r = heard.(l, { l.cmdPeriod });
+~tEq.("after Cmd-period the loop is stopped, not playing", l.state, \stopped);
+~tAssert.("...and says so", said.(r, \state).any { |x| x[1] == \stopped }, r.asString);
+~tEq.("...no engine, no MIDI clock, not ready", [~tGet.(l, \engineSynth), l.midiClockRunning, l.ready], [nil, false, false]);
+~tEq.("...and its buffer is kept", ~tGet.(l, \loopFrames), 48000);
+r = heard.(l, { l.cmdPeriod });
+~tEq.("a second Cmd-period says nothing more", r, []);
+l = ~tLooper.();
+r = heard.(l, { l.cmdPeriod });
+~tEq.("a looper never ready is left alone", [r, l.state], [[], \empty]);
+l = playing.();
+CmdPeriod.add(l);
+l.free;
+~tAssert.("free stops listening for Cmd-period", CmdPeriod.objects.includes(l).not);
+
 // ---- free ------------------------------------------------------------------------------
 l = playing.();
 ht = Routine { loop { 10.wait } }.play(SystemClock);

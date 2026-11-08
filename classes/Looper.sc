@@ -447,6 +447,9 @@ Looper {
         server = aServer;
         midiOut = aMidiOut;
         bufDur = aBufDur;
+        // Cmd-period frees every node and stops every routine: told, so the
+        // looper can say so (cmdPeriod) instead of claiming a loop that plays.
+        CmdPeriod.add(this);
         this.prSetState(\empty);
         onsets = List.new;
         pitchSamples = List.new;
@@ -1016,6 +1019,28 @@ Looper {
     // 2026-11-08 nothing was said, the window polled the result's identity,
     // and only the onAnalysis slot heard of it, which undo, clear and multiply
     // never called (docs/dev/architecture.md 3.6).
+    // Cmd-period has freed every synth of the looper's (the engine, the
+    // master, the recorder, the grains, the cutter's voices) and stopped every
+    // routine (the clocks, the onset notes, the chords), and nothing makes
+    // them again. Before 2026-11-08 the looper went on saying it played, with
+    // a MIDI clock running. Now it forgets the nodes and routines, says the
+    // cutter and the grains are off and the loop stopped (its buffer is kept),
+    // stops answering ready, and says what to do, as MegaSA does.
+    cmdPeriod {
+        if(ready.not) { ^this };
+        ready = false;
+        engineSynth = nil; recSynth = nil; granularSynth = nil; masterSynth = nil;
+        tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; nextRecSynth = nil;
+        clickRoutine = nil; midiClockRoutine = nil; chordRoutine = nil; breakRoutine = nil;
+        dissolveRoutine = nil; readingRoutine = nil; halfTimeRoutine = nil; reverseRoutine = nil;
+        bbcutEnableRoutine = nil; nextRecRoutine = nil; overdubSyncRoutine = nil;
+        bbcutEnabling = false;
+        if(bbcut) { bbcut = false; this.changed(\bbcut, false) };
+        this.changed(\granular, false);
+        if((state != \empty) and: { state != \stopped }) { this.prSetState(\stopped) };
+        "Looper: Cmd-period freed its synths and stopped its clocks, so the loop is silent; run boot.scd again (or Apply and restart) to rebuild it. The recorded loop is kept until then.".warn;
+    }
+
     prSetResult { |r|
         lastResult = r;
         this.changed(\result, r);
