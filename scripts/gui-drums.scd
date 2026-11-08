@@ -463,6 +463,7 @@
     label:      "Drums",
     statusIdle: "Pick a preset to recall it · Save keeps both patterns, the kits and their trims",
     dirKey:     \saDrumsPresetDir,
+    ext:        ".json",
     names:      \presetNames,
     slug:       \presetSlug,
     save:       \savePreset,
@@ -1596,7 +1597,7 @@
                             "switch, the break and the levels are not in it.",
                         name: "File name for Save. Anything but letters and digits becomes '-', so \"Half "
                             "Time\"\nsaves as half-time.scd.",
-                        save: "Write the drums as they are now to sa/drum-presets/<name>.scd in your megalooper folder.\n"
+                        save: "Write the drums as they are now to sa/drum-presets/<name>.json in your megalooper folder.\n"
                             "'Overwrite' asks for a second click."
                     ))]
                 ++ ~drumsSectionRule.() ++ ~drumsPatternRows.()

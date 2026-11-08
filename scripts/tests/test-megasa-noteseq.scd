@@ -408,6 +408,6 @@ notes = List.new;
 d.setDice(7);
 ~tEq.("...one that is no seed is said and the dice in force stay",
     [d.applyPresetData(data.copy.put(\dice, "x"), notes), d.keptDice, notes.any { |n| n.contains("dice") }], [true, 7, true]);
-~tAssert.("...and the file says it in words", d.presetString(d.presetData("z")).contains("dice: 7"));
+~tAssert.("...and the file says it", d.presetText(d.presetData("z")).contains("\"dice\": 7"));
 d.free;
 }.value;

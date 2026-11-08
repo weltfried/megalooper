@@ -63,7 +63,7 @@ protect {
     ~tEq.("a change after it, taken back: the preset as loaded, still selected (nothing to select again)",
         [got.at("ok"), d.patterns[\main][\delay][0], showCalls.size], [true, 17.0, 1]);
 
-    File.use(drumsDir +/+ "bad.scd", "w", { |f| f.write("(version: 99, name: \"from later\")") });
+    File.use(drumsDir +/+ "bad.json", "w", { |f| f.write("{\"format\": \"megalooper drums\", \"version\": 99, \"name\": \"from later\"}") });
     ~tEq.("refused, changing nothing: no name, a blank one, a preset there is not, a file that is no preset",
         [
             ask.(r, "{\"command\": \"load_drum_preset\", \"args\": {}}").at("ok"),
@@ -76,7 +76,7 @@ protect {
     ~tEq.("...a preset there is not is answered with those there are; a file that is no preset says it was not read",
         [load.(r, "load_drum_preset", "Funk").at("error"), load.(r, "load_drum_preset", "bad").at("error").contains("could not be read")],
         ["there is no drum preset \"Funk\"; there are bad, groove", true]);
-    File.delete(drumsDir +/+ "bad.scd");
+    File.delete(drumsDir +/+ "bad.json");
 
     got = load.(r, "load_drum_preset", "groove");
     ~tEq.("by its slug as the context lists it", [got.at("ok"), r.changeCount], [true, 2]);

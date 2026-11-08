@@ -477,7 +477,7 @@ sw = go.(91.75, 1.75, r78, 16, \barLine, \bars, 4.0);
 var d = MegaSADrums((server: ~tStubServer.())), data, notes = List.new;
 d.setRepeatGrid(\live);
 data = d.presetData("x");
-~tEq.("a drums preset holds the repeats' grid", [data[\repeatGrid], d.presetString(data).contains("repeatGrid: \"live\"")],
+~tEq.("a drums preset holds the repeats' grid", [data[\repeatGrid], d.presetText(data).contains("\"repeatGrid\": \"live\"")],
     ["live", true]);
 d.setRepeatGrid(\bars);
 ~tEq.("...and puts it back", [d.applyPresetData(data, notes), d.repeatGrid], [true, \live]);
@@ -788,12 +788,14 @@ mainCopy = d.patterns[\main].deepCopy;
 breakCopy = d.patterns[\break].deepCopy;
 slug = d.savePreset(dir, "My Groove!");
 ~tEq.("savePreset: the slug (Looper.presetSlug)", [slug, d.presetSlug("My Groove!")], ["my-groove", Looper.presetSlug("My Groove!")]);
-text = File.readAllString(dir +/+ "my-groove.scd") ? "";
-~tAssert.("...one SC literal, its comments first, none trailing", text.beginsWith("//") and: {
-    text.stripWhiteSpace.endsWith(")") });
-data = text.interpret;
+text = File.readAllString(dir +/+ "my-groove.json") ? "";
+data = MegaFiles.parseObject(text);
+~tAssert.("...one JSON object, a drums preset of version 1, nothing run to read it",
+    data.isKindOf(MegaJsonObject) and: { data.at("format") == MegaSADrums.presetFormat } and: { data.at("version") == 1 },
+    text.keep(200));
+data = MegaSADrums.fromJson(data);
 ~tEq.("...holding both patterns, the kits, trims, Beat Repeat and its grid, the reverb, the offset and the dice (and not on/off or the break)",
-    data !? { |x| x.keys.asArray.sort }, [\break, \dice, \groupTrims, \main, \name, \offsetMs, \onsetKit, \padTrims,
+    data !? { |x| x.keys.asArray.sort }, [\break, \dice, \format, \groupTrims, \main, \name, \offsetMs, \onsetKit, \padTrims,
         \repeatGrid, \repeats, \reverbMix, \savedAt, \stepsKit, \version]);
 ~tEq.("...the kits by key, the trims as [kit, key, dB]", data !? { |x| [x[\stepsKit], x[\padTrims], x[\groupTrims]] },
     ["brkit", [["brkit", 42, -3.5]], [["brkit", "layer", -6.0]]]);
@@ -822,18 +824,19 @@ var warnings = List.new, ok, got = List.new, before, ctl, path;
 var write = { |name, text| File.use(dir +/+ name, "w", { |f| f.write(text) }) };
 var row = { |v| "[" ++ Array.fill(16, { |i| if(i == 0) { v } { 0 } }).join(", ") ++ "]" };
 File.mkdir(dir);
-write.("hand.scd", "// hand-edited\n(\n    version: 1,\n    name: \"hand\",\n    stepsKit: \"nope\",\n"
-    "    onsetKit: \"plainkit\",\n    repeats: \"yes\",\n    reverbMix: 3,\n    offsetMs: \"x\",\n"
-    "    padTrims: [[\"brkit\", 42, 20], [\"brkit\", \"x\", 1], 5],\n    groupTrims: [[\"brkit\", \"layer\", -4.5]],\n"
-    "    tempo: 120,\n    main: (steps: (chance: [" ++ row.(9) ++ ", " ++ row.(0) ++ ", " ++ row.(0) ++ ", " ++ row.(0)
-    ++ "]), clockSpeed: \\fast),\n    break: (rollRate: 99)\n)\n");
-write.("newer.scd", "(version: 2, reverbMix: 0.9)");
-write.("list.scd", "[1, 2, 3]");
-write.("throws.scd", "(reverbMix: nil.foo)");
+write.("hand.json", "{\"format\": \"megalooper drums\", \"version\": 1, \"name\": \"hand\", \"stepsKit\": \"nope\",\n"
+    " \"onsetKit\": \"plainkit\", \"repeats\": \"yes\", \"reverbMix\": 3, \"offsetMs\": \"x\",\n"
+    " \"padTrims\": [[\"brkit\", 42, 20], [\"brkit\", \"x\", 1], 5], \"groupTrims\": [[\"brkit\", \"layer\", -4.5]],\n"
+    " \"tempo\": 120, \"main\": {\"steps\": {\"chance\": [" ++ row.(9) ++ ", " ++ row.(0) ++ ", " ++ row.(0) ++ ", " ++ row.(0)
+    ++ "]}, \"clockSpeed\": \"fast\"},\n \"break\": {\"rollRate\": 99}}\n");
+write.("newer.json", "{\"format\": \"megalooper drums\", \"version\": 2, \"reverbMix\": 0.9}");
+write.("list.json", "[1, 2, 3]");
+write.("other.json", "{\"format\": \"megalooper synth\", \"version\": 1}");
+write.("broken.json", "{\"format\": \"megalooper drums\", \"reverbMix\": ");
 write.("trap.scd", "~bfTrap = 1; ()");
 ~bfTrap = nil;
-~tEq.("presetNames lists slugs without running a file", [d.presetNames(dir), ~bfTrap],
-    [["hand", "list", "newer", "throws", "trap"], nil]);
+~tEq.("presetNames lists the JSON presets' slugs, and no old .scd", [d.presetNames(dir), ~bfTrap],
+    [["broken", "hand", "list", "newer", "other"], nil]);
 ctl = SimpleController(d).put(\kit, { |o, w, slot, key| got.add([slot, key]) });
 ok = d.loadPreset(dir, "hand", warnings);
 ~tEq.("a hand-edited preset loads, fail-soft field by field", ok, true);
@@ -853,31 +856,26 @@ ok = d.loadPreset(dir, "hand", warnings);
 before = [d.reverbMix, d.offsetMs, d.patterns[\main].deepCopy];
 warnings = List.new;
 ~tEq.("a newer version is refused whole", [d.loadPreset(dir, "newer", warnings), warnings.size], [false, 1]);
-~tEq.("...and so is a file that is not a preset, or that throws", [d.loadPreset(dir, "list", List.new),
-    d.loadPreset(dir, "throws", List.new), d.loadPreset(dir, "none", List.new)], [false, false, false]);
+~tEq.("...and so is a file that is no JSON object, another kind of file, half written, or not there",
+    [d.loadPreset(dir, "list", List.new), d.loadPreset(dir, "other", List.new), d.loadPreset(dir, "broken", List.new),
+        d.loadPreset(dir, "none", List.new)], [false, false, false, false]);
 ~tEq.("...changing nothing", [d.reverbMix, d.offsetMs, d.patterns[\main] == before[2]], [before[0], before[1], true]);
-// A file whose code throws while the literal is half built, read where the
-// answer is an operand: the reader's own stack (Looper.readPresetFile) keeps
-// that half-built expression off the caller's.
-write.("operand.scd", "(version: 1, name: \"x\", reverbMix: nil.foo, offsetMs: 3)");
-~tEq.("a preset that throws while it is read, in an expression: 1000 + loadPreset(...).binaryValue is 1000",
-    1000 + (d.loadPreset(dir, "operand", List.new).binaryValue), 1000);
-~tEq.("...and inside a literal the caller is building", [\before, d.loadPreset(dir, "operand", List.new), \after],
-    [\before, false, \after]);
+~tEq.("an old .scd in the folder is not run, asked for by name or not", [d.loadPreset(dir, "trap", List.new), ~bfTrap],
+    [false, nil]);
 ~tEq.("deletePreset: true, then the file is gone (and false again)",
-    [d.deletePreset(dir, "hand"), File.exists(dir +/+ "hand.scd"), d.deletePreset(dir, "hand")], [true, false, false]);
+    [d.deletePreset(dir, "hand"), File.exists(dir +/+ "hand.json"), d.deletePreset(dir, "hand")], [true, false, false]);
 ~tEq.("no folder: nothing saved, nothing loaded", [d.savePreset(nil, "x"), d.loadPreset(nil, "x")], [nil, false]);
 // Keep: one file, in a folder that does not exist yet.
-path = ~bfDir +/+ "kept" +/+ "drums.scd";
+path = ~bfDir +/+ "kept" +/+ "drums.json";
 d.setReverbMix(0.42);
 d.setParam(\break, \rollRate, 2);
 ~tEq.("keep: written, its folder made", [d.keep(path), File.exists(path)], [true, true]);
 d.setReverbMix(0.1);
 d.resetPattern(\break);
 ~tEq.("loadKept: the kept drums back", [d.loadKept(path), d.reverbMix, d.param(\break, \rollRate)], [true, 0.42, 2]);
-~tEq.("...false, and nothing said, when nothing was kept", d.loadKept(~bfDir +/+ "nothing.scd"), false);
-~tEq.("...by default in your megalooper folder (sa/kept-drums/drums.scd), not in the repo", MegaSADrums.defaultKeptPath,
-    MegaFiles.userRoot +/+ "sa" +/+ "kept-drums" +/+ "drums.scd");
+~tEq.("...false, and nothing said, when nothing was kept", d.loadKept(~bfDir +/+ "nothing.json"), false);
+~tEq.("...by default in your megalooper folder (sa/kept-drums/drums.json), not in the repo", MegaSADrums.defaultKeptPath,
+    MegaFiles.userRoot +/+ "sa" +/+ "kept-drums" +/+ "drums.json");
 ctl.remove;
 }.value;
 // A slot left without a kit (the Drums tab's "— none —") is kept so: a preset
@@ -886,11 +884,11 @@ ctl.remove;
 {
 var fx = ~bfMake.();
 var d = fx[\drums];
-var dir = ~bfDir +/+ "presets3", path = ~bfDir +/+ "kept3" +/+ "drums.scd", text, fresh, warnings = List.new;
+var dir = ~bfDir +/+ "presets3", path = ~bfDir +/+ "kept3" +/+ "drums.json", text, fresh, warnings = List.new;
 d.setKit(\onset, nil);
 d.savePreset(dir, "quiet");
-text = File.readAllString(dir +/+ "quiet.scd") ? "";
-~tAssert.("a preset with the onset slot empty says so: onsetKit: \"none\"", text.contains("onsetKit: \"none\""), text);
+text = File.readAllString(dir +/+ "quiet.json") ? "";
+~tAssert.("a preset with the onset slot empty says so: \"onsetKit\": \"none\"", text.contains("\"onsetKit\": \"none\""), text);
 d.setKit(\onset, \plainkit);
 ~tEq.("loading it empties the slot again, with nothing to correct",
     [d.loadPreset(dir, "quiet", warnings), d.kit(\onset), d.kitState(\onset), d.kitEmptied(\onset), warnings.asArray],
@@ -905,6 +903,53 @@ fresh.kitReader = ~bfReader;
 ~tEq.("the kept drums with the slot empty: emptied, the steps kit theirs",
     [fresh.loadKept(path), fresh.kit(\onset), fresh.kitEmptied(\onset), fresh.kit(\steps)], [true, nil, true, \brkit]);
 fresh.free;
+}.value;
+
+// Presets and kept drums that were SC literals (before 2026-11-08), carried over
+// to JSON once: read the old way one last time and written as JSON beside them;
+// the old files stay as they were, for an older megalooper, and a marker in the
+// folder means a .scd there is never read again (docs/dev/architecture.md, 5,
+// step 7).
+{
+var fx = ~bfMake.();
+var d = fx[\drums];
+var dir = ~bfDir +/+ "old-presets", dir2 = ~bfDir +/+ "old-presets2", dir3 = ~bfDir +/+ "old-presets3";
+var dir4 = ~bfDir +/+ "old-presets4", kept = ~bfDir +/+ "old-kept";
+var write = { |path, text| File.mkdir(path.dirname); File.use(path, "w", { |f| f.write(text) }) };
+var oldText = "// an old preset\n(\n    version: 1,\n    name: \"old\",\n    reverbMix: 0.42,\n    offsetMs: 3.0\n)\n";
+var operand = "(version: 1, name: \"x\", reverbMix: nil.foo, offsetMs: 3)";
+write.(dir +/+ "old.scd", oldText);
+write.(dir +/+ "notapreset.scd", "[1, 2]");
+~tEq.("migratePresets carries an old preset over: its slug", d.migratePresets(dir), ["old"]);
+~tEq.("...written as JSON beside it, the old file left as it was, and the folder marked",
+    [File.exists(dir +/+ "old.json"), MegaFiles.readText(dir +/+ "old.scd"), File.exists(dir +/+ ".drums-json")],
+    [true, oldText, true]);
+~tEq.("...one that is no preset stays where it is, and is not listed",
+    [File.exists(dir +/+ "notapreset.scd"), d.presetNames(dir)], [true, ["old"]]);
+d.setReverbMix(0.1);
+~tEq.("...and the preset loads from its JSON", [d.loadPreset(dir, "old", List.new), d.reverbMix, d.offsetMs], [true, 0.42, 3]);
+write.(dir +/+ "later.scd", "~bfTrap = 2; (version: 1, reverbMix: 0.9)");
+~bfTrap = nil;
+~tEq.("once only: a .scd put there later is neither carried over nor run",
+    [d.migratePresets(dir), ~bfTrap, d.presetNames(dir)], [[], nil, ["old"]]);
+File.mkdir(dir2);
+~tEq.("a folder with nothing to carry is marked all the same", [d.migratePresets(dir2), File.exists(dir2 +/+ ".drums-json")],
+    [[], true]);
+// The old reader's own stack (Looper.readPresetFile) still guards a file whose
+// code throws while its literal is half built.
+write.(dir3 +/+ "operand.scd", operand);
+~tEq.("an old preset that throws as it is read, in an expression: 1000 + migratePresets(...).size is 1000",
+    1000 + d.migratePresets(dir3).size, 1000);
+write.(dir4 +/+ "operand.scd", operand);
+~tEq.("...and inside a literal the caller is building", [\before, d.migratePresets(dir4), \after], [\before, [], \after]);
+~tEq.("...and it stays where it was", File.exists(dir4 +/+ "operand.scd"), true);
+write.(kept +/+ "drums.scd", oldText);
+d.setReverbMix(0.1);
+~tEq.("loadKept carries the old kept drums over, and loads them; the old file stays as it was",
+    [d.loadKept(kept +/+ "drums.json"), d.reverbMix, File.exists(kept +/+ "drums.json"), MegaFiles.readText(kept +/+ "drums.scd")],
+    [true, 0.42, true, oldText]);
+File.delete(kept +/+ "drums.json");
+~tEq.("...once: with the JSON gone, the old file is not read again", d.loadKept(kept +/+ "drums.json"), false);
 }.value;
 
 ~bfDropFiles.();

@@ -2552,7 +2552,7 @@ d.recallPreset(dir, d.presetStep(dir, 1));
 fx[\drums].transportStop(fx[\wall]);
 ~tEq.("a Stop lands the preset armed", [d.presetPendingSlug, d.presetLoaded], [nil, "snares"]);
 // A file that is not a preset changes nothing.
-File.use(dir +/+ "broken.scd", "w", { |f| f.write("42") });
+File.use(dir +/+ "broken.json", "w", { |f| f.write("42") });
 heard.clear;
 ~tEq.("a file that is no preset is refused, nothing armed", [d.recallPreset(dir, "broken", List.new), d.presetPendingSlug,
     heard.size], [false, nil, 0]);

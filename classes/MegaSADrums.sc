@@ -1230,8 +1230,9 @@ MegaSADrums {
     // lanes' settings and the timing), the two kits by key, every pad and
     // group trim (per kit key, as they are kept), Beat Repeat's switch and
     // grid, the reverb, the offset and the dice (kept: the seed; false: new
-    // ones); one SC literal in `dir`/<slug>.scd, written and read like
-    // MegaSA's effects presets. Not in it: PC 17's on/off and the break, which are the
+    // ones); one JSON file in `dir`/<slug>.json (format "megalooper drums",
+    // version 1), written whole or not at all (MegaFiles.write) and read without
+    // running anything. Not in it: PC 17's on/off and the break, which are the
     // performance's, and the mixer's levels, which are MegaSA's. A preset
     // naming other kits switches to them (setKit).
     //
@@ -1243,22 +1244,31 @@ MegaSADrums {
     // into `warnings`, a List, when one is given). A file that is not a
     // preset, or is of a newer version, is refused whole and changes nothing.
     //
-    // keep(path) is the same save in one file (sa/kept-drums/drums.scd in your megalooper folder by
-    // default), which a boot loads with loadKept, as the effects' kept sound.
+    // keep(path) is the same save in one file (sa/kept-drums/drums.json in your
+    // megalooper folder by default), which a boot loads with loadKept, as the
+    // effects' kept sound.
+    //
+    // Until 2026-11-08 a preset and the kept drums were SC literals (<slug>.scd,
+    // drums.scd), run when read: a shared preset was a program, and the kept
+    // drums ran at every boot (docs/dev/architecture.md 3.7). migratePresets and
+    // loadKept carry those over once (read the old way one last time, written as
+    // JSON beside them); the old files stay where they are, untouched, so an
+    // older megalooper still finds them, and are never read again here.
 
     *presetVersion { ^1 }
+    *presetFormat { ^"megalooper drums" }
 
-    *defaultKeptPath { ^MegaFiles.userRoot +/+ "sa" +/+ "kept-drums" +/+ "drums.scd" }
+    *defaultKeptPath { ^MegaFiles.userRoot +/+ "sa" +/+ "kept-drums" +/+ "drums.json" }
 
     presetSlug { |name| ^Looper.presetSlug(name) }
 
-    presetPath { |dir, name| ^dir +/+ this.presetSlug(name) ++ ".scd" }
+    presetPath { |dir, name| ^dir +/+ this.presetSlug(name) ++ ".json" }
 
-    // Slugs only: interpreting every file to name a menu would run whatever
-    // code it holds.
+    // Slugs only, of the JSON files: an old .scd is not a preset any more
+    // (migratePresets carries those over once).
     presetNames { |dir|
         if(dir.isNil or: { File.exists(dir).not }) { ^[] };
-        ^(dir +/+ "*.scd").pathMatch.collect { |p| PathName(p).fileNameWithoutExtension }.sort
+        ^(dir +/+ "*.json").pathMatch.collect { |p| PathName(p).fileNameWithoutExtension }.sort
     }
 
     // Answers the slug, or nil if nothing was written.
@@ -1266,7 +1276,7 @@ MegaSADrums {
         var slug;
         if(dir.isNil) { "MegaSADrums preset: no directory given.".warn; ^nil };
         slug = this.presetSlug(name);
-        if(this.prWritePreset(dir +/+ slug ++ ".scd", name).not) { ^nil };
+        if(this.prWritePreset(this.presetPath(dir, slug), name).not) { ^nil };
         ("MegaSADrums preset saved: " ++ slug ++ " (" ++ this.prPresetSummary ++ ").").postln;
         ^slug
     }
@@ -1303,8 +1313,8 @@ MegaSADrums {
         if(alive.not or: { dir.isNil } or: { slug.isNil }) { ^false };
         path = this.presetPath(dir, slug);
         if(File.exists(path).not) { ("MegaSADrums preset: no such preset " ++ path.basename).warn; ^false };
-        data = Looper.readPresetFile(path, { |why| notes.add(why) });
-        clean = this.prValidatePreset(data, notes);
+        data = this.prPresetDataAt(path, notes);
+        clean = data !? { this.prValidatePreset(data, notes) };
         if(clean.isNil) { this.prPresetReport(path, warnings, "rejected — ", notes); ^false };
         if(notes.notEmpty) { this.prPresetReport(path, warnings, notes.size.asString ++ " correction(s) — ", notes) };
         wall = wallClock.value;
@@ -1369,12 +1379,74 @@ MegaSADrums {
     }
 
     // The kept drums, at boot: false (and nothing said) when nothing was
-    // kept, as the first boot finds it.
+    // kept, as the first boot finds it. Kept as an SC literal before
+    // 2026-11-08 (drums.scd beside it): carried over first, once.
     loadKept { |path, warnings|
+        var old;
         path = path ?? { this.class.defaultKeptPath };
-        if(path.isNil or: { File.exists(path).not }) { ^false };
+        if(path.isNil) { ^false };
+        old = path.splitext[0] ++ ".scd";
+        if(File.exists(path).not and: { File.exists(old) } and: { this.class.prMigrated(path.dirname).not }) {
+            this.prMigrateFile(old, path);
+            this.class.prMarkMigrated(path.dirname);
+        };
+        if(File.exists(path).not) { ^false };
         ^this.prReadPreset(path, warnings, true)
     }
+
+    // A folder's old presets (SC literals, <slug>.scd) carried over to JSON,
+    // once: a marker file is left in the folder the first time, whether there
+    // was anything to carry or not, so a .scd put there later is never run.
+    // Each is read the old way one last time and written as <slug>.json beside
+    // it; the .scd stays where it is, untouched (an older megalooper still
+    // reads it), and one that does not read as a preset is said. Answers the
+    // slugs carried over.
+    migratePresets { |dir|
+        var moved = List.new;
+        if(dir.isNil or: { File.exists(dir).not } or: { this.class.prMigrated(dir) }) { ^[] };
+        (dir +/+ "*.scd").pathMatch.sort.do { |old|
+            if(this.prMigrateFile(old, old.splitext[0] ++ ".json")) {
+                moved.add(PathName(old).fileNameWithoutExtension)
+            };
+        };
+        this.class.prMarkMigrated(dir);
+        ^moved.asArray
+    }
+
+    // The marker: a folder whose old .scd files were carried over (or that had
+    // none) holds it, and its .scd files are never read again.
+    *prMigratedName { ^".drums-json" }
+    *prMigrated { |dir| ^File.exists(dir +/+ this.prMigratedName) }
+    *prMarkMigrated { |dir|
+        File.mkdir(dir);
+        File.use(dir +/+ this.prMigratedName, "w", { |f|
+            f.write("megalooper reads the drums here as JSON (.json) since 2026-11-08. The .scd files beside\n"
+                "them are the old ones, as they were, for an older megalooper: this one never reads them.\n") });
+    }
+
+    // One old preset to JSON: read on a stack of its own (Looper.readPresetFile:
+    // its code may throw) and written as `json` (whole or not at all) unless
+    // that is there already. The old file is left as it is. True once written.
+    prMigrateFile { |old, json|
+        var notes = List.new, data, why;
+        data = Looper.readPresetFile(old, { |w| notes.add(w) });
+        if(data.isKindOf(Dictionary).not) {
+            ("MegaSADrums: " ++ old.basename ++ " was not carried over to JSON ("
+                ++ (notes.join("; ") ? "") ++ "); it stays as it was, and is not read.").warn;
+            ^false
+        };
+        if(File.exists(json).not) {
+            why = MegaFiles.writeNow(json, this.presetText(data), this.class.prReadsBack);
+            if(why.notNil) {
+                ("MegaSADrums: " ++ old.basename ++ " was not carried over to JSON (" ++ why ++ ").").warn;
+                ^false
+            };
+        };
+        ^true
+    }
+
+    // A written file is good when it reads back as a JSON object.
+    *prReadsBack { ^{ |text| if(MegaFiles.parseObject(text).isKindOf(MegaJsonObject)) { nil } { "it did not read back" } } }
 
     // What a preset holds, as an Event: kits as Strings (keys may have
     // dashes; "none" for a slot left without a kit, which an Event literal
@@ -1398,67 +1470,69 @@ MegaSADrums {
             main: patterns[\main].deepCopy, break: patterns[\break].deepCopy)
     }
 
-    // The file: comments first and inside only (a trailing comment would
-    // leave interpret answering nil), one field a line, the patterns a lane a
-    // line.
-    presetString { |data|
-        var field = { |k, v| "    " ++ k ++ ": " ++ v };
-        ^"// megalooper drums preset — a SuperCollider literal, safe to hand-edit.\n"
-            ++ "// Out-of-range values are corrected on load (see the post window). The kits\n"
-            ++ "// are named by key (presets/sa/drums/kits/<key>.json); trims are in dB, per kit.\n"
-            ++ "(\n"
-            ++ [
-                field.(\version, data[\version]),
-                field.(\name, data[\name].asCompileString),
-                field.(\savedAt, data[\savedAt].asCompileString),
-                "    // The kits (\"none\": no kit, a silent slot), the repeats, the reverb (0..1,\n"
-                    "    // linear) and the offset (ms)\n"
-                    ++ field.(\stepsKit, data[\stepsKit].asCompileString),
-                field.(\onsetKit, data[\onsetKit].asCompileString),
-                field.(\repeats, data[\repeats].asCompileString),
-                "    // Where the repeats capture: \"bars\" (every 2 of the reading's) or \"live\" (8 quarters)\n"
-                    ++ field.(\repeatGrid, (data[\repeatGrid] ? "bars").asString.asCompileString),
-                field.(\reverbMix, data[\reverbMix].asCompileString),
-                field.(\offsetMs, data[\offsetMs].asCompileString),
-                "    // The dice: a seed every Start plays, or false for new dice every Start\n"
-                    ++ field.(\dice, (data[\dice] ? false).asCompileString),
-                "    // Trims: [kit, note, dB] and [kit, layer group, dB], -24..+12 dB\n"
-                    ++ field.(\padTrims, data[\padTrims].asCompileString),
-                field.(\groupTrims, data[\groupTrims].asCompileString),
-                "    // The step sequencer's two patterns; lane 0 is the device's lane 1\n"
-                    ++ field.(\main, this.prPatternString(data[\main], "    ")),
-                field.(\break, this.prPatternString(data[\break], "    "))
-            ].join(",\n") ++ "\n"
-            ++ ")\n"
+    // The file: JSON, one field a line, a lane of steps a line, so it reads
+    // and hand-edits as the SC literal did. `data` as presetData answers it, or
+    // an old preset's as it was read: every field it holds is written.
+    presetText { |data|
+        ^this.class.prJsonText(data.copy.put(\format, this.class.presetFormat)) ++ "\n"
     }
 
-    prPatternString { |p, pad|
-        var in1 = pad ++ "    ", in2 = in1 ++ "    ", in3 = in2 ++ "    ";
-        var subs = MegaSASteps.subs;
-        ^"(\n"
-            ++ in1 ++ "steps: (\n"
-            ++ subs.collect { |sub|
-                in2 ++ sub ++ ": [\n"
-                    ++ p[\steps][sub].collect { |lane| in3 ++ lane.asCompileString }.join(",\n") ++ "\n"
-                    ++ in2 ++ "]"
-            }.join(",\n") ++ "\n"
-            ++ in1 ++ "),\n"
-            ++ in1 ++ "lengths: (" ++ subs.collect { |sub| sub ++ ": " ++ p[\lengths][sub].asCompileString }.join(", ")
-            ++ "),\n"
-            ++ #[\globalLength, \lock, \note, \altNote, \delay, \mute, \clockSpeed, \rollRate, \shuffle,
-                \shuffleLength, \globalShuffle, \autoRetrigger, \autoTriggerRate].collect { |k|
-                in1 ++ k ++ ": " ++ p[k].asCompileString
-            }.join(",\n") ++ "\n"
-            ++ pad ++ ")"
+    // A preset's value as JSON: an Event's fields in the file's order (the
+    // header, the kits and the mix, the trims, the patterns; then any others,
+    // sorted), a list of lists a list a line, anything else on one line.
+    *prJsonText { |v, pad = ""|
+        var in = pad ++ "  ", order, keys;
+        ^case
+        { v.isKindOf(Dictionary) } {
+            order = #[\format, \version, \name, \savedAt, \stepsKit, \onsetKit, \repeats, \repeatGrid,
+                \reverbMix, \offsetMs, \dice, \padTrims, \groupTrims, \main, \break, \steps, \lengths,
+                \globalLength, \lock, \note, \altNote, \delay, \mute, \clockSpeed, \rollRate, \shuffle,
+                \shuffleLength, \globalShuffle, \autoRetrigger, \autoTriggerRate] ++ MegaSASteps.subs;
+            keys = order.select { |k| v.includesKey(k) }
+                ++ v.keys.asArray.reject { |k| order.includes(k) }.sort { |a, b| a.asString < b.asString };
+            "{\n" ++ keys.collect { |k| in ++ MegaFiles.jsonString(k.asString) ++ ": " ++ this.prJsonText(v[k], in) }
+                .join(",\n") ++ "\n" ++ pad ++ "}"
+        }
+        { v.isString.not and: { v.isArray } and: { v.notEmpty }
+            and: { v.every { |x| x.isString.not and: { x.isArray or: { x.isKindOf(Dictionary) } } } } } {
+            "[\n" ++ v.collect { |x| in ++ MegaFiles.json(x) }.join(",\n") ++ "\n" ++ pad ++ "]"
+        }
+        { MegaFiles.json(v) }
     }
 
+    // A parsed file (MegaFiles.parseObject) as the Event an SC literal was:
+    // objects Events with Symbol keys, lists Arrays, the rest as they are.
+    *fromJson { |v|
+        var e;
+        ^case
+        { v.isKindOf(MegaJsonObject) } {
+            e = ();
+            v.keysValuesDo { |k, x| e.put(k.asSymbol, this.fromJson(x)) };
+            e
+        }
+        { v.isString.not and: { v.isArray } } { v.collect { |x| this.fromJson(x) } }
+        { v }
+    }
+
+    // A preset file read as an Event of its fields, or nil (why, in `notes`):
+    // JSON only, nothing run. One that is not a drums preset, or is from a
+    // newer megalooper, is refused whole.
+    prPresetDataAt { |path, notes|
+        var text = MegaFiles.readText(path), obj, why, data;
+        if(text.isNil) { notes.add("it is not there or can't be read"); ^nil };
+        obj = MegaFiles.parseObject(text);
+        if(obj.isString) { notes.add(obj); ^nil };
+        why = MegaFiles.versionOf(obj, this.class.presetFormat, this.class.presetVersion, "megalooper drums preset");
+        if(why.isString) { notes.add(why); ^nil };
+        data = this.class.fromJson(obj);
+        data.removeAt(\format);
+        ^data
+    }
+
+    // Whole or not at all (MegaFiles.write): beside it, read back, moved over.
     prWritePreset { |path, name|
-        var file, dir = PathName(path).pathOnly;
-        if(File.exists(dir).not) { File.mkdir(dir) };
-        file = File(path, "w");
-        if(file.isOpen.not) { ("MegaSADrums preset: could not write " ++ path).warn; ^false };
-        file.write(this.presetString(this.presetData(name)));
-        file.close;
+        var why = MegaFiles.writeNow(path, this.presetText(this.presetData(name)), this.class.prReadsBack);
+        if(why.notNil) { ("MegaSADrums preset: could not write " ++ path ++ " (" ++ why ++ ")").warn; ^false };
         ^true
     }
 
@@ -1468,10 +1542,8 @@ MegaSADrums {
             if(loud) { ("MegaSADrums preset: no such preset " ++ path.basename).warn };
             ^false
         };
-        // On a stack of its own (Looper.readPresetFile): code that throws
-        // must not leave half a literal on the caller's.
-        data = Looper.readPresetFile(path, { |why| notes.add(why) });
-        clean = this.prValidatePreset(data, notes);
+        data = this.prPresetDataAt(path, notes);
+        clean = data !? { this.prValidatePreset(data, notes) };
         if(clean.isNil) {
             this.prPresetReport(path, warnings, "rejected — ", notes);
             ^false

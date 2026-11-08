@@ -191,7 +191,7 @@ var callables = [
     \midiBackHeard, \midiBackTick, \midiBackSend, \midiBackIsEcho, \midiBackClock, \midiGuiSendBack,
     \midiBackRescan, \midiBackClockStep, \midiBackOwns, \midiBackSettle, \midiBackSaid, \midiBackWarn,
     \midiClientSources, \midiClientDestinations, \midiBackSwitch, \midiBackOthers, \midiBackSched,
-    \saDrumsKitDir, \saKeptDrumsPath, \saKeepDrums, \saLoadKeptDrums, \saDrumsKitLine,
+    \saDrumsKitDir, \saKeptDrumsPath, \saKeepDrums, \saLoadKeptDrums, \saDrumsKitLine, \saMigrateDrumPresets,
     \setupSADrums,
     \buildEffectsPane, \effectsFormat, \effectsMap, \effectsUnmap, \effectsKnobCell,
     \effectsTile, \effectsEditor, \effectsSelect, \effectsRefreshParam,

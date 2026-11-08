@@ -496,7 +496,8 @@
 // trims and the mix in one file, written and read by the drums themselves
 // (MegaSADrums.keep / loadKept). Yours, so in your megalooper folder, beside
 // the kept sound.
-~saKeptDrumsPath = { ~saUserDir.() +/+ "kept-drums" +/+ "drums.scd" };
+// JSON since 2026-11-08 (MegaSADrums.loadKept carries an old drums.scd over).
+~saKeptDrumsPath = { ~saUserDir.() +/+ "kept-drums" +/+ "drums.json" };
 // Where it lay until the release: in the repo. The first boot copies it
 // over, once (MegaFiles.adopt: the new folder being there is the marker),
 // and the old file stays.
@@ -538,7 +539,9 @@
     var path = ~saKeptDrumsPath.();
     var d = ~megaSA !? { |m| m.drums };
     var ok = false;
-    if(d.notNil and: { File.exists(path) } and: { d.respondsTo(\loadKept) }) {
+    // loadKept answers false when nothing was kept; it carries an old
+    // drums.scd beside the path over to JSON first.
+    if(d.notNil and: { d.respondsTo(\loadKept) }) {
         ok = try { d.loadKept(path) == true } { |err|
             ("megalooper: the kept drums (" ++ path.basename ++ ") did not load ("
                 ++ err.errorString ++ "); the drums are left as they were.").warn;
@@ -551,6 +554,20 @@
 
 // One kit slot in words, for the post window: "steps kit Kit-Carbon + layer:
 // ready", or "no onset kit". slot is \steps or \onset.
+// The drum presets of yours, carried over to JSON once (MegaSADrums.
+// migratePresets): the old SC literals are read one last time and written as
+// JSON beside them; they stay where they are, as they were, for an older
+// megalooper, and this one never reads them again. Answers the slugs carried.
+~saMigrateDrumPresets = {
+    var d = ~megaSA !? { |m| m.drums };
+    var moved = (d !? { |x| if(x.respondsTo(\migratePresets)) { try { x.migratePresets(~saDrumsPresetDir) } } }) ? [];
+    if(moved.notEmpty) {
+        ("megalooper: " ++ moved.size ++ " drum preset(s) of yours are JSON now (" ++ ~saDrumsPresetDir
+            ++ "); the old .scd files stay beside them, as they were, for an older megalooper.").postln;
+    };
+    moved
+};
+
 ~saDrumsKitLine = { |slot|
     var d = ~megaSA !? { |m| m.drums };
     var key = d !? { |x| x.kit(slot) };
@@ -712,6 +729,7 @@
         try {
             d.kitDir = ~saDrumsKitDir.();
             ~saAdoptKeptDrums.();
+            ~saMigrateDrumPresets.();
             ~saLoadKeptDrums.();
             ~saLoadKeptSynth.();
             [\steps, \onset].do { |slot|

@@ -1164,20 +1164,23 @@ master = SynthDescLib.global[\megaSAMaster];
     // here), never in the repo.
     ~midiUserRootOverride = tmp +/+ "root";
     ~tEq.("the drums are kept in your megalooper folder, beside the kept sound",
-        ~saKeptDrumsPath.(), tmp +/+ "root" +/+ "sa" +/+ "kept-drums" +/+ "drums.scd");
+        ~saKeptDrumsPath.(), tmp +/+ "root" +/+ "sa" +/+ "kept-drums" +/+ "drums.json");
     ~tAssert.("...not in the repo, where they lay before",
         ~saKeptDrumsPath.().beginsWith(Looper.repoRoot).not and: { ~saKeptDrumsBefore.().beginsWith(Looper.repoRoot) });
-    // The first boot copies what the repo's folder holds, once.
+    // The first boot copies what the repo's folder holds, once (the old
+    // literal: loadKept carries it over to JSON when it reads it).
     ~saKeptDrumsBefore = { tmp +/+ "before" };
     File.mkdir(tmp +/+ "before");
     File.use(tmp +/+ "before" +/+ "drums.scd", "w", { |f| f.write("( old: true )") });
     ~tEq.("the first boot copies the kept drums over", ~saAdoptKeptDrums.(), ["drums.scd"]);
-    ~tEq.("...whole, and the old file stays", [MegaFiles.readText(~saKeptDrumsPath.()), File.exists(tmp +/+ "before" +/+ "drums.scd")],
+    ~tEq.("...whole, and the old file stays",
+        [MegaFiles.readText(~saKeptDrumsPath.().dirname +/+ "drums.scd"), File.exists(tmp +/+ "before" +/+ "drums.scd")],
         ["( old: true )", true]);
-    File.delete(~saKeptDrumsPath.());
-    ~tEq.("...once: drums you threw away do not come back", [~saAdoptKeptDrums.(), File.exists(~saKeptDrumsPath.())], [nil, false]);
+    File.delete(~saKeptDrumsPath.().dirname +/+ "drums.scd");
+    ~tEq.("...once: drums you threw away do not come back",
+        [~saAdoptKeptDrums.(), File.exists(~saKeptDrumsPath.().dirname +/+ "drums.scd")], [nil, false]);
     ~midiUserRootOverride = saved[5];
-    ~saKeptDrumsPath = { tmp +/+ "kept" +/+ "drums.scd" };
+    ~saKeptDrumsPath = { tmp +/+ "kept" +/+ "drums.json" };
     File.use(tmp +/+ "before" +/+ "drums.scd", "w", { |f| f.write("( version: 1, oops") });
     sa = ~tCheck.("a MegaSA for the drums at boot", { MegaSA(stub) });
     d = sa !? { |x| x.drums };
@@ -1220,8 +1223,10 @@ master = SynthDescLib.global[\megaSAMaster];
         d.setKit(\onset, nil);
         ~tEq.("an empty slot says so", ~saDrumsKitLine.(\onset), "no onset kit");
         ~tAssert.("the boot adopted what lay in the repo's folder: a file that is no kept state, and the boot went on",
-            MegaFiles.readText(~saKeptDrumsPath.()) == "( version: 1, oops");
-        File.delete(~saKeptDrumsPath.());
+            MegaFiles.readText(~saKeptDrumsPath.().dirname +/+ "drums.scd") == "( version: 1, oops");
+        ~tEq.("...not carried over to JSON, being no preset, and left as it was",
+            [File.exists(~saKeptDrumsPath.()), File.exists(~saKeptDrumsPath.().dirname +/+ "drums.scd")], [false, true]);
+        File.delete(~saKeptDrumsPath.().dirname +/+ "drums.scd");
         ~tEq.("with nothing kept there is nothing to load", ~saLoadKeptDrums.(), false);
         File.mkdir(tmp +/+ "kept");
         File.use(~saKeptDrumsPath.(), "w", { |f| f.write("( version: 1, oops") });

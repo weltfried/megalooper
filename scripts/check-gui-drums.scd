@@ -908,7 +908,7 @@ Routine {
             d.setReverbMix(0.3);
             fam[\nameField].string_("Gui Check");
             ~presetSave.(\saDrums);
-            ok.("Save writes the preset", File.exists(tmp +/+ "gui-check.scd"));
+            ok.("Save writes the preset", File.exists(tmp +/+ "gui-check.json"));
             ok.("the menu selects it", fam[\items][fam[\menu].value] == "gui-check", fam[\menu].items.asString);
             d.resetPattern(\main);
             d.setPadTrim(\steps, 42, 0);
@@ -929,9 +929,9 @@ Routine {
             d.setPadTrim(\steps, 42, 0);
             d.setReverbMix(0.1508);
             ~presetDelete.(\saDrums);
-            ok.("Delete asks first", File.exists(tmp +/+ "gui-check.scd"));
+            ok.("Delete asks first", File.exists(tmp +/+ "gui-check.json"));
             ~presetDelete.(\saDrums);
-            ok.("and deletes on the second click", File.exists(tmp +/+ "gui-check.scd").not);
+            ok.("and deletes on the second click", File.exists(tmp +/+ "gui-check.json").not);
             d.resetPattern(\main);
             tick.();
         };

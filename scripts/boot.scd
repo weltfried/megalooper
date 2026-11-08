@@ -244,7 +244,7 @@ s.waitForBoot {
             ("Drums: " ++ ~saDrumsKitLine.(\steps) ++ "; " ++ ~saDrumsKitLine.(\onset)
                 ++ (~midiBindingWords.('sa.drums.on') !? { |w| ". " ++ w ++ " switches the steps on and off" } ? "") ++ ".").postln;
             ("Drum presets in " ++ ~saDrumsPresetDir ++ " ("
-                ++ (~saDrumsPresetDir +/+ "*.scd").pathMatch.size ++ " saved).").postln;
+                ++ ~megaSA.drums.presetNames(~saDrumsPresetDir).size ++ " saved).").postln;
         };
     });
     ~bootFinish.();

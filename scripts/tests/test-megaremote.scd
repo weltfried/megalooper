@@ -270,7 +270,7 @@ if(sa.notNil) {
 
     got = ask.(r, "{\"command\": \"save_drum_preset\", \"args\": {\"name\": \"AI Groove\"}}");
     ~tEq.("save_drum_preset writes the drums as a preset in the Drums view's folder",
-        [got.at("ok"), got.at("result").at("saved"), File.exists(presets +/+ "ai-groove.scd")],
+        [got.at("ok"), got.at("result").at("saved"), File.exists(presets +/+ "ai-groove.json")],
         [true, "ai-groove", true]);
     got = ask.(r, "{\"command\": \"save_drum_preset\", \"args\": {\"name\": \"AI Groove\"}}");
     ~tEq.("...a name taken is refused", [got.at("ok"), got.at("error").contains("overwrite")], [false, true]);
