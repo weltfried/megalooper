@@ -46,7 +46,7 @@ fmtReading = { |r|
     case
     { r.isNil } { "—" }
     { r[\numerator].isNil } { "no meter" ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
-    { Looper.prReadingString(r) ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
+    { MeterDecision.readingString(r) ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
 };
 pitchPath = { |i| outDir +/+ ("take" ++ i ++ "-pitch.wav") };
 
@@ -132,7 +132,7 @@ readAudio = { |tk|
 render = {
     var def = SynthDef(\scOnsets, { |bufnum = 0, threshold = 0.5, resultBuf = 1|
         var sig = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), 1, 0, 0);
-        var trig = Looper.prOnsetTrig(sig, threshold);
+        var trig = LooperSynthDefs.onsetTrig(sig, threshold);
         var time = Sweep.kr(1, 1);
         // the strength as the recorder read it until 2026-11-05 (what this script measured)
         var strength = Amplitude.kr(sig, 0.001, 0.1);
@@ -250,7 +250,7 @@ analyse = { |tk, onsets, strengths, pitches|
     var first = if(onsets.isEmpty) { 0 } { onsets[0][0] };
     var rel = onsets.collect { |p| p[0] - first }, r;
     r = MeterAnalyzer.analyze(tk[\dur] - first, rel, strengths, leadIn: first, pitches: pitches);
-    Looper.snapAnalysisToLoop(r, tk[\dur])
+    MeterDecision.snapAnalysisToLoop(r, tk[\dur])
 };
 sameReading = { |a, b|
     a.notNil and: { b.notNil }

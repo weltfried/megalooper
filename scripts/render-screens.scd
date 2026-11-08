@@ -141,7 +141,7 @@ Routine {
         wait.();
         // The bar grid: a moment in bar 2, beat 3, as if the loop played.
         ~guiLoopPhase = 9.5 * tau;
-        ~guiLoopPos = Looper.loopPositionAt(~guiLoopPhase, take, ~looper.loopDuration);
+        ~guiLoopPos = MeterDecision.loopPositionAt(~guiLoopPhase, take, ~looper.loopDuration);
         ~statusRefreshAll !? { |f| f.value };
         ~statusRepaintGrids !? { |f| f.value };
         ~rootLabel !? { |v| if(v.isClosed.not) { v.string_("Dm") } };

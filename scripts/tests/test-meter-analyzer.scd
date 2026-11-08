@@ -140,7 +140,7 @@ var c = r[\candidates];
     "got " ++ c.size);
 ~tAssert.("every candidate snaps like the answer",
     c.every { |e|
-        var s = Looper.snapAnalysisToLoop(e.copy, 2.1);
+        var s = MeterDecision.snapAnalysisToLoop(e.copy, 2.1);
         s[\k].notNil and: { s[\loopDur].notNil }
     }, "snap failed");
 ~tAssert.("the snap left the candidate itself alone",
@@ -190,7 +190,7 @@ var sevenEight = cand.(7, 8, 1, e8, 0.9);
 var s, takes;
 
 // The answer would cut 446 ms off ten seconds: the runner-up keeps them.
-s = Looper.snapAnalysisToLoop(withList.([fiveFour, twelveEight]), 10.0);
+s = MeterDecision.snapAnalysisToLoop(withList.([fiveFour, twelveEight]), 10.0);
 ~tEq.("an answer that would move the take gives way to one that does not",
     [s[\numerator], s[\denominator], s[\k], s[\error]], [12, 8, 3, nil]);
 ~tNear.("...which keeps the take's length", s[\loopDur], 10.0, 1e-3);
@@ -200,26 +200,26 @@ s = Looper.snapAnalysisToLoop(withList.([fiveFour, twelveEight]), 10.0);
 ~tEq.("the reading that would move it is no longer offered",
     s[\candidates].collect { |c| c[\numerator] }, [12]);
 
-s = Looper.snapAnalysisToLoop(withList.([fiveFour]), 10.0);
+s = MeterDecision.snapAnalysisToLoop(withList.([fiveFour]), 10.0);
 ~tEq.("with nothing that fits, the take is length-anchored", s[\error], \lengthAnchored);
 ~tNear.("...at its own length", s[\loopDur], 10.0, 1e-9);
 ~tAssert.("...and still says what gave way", s[\snapRefused].notNil, "no snapRefused");
 
 // The stop press 60 ms late on four bars of 7/8: corrected, as before.
-s = Looper.snapAnalysisToLoop(withList.([sevenEight]), (28 * e8) + 0.06);
+s = MeterDecision.snapAnalysisToLoop(withList.([sevenEight]), (28 * e8) + 0.06);
 ~tEq.("a stop press 60 ms late is still corrected", [s[\numerator], s[\k], s[\snapRefused]], [7, 4, nil]);
 ~tNear.("...to four whole bars", s[\loopDur], 28 * e8, 1e-9);
 // 120 ms is past the cap, at any tempo: the take keeps it, as it would a
 // played eighth. The cost of the guard, on a hand that late.
-s = Looper.snapAnalysisToLoop(withList.([sevenEight]), (28 * e8) + 0.12);
+s = MeterDecision.snapAnalysisToLoop(withList.([sevenEight]), (28 * e8) + 0.12);
 ~tEq.("a stop press 120 ms late is kept", s[\error], \lengthAnchored);
 ~tNear.("...in the loop's length", s[\loopDur], (28 * e8) + 0.12, 1e-9);
 // An eighth longer is 7+7+7+8, not a late press.
-s = Looper.snapAnalysisToLoop(withList.([sevenEight]), 29 * e8);
+s = MeterDecision.snapAnalysisToLoop(withList.([sevenEight]), 29 * e8);
 ~tEq.("an eighth longer keeps the eighth", s[\error], \lengthAnchored);
 ~tNear.("...the loop is 29 eighths", s[\loopDur], 29 * e8, 1e-9);
 // readingFor's guard = false: the plain rounding, for readings already vetted.
-s = Looper.snapAnalysisToLoop(sevenEight.copy, 29 * e8, false);
+s = MeterDecision.snapAnalysisToLoop(sevenEight.copy, 29 * e8, false);
 ~tEq.("unguarded, the snap rounds as it always did", [s[\k], s[\snapRefused]], [4, nil]);
 
 // The property over the analyser itself: shapes with a longer or shorter bar,
@@ -247,15 +247,15 @@ takes.do { |bars|
             pos = pos + len;
         };
         full = pos * e8;
-        r = Looper.snapAnalysisToLoop(
+        r = MeterDecision.snapAnalysisToLoop(
             MeterAnalyzer.analyze(full, onsets.asArray, strengths.asArray), full);
         moved = (r[\loopDur] - full).abs;
-        offered = (r[\candidates] ? []).every { |c| Looper.prSnapFits(c, full) };
+        offered = (r[\candidates] ? []).every { |c| MeterDecision.snapFits(c, full) };
         kept = if(r[\error] == \lengthAnchored) { moved < 1e-9 } { moved <= limitAt.(r[\bpm]) };
         ~tAssert.(bars.join("+") ++ (if(dense) { " dense" } { " sparse" })
             ++ ": the loop keeps its length to half an eighth",
             kept and: { offered },
-            Looper.prReadingString(r) ++ " moved " ++ (moved * 1000).round(1) ++ " ms");
+            MeterDecision.readingString(r) ++ " moved " ++ (moved * 1000).round(1) ++ " ms");
     };
 };
 }.value;
@@ -271,7 +271,7 @@ var origBars = MeterAnalyzer.fallbackBars, origWhole = MeterAnalyzer.wholeLoop;
 var take = { |full, hits, strengths, whole = true|
     var r;
     MeterAnalyzer.wholeLoop = whole;
-    r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(full - hits[0], hits - hits[0], strengths,
+    r = MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(full - hits[0], hits - hits[0], strengths,
         leadIn: hits[0]), full);
     MeterAnalyzer.wholeLoop = origWhole;
     r
@@ -377,7 +377,7 @@ var phrase = { |bars, bpm, pat|
 var read = { |p|
     var hits = p[1];
     MeterAnalyzer.fallbackNum = 7; MeterAnalyzer.fallbackDenom = 8; MeterAnalyzer.fallbackBars = 0;
-    Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(p[0] - hits[0], hits - hits[0], p[2],
+    MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(p[0] - hits[0], hits - hits[0], p[2],
         leadIn: hits[0]), p[0])
 };
 var riff = [1, 0, 0.6, 0.5, 0, 0.6, 0.7, 0], rock = [1, 0.3, 0.7, 0.3, 0.9, 0.3, 0.7, 0.5];
@@ -433,7 +433,7 @@ var tenSecs = (score: 0.9, numerator: 5, denominator: 4, k: 1, sub: 1, tau: 0.63
 var full = 4.097, hits = [0.341, 0.622, 2.076, 2.673, 3.538], st = [1.0, 0.4, 1.0, 0.6, 0.4];
 var take = { |on|
     MeterAnalyzer.fallbackOn = on;
-    Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(full - hits[0], hits - hits[0], st, leadIn: hits[0]), full)
+    MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(full - hits[0], hits - hits[0], st, leadIn: hits[0]), full)
 };
 var r;
 MeterAnalyzer.fallbackNum = 7; MeterAnalyzer.fallbackDenom = 8; MeterAnalyzer.fallbackBars = 0;
@@ -442,13 +442,13 @@ MeterAnalyzer.fallbackOn = false;
 r = MeterAnalyzer.analyze(2.99, irregular, irregular.collect { 1.0 });
 ~tEq.("off, a take that fits no grid has no meter",
     [r[\error], r[\numerator], r[\denominator], r[\bpm], r[\onsetCount]], [\noFit, nil, nil, nil, 10]);
-r = Looper.snapAnalysisToLoop(r, 3.1);
+r = MeterDecision.snapAnalysisToLoop(r, 3.1);
 ~tEq.("...and the snap keeps the take as it is", [r[\error], r[\numerator], r[\loopDur]], [\noFit, nil, 3.1]);
-r = Looper.snapAnalysisToLoop(tenSecs.copy.put(\candidates, [tenSecs]), 10.0);
+r = MeterDecision.snapAnalysisToLoop(tenSecs.copy.put(\candidates, [tenSecs]), 10.0);
 ~tEq.("...as where a reading would move it and nothing else fits",
     [r[\error], r[\numerator], r[\loopDur], r[\snapRefused].notNil], [\noFit, nil, 10.0, true]);
 MeterAnalyzer.fallbackOn = true;
-r = Looper.snapAnalysisToLoop(tenSecs.copy.put(\candidates, [tenSecs]), 10.0);
+r = MeterDecision.snapAnalysisToLoop(tenSecs.copy.put(\candidates, [tenSecs]), 10.0);
 ~tEq.("...which on is the fallback, as before", [r[\error], r[\numerator], r[\denominator]], [\lengthAnchored, 7, 8]);
 
 // The whole loop's reading gives way to a fallback that fits, the meter

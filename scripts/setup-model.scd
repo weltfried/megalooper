@@ -263,7 +263,7 @@
             ~megaSA !? { |m| m.setAnalysis(r) };
             // Uneven bars go to Live as one bar per cycle of them (29/8 for
             // 7 7 7 8), so its bar line still meets the loop's
-            // (Looper.barTicksOf). Live takes numerators up to 99.
+            // (MeterDecision.barTicksOf). Live takes numerators up to 99.
             ~ableton.sendMsg("/live/song/set/signature_numerator",
                 MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r)).sum.asInteger.clip(1, 99));
             ~ableton.sendMsg("/live/song/set/signature_denominator", r.denominator.asInteger);

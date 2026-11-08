@@ -1078,7 +1078,7 @@ var a0, stamp, take, events, filesEv, back;
 stamp = rec.stamp;
 ~srAge.(rec, 10);
 a0 = rec.audioAt;
-take = Looper.resultForLog(Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(2.6, [0.0], [0.9]), 3.0));
+take = Looper.resultForLog(MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(2.6, [0.0], [0.9]), 3.0));
 rec.logEvent(\take, (result: take, applied: true), a0 + 3.0);
 rec.logHits([(at: a0 + 3.4, slot: \onset, kind: \onset, note: 36, vel: 70, gate: 0.02, kit: 'o')]);
 [\master, \tap].do { |w| ~srTouch.(rec.paths[w], "wav " ++ w) };

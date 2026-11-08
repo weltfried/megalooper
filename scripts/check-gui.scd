@@ -300,7 +300,7 @@ s.waitForBoot {
     ~ok.("empty looper reports no loop, not a stopped one",
         ~looper.loopDuration == 0, ~looper.loopDuration.asString);
     ~ok.("loopPositionAt tolerates a nil phase on an empty looper",
-        Looper.loopPositionAt(nil, ~looper.lastResult, ~looper.loopDuration)[\bar].isNil);
+        MeterDecision.loopPositionAt(nil, ~looper.lastResult, ~looper.loopDuration)[\bar].isNil);
     ~ok.("the strip says no take", ~guiTakeLabel.string == "no take", ~guiTakeLabel.string);
     ~ok.("the band's take says none yet", ~guiTakeHead.string == "TAKE · NONE YET", ~guiTakeHead.string);
     ~ok.("the position says no loop", ~statusPositionWords.()[0] == "NO LOOP");

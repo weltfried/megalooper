@@ -1,7 +1,7 @@
 // flux-evidence.scd: step 1 of the onset-curve experiment (2026-11-05).
 //
 // Is there rhythmic evidence below the onset threshold? For every labelled
-// take: the recorder's own onset chain (Looper.prOnsetTrig) at 0.5 and 0.2 in
+// take: the recorder's own onset chain (LooperSynthDefs.onsetTrig) at 0.5 and 0.2 in
 // NRT, and a log spectral flux curve of the same audio (sclang STFT), both
 // folded onto the label's eighth-note grid. The curve's peaks that 0.5 did not
 // detect, away from every detected hit (60 ms before to the 107 ms mingap
@@ -125,7 +125,7 @@ takes = takes.select { |tk|
 render = {
     var def = SynthDef(\fluxOnsets, { |bufnum = 0, threshold = 0.5, resultBuf = 1|
         var sig = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), 1, 0, 0);
-        var trig = Looper.prOnsetTrig(sig, threshold);
+        var trig = LooperSynthDefs.onsetTrig(sig, threshold);
         var time = Sweep.kr(1, 1);
         // the strength as the recorder read it until 2026-11-05 (what this script measured)
         var strength = Amplitude.kr(sig, 0.001, 0.1);

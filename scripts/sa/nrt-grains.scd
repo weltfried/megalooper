@@ -1,4 +1,4 @@
-// megalooper — the grains following the chords (Looper.granularGraph,
+// megalooper — the grains following the chords (LooperSynthDefs.granularGraph,
 // granularFollowChords; roadmap item 8), heard offline.
 //
 //     sclang scripts/sa/nrt-grains.scd
@@ -31,10 +31,10 @@ var ok = { |label, cond, detail|
         ("  FAIL  " ++ label ++ (detail !? { |d| " — " ++ d } ? "")).postln;
     };
 };
-var grainsDef = SynthDef(\nrtGrains, Looper.granularGraph);
+var grainsDef = SynthDef(\nrtGrains, LooperSynthDefs.granularGraph);
 var phaseDef = SynthDef(\nrtGrainsPhase, { |out| Out.kr(out, Sweep.kr(0, 1).mod(loopSecs)) });
 var a = 220, d = 220 * 5.midiratio, g = 220 * 10.midiratio;
-var starts = [0, 1] ++ (1e9 ! (Looper.chordSlots - 2)), roots = [9, 2] ++ (0 ! (Looper.chordSlots - 2));
+var starts = [0, 1] ++ (1e9 ! (LooperSynthDefs.chordSlots - 2)), roots = [9, 2] ++ (0 ! (LooperSynthDefs.chordSlots - 2));
 // [label, morph, position, follow, locked, chordPeriod]: at morph 0 the read
 // point is Position (the scan's phase starts at its wrap), so 0.25 reads at
 // half a second, in A.

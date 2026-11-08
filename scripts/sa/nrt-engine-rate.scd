@@ -3,7 +3,7 @@
 //     sclang scripts/sa/nrt-engine-rate.scd
 //
 // The engine writes the sample under its write head back on every block,
-// recording or not (Looper.prEngineGraph). At rate ±1 every position is a whole
+// recording or not (LooperSynthDefs.engineGraph). At rate ±1 every position is a whole
 // frame and that write-back is an identity. At half speed each frame is visited
 // twice, and a write-back read with linear interpolation would put the average
 // of a frame and its neighbour back into it: a half-sample shift and a low-pass
@@ -13,7 +13,7 @@
 // One offline render (scsynth -N on a far port; megalooper, if it runs, is not
 // touched): ten engines, each on a buffer of its own loaded from the same 0.1 s
 // of noise and sine, nothing recording, each on two output channels of its own.
-// "old" is the graph as it was, prEngineGraph(false, 2, 2) — but for the write
+// "old" is the graph as it was, LooperSynthDefs.engineGraph(false, 2, 2) — but for the write
 // head's latency shift, now rounded to whole frames, which is the same number
 // at rate ±1 (latencyFrames is whole).
 //
@@ -55,8 +55,8 @@ var ok = { |label, cond, detail|
         ("  FAIL  " ++ label ++ (detail !? { |d| " — " ++ d } ? "")).postln;
     };
 };
-var newDef = SynthDef(\megaNrtEngineNew, Looper.prEngineGraph(false));
-var oldDef = SynthDef(\megaNrtEngineOld, Looper.prEngineGraph(false, 2, 2));
+var newDef = SynthDef(\megaNrtEngineNew, LooperSynthDefs.engineGraph(false));
+var oldDef = SynthDef(\megaNrtEngineOld, LooperSynthDefs.engineGraph(false, 2, 2));
 // [def, rate, latencyFrames, [[time, value, control], ...]] per engine, in
 // the table's order, the control `speed` unless named. The loop is 0.1 s, the
 // engines start at 0.1 s: 0.13 s is in the first pass, 0.35 s in the second

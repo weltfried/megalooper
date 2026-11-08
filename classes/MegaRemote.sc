@@ -1164,7 +1164,7 @@ MegaRemote {
     }
 
     // Where the loop is now and what is coming: the bar, the beat and its
-    // group as the count on Perform shows them (Looper.beatCountAt), from the
+    // group as the count on Perform shows them (MeterDecision.beatCountAt), from the
     // window's prediction of the playhead (`playhead`, a function answering
     // seconds into the loop) or, without one, from where the passes began;
     // half-time, reverse, a break, a dissolve, the arc's intensity, and the
@@ -1176,7 +1176,7 @@ MegaRemote {
             (playhead !? { |f| f.value }) ?? {
                 looper.passStart !? { |t0| (((now - t0) * looper.speed) * if(looper.reverseFlag) { -1 } { 1 }).mod(dur) } }
         };
-        c = pos !? { |p| Looper.beatCountAt(p, r, dur, nil, looper.reverseFlag) };
+        c = pos !? { |p| MeterDecision.beatCountAt(p, r, dur, nil, looper.reverseFlag) };
         ^this.obj([
             \about, "Where the loop is as you read this (to about a beat) and what is on its way. bar and beat "
                 "count from 1; group is the beat group of the bar it is in (the bar's groups are in "

@@ -34,62 +34,62 @@ analysed[\candidates] = [
 ];
 
 // ---- readingFor -------------------------------------------------------------
-r = Looper.readingFor(analysed, 0, 3.0);
+r = MeterDecision.readingFor(analysed, 0, 3.0);
 ~tEq.("reading 0 is the answer's meter", [r[\numerator], r[\denominator], r[\k]], [6, 8, 2]);
 ~tEq.("reading 0 says which reading it is", r[\reading], 0);
 ~tAssert.("the chord segments come along", r[\chordSegments] === seg, "not carried");
 ~tAssert.("the ranked list comes along", r[\candidates] === analysed[\candidates], "not carried");
 
-r = Looper.readingFor(analysed, 1, 3.0);
+r = MeterDecision.readingFor(analysed, 1, 3.0);
 ~tEq.("reading 1 is the runner-up", [r[\numerator], r[\denominator], r[\k]], [12, 8, 1]);
 ~tNear.("reading 1 keeps the loop whole: tau*num*sub*k is the loop",
     r[\tau] * r[\numerator] * (r[\sub] ? 1) * r[\k], 3.0, 1e-9);
 ~tNear.("reading 1's tempo is the quarter-note tempo of that meter", r[\bpm], 120, 1e-6);
 
-r = Looper.readingFor(analysed, 3, 3.0);
+r = MeterDecision.readingFor(analysed, 3, 3.0);
 ~tEq.("reading 3 is the slow 4/4", [r[\numerator], r[\denominator], r[\k]], [4, 4, 1]);
 ~tNear.("reading 3 has the pulse three times as long", r[\tau], 0.75, 1e-9);
 
 // A multiplied loop: the candidate's bar count is re-derived from the length
 // in force, and the candidate itself is untouched by the snap.
-r = Looper.readingFor(analysed, 1, 6.0);
+r = MeterDecision.readingFor(analysed, 1, 6.0);
 ~tEq.("on a doubled loop reading 1 is two bars of 12/8", r[\k], 2);
 ~tEq.("the candidate in the list still says one bar", analysed[\candidates][1][\k], 1);
 
-~tAssert.("no such reading -> nil", Looper.readingFor(analysed, 4, 3.0).isNil, "got a result");
-~tAssert.("nothing analysed -> nil", Looper.readingFor(nil, 0, 3.0).isNil, "got a result");
-~tAssert.("no loop -> nil", Looper.readingFor(analysed, 1, 0).isNil, "got a result");
+~tAssert.("no such reading -> nil", MeterDecision.readingFor(analysed, 4, 3.0).isNil, "got a result");
+~tAssert.("nothing analysed -> nil", MeterDecision.readingFor(nil, 0, 3.0).isNil, "got a result");
+~tAssert.("no loop -> nil", MeterDecision.readingFor(analysed, 1, 0).isNil, "got a result");
 
 // ---- does the cutter need respawning ----------------------------------------
 ~tAssert.("6/8 x2 -> 12/8 x1 keeps the pulse and the pulse count: no respawn",
-    Looper.prReadingChangesCutter(analysed[\candidates][0], analysed[\candidates][1]).not, "");
+    MeterDecision.readingChangesCutter(analysed[\candidates][0], analysed[\candidates][1]).not, "");
 ~tAssert.("6/8 x2 -> 3/4 x2 sub 2 keeps both too: no respawn",
-    Looper.prReadingChangesCutter(analysed[\candidates][0], analysed[\candidates][2]).not, "");
+    MeterDecision.readingChangesCutter(analysed[\candidates][0], analysed[\candidates][2]).not, "");
 ~tAssert.("6/8 -> slow 4/4 changes the pulse: respawn",
-    Looper.prReadingChangesCutter(analysed[\candidates][0], analysed[\candidates][3]), "");
+    MeterDecision.readingChangesCutter(analysed[\candidates][0], analysed[\candidates][3]), "");
 ~tAssert.("no result to compare against: respawn, to be safe",
-    Looper.prReadingChangesCutter(nil, analysed[\candidates][0]), "");
+    MeterDecision.readingChangesCutter(nil, analysed[\candidates][0]), "");
 
 // ---- ticks: what Live counts ------------------------------------------------
-~tEq.("a 6/8 bar is 72 ticks",  Looper.barTicksOf(analysed[\candidates][0]), 72);
-~tEq.("a 12/8 bar is 144 ticks", Looper.barTicksOf(analysed[\candidates][1]), 144);
-~tEq.("a 4/4 bar is 96 ticks",  Looper.barTicksOf(analysed[\candidates][3]), 96);
-~tEq.("two bars of 6/8 are 144 ticks a loop", Looper.loopTicksOf(analysed[\candidates][0]), 144);
+~tEq.("a 6/8 bar is 72 ticks",  MeterDecision.barTicksOf(analysed[\candidates][0]), 72);
+~tEq.("a 12/8 bar is 144 ticks", MeterDecision.barTicksOf(analysed[\candidates][1]), 144);
+~tEq.("a 4/4 bar is 96 ticks",  MeterDecision.barTicksOf(analysed[\candidates][3]), 96);
+~tEq.("two bars of 6/8 are 144 ticks a loop", MeterDecision.loopTicksOf(analysed[\candidates][0]), 144);
 
 // ---- on which boundary does Live's bar line agree ---------------------------
 // Two bars of 6/8 (144 ticks a loop) read as one bar of 12/8 (144-tick bar):
 // every boundary agrees, so the very next one.
-~tEq.("6/8 x2 -> 12/8: the next boundary", Looper.prReadingWait(144, 144, 144, 3), 1);
+~tEq.("6/8 x2 -> 12/8: the next boundary", MeterDecision.readingWait(144, 144, 144, 3), 1);
 // One bar of 4/4 at 60 (96 ticks a loop) read as 12/8 (144-tick bar): Live's
 // bar line meets the loop only every third loop.
-~tEq.("4/4 -> 12/8 from the first boundary: the third", Looper.prReadingWait(96, 96, 144, 3), 3);
-~tEq.("4/4 -> 12/8 with two loops already counted: the next", Looper.prReadingWait(288, 96, 144, 3), 1);
-~tAssert.("4/4 -> 12/8 within two loops: not reachable", Looper.prReadingWait(96, 96, 144, 2).isNil, "got a wait");
+~tEq.("4/4 -> 12/8 from the first boundary: the third", MeterDecision.readingWait(96, 96, 144, 3), 3);
+~tEq.("4/4 -> 12/8 with two loops already counted: the next", MeterDecision.readingWait(288, 96, 144, 3), 1);
+~tAssert.("4/4 -> 12/8 within two loops: not reachable", MeterDecision.readingWait(96, 96, 144, 2).isNil, "got a wait");
 // 7/8 in one bar (84 ticks a loop) read as 5/4 (120-tick bar): only every tenth
 // loop, so out of reach — the caller re-sends Start instead.
-~tAssert.("7/8 -> 5/4: out of reach", Looper.prReadingWait(84, 84, 120, 3).isNil, "got a wait");
+~tAssert.("7/8 -> 5/4: out of reach", MeterDecision.readingWait(84, 84, 120, 3).isNil, "got a wait");
 ~tEq.("with no clock reference every boundary is as good: the next",
-    Looper.prReadingWait(nil, nil, 144, 3), 1);
+    MeterDecision.readingWait(nil, nil, 144, 3), 1);
 
 // ---- the gesture ------------------------------------------------------------
 // A playing looper carrying the take above, with a granular layer and a MIDI

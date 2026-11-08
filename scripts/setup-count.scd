@@ -42,7 +42,7 @@
 };
 
 // The count at `now` (Main.elapsedTime), shown `delay` behind the engine:
-// (st:, brk:, why:, c:, near:, shown:, beatDur:). `c` is Looper.beatCountAt's
+// (st:, brk:, why:, c:, near:, shown:, beatDur:). `c` is MeterDecision.beatCountAt's
 // answer, nil when there is nothing to count (`why` says what); `near` the
 // next event. Changes nothing: the window's count and the lights each ask.
 ~countAt = { |now, delay|
@@ -59,12 +59,12 @@
     { dur <= 0 } { out[\why] = "no loop" }
     { (st != \playing) and: { st != \overdubbing } } { out[\why] = "stopped" }
     { pos.isNil } { }
-    { Looper.beatCountAt(0, r, dur)[\group].isNil } { out[\why] = "no grid\non this take" }
+    { MeterDecision.beatCountAt(0, r, dur)[\group].isNil } { out[\why] = "no grid\non this take" }
     {
-        // Looper.beatCountAt counts in the loop's own time; at half-time a
+        // MeterDecision.beatCountAt counts in the loop's own time; at half-time a
         // wall second is half of one, and a beat lasts twice as long.
         out[\near] = l.upcoming(out[\shown]).select { |e| e[\at] > out[\shown] }.minItem { |e| e[\at] };
-        out[\c] = Looper.beatCountAt(pos, r, dur, out[\near] !? { |e| (e[\at] - out[\shown]) * l.speed }, l.reverseFlag);
+        out[\c] = MeterDecision.beatCountAt(pos, r, dur, out[\near] !? { |e| (e[\at] - out[\shown]) * l.speed }, l.reverseFlag);
         out[\c][\toEdge] = out[\c][\toEdge] / l.speed;
         out[\beatDur] = (r[\tau] * (r[\sub] ? 1)) / l.speed;
         out[\speed] = l.speed;

@@ -608,7 +608,7 @@
     ~intensityLabel = ~performValue.((l !? { |lp| lp.intensity } ? 1).round(0.01).asString);
     // The onset threshold. It was a macro here until 2026-11-05, then a
     // setting on Setup › Analysis alone, once the tap's level was followed
-    // automatically (Looper.prTapLevelGraph) and the default worked at any
+    // automatically (LooperSynthDefs.tapLevelGraph) and the default worked at any
     // level. On stage it was missed: a room or a pedal that makes the lamp
     // flash between notes wants a nudge there and then. So since 2026-11-07 it
     // is here, where the Looper level was, and only here (Setup › Analysis
@@ -891,10 +891,10 @@
         pend = l.pendingReading;
         n = l.readingCount;
         if(pend.notNil) {
-            ~performPaintAction.(\reading, "→ " ++ Looper.prReadingString(pend[\result]) ++ " · lands on a loop",
+            ~performPaintAction.(\reading, "→ " ++ MeterDecision.readingString(pend[\result]) ++ " · lands on a loop",
                 (fill: ~gt[\armed], ink: ~gt[\onacc], border: ~gt[\armed]));
         } {
-            nx = if(n > 1) { Looper.readingFor(l.analysedResult, (l.readingIndex + 1) % n, l.loopDuration) };
+            nx = if(n > 1) { MeterDecision.readingFor(l.analysedResult, (l.readingIndex + 1) % n, l.loopDuration) };
             ~performPaintAction.(\reading,
                 if(nx.notNil) { "try " ++ MeterAnalyzer.sigString(nx) } { "nothing else fits" },
                 (fill: ~gt[\panel], ink: ~gt[\ink], border: ~gt[\armed]));

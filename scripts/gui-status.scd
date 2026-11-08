@@ -191,7 +191,7 @@
         { pend.notNil } {
             loops = ((pend[\at] - SystemClock.seconds) / l.loopDuration.max(1e-6)).ceil.asInteger.max(1);
             t[\head] = "TAKE · READING " ++ (pend[\index] + 1) ++ "/" ++ n;
-            t[\chip] = "→ " ++ Looper.prReadingString(pend[\result]) ++ " · lands in " ++ loops
+            t[\chip] = "→ " ++ MeterDecision.readingString(pend[\result]) ++ " · lands in " ++ loops
                 ++ " loop" ++ (if(loops > 1) { "s" } { "" });
             t[\chipLit] = true;
             t[\hint] = "Lands on the loop boundary where the drums' bar line agrees";
@@ -281,7 +281,7 @@
     var b = v.bounds, w = b.width, h = b.height, top = ~statusGridInset, gh = h - (2 * ~statusGridInset);
     var l = ~looper, pos = ~guiLoopPos, phase = ~guiLoopPhase;
     var st = (l !? { |x| x.state }) ? \empty;
-    // The length of every bar in beats (Looper.loopPositionAt): 7 7 7 8 draws
+    // The length of every bar in beats (MeterDecision.loopPositionAt): 7 7 7 8 draws
     // its fourth bar an eighth longer.
     var lens = pos !? { |p| p[\bars] };
     var frac = (pos !? { |p| p[\fraction] }) ? 0;
@@ -466,7 +466,7 @@
 // 2+2+3), its beats as squares, the bar, the bar's groups as a strip, the odd
 // bar of uneven bars a bar ahead, and in the last bar before an event that
 // lands on a loop boundary, the groups left: 3 2 1, then the event's word for
-// a group. The arithmetic is Looper.beatCountAt; what is coming,
+// a group. The arithmetic is MeterDecision.beatCountAt; what is coming,
 // Looper:upcoming.
 //
 // It is painted ON the beat, not sampled: the shell's count routine sleeps to
@@ -539,7 +539,7 @@
             pos = ~countPosAt.(now);
             if(pos.notNil and: { c.notNil }) {
                 ~guiLoopPhase = pos;
-                ~guiLoopPos = Looper.loopPositionAt(pos, ~looper.countResult, ~looper.loopDuration);
+                ~guiLoopPos = MeterDecision.loopPositionAt(pos, ~looper.countResult, ~looper.loopDuration);
                 ~statusRepaintGrids.();
             };
         };

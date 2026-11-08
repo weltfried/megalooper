@@ -47,18 +47,18 @@ s = MeterAnalyzer.readingOfBars(58 * e8, [7, 7, 7, 8], 8, 60);
 ~tEq.("...near 60: one cycle at 60", [s[\k], s[\bpm].round(1e-6)], [4, 60]);
 
 // ---- the snap: whole cycles, never 7 7 7 ---------------------------------------------
-s = Looper.snapAnalysisToLoop(r.copy, 58 * e8, false);
+s = MeterDecision.snapAnalysisToLoop(r.copy, 58 * e8, false);
 ~tEq.("a doubled loop snaps to two cycles", s[\bars], [7, 7, 7, 8, 7, 7, 7, 8]);
 ~tNear.("...its whole length", s[\loopDur], 58 * e8, 1e-9);
-s = Looper.snapAnalysisToLoop(r.copy, (29 * e8) + 0.05);
+s = MeterDecision.snapAnalysisToLoop(r.copy, (29 * e8) + 0.05);
 ~tEq.("a stop press 50 ms late on 7 7 7 8 is corrected to the cycle", [s[\bars], s[\snapRefused]],
     [[7, 7, 7, 8], nil]);
 ~tNear.("...to 29 eighths", s[\loopDur], 29 * e8, 1e-9);
-s = Looper.snapAnalysisToLoop(r.copy, 30 * e8);
+s = MeterDecision.snapAnalysisToLoop(r.copy, 30 * e8);
 ~tEq.("an eighth more than 7 7 7 8 is not this reading", s[\error], \lengthAnchored);
 
 // ---- the position: bar 4 has eight ---------------------------------------------------
-pos = { |t, len| Looper.loopPositionAt(t, r, len ? (29 * e8)) };
+pos = { |t, len| MeterDecision.loopPositionAt(t, r, len ? (29 * e8)) };
 at = pos.(0);
 ~tEq.("bar 1 beat 1, of 7, of 4 bars", [at[\bar], at[\beat], at[\beatsPerBar], at[\barCount]], [1, 1, 7, 4]);
 ~tEq.("...the bars for the grid", at[\bars], [7, 7, 7, 8]);
@@ -72,20 +72,20 @@ at = pos.((30 * e8) + 0.01, 58 * e8);
 ~tEq.("a loop grown to two cycles counts on: bar 5 beat 2 of 8 bars",
     [at[\bar], at[\beat], at[\barCount], at[\bars].size], [5, 2, 8, 8]);
 even = (numerator: 7, denominator: 8, k: 4, sub: 1, tau: e8, bpm: 120, loopDur: 28 * e8);
-at = Looper.loopPositionAt((14 * e8) + 0.01, even, 28 * e8);
+at = MeterDecision.loopPositionAt((14 * e8) + 0.01, even, 28 * e8);
 ~tEq.("even bars as before: bar 3 beat 1 of 7, 4 bars", [at[\bar], at[\beat], at[\beatsPerBar], at[\barCount]],
     [3, 1, 7, 4]);
 
 // ---- what everything else is told ----------------------------------------------------
-~tEq.("Live gets the cycle as one bar: 29/8 is 348 ticks", Looper.barTicksOf(r), 348);
-~tEq.("...and the loop the same", Looper.loopTicksOf(r), 348);
-~tEq.("even: a bar of 7/8 is 84 ticks", Looper.barTicksOf(even), 84);
-~tEq.("...and four of them the loop", Looper.loopTicksOf(even), 336);
-~tEq.("the click's bar lines, in pulses at sub 2", Looper.prClickBars(r.copy.put(\sub, 2)), [14, 14, 14, 16]);
+~tEq.("Live gets the cycle as one bar: 29/8 is 348 ticks", MeterDecision.barTicksOf(r), 348);
+~tEq.("...and the loop the same", MeterDecision.loopTicksOf(r), 348);
+~tEq.("even: a bar of 7/8 is 84 ticks", MeterDecision.barTicksOf(even), 84);
+~tEq.("...and four of them the loop", MeterDecision.loopTicksOf(even), 336);
+~tEq.("the click's bar lines, in pulses at sub 2", MeterDecision.clickBars(r.copy.put(\sub, 2)), [14, 14, 14, 16]);
 ~tAssert.("7 7 7 8 after 7/8 x4 at the same pulse: the cutter respawns (29 beats, not 28)",
-    Looper.prReadingChangesCutter(even, r), "");
-~tAssert.("...and not between a reading and itself", Looper.prReadingChangesCutter(r, r.copy).not, "");
-~tEq.("the reading in words", Looper.prReadingString(r), "7+7+7+8/8 @ 120.0 BPM · 4 bars");
+    MeterDecision.readingChangesCutter(even, r), "");
+~tAssert.("...and not between a reading and itself", MeterDecision.readingChangesCutter(r, r.copy).not, "");
+~tEq.("the reading in words", MeterDecision.readingString(r), "7+7+7+8/8 @ 120.0 BPM · 4 bars");
 ~tEq.("the drums put 58 sixteenths in it", MegaSADrums.sixteenthsFor(r), 58);
 ~tEq.("...the bars beginning at these ticks", MegaSADrums.barStartTicks(r), [0, 1680, 3360, 5040]);
 ~tEq.("...even 7/8 over two bars", MegaSADrums.barStartTicks((numerator: 7, denominator: 8, k: 2)), [0, 1680]);
@@ -182,7 +182,7 @@ var take = { |bars, dense, delay = 0|
 // the lead-in given, then the snap on the whole take.
 var read = { |tk, lead = true|
     var first = tk[\onsets][0];
-    Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(tk[\dur] - first, tk[\onsets] - first,
+    MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(tk[\dur] - first, tk[\onsets] - first,
         tk[\strengths], leadIn: if(lead) { first }), tk[\dur])
 };
 var r, tk, unevenOn;
@@ -211,18 +211,18 @@ r = read.(take.([7, 7, 7, 9], true));
     r[\bars], [7, 7, 7, 9]);
 ~tAssert.("...the meter second, one press of the switch away",
     (r[\candidates][1] !? { |c| (c[\numerator] == 5) and: { c[\k] == 3 } and: { c[\bars].isNil } }) == true,
-    r[\candidates].keep(3).collect { |c| Looper.prReadingString(c) }.asString);
+    r[\candidates].keep(3).collect { |c| MeterDecision.readingString(c) }.asString);
 r = read.(take.([7, 7, 7, 6], true));
 ~tAssert.("7+7+7+6 dense, no notes: a near tie with 9/8 x3, so the meter answers and the bars come second",
     (r[\numerator] == 9) and: { r[\bars].isNil } and: { r[\candidates][1][\bars] == [7, 7, 7, 6] },
-    Looper.prReadingString(r));
+    MeterDecision.readingString(r));
 
 [[[7, 7, 7, 7], "7/8 x4"], [[8, 8], "4/4 x2"], [[5, 5, 5, 5], "5/8 x4"], [[8, 8, 8, 8], "4/4 x4"]].do { |c|
     [true, false].do { |dense|
         tk = take.(c[0], dense);
         r = read.(tk);
         ~tAssert.(c[1] ++ (if(dense) { " dense" } { " sparse" }) ++ ": no uneven reading offered",
-            r[\bars].isNil and: { unevenOn.(r).isEmpty }, Looper.prReadingString(r) ++ " "
+            r[\bars].isNil and: { unevenOn.(r).isEmpty }, MeterDecision.readingString(r) ++ " "
                 ++ unevenOn.(r).collect { |x| MeterAnalyzer.sigString(x) });
     };
 };
@@ -236,7 +236,7 @@ r = MeterAnalyzer.prUnevenPulses(tk[\dur] + 0.25, tk[\onsets] + 0.25)[0];
 // A grid that fits its onsets this well is trusted with the whole half eighth.
 ~tAssert.("its grid fit is recorded, for the snap", r[\gridFit] >= MeterAnalyzer.snapTrustFit, r[\gridFit].asString);
 ~tEqArray.("trusted, the snap may move it half an eighth (139 ms at 108 BPM), else 100 ms",
-    [Looper.snapLimitAt(108, true), Looper.snapLimitAt(108)], [15 / 108, 0.1], 1e-9);
+    [MeterDecision.snapLimitAt(108, true), MeterDecision.snapLimitAt(108)], [15 / 108, 0.1], 1e-9);
 r = MeterAnalyzer.prBarPeriods(MeterAnalyzer.prPulseProfile(tk[\onsets], tk[\strengths],
     MeterAnalyzer.prUnevenPulses(tk[\dur], tk[\onsets])[0]));
 ~tEq.("the riff repeats every 7 (not 14)", r[0][\m], 7);
@@ -291,13 +291,13 @@ takes.do { |tk|
     var dur = tk["dur"].asFloat, on = tk["onsets"].collect { |p| p[0].asFloat };
     var st = tk["onsets"].collect { |p| p[1].asFloat }, want = tk["bars"].collect(_.asInteger);
     var pz = tk["pitches"].collect { |p| p.collect(_.asFloat) };
-    var read = { |pitches| Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(dur - on[0], on - on[0], st,
+    var read = { |pitches| MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(dur - on[0], on - on[0], st,
         leadIn: on[0], pitches: pitches), dur) };
     var r = read.(pz), label = tk["set"] ++ ": " ++ want.join("+") ++ " from the stage's onsets and the notes";
     if(tk["expect"] == "found") {
         ~tEq.(label, r[\bars], want);
     } {
-        ~tXfail.(label, r[\bars] != want, Looper.prReadingString(r) ++ " — no strict grid fits its hits");
+        ~tXfail.(label, r[\bars] != want, MeterDecision.readingString(r) ++ " — no strict grid fits its hits");
     };
     if(tk["set"] == "261019_100113") {
         ~tNear.("...its stop press 113 ms late corrected: a grid all its onsets sit on is trusted",
@@ -306,7 +306,7 @@ takes.do { |tk|
     };
     if(tk["set"] == "261019_100238") {
         ~tXfail.("...and from the onsets alone, every eighth played", read.(nil)[\bars] != want,
-            Looper.prReadingString(read.(nil)) ++ " — the onsets carry no bar line");
+            MeterDecision.readingString(read.(nil)) ++ " — the onsets carry no bar line");
     };
 };
 }.value;
@@ -319,10 +319,10 @@ var e8 = 0.25, riff = [40, 40, 47, 47, 45, 45, 43], turn = [44, 44, 43, 43, 42, 
 var notes = riff ++ riff ++ riff ++ turn, on = notes.collect { |m, i| i * e8 };
 var st = Array.fill(notes.size, 0.5), pz = List.new, r;
 notes.do { |m, i| [0.04, 0.08, 0.12].do { |d| pz.add([(i * e8) + d, m.midicps, 0.1]) } };
-r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(29 * e8, on, st, leadIn: 0, pitches: pz.asArray), 29 * e8);
+r = MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(29 * e8, on, st, leadIn: 0, pitches: pz.asArray), 29 * e8);
 ~tEq.("flat hits, the notes repeating: 7+7+7+8", r[\bars], [7, 7, 7, 8]);
-r = Looper.snapAnalysisToLoop(MeterAnalyzer.analyze(29 * e8, on, st, leadIn: 0), 29 * e8);
-~tAssert.("...the same hits without the notes: not those bars", r[\bars] != [7, 7, 7, 8], Looper.prReadingString(r));
+r = MeterDecision.snapAnalysisToLoop(MeterAnalyzer.analyze(29 * e8, on, st, leadIn: 0), 29 * e8);
+~tAssert.("...the same hits without the notes: not those bars", r[\bars] != [7, 7, 7, 8], MeterDecision.readingString(r));
 ~tEq.("a note per onset: the median of its readings", MeterAnalyzer.prOnsetNotes(on.keep(2), pz.asArray.keep(6))
     .collect { |m| m !? { |x| x.round(1e-6) } }, [40, 40]);
 ~tEq.("...none without readings", MeterAnalyzer.prOnsetNotes(on.keep(2), nil), nil);

@@ -11,7 +11,7 @@
 // still named by its stamp here, and found under either name.
 //
 // This script cuts each take's stretch out of the tap, renders it through the
-// recorder's OWN onset chain (Looper.prOnsetTrig, in scsynth non-realtime) at a
+// recorder's OWN onset chain (LooperSynthDefs.onsetTrig, in scsynth non-realtime) at a
 // sweep of thresholds, runs every onset list through MeterAnalyzer and the
 // Looper's own snapping, and reports which thresholds would have agreed with
 // the player. It checks itself as it goes: at the threshold that was in force
@@ -71,7 +71,7 @@ fmtReading = { |r|
     case
     { r.isNil } { "—" }
     { r[\numerator].isNil } { "no meter" ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
-    { Looper.prReadingString(r) ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
+    { MeterDecision.readingString(r) ++ (r[\error] !? { |e| " (" ++ e ++ ")" } ? "") }
 };
 // The same reading: meter and bar count, and for uneven bars the bars
 // themselves (7+7+7+8 is not 7+7+8+7; a bar list from the log reads back as
@@ -249,11 +249,11 @@ render = { |tap, takeList, thrs, audioT, rate|
     // the next onset, so it ends up holding the late reading.
     var def = SynthDef(\replayOnsets, { |bufnum = 0, threshold = 0.5, resultBuf = 1, gain = 1|
         var sig = PlayBuf.ar(1, bufnum, 1, 1, 0, 0) * gain;
-        var trig = Looper.prOnsetTrig(sig, threshold);
+        var trig = LooperSynthDefs.onsetTrig(sig, threshold);
         var time = Sweep.kr(1, 1);
-        var strength = Looper.prOnsetStrength(sig);
+        var strength = LooperSynthDefs.onsetStrength(sig);
         var count = Stepper.kr(trig, 0, 0, maxOnsets, 1, 0);
-        BufWr.kr([Latch.kr(time, trig), Latch.kr(A2K.kr(strength), Looper.prOnsetReport(trig)), 1],
+        BufWr.kr([Latch.kr(time, trig), Latch.kr(A2K.kr(strength), LooperSynthDefs.onsetReport(trig)), 1],
             resultBuf, count, 0);
     });
     var pitchDef = SynthDef(\replayPitch, { |bufnum = 0, resultBuf = 1, slots = 100|
@@ -362,7 +362,7 @@ analyse = { |tk, onsets, pitches|
     var str = onsets.collect { |p| p[1] };
     var r = MeterAnalyzer.analyze(tk[\dur] - first, rel, str, leadIn: first,
         pitches: pitches ?? { tk[\pitches] ?? { tk[\renderedPitches] } });
-    Looper.snapAnalysisToLoop(r, tk[\dur])
+    MeterDecision.snapAnalysisToLoop(r, tk[\dur])
 };
 
 // The onsets the log says the stage heard, through today's analyser: an

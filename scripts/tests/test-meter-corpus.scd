@@ -71,7 +71,7 @@ files.do { |path|
         ai["onsets"].collect { |v| v.asFloat },
         ai["strengths"].collect { |v| v.asFloat },
         leadIn: (d["firstOnsetSec"] ? 0).asFloat);
-    r = Looper.snapAnalysisToLoop(r, full);
+    r = MeterDecision.snapAnalysisToLoop(r, full);
     got = [r[\numerator], r[\denominator], r[\k], r[\error]];
     total = total + 1;
 

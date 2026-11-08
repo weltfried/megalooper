@@ -1,4 +1,4 @@
-// Looper.loopPositionAt: folding a playhead position onto the analysed grid.
+// MeterDecision.loopPositionAt: folding a playhead position onto the analysed grid.
 //
 // Pure arithmetic, no server and no Looper instance — which is the reason it is
 // a class method at all (same argument as snapAnalysisToLoop beside it).
@@ -23,7 +23,7 @@ var r44 = (numerator: 4, denominator: 4, tau: 0.5, sub: 1, k: 2,
     downbeatOffset: 0);
 var dur44 = 4.0;
 
-var at = { |pos, result, dur| Looper.loopPositionAt(pos, result, dur) };
+var at = { |pos, result, dur| MeterDecision.loopPositionAt(pos, result, dur) };
 var barBeat = { |pos, result, dur|
     var o = at.(pos, result, dur);
     [o[\bar], o[\beat]]

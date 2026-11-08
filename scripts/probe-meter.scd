@@ -18,7 +18,7 @@
 // are re-derived after the analyser changes.
 //
 // Everything goes through the REAL decision path — MeterAnalyzer.analyze on the
-// post-first-onset span, then Looper.snapAnalysisToLoop on the full take — with
+// post-first-onset span, then MeterDecision.snapAnalysisToLoop on the full take — with
 // the onsets prepared exactly as stopRecordStartPlay prepares them, and the
 // detector's own mingap (~107 ms) applied to the synthetic onsets, because the
 // detector could never have reported two hits closer than that. The fallback
@@ -300,7 +300,7 @@ decide = { |onsets, loopSecs, noStrengths|
     var str   = if(noStrengths) { nil } { onsets.collect { |p| p[1] } };
     var t0    = Main.elapsedTime, r;
     r = MeterAnalyzer.analyze(loopSecs - first, rel, str, leadIn: first);
-    r = Looper.snapAnalysisToLoop(r, loopSecs);
+    r = MeterDecision.snapAnalysisToLoop(r, loopSecs);
     analyseTime = analyseTime + (Main.elapsedTime - t0);
     analyses = analyses + 1;
     r
@@ -341,7 +341,7 @@ rankOf = { |r, truth, loopSecs|
         r[\candidates].do { |c, i|
             var s;
             if(found.isNil) {
-                s = Looper.snapAnalysisToLoop(c.copy, loopSecs);
+                s = MeterDecision.snapAnalysisToLoop(c.copy, loopSecs);
                 if((s[\numerator] == truth[\num]) and: { s[\denominator] == truth[\denom] }
                     and: { s[\k] == truth[\bars] }) { found = i + 1 };
             };
@@ -360,7 +360,7 @@ marginOf = { |r|
 // The second and third readings, snapped, as short strings for the CSV.
 altsOf = { |r, loopSecs|
     (r[\candidates] ? []).drop(1).keep(2).collect { |c|
-        var s = Looper.snapAnalysisToLoop(c.copy, loopSecs);
+        var s = MeterDecision.snapAnalysisToLoop(c.copy, loopSecs);
         sigOf.(s) ++ " x" ++ s[\k] ++ (if((s[\sub] ? 1) > 1) { " sub" ++ s[\sub] } { "" })
     }
 };

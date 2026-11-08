@@ -1783,7 +1783,7 @@ MegaSADrums {
     }
 
     // \breakEndsAt x: the Looper's resume time. It comes from the engine's own
-    // phase (fireBreak: queryLoopPhase, then prBreakDuration), so a break
+    // phase (fireBreak: queryLoopPhase, then MeterDecision.breakDuration), so a break
     // always ends on a boundary of the loop as the engine plays it. That is
     // loopStartTime's boundary nearest x while the loop's model holds (no
     // reverse since the engine started) and x is within half a 16th of it.

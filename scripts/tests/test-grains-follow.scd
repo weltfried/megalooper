@@ -84,7 +84,7 @@ l.prGranularFollow;
     [~tLastSet.(l, g, \chordPeriod), ~tLastSet.(l, g, \follow)], [3.5, 0]);
 ~tEq.("...the starts and roots, the unused slots past any time",
     [setn.()[\chordStarts].keep(3), setn.()[\chordRoots].keep(3), setn.()[\chordStarts].size],
-    [[0, 1.75, 1e9], [9, 2, 0], Looper.chordSlots]);
+    [[0, 1.75, 1e9], [9, 2, 0], LooperSynthDefs.chordSlots]);
 l.granularFollowChords = true;
 ~tEq.("switched on: the grains follow, and it is said", [~tLastSet.(l, g, \follow), l.granularFollowChords], [1, true]);
 ~tPut.(l, \lastResult, r.copy.put(\chordSegments, segs.keep(1)));
@@ -94,7 +94,7 @@ l.prGranularFollow;
 l.prGranularFollow;
 ~tEq.("...a reading without its period uses the loop's length", ~tLastSet.(l, g, \chordPeriod), 3.5);
 ~tEq.("a reading the analyser ranked carries the take's chords and their period",
-    Looper.readingFor((candidates: [r], chordSegments: segs, chordPeriod: 3.5), 0, 3.5) !? { |x| [x[\chordSegments].size, x[\chordPeriod]] },
+    MeterDecision.readingFor((candidates: [r], chordSegments: segs, chordPeriod: 3.5), 0, 3.5) !? { |x| [x[\chordSegments].size, x[\chordPeriod]] },
     [2, 3.5]);
 
 // In a granular preset, by name; one from before it plays as it did.

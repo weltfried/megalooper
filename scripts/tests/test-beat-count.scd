@@ -1,4 +1,4 @@
-// Looper.beatCountAt: the count on Perform. Where the playhead is in its
+// MeterDecision.beatCountAt: the count on Perform. Where the playhead is in its
 // bar's beat groups (the analyser's: 7/8 is 2+2+3), the odd bar of uneven bars
 // a bar ahead, the time to the next beat line, and the groups left before an
 // event on a loop boundary (3, 2, 1 in 7/8).
@@ -16,7 +16,7 @@ var r78 = (numerator: 7, denominator: 8, tau: 0.25, sub: 1, k: 2);
 var r78s = (numerator: 7, denominator: 8, tau: 0.125, sub: 2, k: 2);
 var dur78 = 3.5;
 var e8 = 0.25;
-var at = { |pos, r, dur, until, rev = false| Looper.beatCountAt(pos, r, dur, until, rev) };
+var at = { |pos, r, dur, until, rev = false| MeterDecision.beatCountAt(pos, r, dur, until, rev) };
 var gg = { |pos, r, dur| var o = at.(pos, r, dur); [o[\group], o[\groupBeat]] };
 var cd = { |pos, until, r, dur, rev = false| at.(pos, r ? r78, dur ? dur78, until, rev)[\countdown] };
 var uneven = MeterAnalyzer.readingOfBars(29 * e8, [7, 7, 7, 8], 8);

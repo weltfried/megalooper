@@ -36,7 +36,7 @@ var playing = {
 // back a whole pass later than the ear expected.
 {
     var dur = { |phase, loops = 1, reversed = false|
-        Looper.prBreakDuration(phase, 3.5, loops, reversed) };
+        MeterDecision.breakDuration(phase, 3.5, loops, reversed) };
 
     // Struck right at a downbeat: the whole pass is still to come, and the next
     // boundary is the end of it.
@@ -73,9 +73,9 @@ var playing = {
     ~tNear.("an unreadable phase assumes a whole pass remains",
         dur.(nil), 3.5, 1e-9);
     ~tNear.("no loop length means no break at all",
-        Looper.prBreakDuration(0, 0, 1), 0, 1e-9);
+        MeterDecision.breakDuration(0, 0, 1), 0, 1e-9);
     ~tNear.("a nil loop length means no break at all",
-        Looper.prBreakDuration(0, nil, 1), 0, 1e-9);
+        MeterDecision.breakDuration(0, nil, 1), 0, 1e-9);
     // Overshoot from a stale read must not produce a negative remainder — it
     // clips to nothing left, i.e. the boundary is here.
     ~tNear.("a phase past the end clips rather than going negative",

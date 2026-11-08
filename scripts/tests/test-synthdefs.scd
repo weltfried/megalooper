@@ -33,16 +33,16 @@ var baseline = (
     // Moved 2026-11-05 from [ 1844, 347506692 ] / [ 1784, 322503125 ], and
     // the monitor from [ 1059, 897460795 ] and the overdub analyser from
     // [ 864, 693388309 ]: the onsets hear the tap at the automatic level
-    // (tapGainBus, prTapGain), the strength is the RMS around the hit
-    // (prOnsetStrength) and an onset is reported 30 ms after its trigger
-    // (prOnsetReport); the recorder's tap peak reads the raw tap through the
+    // (tapGainBus, LooperSynthDefs.tapGain), the strength is the RMS around the hit
+    // (LooperSynthDefs.onsetStrength) and an onset is reported 30 ms after its trigger
+    // (LooperSynthDefs.onsetReport); the recorder's tap peak reads the raw tap through the
     // input's envelope and /looperLevels carries the gain. Deliberate — see
-    // prOnsetStrength and prTapLevelGraph; measured in NRT before the change.
+    // LooperSynthDefs.onsetStrength and LooperSynthDefs.tapLevelGraph; measured in NRT before the change.
     'looperRec':             [ 2525, 661081953 ],
     'looperRecMono':         [ 2465, 330919120 ],
     'looperAnalysisMonitor': [ 1648, 528786739 ],
     'looperOverdubAnalysis': [ 1453, 916394117 ],
-    // New 2026-11-05: the tap-level tracker (prTapLevelGraph).
+    // New 2026-11-05: the tap-level tracker (LooperSynthDefs.tapLevelGraph).
     'looperTapLevel':        [ 1762, 669184845 ],
     'looperRecPlain':        [  605, 125864998 ],
     'looperRecPlainMono':    [  545, 466595377 ],

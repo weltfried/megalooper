@@ -176,10 +176,10 @@ l.stopPlayback;
 
 // ---- what keeps time with it -----------------------------------------------------------------
 ~tEq.("a break at half-time: the rest of the pass at half speed (1 s of loop is 2 s), then passes of 7 s",
-    [Looper.prBreakDuration(2.5, ld, 1, false, 0.5, 0.5), Looper.prBreakDuration(2.5, ld, 2, false, 0.5, 0.5)], [2.0, 9.0]);
+    [MeterDecision.breakDuration(2.5, ld, 1, false, 0.5, 0.5), MeterDecision.breakDuration(2.5, ld, 2, false, 0.5, 0.5)], [2.0, 9.0]);
 ~tEq.("...armed (speed 1 now, half after the boundary): 1 s, then 7 s",
-    [Looper.prBreakDuration(2.5, ld, 1, false, 1, 0.5), Looper.prBreakDuration(2.5, ld, 2, false, 1, 0.5)], [1.0, 8.0]);
-~tEq.("...at speed 1 as before", Looper.prBreakDuration(2.5, ld, 2), 4.5);
+    [MeterDecision.breakDuration(2.5, ld, 1, false, 1, 0.5), MeterDecision.breakDuration(2.5, ld, 2, false, 1, 0.5)], [1.0, 8.0]);
+~tEq.("...at speed 1 as before", MeterDecision.breakDuration(2.5, ld, 2), 4.5);
 
 // The onset kit: the part twice as long, from where the pass began.
 l = fresh.();

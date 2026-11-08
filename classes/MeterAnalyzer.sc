@@ -11,7 +11,7 @@ MeterAnalyzer {
     classvar <>maxK = 4;
     classvar <maxN = 128;
     classvar <loopTolerance = 0.10;
-    // The most Looper.snapAnalysisToLoop may move a take's length to make it
+    // The most MeterDecision.snapAnalysisToLoop may move a take's length to make it
     // whole bars, in EIGHTHS at the reading's tempo. Half an eighth is the
     // nearest eighth: closer than that to the reading's bar line it is the stop
     // press (good to about ±60–80 ms, docs/dev/meter-perception.md), further it
@@ -358,7 +358,7 @@ MeterAnalyzer {
     }
 
     // The readings that passed the fit, best first, capped at maxCandidates,
-    // shaped like the answer itself so Looper.snapAnalysisToLoop accepts any of
+    // shaped like the answer itself so MeterDecision.snapAnalysisToLoop accepts any of
     // them (on a copy — the snap writes k, n and loopDur). The sort is stable
     // and the loop chose `best` with a strict >, so on a tie the first reading
     // the loop met is both the answer and the head of this list.
@@ -613,7 +613,7 @@ MeterAnalyzer {
     // takes for timing errors. `phase` is wrapped to within half a pulse of
     // the press, so a take that begins with a rest counts its first hit from
     // pulse 1. `gridFit` is the share of onsets on the grid, for the snap
-    // (Looper.prSnapFits trusts a grid this good with half a pulse).
+    // (MeterDecision.snapFits trusts a grid this good with half a pulse).
     // Each (n:, tau:, phase:, gridFit:): the coarsest unevenGrids that pass,
     // coarsest first; empty when none does.
     *prUnevenPulses { |fullDur, onsets|

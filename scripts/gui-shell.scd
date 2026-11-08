@@ -436,7 +436,7 @@
 // ---- The loop position ----------------------------------------------------------------
 ~guiPositionHz = 20;      // polls (and repaints) per second
 ~guiReadingShown = nil;   // [pending reading, index, loops left] last painted
-~guiLoopPos    = nil;     // last Looper.loopPositionAt result
+~guiLoopPos    = nil;     // last MeterDecision.loopPositionAt result
 ~guiLoopPhase  = nil;     // last raw phase, seconds; nil = no loop playing
 ~guiLoopDirty  = false;
 ~guiLoopKey    = nil;     // what the last repaint was of: [phase, state, length, take, break]
@@ -454,7 +454,7 @@
         { pend.notNil } {
             loops = ((pend[\at] - SystemClock.seconds) / l.loopDuration.max(1e-6))
                 .ceil.asInteger.max(1);
-            "  →  " ++ Looper.prReadingString(pend[\result]) ++ " · lands in "
+            "  →  " ++ MeterDecision.readingString(pend[\result]) ++ " · lands in "
                 ++ loops ++ " loop" ++ (if(loops > 1) { "s" } { "" })
         }
         { l.readingIndex > 0 } { " · reading " ++ (l.readingIndex + 1) ++ "/" ++ n }
@@ -1009,7 +1009,7 @@
                     // should still show how long it is and how it divides.
                     // The fill and the playhead are drawn only when
                     // ~guiLoopPhase is real, so this cannot fake a position.
-                    ~guiLoopPos = Looper.loopPositionAt(
+                    ~guiLoopPos = MeterDecision.loopPositionAt(
                         secs ? 0, l.countResult, l.loopDuration);
                 };
             };
@@ -1021,7 +1021,7 @@
                 ~countPosAt.(Main.elapsedTime) !? { |p|
                     if(~guiLoopPhase.notNil) {
                         ~guiLoopPhase = p;
-                        ~guiLoopPos = Looper.loopPositionAt(p, l.countResult, l.loopDuration);
+                        ~guiLoopPos = MeterDecision.loopPositionAt(p, l.countResult, l.loopDuration);
                     };
                 };
             };

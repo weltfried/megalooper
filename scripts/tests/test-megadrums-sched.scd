@@ -1282,7 +1282,7 @@ sentN = ~dsHits.(fn[\log]);
         (h[\note] == sentN[i][\note]) and: { (h[\time] - sentN[i][\time]) >= -1e-12 }
             and: { (h[\time] - sentN[i][\time]) <= (0.003 + 1e-6) } } });
 ~tEq.("...with no probe at all on a stub server", MegaSADrums((server: ~tStubServer.())).autoProbe, false);
-fp[\looper].instVarPut(\onsetNoteRolls, [0.0]);
+~tPut.(fp[\looper], \onsetNoteRolls, [0.0]);
 fp[\drums].startOnsets(fp[\looper], [[0.5, 1.0]], 2.0, 150.0);
 run.(fp, 151.0);
 onsetHit = fp[\drums].decided.detect { |r| (r[\slot] == \onset) and: { r[\emitted] == true } };

@@ -74,7 +74,7 @@ analyse = { |it|
     ma.fallbackNum = it[\fallback][0]; ma.fallbackDenom = it[\fallback][1]; ma.fallbackBars = it[\fallbackBars];
     r = ma.analyze(it[\dur] - first, on.collect { |p| p[0] - first }, on.collect { |p| p[1] },
         leadIn: first, pitches: it[\pitches]);
-    Looper.snapAnalysisToLoop(r, it[\dur])
+    MeterDecision.snapAnalysisToLoop(r, it[\dur])
 };
 sameReading = { |a, b|
     a.notNil and: { b.notNil } and: { a[\numerator] == b[\numerator] } and: { a[\denominator] == b[\denominator] }
@@ -89,7 +89,7 @@ gridSame = { |a, b|
 verdict = { |r, ref| case { sameReading.(r, ref) } { \yes } { gridSame.(r, ref) } { \grid } { \no } };
 word = { |v| switch(v, \yes, { "yes" }, \grid, { "≈" }, { "no" }) };
 show = { |r| if(r.isNil or: { r[\numerator].isNil }) { "none" } {
-    Looper.prReadingString(r) ++ (if(r[\error].notNil) { " (anch)" } { "" }) } };
+    MeterDecision.readingString(r) ++ (if(r[\error].notNil) { " (anch)" } { "" }) } };
 
 // ---- variants ----------------------------------------------------------------
 // Each: [name, settings]: classvar setter -> value, applied before its run and

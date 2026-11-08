@@ -6,7 +6,7 @@
 // definition now — so the guards assert the stronger property: that nobody has
 // reintroduced a second one.
 //
-// This file reads classes/Looper.sc as text. What the graphs actually COMPILE
+// This file reads classes/Looper.sc (and LooperSynthDefs.sc) as text. What the graphs actually COMPILE
 // to is covered by test-synthdefs.scd, which is the assertion that matters for
 // behaviour; this one is about keeping the source honest.
 
@@ -15,10 +15,12 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
-var src = File.readAllString(root +/+ "classes" +/+ "Looper.sc");
+// The Looper and the parts split out of it (docs/dev/architecture.md 5,
+// step 8): what these guards hold is the Looper's, wherever its code now is.
+var src = ["Looper.sc", "LooperSynthDefs.sc"].collect { |f| File.readAllString(root +/+ "classes" +/+ f) }.join("\n");
 var stripComments, flat, countOf, bare;
 
-// Drop // comments to end of line. Looper's SynthDefs contain no string
+// Drop // comments to end of line. The Looper's SynthDefs contain no string
 // literals, so there is no "//" to protect here.
 stripComments = { |text|
     text.split($\n).collect { |line|
@@ -58,28 +60,28 @@ bare = flat.(stripComments.(src));
 ~tAssert.("...and the chain is the calibrated one",
     bare.contains(
         "Onsets.kr(FFT(LocalBuf(512), sig), threshold, \\rcomplex, mingap: 20)"),
-    "the single chain no longer reads as expected — check prOnsetTrig");
+    "the single chain no longer reads as expected — check LooperSynthDefs.onsetTrig");
 ~tAssert.("the threshold is still an ARGUMENT, not a constant",
-    bare.contains("*prOnsetTrig { |sig, threshold|"),
+    bare.contains("*onsetTrig { |sig, threshold|"),
     "a hard-coded threshold would make the tuning slider a no-op");
 ~tEq.("three call sites share it (rec graph, monitor, overdub analysis)",
-    countOf.(bare, "Looper.prOnsetTrig("), 3);
+    countOf.(bare, "LooperSynthDefs.onsetTrig("), 3);
 
 // ---- 2. one onset-salience measure --------------------------------------
 
 // The same measure feeds MeterAnalyzer's accent test, the onset notes'
 // velocities and the analysis window's readout, so the number on screen is
 // only honest while there is one. Since 2026-11-05 it is the RMS around the
-// hit, read 30 ms after the trigger (prOnsetStrength, prOnsetReport).
+// hit, read 30 ms after the trigger (LooperSynthDefs.onsetStrength, onsetReport).
 ~tEq.("the salience measure is defined once",
     countOf.(bare, "RunningSum.rms("), 1);
 ~tEq.("two call sites share it (recorder, monitor) plus the overdub analyser",
-    countOf.(bare, "Looper.prOnsetStrength("), 3);
+    countOf.(bare, "LooperSynthDefs.onsetStrength("), 3);
 ~tEq.("...and all three report on the delayed trigger",
-    countOf.(bare, "Looper.prOnsetReport(trig)"), 3);
+    countOf.(bare, "LooperSynthDefs.onsetReport(trig)"), 3);
 ~tAssert.("the old envelope at the trigger is gone",
     bare.contains("0.001, 0.1)").not,
-    "Amplitude.kr(sig, 0.001, 0.1) read the waveform's phase — see prOnsetStrength");
+    "Amplitude.kr(sig, 0.001, 0.1) read the waveform's phase — see LooperSynthDefs.onsetStrength");
 
 // ---- 2b. one automatic level --------------------------------------------
 
@@ -88,20 +90,20 @@ bare = flat.(stripComments.(src));
 ~tEq.("the tap gain is read in one way",
     countOf.(bare, "In.kr(bus.max(0))"), 1);
 ~tEq.("...by all three detectors (rec graph, monitor, overdub analysis)",
-    countOf.(bare, "Looper.prTapGain(tapGainBus)"), 3);
+    countOf.(bare, "LooperSynthDefs.tapGain(tapGainBus)"), 3);
 ~tEq.("...and every spawn of them passes the bus",
     countOf.(bare, "\\tapGainBus, this.prTapGainIndex"), 3);
 
 // ---- 3. one way to read the loop input ----------------------------------
 
-// Six defs read the guitar. prInput is the only place that decides whether
+// Six defs read the guitar. LooperSynthDefs.input is the only place that decides whether
 // that is one hardware channel doubled or a stereo pair.
 ~tEq.("the stereo input form appears once",
     countOf.(bare, "SoundIn.ar([ch, ch + 1])"), 1);
 ~tEq.("the mono input form appears once",
     countOf.(bare, "SoundIn.ar(ch).dup"), 1);
 ~tEq.("three graph builders share it",
-    countOf.(bare, "Looper.prInput(mono,"), 3);
+    countOf.(bare, "LooperSynthDefs.input(mono,"), 3);
 
 // ---- 4. each graph builder is instantiated exactly twice ----------------
 
@@ -109,15 +111,15 @@ bare = flat.(stripComments.(src));
 // near-identical defs, and it is also why the mono/stereo choice can stay a
 // language-side flag: SoundIn's channel count is fixed when the graph is built,
 // so it could never have been an argument inside a single def.
-[\prRecGraph, \prRecPlainGraph, \prEngineGraph].do { |builder|
+[\recGraph, \recPlainGraph, \engineGraph].do { |builder|
     // "|mono" and not "|mono|": the engine's builder takes two more arguments
     // after it (its interpolations, 2026-10-27).
     ~tEq.(builder ++ " is defined once",
         countOf.(bare, "*" ++ builder ++ " { |mono"), 1);
     ~tEq.(builder ++ " is instantiated for stereo",
-        countOf.(bare, "Looper." ++ builder ++ "(false)"), 1);
+        countOf.(bare, "LooperSynthDefs." ++ builder ++ "(false)"), 1);
     ~tEq.(builder ++ " is instantiated for mono",
-        countOf.(bare, "Looper." ++ builder ++ "(true)"), 1);
+        countOf.(bare, "LooperSynthDefs." ++ builder ++ "(true)"), 1);
 };
 
 // And the six names still exist, because the rest of the class picks between
@@ -525,4 +527,21 @@ var readers = app.select { |path|
 }.collect { |p| PathName(p).fileName };
 ~tEq.("no new parseJSON reader in the app (MegaFiles.parseObject keeps kinds), and none listed that reads with it no more",
     readers.asArray.sort, allowed.copy.sort);
+}.value;
+
+// ---- the pure classes stand below the Looper -------------------------------
+// MeterAnalyzer, MeterDecision and LooperSynthDefs decide and build with
+// everything passed in: the offline harnesses and renders use them without a
+// Looper, and MeterAnalyzer reached into the Looper for its snap until
+// 2026-11-08 (docs/dev/architecture.md 5, step 8). None of them names it.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var found = List.new;
+["MeterAnalyzer.sc", "MeterDecision.sc", "LooperSynthDefs.sc"].do { |f|
+    (File.readAllString(root +/+ "classes" +/+ f) ? "").split($\n).do { |line, i|
+        var cut = line.find("//"), code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
+        if((" " ++ code).findRegexp("[^A-Za-z]Looper[.(]").notEmpty) { found.add(f ++ ":" ++ (i + 1)) };
+    };
+};
+~tAssert.("MeterAnalyzer, MeterDecision and LooperSynthDefs name no Looper", found.isEmpty, found.join(", "));
 }.value;

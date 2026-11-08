@@ -552,8 +552,21 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 // Private ivars (loopFrames, loopStartTime, lastResult, onsets…) have no
 // getters, so tests reach them by name. Wrapped so the intent reads as "set up
 // the fixture" rather than as reflection trickery.
-~tPut = { |looper, key, val| looper.instVarPut(key, val); looper };
-~tGet = { |looper, key| looper.instVarAt(key) };
+//
+// The Looper is being split into parts it holds (docs/dev/architecture.md 5,
+// step 8): a variable that moved into a part is reached through the Looper's
+// variable holding that part, as ~tWhere says. Moving a variable costs a line
+// here, not an edit in every test that reaches it. Anything not a Looper, and
+// any name not listed, is reached on the object itself.
+~tWhere = ~tWhere ? (
+    // variable: the Looper's variable holding the part it moved into
+);
+~tOwner = { |obj, key|
+    var part = if(obj.isKindOf(Looper)) { ~tWhere[key] };
+    if(part.isNil) { obj } { obj.instVarAt(part) }
+};
+~tPut = { |looper, key, val| ~tOwner.(looper, key).instVarPut(key, val); looper };
+~tGet = { |looper, key| ~tOwner.(looper, key).instVarAt(key) };
 
 // --------------------------------------------------------------- report -----
 

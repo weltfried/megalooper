@@ -841,8 +841,8 @@ the replay renders the take at that level.
 
 `mingap` (20 frames, about 107 ms: the shortest gap between two onsets) is not
 a control. `Onsets` sizes its state from it, so it cannot change on a running
-synth. It is set in one place, `Looper.prOnsetTrig`, which every detector
-shares.
+synth. It is set in one place, `LooperSynthDefs.onsetTrig`, which every
+detector shares.
 
 > **Why a lamp and not a waveform.** This pane used to draw a scrolling envelope
 > with the onsets marked on it. It was the most expensive thing in the GUI — 120
@@ -1572,7 +1572,9 @@ On Linux nothing reports the round trip: measure it, or set it by ear.
 megalooper/
   README.md, LICENSE, NOTICE
   classes/
-    Looper.sc            -- state machine, SynthDefs, MIDI/OSC plumbing
+    Looper.sc            -- state machine, MIDI/OSC plumbing
+    LooperSynthDefs.sc   -- the Looper's SynthDefs and the graph pieces they share
+    MeterDecision.sc     -- what a reading means for the loop: the snap, bar and beat, counts, readings
     LooperBreakProc.sc   -- house BBCut procedure: occasional block repeats
     LooperCutGate.sc     -- drives the Insert-mode duck bus from each cut block
     LooperSessionRecorder.sc -- records the whole set to disk, from the stomp
@@ -1703,12 +1705,12 @@ with a one-line named
 method per family (`saveGranularPreset` and friends) because that reads better
 at a call site than passing a family symbol around.
 
-Inside `Looper`, the SynthDefs are built from shared graph pieces rather than
-written out once per variant. `prOnsetTrig` and `prOnsetStrength` are the single
+The Looper's SynthDefs are in `LooperSynthDefs`, built from shared graph pieces
+rather than written out once per variant. `onsetTrig` and `onsetStrength` are the single
 definitions of the onset-detection chain and its salience envelope, used by both
 recorders, the analysis monitor and the overdub analyser — so the tuning lamp
-cannot drift from what a take will actually detect. `prRecGraph`,
-`prRecPlainGraph` and `prEngineGraph` are each one graph function instantiated
+cannot drift from what a take will actually detect. `recGraph`,
+`recPlainGraph` and `engineGraph` are each one graph function instantiated
 twice, under a mono and a stereo name. The mono/stereo split has to work this
 way: `SoundIn`'s channel count is fixed when the graph is built, so it can never
 be an argument inside a single def.
@@ -1788,7 +1790,7 @@ prior-only behavior, so previously-working results are unchanged.
 
 ### Snapping to whole bars
 
-Once the take has a reading, `Looper.snapAnalysisToLoop` makes the loop a whole
+Once the take has a reading, `MeterDecision.snapAnalysisToLoop` makes the loop a whole
 number of its bars, which mends a stop press that came a little early or late.
 It may move the loop by **half an eighth at most, and never more than 100 ms**
 (`MeterAnalyzer.snapLimit`, `snapLimitSecs`), unless the reading's grid fits
@@ -1903,7 +1905,7 @@ accuracy against the filename ground truth:
 Tweak the analyzer's classvars/scoring in `MeterAnalyzer.sc` and re-run it to see
 the accuracy move. That harness *prints* accuracy for tuning; the pass/fail lock
 that protects refactoring is `scripts/tests/test-meter-corpus.scd`, which runs
-the same corpus through `Looper.snapAnalysisToLoop` — the real decision path —
+the same corpus through `MeterDecision.snapAnalysisToLoop` — the real decision path —
 and fails if any loop's outcome changes. Both call the same code, so they cannot
 disagree about what the app would have decided.
 
@@ -2029,7 +2031,7 @@ reintroducing a divergent detection chain changes the bytes without changing
 how many there are.
 
 `test-source-guards.scd` then keeps the source honest by reading
-`classes/Looper.sc` as text: one `Onsets.kr` call site, one salience envelope,
+`classes/Looper.sc` and `classes/LooperSynthDefs.sc` as text: one `Onsets.kr` call site, one salience envelope,
 one place that decides between a doubled mono input and a stereo pair, and each
 graph builder instantiated exactly twice. It used to police four *agreeing*
 copies of the detection chain; now it asserts nobody has reintroduced a second
