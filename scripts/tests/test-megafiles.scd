@@ -186,6 +186,20 @@ File.use(root +/+ "deep" +/+ "mine" +/+ "b.scd", "w", { |f| f.write("mine now") 
 ~tEq.("...or several kinds, each file once", MegaFiles.adopt(root +/+ "old", root +/+ "both", ["*.txt", "*.scd", "a.*"]),
     ["a.scd", "b.scd", "note.txt"]);
 
+// ---- a preset's file: one rule for every family -----------------------------------
+~tEq.("a name as a file name: lowercased, runs of anything else one '-', none at the ends, preset when empty, 64 at most",
+    [MegaFiles.presetSlug("Take 3 (Fast)!"), MegaFiles.presetSlug("--a--b--"), MegaFiles.presetSlug("§§"), MegaFiles.presetSlug(String.fill(80, $a)).size],
+    ["take-3-fast", "a-b", "preset", 64]);
+File.mkdir(root +/+ "presets");
+["b.json", "a.json", "old.scd", ".presets-json"].do { |n| File.use(root +/+ "presets" +/+ n, "w", { |f| f.write("{}") }) };
+~tEq.("a folder's presets: its JSON files by slug, sorted; none for a folder that is not there",
+    [MegaFiles.presetNames(root +/+ "presets"), MegaFiles.presetNames(root +/+ "nowhere"), MegaFiles.presetPath("/x", "My Take")],
+    [["a", "b"], [], "/x/my-take.json"]);
+~tEq.("...the rule every family names its files by: the cutter, the grains, the drums, the synth, the sounds",
+    [Looper.newCopyArgs.bbcutPresetSlug("Take 3 (Fast)!"), Looper.newCopyArgs.granularPresetSlug("Take 3 (Fast)!"),
+        MegaSADrums.newCopyArgs.presetSlug("Take 3 (Fast)!"), MegaSA.newCopyArgs.synthPresetSlug("Take 3 (Fast)!"),
+        MegaSA.newCopyArgs.fxPresetSlug("Take 3 (Fast)!")], "take-3-fast" ! 5);
+
 // ---- a preset as an Event (the drums', the cutter's, the grains') -----------------
 {
     var data = (version: 1, name: "Take \"1\"", mode: \insert, lanes: [[1, 0], [0, 1]], voices: [(amp: 0.5, fx: [\rev])],

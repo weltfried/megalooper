@@ -204,6 +204,40 @@ l.prBuildOnsetPattern((0..19).collect { |i| [i * 0.1, 1.0] }, 2.0);
     want.size
 });
 
+// The same through the snapshot a take really makes (snapshotForUndo): the
+// onset notes' part hands its pattern and draws to it (LooperOnsetNotes,
+// split out of the Looper on 2026-11-08), and takes them back on undo.
+{
+    var pat, rolls;
+    l = ~tLooper.();
+    ~tPut.(l, \buffer,     (copyData: { |self, other| self }));
+    ~tPut.(l, \undoBuffer, (copyData: { |self, other| self }));
+    ~tPut.(l, \state, \playing);
+    l.prBuildOnsetPattern((0..9).collect { |i| [i * 0.2, 1.0] }, 2.0);
+    pat = ~tGet.(l, \onsetNotePattern); rolls = ~tGet.(l, \onsetNoteRolls).copy;
+    l.snapshotForUndo;
+    l.prBuildOnsetPattern((0..2).collect { |i| [i * 0.5, 1.0] }, 3.0);
+    l.undo;
+    ~tEq.("undo after a real snapshot brings back the take's pattern, its length and its draws",
+        [~tGet.(l, \onsetNotePattern), l.onsetNotePatternDur, ~tGet.(l, \onsetNoteRolls)], [pat, 2.0, rolls]);
+}.value;
+
+// The notes play only while the loop's audio does (Looper.enginePlaying):
+// switched on over a stopped looper they send nothing.
+{
+    var sent = List.new;
+    l = ~tLooper.();
+    l.midiOut = (noteOn: { |self ... a| sent.add(a) }, noteOff: { }, latency: 0);
+    l.prBuildOnsetPattern([[0.0, 1.0], [0.5, 1.0]], 1.0);
+    l.onsetNotes = true;
+    ~tEq.("switched on with no engine, the notes do not start", ~tGet.(l, \onsetNoteRoutine), nil);
+    ~tPut.(l, \engineSynth, (set: { }));
+    l.startOnsetNotes;
+    ~tAssert.("...with the engine playing, they do", ~tGet.(l, \onsetNoteRoutine).notNil);
+    l.stopOnsetNotes;
+    ~tEq.("...and stop with it", ~tGet.(l, \onsetNoteRoutine), nil);
+}.value;
+
 // Clearing the pattern must clear the draws with it, or the next pattern built
 // from outside inherits the previous take's dice.
 l = ~tLooper.();

@@ -21,9 +21,11 @@ var code = { |file|
 };
 // Every `this.changed(\x` in the source, and every symbol passed as the third
 // argument of `sayer(` (the notification a helper says for its caller).
+// A class's parts (the Looper's, split out of it: docs/dev/architecture.md 5,
+// step 8) say its changes as `looper.changed(\x`, read with the class.
 var saidIn = { |file, sayer|
-    var text = code.(file);
-    var syms = (text.findRegexp("this\\.changed\\(\\\\[a-zA-Z]+") ++ text.findRegexp("this\\.prNotify\\(\\\\[a-zA-Z]+"))
+    var text = (if(file.isString) { [file] } { file }).collect { |f| code.(f) }.join("\n");
+    var syms = (text.findRegexp("(?:this|looper)\\.changed\\(\\\\[a-zA-Z]+") ++ text.findRegexp("this\\.prNotify\\(\\\\[a-zA-Z]+"))
         .collect { |m| m[1].split($\\).last.asSymbol }.asSet;
     sayer !? {
         text.findRegexp(sayer ++ "\\(\\\\[a-zA-Z]+, [a-zA-Z]+, \\\\[a-zA-Z]+").do { |m|
@@ -47,9 +49,14 @@ var check = { |name, table, said|
         malformed.asArray.sort.asString);
 };
 var actions = File.readAllString(root +/+ "scripts" +/+ "setup-actions.scd") ? "";
-var looperSkip;
+var looperSkip, looperParts;
 
-check.("Looper", Looper.notifications, saidIn.("Looper.sc", "prSetGranular"));
+// The Looper's parts: each says its changes as the Looper's, held to the
+// Looper's table here.
+looperParts = ["LooperOnsetNotes"];
+check.("Looper", Looper.notifications, saidIn.(["Looper.sc"] ++ looperParts.collect { |n| n ++ ".sc" }, "prSetGranular"));
+~tEq.("a part of the Looper says its changes as the Looper's (looper.changed), never as its own, which nobody hears",
+    looperParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);
 ~tEq.("the Looper lists 65 notifications", Looper.notifications.size, 65);
 [MegaSA, MegaSADrums, MegaSADevice, MegaSAPlugin, MegaSAWave, LooperCalibrator, MegaRemote, MegaSAKit].do { |c|
     check.(c.name.asString, c.notifications, saidIn.(c.name.asString ++ ".sc"));
@@ -58,7 +65,7 @@ check.("Looper", Looper.notifications, saidIn.("Looper.sc", "prSetGranular"));
 // unlisted.
 {
     var classes = (root +/+ "classes" +/+ "*.sc").pathMatch.collect { |p| PathName(p).fileNameWithoutExtension }
-        .select { |n| saidIn.(n ++ ".sc").notEmpty };
+        .select { |n| saidIn.(n ++ ".sc").notEmpty }.reject { |n| looperParts.includesEqual(n) };
     var without = classes.reject { |n| n.asSymbol.asClass.respondsTo(\notifications) };
     ~tAssert.("every class that says changes lists them", without.isEmpty, "without a table: " ++ without.join(", "));
 }.value;

@@ -146,7 +146,7 @@
 ~userRoutingProfiles = {
     var path = ~userRoutingProfilesPath.(), data, ok;
     if(File.exists(path).not) { () } {
-        data = Looper.readPresetFile(path, { |why|
+        data = MegaFiles.runLiteral(path, { |why|
             ("megalooper: your rigs in " ++ path ++ " were not read: " ++ why ++ ".").warn });
         case
         { data.isNil } { () }

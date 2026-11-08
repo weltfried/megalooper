@@ -174,7 +174,7 @@ var clean = l.prValidateGranularPreset(
 ~tEq.("path is the slug under the given directory",
     l.granularPresetPath("/tmp/presets", "My Test"), "/tmp/presets/my-test.json");
 
-// Both preset families share prPresetSlug, so a name must resolve to the same
+// Both preset families share MegaFiles.presetSlug, so a name must resolve to the same
 // file stem on either side — otherwise the two windows would disagree about
 // what "already exists" means.
 ~tEq.("bbcut and granular slugs agree",

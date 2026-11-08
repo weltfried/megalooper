@@ -290,7 +290,7 @@ spawnAndAnalyse = { |rig, t0, ta|
     l.instVarPut(\analysedResult, cfg[\result]);
     cfg[\onsets] !? { |pairs| l.prBuildOnsetPattern(pairs, l.loopFrames / sr) };
     rig[\sa].setAnalysis(cfg[\result]);
-    if(cfg[\onsets].notNil) { l.instVarPut(\onsetNotes, true) };
+    if(cfg[\onsets].notNil) { l.onsetNotesPart.instVarPut(\onsetNotes, true) };
     l.startTempoClocks(cfg[\result]);
     r = l.instVarAt(\midiClockRoutine);
     r !? { rig[\routines].add([ta, r, \midiClock]) };
@@ -1130,7 +1130,7 @@ withLoop = {
     b1 = t0 + rig[\loopDur];
     endT = b1 + (10 * rig[\loopDur]) + 1.5;
     runTimeline.(rig, t0 + 0.05, endT - 0.7, []);
-    onsetPat = l.instVarAt(\onsetNotePattern);
+    onsetPat = l.onsetNotesPart.instVarAt(\onsetNotePattern);
     rendered = render.("drums-with-loop", buildScore.(rig, endT), endT);
     res = readAll.(rendered[\wav]);
     path = writeStereo.(res, chMaster, (t0 * sr).round.asInteger, outDir +/+ "drums-with-loop.wav");

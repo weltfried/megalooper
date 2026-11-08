@@ -385,7 +385,7 @@ spawnAndAnalyse = { |rig, t0, ta|
     l.instVarPut(\analysedResult, cfg[\result]);
     cfg[\onsets] !? { |pairs| l.prBuildOnsetPattern(pairs, l.loopFrames / sr) };
     rig[\sa].setAnalysis(cfg[\result]);
-    if(cfg[\onsets].notNil) { l.instVarPut(\onsetNotes, true) };
+    if(cfg[\onsets].notNil) { l.onsetNotesPart.instVarPut(\onsetNotes, true) };
     l.startTempoClocks(cfg[\result]);
     r = l.instVarAt(\midiClockRoutine);
     r !? { rig[\routines].add([ta, r, \midiClock]) };

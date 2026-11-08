@@ -891,7 +891,7 @@ MegaSA {
     // The instrument's window, if it has one.
     instrumentEditor { instrument !? { |p| p.editor } }
 
-    synthPresetSlug { |name| ^Looper.presetSlug(name) }
+    synthPresetSlug { |name| ^MegaFiles.presetSlug(name) }
 
     synthPresetNames { |dir|
         if(dir.isNil or: { File.exists(dir).not }) { ^[] };
@@ -1939,7 +1939,7 @@ MegaSA {
     // (scripts/setup-sa.scd), and the rule that names a file.
     *fxPresetVersion { ^1 }
 
-    fxPresetSlug { |name| ^Looper.presetSlug(name) }
+    fxPresetSlug { |name| ^MegaFiles.presetSlug(name) }
 
     // Bias FX's bank from a file while it runs. `action` gets ok.
     loadGuitarBank { |file, action|

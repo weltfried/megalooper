@@ -1260,16 +1260,11 @@ MegaSADrums {
 
     *defaultKeptPath { ^MegaFiles.userRoot +/+ "sa" +/+ "kept-drums" +/+ "drums.json" }
 
-    presetSlug { |name| ^Looper.presetSlug(name) }
-
-    presetPath { |dir, name| ^dir +/+ this.presetSlug(name) ++ ".json" }
-
-    // Slugs only, of the JSON files: an old .scd is not a preset any more
-    // (migratePresets carries those over once).
-    presetNames { |dir|
-        if(dir.isNil or: { File.exists(dir).not }) { ^[] };
-        ^(dir +/+ "*.json").pathMatch.collect { |p| PathName(p).fileNameWithoutExtension }.sort
-    }
+    // A preset's name, file and folder by the rule every family shares
+    // (MegaFiles.presetSlug, presetPath, presetNames).
+    presetSlug { |name| ^MegaFiles.presetSlug(name) }
+    presetPath { |dir, name| ^MegaFiles.presetPath(dir, name) }
+    presetNames { |dir| ^MegaFiles.presetNames(dir) }
 
     // Answers the slug, or nil if nothing was written.
     savePreset { |dir, name|

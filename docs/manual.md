@@ -1576,6 +1576,7 @@ megalooper/
     LooperSynthDefs.sc   -- the Looper's SynthDefs and the graph pieces they share
     MeterDecision.sc     -- what a reading means for the loop: the snap, bar and beat, counts, readings
     LooperTrainingExport.sc -- a loop written out as labelled training data (WAV + JSON sidecar)
+    LooperOnsetNotes.sc  -- the loop's onsets replayed as a drum part (MIDI notes, or the drums' onset kit)
     LooperBreakProc.sc   -- house BBCut procedure: occasional block repeats
     LooperCutGate.sc     -- drives the Insert-mode duck bus from each cut block
     LooperSessionRecorder.sc -- records the whole set to disk, from the stomp

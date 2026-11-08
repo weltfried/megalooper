@@ -69,7 +69,7 @@
     var settings, bank, sound, states, why, from = List.new;
     if(File.exists(path) or: { (~saKeptBackupDir.() +/+ "*.json").pathMatch.notEmpty }) { nil } {
         if(File.exists(old)) {
-            settings = Looper.readPresetFile(old, { |w| ("megalooper: " ++ old.basename ++ " is not migrated: " ++ w ++ ".").warn });
+            settings = MegaFiles.runLiteral(old, { |w| ("megalooper: " ++ old.basename ++ " is not migrated: " ++ w ++ ".").warn });
             if(settings.isKindOf(Dictionary).not or: { (settings[\version] ? 1) > MegaSA.fxPresetVersion }) {
                 if(settings.notNil) { ("megalooper: " ++ old.basename ++ " is no preset this build reads: not migrated.").warn };
                 settings = nil;

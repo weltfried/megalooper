@@ -497,14 +497,14 @@
             // The pattern keeps its OWN period — the loop it was built for —
             // and tiles across a multiplied loop, so hits repeat every `period`
             // while the phase ramp wraps every `loopDur`.
-            var period  = (l.instVarAt(\onsetNotePatternDur) ? loopDur).max(1e-6);
+            var period  = (l.onsetNotesPart.instVarAt(\onsetNotePatternDur) ? loopDur).max(1e-6);
             var dur     = (loopDur * 2).min(12);
             var frames  = (dur * sr).asInteger;
             var hop     = (~calHopMs / 1000 * sr).asInteger.max(1);
             var hopSecs = ~calHopMs / 1000;
             var maxLag  = (~calMaxMs / ~calHopMs).asInteger;
             var buf     = Buffer.alloc(l.server, frames, 2);
-            var pattern = l.instVarAt(\onsetNotePattern) ? [];
+            var pattern = l.onsetNotesPart.instVarAt(\onsetNotePattern) ? [];
             var raw, split, audio, phase, bad, anchor, times, ref, res;
             ~calAddDefs.();
             l.server.sync;

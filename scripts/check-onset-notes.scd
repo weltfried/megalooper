@@ -32,7 +32,7 @@
     } {
         var rawOnsets = l.instVarAt(\onsets);
         var engine    = l.instVarAt(\engineSynth);
-        var routine   = l.instVarAt(\onsetNoteRoutine);
+        var routine   = l.onsetNotesPart.instVarAt(\onsetNoteRoutine);
         var out       = l.midiOut;
 
         "-- 1. detection --".postln;

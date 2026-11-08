@@ -787,7 +787,7 @@ d.setOn(false, 10.0);
 mainCopy = d.patterns[\main].deepCopy;
 breakCopy = d.patterns[\break].deepCopy;
 slug = d.savePreset(dir, "My Groove!");
-~tEq.("savePreset: the slug (Looper.presetSlug)", [slug, d.presetSlug("My Groove!")], ["my-groove", Looper.presetSlug("My Groove!")]);
+~tEq.("savePreset: the slug (MegaFiles.presetSlug)", [slug, d.presetSlug("My Groove!")], ["my-groove", MegaFiles.presetSlug("My Groove!")]);
 text = File.readAllString(dir +/+ "my-groove.json") ? "";
 data = MegaFiles.parseObject(text);
 ~tAssert.("...one JSON object, a drums preset of version 1, nothing run to read it",
@@ -935,7 +935,7 @@ write.(dir +/+ "later.scd", "~bfTrap = 2; (version: 1, reverbMix: 0.9)");
 File.mkdir(dir2);
 ~tEq.("a folder with nothing to carry is marked all the same", [d.migratePresets(dir2), File.exists(dir2 +/+ ".presets-json")],
     [[], true]);
-// The old reader's own stack (Looper.readPresetFile) still guards a file whose
+// The old reader's own stack (MegaFiles.runLiteral) still guards a file whose
 // code throws while its literal is half built.
 write.(dir3 +/+ "operand.scd", operand);
 ~tEq.("an old preset that throws as it is read, in an expression: 1000 + migratePresets(...).size is 1000",

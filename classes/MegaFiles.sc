@@ -246,6 +246,42 @@ MegaFiles {
         ^result
     }
 
+    // ---- a preset's file: its name and its folder ---------------------------
+    // One rule for every preset family (the cutter's, the grains', the drums',
+    // the synth's, the effects' sounds): a name made a file name, a preset's
+    // path in its folder, the presets a folder holds. The Looper and the
+    // drums each kept their own copy until 2026-11-08.
+
+    // A name as a file name: letters and digits, lowercased so a lookup is
+    // the same on a case-insensitive disk; every run of anything else one
+    // '-', none at the ends; "preset" when nothing is left; 64 at most.
+    *presetSlug { |name|
+        var slug = String.new;
+        name.asString.do { |ch|
+            if(ch.isAlphaNum) {
+                slug = slug ++ ch.toLower;
+            } {
+                if(slug.notEmpty and: { slug.last != $- }) { slug = slug ++ $- };
+            };
+        };
+        while { slug.notEmpty and: { slug.last == $- } } {
+            slug = slug.copyRange(0, slug.size - 2);
+        };
+        if(slug.isEmpty) { slug = "preset" };
+        ^slug.keep(64)
+    }
+
+    // A preset's file in `dir`: its slug, .json.
+    *presetPath { |dir, name| ^dir +/+ this.presetSlug(name) ++ ".json" }
+
+    // The presets in `dir`, by slug, sorted: its JSON files only (an old .scd
+    // is no preset since 2026-11-08; migrateFolder carries those over), and
+    // no file is read to list them. None for a folder that is not there.
+    *presetNames { |dir|
+        if(dir.isNil or: { File.exists(dir).not }) { ^[] };
+        ^(dir +/+ "*.json").pathMatch.collect { |p| PathName(p).fileNameWithoutExtension }.sort
+    }
+
     // ---- a preset as an Event ----------------------------------------------
     // A preset (the drums', the cutter's, the grains') is a JSON object read
     // into the Event its SC literal once was: keys Symbols, lists Arrays, the

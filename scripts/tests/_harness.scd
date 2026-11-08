@@ -558,12 +558,19 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 // variable holding that part, as ~tWhere says. Moving a variable costs a line
 // here, not an edit in every test that reaches it. Anything not a Looper, and
 // any name not listed, is reached on the object itself.
-~tWhere = ~tWhere ? (
-    // variable: the Looper's variable holding the part it moved into
+~tWhere = (
+    // variable: the Looper's method answering the part it moved into
+    // (made when first asked for, so a newCopyArgs Looper has it too)
+    onsetNotes: \onsetNotesPart, onsetNote: \onsetNotesPart, onsetNoteChannel: \onsetNotesPart,
+    onsetNoteVelLo: \onsetNotesPart, onsetNoteVelHi: \onsetNotesPart, onsetNoteDynRange: \onsetNotesPart,
+    onsetNoteGateMs: \onsetNotesPart, onsetNoteOffsetMs: \onsetNotesPart, onsetNotePattern: \onsetNotesPart,
+    onsetNotePatternDur: \onsetNotesPart, onsetNoteChance: \onsetNotesPart, onsetNoteRolls: \onsetNotesPart,
+    onsetNoteRoutine: \onsetNotesPart, onsetNoteSounding: \onsetNotesPart, onsetNoteSink: \onsetNotesPart,
+    halfOnsets: \onsetNotesPart
 );
 ~tOwner = { |obj, key|
     var part = if(obj.isKindOf(Looper)) { ~tWhere[key] };
-    if(part.isNil) { obj } { obj.instVarAt(part) }
+    if(part.isNil) { obj } { obj.perform(part) }
 };
 ~tPut = { |looper, key, val| ~tOwner.(looper, key).instVarPut(key, val); looper };
 ~tGet = { |looper, key| ~tOwner.(looper, key).instVarAt(key) };

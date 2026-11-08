@@ -17,7 +17,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 // The Looper and the parts split out of it (docs/dev/architecture.md 5,
 // step 8): what these guards hold is the Looper's, wherever its code now is.
-var src = ["Looper.sc", "LooperSynthDefs.sc"].collect { |f| File.readAllString(root +/+ "classes" +/+ f) }.join("\n");
+var src = ["Looper.sc", "LooperSynthDefs.sc", "LooperOnsetNotes.sc"].collect { |f| File.readAllString(root +/+ "classes" +/+ f) }.join("\n");
 var stripComments, flat, countOf, bare;
 
 // Drop // comments to end of line. The Looper's SynthDefs contain no string
@@ -544,4 +544,30 @@ var found = List.new;
     };
 };
 ~tAssert.("MeterAnalyzer, MeterDecision and LooperSynthDefs name no Looper", found.isEmpty, found.join(", "));
+}.value;
+
+// ---- a variable moved into a part of the Looper is reached through it ----------
+// The Looper's parts (docs/dev/architecture.md 5, step 8) took variables with
+// them; a script that still reads or sets one on the Looper by name
+// (l.instVarPut(\onsetNotes, ...)) reaches nothing, without an error: the
+// offline renders lost their onset kit that way on 2026-11-08. Every name
+// ~tWhere lists is reached through the method answering its part, or not by
+// name at all.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var moved = ~tWhere.keys, found = List.new;
+var files = ["scripts/*.scd", "scripts/sa/*.scd", "scripts/tests/*.scd"].collect { |g| (root +/+ g).pathMatch }.flatten;
+files.reject { |p| p.endsWith("_harness.scd") }.do { |path|
+    (File.readAllString(path) ? "").split($\n).do { |line, i|
+        var cut = line.find("//"), code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
+        var hits = code.findRegexp("([A-Za-z_]+)\\.instVar(?:At|Put)\\(\\\\([a-zA-Z]+)");
+        // findRegexp answers the match, then each group: [whole, receiver, name] per hit.
+        hits.clump(3).do { |h|
+            if(h.size == 3 and: { moved.includes(h[2][1].asSymbol) } and: { ~tWhere[h[2][1].asSymbol].asString != h[1][1] }) {
+                found.add(PathName(path).fileName ++ ":" ++ (i + 1) ++ " " ++ h[2][1]);
+            };
+        };
+    };
+};
+~tAssert.("no script reaches a variable that moved into a part of the Looper on the Looper itself", found.isEmpty, found.join(", "));
 }.value;

@@ -58,7 +58,7 @@ kinds = #[\trigger, \toggle, \continuous, \step, \choice, \light];
 tabs = ["Perform", "Grains", "Cutter", "Analysis", "Effects", "Drums", "Synth", "Rig", "Live", "Window"];
 // Dotted lower camel: words that start lower case, or a number (a pad's note).
 idShape = "^[a-z][a-zA-Z0-9]*(\\.([a-z][a-zA-Z0-9]*|[0-9]+))+$";
-// A drum preset's control ends in its file's name, a slug (Looper.presetSlug).
+// A drum preset's control ends in its file's name, a slug (MegaFiles.presetSlug).
 presetIdShape = "^sa\\.drums\\.preset\\.recall\\.[a-z0-9]+(-[a-z0-9]+)*$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
 // (the trims follow the kits, so they come with SA only).
