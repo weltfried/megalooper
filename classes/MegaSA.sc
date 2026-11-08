@@ -66,20 +66,9 @@ MegaSA {
     // is then still there at the next boot, which leaves that plugin closed,
     // says so, and removes the marker: the boot after tries it once more.
     var <>markerDir;
-    var <guitarBus, <bassBus, <loopBus, <loopFxBus, <masterBus, <recordBus;
-    // What the note sequencer's instrument plays onto, stereo, and its chain
-    // works on before the synth's strip.
-    var <synthBus;
-    // The drums' busses, stereo: what their voices play onto (stepsBus,
-    // onsetBus) and what their effects hand the two strips (stepsOutBus,
-    // onsetOutBus).
-    var <stepsBus, <stepsOutBus, <onsetBus, <onsetOutBus;
-    // Each strip's signal after its fader, stereo, by strip (\guitar, \loop,
-    // \drums, \onsetKit, and \bass on a rig with a bass input): the set's stems, which the session recorder records
-    // beside the master (stemSpecs). Only its strip writes one, and they sum
-    // to masterBus.
-    var <stemBusses;
-    var <guitarGroup, <mixerGroup, <drumGroup, <recordGroup;
+    // The frame on the server (MegaSAGraph): every bus and group, made in
+    // init (the busses at once, the groups in the build).
+    var graphPart;
     // The guitar's chain and the loop's (MegaSAChain): their devices in order,
     // each with its switch and its settings, and once built their synths. The
     // guitar's: the Shifter, the Delay, the Auto Filter and PitchLoop89, then
@@ -193,46 +182,34 @@ MegaSA {
         ^super.newCopyArgs(server, guitarIn, hwOut, pluginPath, bankPath).init(sound, catalog, bassIn)
     }
 
-    // The strips in mixer order, each with the bus it reads: the drums' and
-    // the onset kit's take their effects' output. The bass's, after the
-    // guitar's, only on a rig with a bass input.
-    stripBusses {
-        ^[\guitar, guitarBus] ++ (if(bassIn.notNil) { [\bass, bassBus] } { [] })
-            ++ [\loop, loopFxBus, \drums, stepsOutBus, \onsetKit, onsetOutBus, \synth, synthBus]
-    }
-
-    // The Looper reads every input with SoundIn, and SoundIn.ar(ch) is
-    // In.ar(NumOutputBuses + ch): a "channel" past the hardware inputs reads a
-    // private bus. This is the channel that lands on `bus`.
-    soundInChannel { |bus| ^bus.index - server.options.numOutputBusChannels }
-    // The Looper's recorded input: the guitar chain.
-    looperInChannel { ^this.soundInChannel(guitarBus) }
-    // Its loop-chaining return: the loop after its effects.
-    returnInChannel { ^this.soundInChannel(loopFxBus) }
-    // Its session recorder's "master": the mix as it leaves for the interface.
-    recordInChannel { ^this.soundInChannel(recordBus) }
-
-    // A strip's stem bus (stemBusses), or nil.
-    stemBus { |key| ^stemBusses !? { |t| t[key] } }
-
-    // What the session recorder records beside the master and the dry tap
-    // (LooperSessionRecorder.stems; setup-sa.scd hands it over): every strip
-    // after its fader, as heard, as (role:, channel:, numChannels:), the
-    // channel being the SoundIn channel that lands on the strip's stem bus.
-    // Every stem is its strip's two sides, the guitar's too: a stereo device
-    // or plugin on its chain is recorded as it plays (today's chain is dual
-    // mono, so its sides hold the same). The onset kit's strip is the onset
-    // stem. A strip whose bus did not allocate has no stem, nor has the bass
-    // on a rig without its input.
-    stemSpecs {
-        ^[[\guitar, \guitar, 2], [\bass, \bass, 2], [\loop, \loop, 2], [\drums, \drums, 2], [\onset, \onsetKit, 2],
-            [\synth, \synth, 2]].collect { |row|
-            var bus = this.stemBus(row[1]);
-            if(bus.notNil and: { bus.index.notNil }) {
-                (role: row[0], channel: this.soundInChannel(bus), numChannels: row[2])
-            }
-        }.reject(_.isNil)
-    }
+    // ---- The frame (MegaSAGraph) ---------------------------------------------
+    // The part, made in init; a MegaSA made without it (a test's newCopyArgs)
+    // answers nil, and no stems.
+    graphPart { ^graphPart }
+    guitarBus { ^graphPart !? { |g| g.guitarBus } }
+    bassBus { ^graphPart !? { |g| g.bassBus } }
+    loopBus { ^graphPart !? { |g| g.loopBus } }
+    loopFxBus { ^graphPart !? { |g| g.loopFxBus } }
+    masterBus { ^graphPart !? { |g| g.masterBus } }
+    recordBus { ^graphPart !? { |g| g.recordBus } }
+    synthBus { ^graphPart !? { |g| g.synthBus } }
+    stepsBus { ^graphPart !? { |g| g.stepsBus } }
+    stepsOutBus { ^graphPart !? { |g| g.stepsOutBus } }
+    onsetBus { ^graphPart !? { |g| g.onsetBus } }
+    onsetOutBus { ^graphPart !? { |g| g.onsetOutBus } }
+    stemBusses { ^graphPart !? { |g| g.stemBusses } }
+    guitarGroup { ^graphPart !? { |g| g.guitarGroup } }
+    mixerGroup { ^graphPart !? { |g| g.mixerGroup } }
+    drumGroup { ^graphPart !? { |g| g.drumGroup } }
+    recordGroup { ^graphPart !? { |g| g.recordGroup } }
+    stripBusses { ^graphPart !? { |g| g.stripBusses } ? [] }
+    soundInChannel { |bus| ^graphPart !? { |g| g.soundInChannel(bus) } }
+    looperInChannel { ^graphPart !? { |g| g.looperInChannel } }
+    returnInChannel { ^graphPart !? { |g| g.returnInChannel } }
+    recordInChannel { ^graphPart !? { |g| g.recordInChannel } }
+    stemBus { |key| ^graphPart !? { |g| g.stemBus(key) } }
+    stemSpecs { ^(graphPart !? { |g| g.stemSpecs }) ? [] }
+    prStemArgs { |key| ^(graphPart !? { |g| g.stemArgs(key) }) ? [] }
 
     init { |sound, plugins, bass|
         catalog = plugins;
@@ -270,22 +247,8 @@ MegaSA {
         drums.noteVoice = { |rec, where| wave.voiceMsgs(rec, where) };
         // Busses are allocated in the language, so they exist the moment this
         // returns: setup-sa.scd points the Looper at them before the Looper's
-        // own synths start.
-        guitarBus = Bus.audio(server, 2);
-        loopBus   = Bus.audio(server, 2);
-        loopFxBus = Bus.audio(server, 2);
-        masterBus = Bus.audio(server, 2);
-        recordBus = Bus.audio(server, 2);
-        stepsBus    = Bus.audio(server, 2);
-        stepsOutBus = Bus.audio(server, 2);
-        onsetBus    = Bus.audio(server, 2);
-        onsetOutBus = Bus.audio(server, 2);
-        // After the others, so theirs stay where they were before the bass.
-        bassBus = Bus.audio(server, 2);
-        synthBus = Bus.audio(server, 2);
-        stemBusses = IdentityDictionary.new;
-        ([\guitar, \loop, \drums, \onsetKit] ++ (if(bassIn.notNil) { [\bass] } { [] }) ++ [\synth])
-            .do { |k| stemBusses.put(k, Bus.audio(server, 2)) };
+        // own synths start (MegaSAGraph).
+        graphPart = MegaSAGraph(server, bassIn.notNil);
         this.prMakeChains(sound);
         // The guitar is held while a plugin on its chain opens: only if one
         // will (prPluginTarget), whichever plugin that is.
@@ -306,12 +269,12 @@ MegaSA {
     // or the bass. With a sound they are the
     // sound's devices, in its order, with its switches, settings and names.
     prMakeChains { |sound|
-        guitarChain = MegaSAChain(\guitar, guitarBus, \megaSAChainIn, [\in, guitarIn]);
-        loopChain = MegaSAChain(\loop, loopFxBus, \megaSAChainCopy, [\in, loopBus.index]);
-        drumsChain = MegaSAChain(\drums, stepsBus, \megaSAChainOn, []);
-        bassChain = if(bassIn.notNil) { MegaSAChain(\bass, bassBus, \megaSAChainIn, [\in, bassIn]) }
-            { MegaSAChain(\bass, bassBus, \megaSAChainOn, []) };
-        synthChain = MegaSAChain(\synth, synthBus, \megaSAChainOn, []);
+        guitarChain = MegaSAChain(\guitar, this.guitarBus, \megaSAChainIn, [\in, guitarIn]);
+        loopChain = MegaSAChain(\loop, this.loopFxBus, \megaSAChainCopy, [\in, this.loopBus.index]);
+        drumsChain = MegaSAChain(\drums, this.stepsBus, \megaSAChainOn, []);
+        bassChain = if(bassIn.notNil) { MegaSAChain(\bass, this.bassBus, \megaSAChainIn, [\in, bassIn]) }
+            { MegaSAChain(\bass, this.bassBus, \megaSAChainOn, []) };
+        synthChain = MegaSAChain(\synth, this.synthBus, \megaSAChainOn, []);
         // Every chain's bus, for a keyed device's Key (the Compressor's), as
         // it stands when the device reads it: after its chain's effects,
         // before its fader.
@@ -355,13 +318,10 @@ MegaSA {
     prBuild {
         this.class.loadSynthDefs;
         server.sync;
-        guitarGroup = Group.before(server.defaultGroup);
-        mixerGroup  = Group.after(server.defaultGroup);
-        drumGroup   = Group.before(mixerGroup);
-        recordGroup = Group.after(mixerGroup);
-        guitarChain.build(guitarGroup, \addToHead, beatDur);
+        graphPart.makeGroups;
+        guitarChain.build(this.guitarGroup, \addToHead, beatDur);
         // After the guitar's, in the same group: before the Looper too.
-        bassChain.build(guitarGroup, \addToTail, beatDur);
+        bassChain.build(this.guitarGroup, \addToTail, beatDur);
         // The plugin is made now, in its device's synth, so it is there to
         // ask from the start; it is opened after the build (prOpenPlugin),
         // because its probe can hold the build for seconds on a first boot,
@@ -371,7 +331,7 @@ MegaSA {
         this.prBuildDrums;
         this.prBuildDrumsChain;
         this.prBuildSynth;
-        this.mixerPart.build(mixerGroup, this.stripBusses, masterBus, hwOut, recordBus, { |key| this.prStemArgs(key) });
+        this.mixerPart.build(this.mixerGroup, this.stripBusses, this.masterBus, hwOut, this.recordBus, { |key| this.prStemArgs(key) });
         server.sync;
         ready = true;
         "MegaSA ready.".postln;
@@ -572,7 +532,7 @@ MegaSA {
     // it for ever. build posts its own failures; this catches what gets past.
     prBuildDrums {
         try {
-            drums.build(drumGroup, stepsBus, stepsOutBus, onsetBus, onsetOutBus, synthBus);
+            drums.build(this.drumGroup, this.stepsBus, this.stepsOutBus, this.onsetBus, this.onsetOutBus, this.synthBus);
         } { |err|
             ("MegaSA: the drums were not built (" ++ err.errorString
                 ++ "); megalooper plays on without them.").warn;
@@ -588,7 +548,7 @@ MegaSA {
     // made here and opened with the guitar's; nothing is held for them.
     prBuildDrumsChain {
         var fx = drums !? { |d| d.fxSynth };
-        if(fx.notNil) { drumsChain.build(fx, \addBefore, beatDur) } { drumsChain.build(drumGroup, \addToTail, beatDur) };
+        if(fx.notNil) { drumsChain.build(fx, \addBefore, beatDur) } { drumsChain.build(this.drumGroup, \addToTail, beatDur) };
         this.prMakePlugins(drumsChain);
         // A device switched on there (a delay's repeats) may sound with no
         // hit, so the drums' reverb stays awake for it (MegaSADrums.prRestFx).
@@ -604,7 +564,7 @@ MegaSA {
         try { wave.build } { |err|
             ("MegaSA: the Wave synth's tables were not made (" ++ err.errorString ++ "); the synth stays silent.").warn;
         };
-        synthChain.build(drumGroup, \addToTail, beatDur);
+        synthChain.build(this.drumGroup, \addToTail, beatDur);
         this.prMakePlugins(synthChain);
     }
 
@@ -625,21 +585,13 @@ MegaSA {
         // Slicer): the loop's bar 1 beat 1 is the drums' too.
         looper.phaseBus !? { |b| this.chains.do { |c| c.setPhaseBus(b.index) } };
         loopChain.build(server.defaultGroup, \addToTail, beatDur);
-        looper.sessionRec.target = recordGroup;
+        looper.sessionRec.target = this.recordGroup;
         drums !? { |d| d.attach(looper) };
         server.sync;
         // The loop chain's plugins, once their synths are there. Nothing is
         // held for them: until one is open its device passes the loop through.
         this.prMakePlugins(loopChain);
         loopChain.devices.do { |d| if(d.plugin.notNil and: { d.plugin.state == \closed }) { this.prOpenPlugin(d) } };
-    }
-
-    // A strip's stem bus as its starting \stem, or nothing: the def's default,
-    // 0, writes no stem at all. Only a positive index goes in, so no strip
-    // ever writes a bus it was not given, let alone a negative one.
-    prStemArgs { |key|
-        var index = this.stemBus(key) !? { |b| b.index };
-        ^if(index.isNumber and: { index > 0 }) { [\stem, index] } { [] }
     }
 
     *loadSynthDefs {
@@ -754,7 +706,7 @@ MegaSA {
                 ("MegaSA: " ++ key ++ " cannot be hosted here (no VSTPlugin, or no synth group); the Wave synth plays.").warn;
                 instrumentKey = nil;
             } {
-                instrumentSynth = Synth.head(synthGroup, \megaSAInstrument, [\out, synthBus.index]);
+                instrumentSynth = Synth.head(synthGroup, \megaSAInstrument, [\out, this.synthBus.index]);
                 instrument = try {
                     (pluginMaker ? { |synth, id, pth| MegaSAPlugin(synth, id, pth) }).value(instrumentSynth, \plugin, key)
                 } { |err| ("MegaSA: " ++ key ++ " could not be made (" ++ err.errorString ++ ").").warn; nil };
@@ -1343,7 +1295,7 @@ MegaSA {
             if(device.on) { this.prSend(t0, [device.switchMsg(false)]); t1 = t0 + this.class.fadeTime };
             if(device.isPlugin) {
                 limboGroup ?? {
-                    limboGroup = Group.after(recordGroup);
+                    limboGroup = Group.after(this.recordGroup);
                     limboGroup.run(false);
                 };
                 this.prSend(t1, [[23, limboGroup.nodeID, n.nodeID]]);
@@ -1939,11 +1891,8 @@ MegaSA {
         undoList = List.new;
         redoList = List.new;
         mixerPart !? { |m| m.free };
-        [guitarGroup, mixerGroup, drumGroup, recordGroup].do { |g| g !? (_.free) };
         wave !? { |w| w.free };
-        [guitarBus, bassBus, synthBus, loopBus, loopFxBus, masterBus, recordBus,
-            stepsBus, stepsOutBus, onsetBus, onsetOutBus].do { |b| b !? (_.free) };
-        stemBusses.do { |b| b !? (_.free) };
+        graphPart !? { |g| g.free };
         ready = false;
     }
 }

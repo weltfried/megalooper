@@ -257,14 +257,16 @@ m.free;
 m = MegaSA.newCopyArgs(nil, 0, 0);
 stub = (options: ServerOptions.new.numOutputBusChannels_(2));
 m.instVarPut(\server, stub);
-m.instVarPut(\guitarBus, Bus(\audio, 4, 2, stub));
+// Its frame (MegaSAGraph), made without its init too: no busses allocated.
+m.instVarPut(\graphPart, MegaSAGraph.newCopyArgs(stub, false));
+~tPut.(m, \guitarBus, Bus(\audio, 4, 2, stub));
 ~tEq.("the Looper's input channel reads guitarBus through SoundIn",
     m.looperInChannel + stub.options.numOutputBusChannels, 4);
 stub.options.numOutputBusChannels = 16;
-m.instVarPut(\guitarBus, Bus(\audio, 40, 2, stub));
+~tPut.(m, \guitarBus, Bus(\audio, 40, 2, stub));
 ~tEq.("whatever the output count", m.looperInChannel, 24);
-m.instVarPut(\loopFxBus, Bus(\audio, 44, 2, stub));
-m.instVarPut(\recordBus, Bus(\audio, 48, 2, stub));
+~tPut.(m, \loopFxBus, Bus(\audio, 44, 2, stub));
+~tPut.(m, \recordBus, Bus(\audio, 48, 2, stub));
 ~tEq.("loop chaining reads the loop after its effects", m.returnInChannel, 28);
 ~tEq.("the session's master reads the mix", m.recordInChannel, 32);
 m.setTempo(120);
@@ -1072,6 +1074,17 @@ master = SynthDescLib.global[\megaSAMaster];
     };
     ~tEq.("a MegaSA made without its init has no stems and says so",
         MegaSA.newCopyArgs(nil, 0, 0).stemSpecs, []);
+    // The busses come in the order they always did (MegaSAGraph): the bass's
+    // and the synth's after the others, which keep the indices they had
+    // before those came, then the stems.
+    {
+        var g = MegaSAGraph(stub, true);
+        var order = [g.guitarBus, g.loopBus, g.loopFxBus, g.masterBus, g.recordBus, g.stepsBus, g.stepsOutBus,
+            g.onsetBus, g.onsetOutBus, g.bassBus, g.synthBus, g.stemBus(\guitar)].collect(_.index);
+        ~tEq.("the frame's busses in the order they always had", order, order.copy.sort);
+        ~tEq.("...and a stem for the bass with an input to play it", g.stemBus(\bass).notNil, true);
+        g.free;
+    }.value;
 }.value;
 
 // The stems go to the session recorder whenever SA attaches the Looper

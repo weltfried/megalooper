@@ -582,7 +582,8 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 ~tParts = (
     Looper: ~tWhere,
     MegaSA: (levels: \mixerPart, mutes: \mixerPart, holds: \mixerPart, strips: \mixerPart, masterSynth: \mixerPart,
-        bankBusy: \stateJobsPart, pendingBank: \stateJobsPart, bankRoutine: \stateJobsPart)
+        bankBusy: \stateJobsPart, pendingBank: \stateJobsPart, bankRoutine: \stateJobsPart,
+        guitarBus: \graphPart, bassBus: \graphPart, loopBus: \graphPart, loopFxBus: \graphPart, masterBus: \graphPart, recordBus: \graphPart, synthBus: \graphPart, stepsBus: \graphPart, stepsOutBus: \graphPart, onsetBus: \graphPart, onsetOutBus: \graphPart, stemBusses: \graphPart, guitarGroup: \graphPart, mixerGroup: \graphPart, drumGroup: \graphPart, recordGroup: \graphPart)
 );
 ~tOwner = { |obj, key|
     var part = ~tParts[obj.class.name] !? { |t| t[key] };
