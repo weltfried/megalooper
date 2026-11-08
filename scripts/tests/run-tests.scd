@@ -84,6 +84,7 @@ var files = [
     "test-midimap-store.scd",
     "test-midiback.scd",
     "test-audio-settings.scd",
+    "test-training-export.scd",
     "test-source-guards.scd"
 ];
 var started = Main.elapsedTime;

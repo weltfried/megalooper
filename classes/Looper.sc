@@ -2300,120 +2300,24 @@ Looper {
         bbcutEnabling = false;
     }
 
-    // Export the current loop to `dir` as a 24-bit WAV plus a JSON sidecar, for
-    // building a labelled meter-analysis training set. `name`/`num`/`denom`/
-    // `bars` are the user-supplied GROUND TRUTH: they are encoded in the
-    // filename (name_sig_bars_bpm_time) and stored in the sidecar. The sidecar
-    // also captures the exact onset data MeterAnalyzer.analyze saw (see
-    // stopRecordStartPlay) plus the analyzer's own guess, so the analyzer can be
-    // re-run and scored offline without the audio. bpm is DERIVED from the
-    // ground-truth labels + measured loop length, not taken from the analyzer.
-    // Analysis need NOT have succeeded — length-anchored / no-meter takes are the
-    // most valuable to label. Mirrors the disk-write in enableBBCut; runs in a
-    // Routine for server.sync.
+    // Export the current loop as labelled training data for the meter
+    // analysis: a 24-bit WAV and a JSON sidecar with the labels (`name`, the
+    // meter `num`/`denom`, `bars`: the ground truth), the onsets MeterAnalyzer
+    // saw and its answer (LooperTrainingExport, the Looper's own until
+    // 2026-11-08). Says \trainingExport (the files' shared name) once both are
+    // written. Answers that name, or nil with no loop.
     exportTrainingLoop { |dir, name, num, denom, bars|
-        var sr, dur, bpm, safeName, stamp, base, wavPath, jsonPath;
-        if(loopFrames == 0 or: { buffer.isNil }) {
-            "Export: no loop to export.".warn;
-            ^nil
-        };
-        num   = num.asInteger.max(1);
-        denom = denom.asInteger.max(1);
-        bars  = bars.asInteger.max(1);
-        sr    = server.sampleRate;
-        dur   = loopFrames / sr;
-        // Ground-truth quarter-note BPM implied by the labels + measured length.
-        bpm   = (bars * num * (4 / denom) / dur * 60).round.asInteger;
-
-        // Sanitise the name to [A-Za-z0-9-] so '_' stays the field separator.
-        safeName = String.new;
-        name.asString.do { |ch|
-            if(ch.isAlphaNum) {
-                safeName = safeName ++ ch;
-            } {
-                if((ch == $ ) or: { ch == $_ } or: { ch == $- }) {
-                    safeName = safeName ++ $-;
-                };
-            };
-        };
-        if(safeName.isEmpty) { safeName = "loop" };
-
-        stamp = Date.getDate.stamp.replace("_", "-");
-        base  = safeName ++ "_" ++ num ++ "-" ++ denom ++ "_"
-            ++ bars ++ "bars_" ++ bpm ++ "bpm_" ++ stamp;
-        wavPath  = dir +/+ base ++ ".wav";
-        jsonPath = dir +/+ base ++ ".json";
-
-        if(File.exists(dir).not) { File.mkdir(dir) };
-
-        Routine {
-            buffer.write(wavPath, "WAV", "int24", loopFrames, startFrame);
-            server.sync;
-            this.writeTrainingSidecar(jsonPath, name.asString,
-                num, denom, bars, bpm, stamp);
-            ("Exported training loop: " ++ base).postln;
-            this.changed(\trainingExport, base);
-        }.play(AppClock);
-        ^base
+        if(loopFrames == 0 or: { buffer.isNil }) { "Export: no loop to export.".warn; ^nil };
+        ^LooperTrainingExport.export(this.prExportTake, dir, name, num, denom, bars,
+            { |base| this.changed(\trainingExport, base) })
     }
 
-    // Write the JSON metadata companion to a training-loop WAV. Reconstructs the
-    // exact analyzer inputs from the retained `onsets` (as stopRecordStartPlay
-    // does at :269-270) so MeterAnalyzer.analyze(loopDur, onsets, strengths) can
-    // be replayed verbatim; `detected` is the analyzer's guess (lastResult).
-    writeTrainingSidecar { |path, name, num, denom, bars, bpm, stamp|
-        var sr = server.sampleRate;
-        var dur = loopFrames / sr;
-        var firstOnset = if(onsets.isEmpty) { 0 } { onsets[0][0] };
-        var relOnsets  = onsets.collect { |pair| pair[0] - firstOnset };
-        var strengths  = onsets.collect { |pair| pair[1] };
-        var rawPairs   = onsets.collect { |p| "[" ++ p[0] ++ ", " ++ p[1] ++ "]" };
-        var fmtArr, jesc, det, jstr, file;
-
-        fmtArr = { |arr| "[" ++ arr.collect({ |x| x.asString }).join(", ") ++ "]" };
-        jesc   = { |s| MegaFiles.jsonString(s) };
-
-        // The analyzer's guess at export time (may carry an \error symbol).
-        det = if(lastResult.isNil) { "null" } {
-            var errStr = if(lastResult.error.isNil)
-                { "null" } { jesc.(lastResult.error) };
-            "{ \"numerator\": " ++ (lastResult.numerator ? "null")
-                ++ ", \"denominator\": " ++ (lastResult.denominator ? "null")
-                ++ ", \"bpm\": " ++ (lastResult.bpm ? "null")
-                ++ ", \"k\": " ++ (lastResult.k ? "null")
-                ++ ", \"n\": " ++ (lastResult.n ? "null")
-                ++ ", \"tau\": " ++ (lastResult.tau ? "null")
-                ++ ", \"sub\": " ++ (lastResult.sub ? "null")
-                ++ ", \"loopDur\": " ++ (lastResult.loopDur ? "null")
-                ++ ", \"onsetCount\": " ++ (lastResult.onsetCount ? "null")
-                ++ ", \"error\": " ++ errStr ++ " }";
-        };
-
-        jstr = "{\n"
-            ++ "  \"name\": " ++ jesc.(name) ++ ",\n"
-            ++ "  \"groundTruth\": { \"numerator\": " ++ num
-                ++ ", \"denominator\": " ++ denom
-                ++ ", \"bars\": " ++ bars
-                ++ ", \"bpm\": " ++ bpm ++ " },\n"
-            ++ "  \"loopDurSec\": " ++ dur ++ ",\n"
-            ++ "  \"sampleRate\": " ++ sr ++ ",\n"
-            ++ "  \"loopFrames\": " ++ loopFrames ++ ",\n"
-            ++ "  \"firstOnsetSec\": " ++ firstOnset ++ ",\n"
-            ++ "  \"analyzerInput\": { \"loopDur\": " ++ (loopDur - firstOnset)
-                ++ ", \"onsets\": " ++ fmtArr.(relOnsets)
-                ++ ", \"strengths\": " ++ fmtArr.(strengths) ++ " },\n"
-            ++ "  \"rawOnsets\": " ++ fmtArr.(rawPairs) ++ ",\n"
-            ++ "  \"detected\": " ++ det ++ ",\n"
-            ++ "  \"exportedAt\": " ++ jesc.(stamp) ++ "\n"
-            ++ "}\n";
-
-        file = File(path, "w");
-        if(file.isOpen) {
-            file.write(jstr);
-            file.close;
-        } {
-            ("Export: could not open " ++ path).warn;
-        };
+    // What the take is, for a part that writes it out (LooperTrainingExport):
+    // the loop's frames in its buffer, the onsets as heard ([time, strength]
+    // from the take's start), the reading, the take's own length.
+    prExportTake {
+        ^(buffer: buffer, loopFrames: loopFrames, startFrame: startFrame, sampleRate: server.sampleRate,
+            onsets: onsets.copy, lastResult: lastResult, loopDur: loopDur, server: server)
     }
 
     // Rebuild a single voice in place to pick up a structural change (proc /

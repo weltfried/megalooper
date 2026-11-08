@@ -1575,6 +1575,7 @@ megalooper/
     Looper.sc            -- state machine, MIDI/OSC plumbing
     LooperSynthDefs.sc   -- the Looper's SynthDefs and the graph pieces they share
     MeterDecision.sc     -- what a reading means for the loop: the snap, bar and beat, counts, readings
+    LooperTrainingExport.sc -- a loop written out as labelled training data (WAV + JSON sidecar)
     LooperBreakProc.sc   -- house BBCut procedure: occasional block repeats
     LooperCutGate.sc     -- drives the Insert-mode duck bus from each cut block
     LooperSessionRecorder.sc -- records the whole set to disk, from the stomp
@@ -1970,6 +1971,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-synthdefs.scd` | every SynthDef's compiled graph, fingerprinted against a baseline |
 | `test-preset-storage.scd` | the storage both families share, on real files |
 | `test-preset-bar.scd` | the shared preset bar driven end to end with stub widgets |
+| `test-training-export.scd` | the labelled-loop export: file names from the labels, and every corpus sidecar written again reads back the same |
 | `test-session-recorder.scd` | set recording: file naming with the set's tempo, refusals, the transport guard, the stems, the stop and the WAVs' clock, and the event log — its JSON, the takes and labels read back from it, and what the looper and the drums write |
 | `test-action-log.scd` | Log every action: what is heard and what is not, a knob's changes written ten a second, whose a change was, a part's state once it settled, the lines as the recorder writes them, and the real parts' changes |
 | `test-session-midi.scd` | the set's `.mid`: the MIDI file writer and reader, ticks at the file name's tempo, the three tracks |
