@@ -242,7 +242,7 @@
     [
         if(morph < 0.5) { "Toward drone" } { "Toward pulse" },
         "Pitch " ++ (if(st > 0) { "+" } { "" }) ++ st ++ " st",
-        ((Looper.granularEnvNames[env] ? "").replace(" (built in)", "")) ++ " window"
+        ((LooperGrains.envNames[env] ? "").replace(" (built in)", "")) ++ " window"
     ] ++ if(follow == true) { ["Follows chords"] } { [] }
 };
 

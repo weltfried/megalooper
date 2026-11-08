@@ -1,7 +1,7 @@
 Looper {
     var <server, <bufDur, <>midiOut;
     var buffer, undoBuffer;
-    var recSynth, engineSynth, granularSynth, masterSynth;
+    var recSynth, engineSynth, masterSynth;
     var outBus;
     var clickRoutine, midiClockRoutine, chordRoutine;
     var <>onChordChange;
@@ -228,27 +228,11 @@ Looper {
     // The clock's tick period, an ivar so a reading can move it live.
     var clockPeriod;
     // ---- Granular voice ----------------------------------------------------
-    // `granularMorph` stays the meta-control: it sets the BASE of the texture
-    // (window size, overlaps, scan rate, jitter) between frozen drone and
-    // beat-locked pulse. Everything below BENDS that base, and every default is
-    // NEUTRAL — an untouched instrument sounds exactly as it did before these
-    // existed. See the \looperGranular SynthDef for how each one folds in.
-    var <granularMorph = 0;
-    var <granularAmp = 0.3;        // layer level, 0..1
-    var <granularPitch = 0;        // grain transposition, semitones
-    var <granularDetune = 0;       // +/- semitones of PER-GRAIN random detune
-    var <granularSize = 1;         // grain-window multiplier on morph's base
-    var <granularDensity = 1;      // overlap multiplier on morph's base
-    var <granularSizeRand = 0.1;   // Warp1 windowRandRatio, 0..1
-    var <granularPosition = 0;     // read point within the loop region, 0..1
-    var <granularScan = 0;         // EXTRA passes through the loop per loopDur
-    var <granularSpray = 0;        // absolute position spray, ms
-    var <granularEnv = 0;          // index into Looper.granularEnvNames
-    // Off: the grains play the loop as it sounds where they read (as they
-    // always did). On: transposed with the take's chord changes (roadmap
-    // item 8; the \looperGranular graph).
-    var <granularFollowChords = false;
-    var granularEnvBufs;
+    // The grains: LooperGrains, made when first asked for (grainsPart). The
+    // Looper's granular* methods are its facade; what the grains read (the
+    // buffer, the loop's span, the pulse, the rate, the arc's mix) the Looper
+    // hands over (prGrainSource).
+    var grainsPart;
     var <transportMode = \full;
     var <latencyMs = 0;
     var <declickMs = 3;
@@ -331,37 +315,6 @@ Looper {
         ^root
     }
 
-    // Grain-window shapes offered by the granular layer. Index 0 is Warp1's own
-    // built-in Hann (envbufnum -1, so it needs no buffer); the rest are the Envs
-    // in prGranularEnvShapes, index-aligned from 1. The GUI renders the menu
-    // straight from this, so adding a shape means editing both, in step.
-    *granularEnvNames { ^["Hann (built in)", "Plateau", "Percussive", "Swell"] }
-
-    // What each shape does, index-aligned with the names: the line under the
-    // Grains view's tiles, and what an AI app is told (MegaRemote).
-    *granularEnvHints {
-        ^[
-            "Smooth and symmetrical, the default.",
-            "Flat top, short fades. Thicker drones, harder pulses.",
-            "Instant attack, long decay. Every grain becomes a little hit.",
-            "Reversed percussive. Attacks are erased, so even a plucked loop smears into a pad."
-        ]
-    }
-
-    *prGranularEnvShapes {
-        ^[
-            // Plateau: short fades around a flat top. More energy per grain than
-            // Hann and a squarer edge — thicker drones, harder pulses.
-            Env([0, 1, 1, 0], [0.15, 0.7, 0.15], \sin),
-            // Percussive: instant attack, long decay. Turns each grain into a
-            // little hit, which is what makes the pulsed end read as rhythm.
-            Env([0, 1, 0], [0.02, 0.98], [\lin, -4]),
-            // Swell: the same shape backwards — grains fade IN, so attacks are
-            // erased entirely and even a plucked loop smears into pad.
-            Env([0, 1, 0], [0.98, 0.02], [4, \lin])
-        ]
-    }
-
     init { |aServer, aMidiOut, aBufDur|
         server = aServer;
         midiOut = aMidiOut;
@@ -375,7 +328,6 @@ Looper {
         this.initBBCut;
 
         Routine {
-            var envShapes = Looper.prGranularEnvShapes;
             buffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
             undoBuffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
             this.chainPart.allocBuffer(server, server.sampleRate * bufDur);
@@ -396,9 +348,9 @@ Looper {
             // Allocated empty here and FILLED AFTER the sync: Buffer.sendCollection
             // would send its data from a language-side /done callback that can
             // land after this sync, leaving a silent (all-zero) window buffer.
-            granularEnvBufs = envShapes.collect { Buffer.alloc(server, 1024, 1) };
+            this.grainsPart.allocEnvBufs(server);
             server.sync;
-            granularEnvBufs.do { |b, i| b.sendCollection(envShapes[i].discretize(1024)) };
+            this.grainsPart.fillEnvBufs;
             this.loadSynthDefs;
             server.sync;
             masterSynth = Synth.tail(server, \looperMaster, [
@@ -534,7 +486,7 @@ Looper {
             granularPosition: [\state, [\value], "read position"],
             granularScan: [\state, [\value], "extra passes per loop"],
             granularSpray: [\state, [\value], "read-position spray, ms"],
-            granularEnv: [\state, [\index], "the grain window (Looper.granularEnvNames)"],
+            granularEnv: [\state, [\index], "the grain window (LooperGrains.envNames)"],
             granularFollowChords: [\state, [\on], "the grains follow the chords"],
             // ---- the onset notes
             onsetNotes: [\state, [\on], "the onset notes play"],
@@ -560,7 +512,7 @@ Looper {
     cmdPeriod {
         if(ready.not) { ^this };
         ready = false;
-        engineSynth = nil; recSynth = nil; granularSynth = nil; masterSynth = nil;
+        engineSynth = nil; recSynth = nil; masterSynth = nil; grainsPart !? { |g| g.forget };
         tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; chainPart !? { |c| c.forget };
         clickRoutine = nil; midiClockRoutine = nil; chordRoutine = nil; breakRoutine = nil;
         dissolveRoutine = nil; readingRoutine = nil; halfTimeRoutine = nil; reverseRoutine = nil;
@@ -916,7 +868,7 @@ Looper {
         // follow and scans freely; now there is one, and the new engine sits
         // ahead of it in the node order. See \looperGranular. And it reads
         // what this engine reads (Record next loop swapped the buffers).
-        granularSynth !? { |g| g.set(\locked, 1) };
+        this.grainsPart.lock;
         this.prGranularFollow;
         // Every path that starts audio comes through here, so this is where the
         // onset-note pattern re-aligns — to the audio's own start, not to
@@ -2557,10 +2509,10 @@ Looper {
             ),
             granular: (
                 label:   "Granular",
-                format:  this.granularPresetFormat,
+                format:  LooperGrains.presetFormat,
                 what:    "megalooper granular preset",
                 order:   #[\version, \name, \savedAt, \env, \followChords]
-                    ++ this.granularPresetFields.collect { |f| f[0] },
+                    ++ LooperGrains.presetFields.collect { |f| f[0] },
                 version: \granularPresetVersion,
                 data:    \granularPresetData,
                 apply:   \applyGranularPreset,
@@ -2631,10 +2583,6 @@ Looper {
         ^data[\voices].size.asString ++ " voice(s), " ++ data[\mode]
     }
 
-    prGranularPresetSummary { |data|
-        ^"morph " ++ data[\morph].round(0.01) ++ ", " ++ data[\env]
-    }
-
     // ---- Per-family entry points ----------------------------------------
     //
     // Kept as named methods rather than asking every caller to pass a family
@@ -2648,144 +2596,9 @@ Looper {
     loadBBCutPreset   { |dir, name| ^this.prLoadPreset(\bbcut, dir, name) }
     deleteBBCutPreset { |dir, name| ^this.prDeletePreset(\bbcut, dir, name) }
 
-    // ===================================================================
-    // Granular presets
-    // ===================================================================
-    // Same shape as the BBCut presets above, deliberately: one JSON file per
-    // preset ("megalooper granular"), and `dir` passed in rather than derived
-    // because this class is compiled through a symlink in Extensions.
-    //
-    // One table drives the file's field order, the validator's ranges and the
-    // apply, so those three cannot drift apart — which is the failure mode a
-    // hand-written serialiser has after the second parameter is added.
-    // The ranges match the setters' own clips.
-    *granularPresetFields {
-        ^[
-            // file key,  model accessor,     lo,    hi,   default
-            [\morph,    \granularMorph,      0,     1,    0],
-            [\amp,      \granularAmp,        0,     1,    0.3],
-            [\pitch,    \granularPitch,    -48,    48,    0],
-            [\detune,   \granularDetune,     0,    24,    0],
-            [\size,     \granularSize,       0.01, 16,    1],
-            [\density,  \granularDensity,    0.01, 16,    1],
-            [\sizeRand, \granularSizeRand,   0,     1,    0.1],
-            [\position, \granularPosition,   0,     1,    0],
-            [\scan,     \granularScan,      -8,     8,    0],
-            [\spray,    \granularSpray,      0,  2000,    0]
-        ]
-    }
-
-    granularPresetVersion { ^1 }
-    *granularPresetFormat { ^"megalooper granular" }
-
     granularPresetSlug  { |name| ^MegaFiles.presetSlug(name) }
     granularPresetPath  { |dir, name| ^this.presetPath(dir, name) }
     granularPresetNames { |dir| ^this.presetNames(dir) }
-
-    granularPresetData { |name|
-        var data = (
-            version: this.granularPresetVersion,
-            name:    (name ? "").asString,
-            savedAt: Date.getDate.stamp,
-            // Stored by NAME, not by index. The index is a position in
-            // granularEnvNames, so inserting a window shape would silently
-            // re-point every preset saved before it at a different envelope.
-            env:     Looper.granularEnvNames[granularEnv].asString,
-            followChords: granularFollowChords
-        );
-        Looper.granularPresetFields.do { |f|
-            data[f[0]] = this.perform(f[1]).asFloat;
-        };
-        ^data
-    }
-
-    // The file's text: one field a line (MegaFiles.jsonText).
-    granularPresetText { |data|
-        ^MegaFiles.eventText(data, Looper.granularPresetFormat, Looper.prPresetFamilies[\granular][\order])
-    }
-
-    // Fail-soft by field, reject by file — the same contract the BBCut
-    // validator uses, and for the same reason: these files are hand-editable
-    // and far more often STALE than corrupt. Pure, so a rejection happens
-    // before any model state has been touched.
-    prValidateGranularPreset { |data, warnings|
-        var clean, envName, envIdx;
-        if(data.isKindOf(Dictionary).not) {
-            warnings.add("not a preset (expected an Event)");
-            ^nil
-        };
-        if((data[\version] ? 1).asInteger > this.granularPresetVersion) {
-            warnings.add("version " ++ data[\version] ++ " is newer than this build ("
-                ++ this.granularPresetVersion ++ ")");
-            ^nil
-        };
-        clean = (
-            version: this.granularPresetVersion,
-            name:    (data[\name] ? "").asString
-        );
-        Looper.granularPresetFields.do { |f|
-            var key = f[0], lo = f[2], hi = f[3], default = f[4];
-            var val = data[key];
-            if(val.isNumber and: { val.isNaN.not }) {
-                var out = val.clip(lo, hi).asFloat;
-                if(out != val.asFloat) {
-                    warnings.add(key.asString ++ " " ++ val ++ " -> " ++ out ++ " (range)");
-                };
-                clean[key] = out;
-            } {
-                // A missing field is the ordinary case for a preset saved by an
-                // older build, so it is only worth a warning when something IS
-                // there and is not a number.
-                if(val.notNil) {
-                    warnings.add(key.asString ++ " not a number -> " ++ default);
-                };
-                clean[key] = default.asFloat;
-            };
-        };
-        // Resolve the window shape by name, case-insensitively; anything
-        // unrecognised falls back to Warp1's own Hann rather than guessing.
-        envName = (data[\env] ? "").asString;
-        envIdx = Looper.granularEnvNames.detectIndex { |n|
-            n.asString.toLower == envName.toLower
-        };
-        if(envIdx.isNil) {
-            if(envName.isEmpty.not) {
-                warnings.add("unknown window '" ++ envName ++ "' -> "
-                    ++ Looper.granularEnvNames[0]);
-            };
-            envIdx = 0;
-        };
-        clean[\env] = envIdx;
-        // Following the chords: true or false; a preset from before it had
-        // none, and plays as it did then.
-        clean[\followChords] = case
-            { data[\followChords].isNil } { false }
-            { (data[\followChords] == true) or: { data[\followChords] == false } } { data[\followChords] }
-            { warnings.add("followChords " ++ data[\followChords].asCompileString ++ " is not true or false -> false"); false };
-        ^clean
-    }
-
-    // Recall. Goes through the SETTERS, never the vars, so every change reaches
-    // a running granular synth and fires its own notification — which is what
-    // makes the window follow a recall without this method knowing a view exists.
-    applyGranularPreset { |data|
-        var warnings = List.new;
-        var clean = this.prValidateGranularPreset(data, warnings);
-        if(clean.isNil) {
-            ("Granular preset rejected — " ++ warnings.join("; ")).warn;
-            ^false
-        };
-        Looper.granularPresetFields.do { |f|
-            this.perform(f[1].asSetter, clean[f[0]]);
-        };
-        this.granularEnv = clean[\env];
-        this.granularFollowChords = clean[\followChords];
-        if(warnings.notEmpty) {
-            ("Granular preset '" ++ clean[\name] ++ "': " ++ warnings.size
-                ++ " correction(s) — " ++ warnings.join("; ")).warn;
-        };
-        ^true
-    }
 
     saveGranularPreset   { |dir, name| ^this.prSavePreset(\granular, dir, name) }
     loadGranularPreset   { |dir, name| ^this.prLoadPreset(\granular, dir, name) }
@@ -2813,8 +2626,7 @@ Looper {
         if(bbcut) { this.disableBBCut };
         engineSynth !? { |s| s.free };
         engineSynth = nil;
-        granularSynth !? { |s| s.free; this.changed(\granular, false) };
-        granularSynth = nil;
+        this.grainsPart.off;
         clickRoutine !? { |r| r.stop };
         clickRoutine = nil;
         chordRoutine !? { |r| r.stop };
@@ -2887,7 +2699,7 @@ Looper {
     // "where the arc is".
     prApplyMixes {
         engineSynth   !? { |s| s.set(\amp, this.prLoopMix) };
-        granularSynth !? { |s| s.set(\amp, granularAmp * this.prGranularMix) };
+        this.grainsPart.applyMix;
         bbcutVoices !? { |voices|
             voices.do { |v|
                 v[\mixer] !? { |m| m.volume_(v[\amp] * this.prBBCutMix) };
@@ -3223,7 +3035,7 @@ Looper {
 
     // The direction now, to the grains and whoever listens.
     prReverseSaid {
-        granularSynth !? { |g| g.set(\rate, this.prGrainRate) };
+        this.grainsPart.setRate(this.prGrainRate);
         ("Reverse: " ++ reverseFlag).postln;
         this.changed(\reverse, reverseFlag);
     }
@@ -3386,10 +3198,8 @@ Looper {
         this.startOnsetNotes;
         chordRoutine !? { this.startChordRoutine(lastResult) };
         // The grains scan as the loop moves, their pulse the loop's.
-        granularSynth !? { |g|
-            g.set(\rate, this.prGrainRate);
-            lastResult !? { |r| r[\tau] !? { |t| g.set(\tau, t / speed) } };
-        };
+        this.grainsPart.setRate(this.prGrainRate);
+        lastResult !? { |r| r[\tau] !? { |t| this.grainsPart.setTau(t / speed) } };
     }
 
     // Back to 1 at once, for a new engine (it plays at 1) and a stop.
@@ -3404,7 +3214,7 @@ Looper {
             halfTimeAt = nil;
             passOrigin = nil;
             speedChangedAt = SystemClock.seconds;
-            granularSynth !? { |g| g.set(\rate, this.prGrainRate) };
+            this.grainsPart.setRate(this.prGrainRate);
             this.changed(\halfTime, halfTime);
             this.changed(\speed, speed);
         };
@@ -3645,51 +3455,59 @@ Looper {
         };
     }
 
-    // Granular has no flag of its own — the layer exists exactly while its synth
-    // does. Expose that as a proper query so views don't have to guess.
-    granularOn { ^granularSynth.notNil }
+    // ---- The grains (LooperGrains) -------------------------------------------
+    // The part, made when first asked for: a Looper made without init (the
+    // tests' newCopyArgs) has one too.
+    grainsPart { ^grainsPart ?? { grainsPart = LooperGrains(this) } }
 
-    toggleGranular {
-        var tau, args;
-        if(granularSynth.notNil) {
-            granularSynth.free; granularSynth = nil;
-            "Granular off.".postln;
-            this.changed(\granular, false);
-            ^this
-        };
-        // Refused, so the layer is still off — say so anyway, or a view that
-        // optimistically flipped its indicator on the keypress stays wrong.
-        if(loopFrames == 0) {
-            "Granular: no loop recorded.".postln;
-            this.changed(\granular, false);
-            ^this.prRefused(\granular, "no loop recorded")
-        };
-        tau = this.prGranularTau;
-        args = [
-            \bufnum, buffer.bufnum,
-            \out, outBus.index,
-            \startFrame, startFrame,
-            \loopFrames, loopFrames,
-            \tau, tau,
-            // The pulsed scan follows the ENGINE's read position (see the
-            // \looperGranular graph). It therefore goes AFTER the engine in the
-            // node order, to read this block's position rather than the last
-            // one's, and that is still before the master, which reads the bus
-            // this writes. Over a stopped loop there is no engine to follow:
-            // the layer goes at the head and scans freely until spawnEngine
-            // locks it.
-            \phaseBus, phaseBus.index,
-            \locked, engineSynth.notNil.asInteger,
-            \rate, this.prGrainRate
-        ] ++ this.prGranularArgs ++ this.prGranularChordArgs.flatten(1);
-        granularSynth = engineSynth !? { |e| Synth.after(e, \looperGranular, args) }
-            ?? { Synth(\looperGranular, args, server) };
-        ("Granular on. tau=" ++ tau.round(0.001)
-            ++ " morph=" ++ granularMorph.round(0.01)
-            ++ (if(engineSynth.notNil) { ", locked to the loop" } { ", free (loop stopped)" })
-            ).postln;
-        this.changed(\granular, true);
+    // What the grains read, for the part: the buffer, where the loop is in it,
+    // the bus they write, the engine they follow (nil over a stopped loop),
+    // the bus its read position is on, the server.
+    prGrainSource {
+        ^(buffer: buffer, startFrame: startFrame, loopFrames: loopFrames, out: outBus !? { |b| b.index },
+            phaseBus: phaseBus !? { |b| b.index }, engine: engineSynth, server: server)
     }
+
+    // The facade: the window, MIDI, the AI, the presets and the tests ask the
+    // Looper, which asks its part.
+    granularMorph { ^this.grainsPart.granularMorph }
+    granularAmp { ^this.grainsPart.granularAmp }
+    granularPitch { ^this.grainsPart.granularPitch }
+    granularDetune { ^this.grainsPart.granularDetune }
+    granularSize { ^this.grainsPart.granularSize }
+    granularDensity { ^this.grainsPart.granularDensity }
+    granularSizeRand { ^this.grainsPart.granularSizeRand }
+    granularPosition { ^this.grainsPart.granularPosition }
+    granularScan { ^this.grainsPart.granularScan }
+    granularSpray { ^this.grainsPart.granularSpray }
+    granularEnv { ^this.grainsPart.granularEnv }
+    granularFollowChords { ^this.grainsPart.granularFollowChords }
+    granularMorph_ { |val| this.grainsPart.granularMorph_(val) }
+    granularAmp_ { |val| this.grainsPart.granularAmp_(val) }
+    granularPitch_ { |val| this.grainsPart.granularPitch_(val) }
+    granularDetune_ { |val| this.grainsPart.granularDetune_(val) }
+    granularSize_ { |val| this.grainsPart.granularSize_(val) }
+    granularDensity_ { |val| this.grainsPart.granularDensity_(val) }
+    granularSizeRand_ { |val| this.grainsPart.granularSizeRand_(val) }
+    granularPosition_ { |val| this.grainsPart.granularPosition_(val) }
+    granularScan_ { |val| this.grainsPart.granularScan_(val) }
+    granularSpray_ { |val| this.grainsPart.granularSpray_(val) }
+    granularEnv_ { |val| this.grainsPart.granularEnv_(val) }
+    granularFollowChords_ { |flag| this.grainsPart.granularFollowChords_(flag) }
+    granularOn { ^this.grainsPart.on }
+    toggleGranular { ^this.grainsPart.toggle }
+    granularPresetVersion { ^this.grainsPart.presetVersion }
+    granularPresetData { |name| ^this.grainsPart.presetData(name) }
+    granularPresetText { |data| ^this.grainsPart.presetText(data) }
+    applyGranularPreset { |data| ^this.grainsPart.applyPreset(data) }
+    prValidateGranularPreset { |data, warnings| ^this.grainsPart.validatePreset(data, warnings) }
+    prGranularPresetSummary { |data| ^this.grainsPart.presetSummary(data) }
+    // The Looper's own uses (the loop moved under the grains), and the tests'.
+    prGranularFollow { this.grainsPart.follow }
+    prGranularChordArgs { ^this.grainsPart.chordArgs }
+    prGranularArgs { ^this.grainsPart.args }
+    prGranularEnvBuf { ^this.grainsPart.envBuf }
+    prSetGranular { |key, val, notification| this.grainsPart.prSetGranular(key, val, notification) }
 
     // The pulse the grains play at morph 1: the reading's, or a quarter of
     // the loop where there is none. At half-time a pulse lasts twice as long:
@@ -3701,155 +3519,9 @@ Looper {
         ^tau / speed
     }
 
-    // The grains read what the engine reads. Their synth is given the buffer,
-    // its start, the loop's length and the pulse when spawned; every change of
-    // those that spawns no grains synth sends them here: Record next loop's
-    // swap of the two buffers (spawnEngine), multiply, undo, a take's
-    // analysis, an overdub's and a reading's landing. Without it the grains
-    // went on reading the old loop after a swap, in the buffer the next
-    // capture then recorded into (roadmap item 20, found on the way).
-    prGranularFollow {
-        var chords;
-        granularSynth !? { |g|
-            chords = this.prGranularChordArgs;
-            g.set(*([\startFrame, startFrame, \loopFrames, loopFrames, \tau, this.prGranularTau]
-                ++ (buffer !? { |b| [\bufnum, b.bufnum] } ? []) ++ chords[0]));
-            g.setn(*chords[1]);
-        };
-    }
-
-    // The take's chords for the grains (granularFollowChords): [the switch
-    // and the length the segments cover, as set pairs; their starts and
-    // roots, as setn pairs of chordSlots values]. Unused starts lie past any
-    // time. A take of fewer than two chords has none to follow (period 0).
-    prGranularChordArgs {
-        var segs = (lastResult !? { |r| r[\chordSegments] }) ? [];
-        var period = if(segs.size < 2) { 0 } { (lastResult[\chordPeriod] ?? { lastResult[\loopDur] }) ? 0 };
-        var starts = Array.fill(LooperSynthDefs.chordSlots, 1e9), roots = Array.fill(LooperSynthDefs.chordSlots, 0);
-        segs.keep(LooperSynthDefs.chordSlots).do { |seg, i| starts[i] = seg[\start] ? 0; roots[i] = seg[\root] ? 0 };
-        ^[[\follow, granularFollowChords.binaryValue, \chordPeriod, period], [\chordStarts, starts, \chordRoots, roots]]
-    }
-
-    // The grains with the chords (true) or as the loop sounds where they read
-    // (false, as they always were).
-    granularFollowChords_ { |flag|
-        granularFollowChords = flag == true;
-        granularSynth !? { |g| g.set(\follow, granularFollowChords.binaryValue) };
-        this.changed(\granularFollowChords, granularFollowChords);
-    }
-
-    // The whole granular control set as synth args, in ONE place, so a fresh
-    // synth always starts from what the sliders currently say — toggling the
-    // layer off and on cannot quietly reset it to defaults.
-    prGranularArgs {
-        ^[
-            \morph,    granularMorph,   \amp,      granularAmp * this.prGranularMix,
-            \pitch,    granularPitch,   \detune,   granularDetune,
-            \size,     granularSize,    \density,  granularDensity,
-            \sizeRand, granularSizeRand, \position, granularPosition,
-            \scan,     granularScan,    \sprayMs,  granularSpray,
-            \envbuf,   this.prGranularEnvBuf
-        ]
-    }
-
-    // Menu index 0 means Warp1's built-in Hann, which is the -1 sentinel rather
-    // than a buffer. Falls back to it if the window buffers are not allocated
-    // yet (a granular toggle racing construction).
-    prGranularEnvBuf {
-        var buf = granularEnvBufs !? { |a| a[granularEnv - 1] };
-        ^if(granularEnv > 0 and: { buf.notNil }) { buf.bufnum } { -1 }
-    }
-
-    // Every granular setter does the same three things, and doing them by hand
-    // ten times is ten chances to forget the notification and desync a view.
-    prSetGranular { |key, val, notification|
-        granularSynth !? { |syn| syn.set(key, val) };
-        this.changed(notification, val);
-    }
-
     // All settable parameters notify dependents via `this.changed(\key, val)`.
     // GUI and external surfaces subscribe with SimpleController(this).put(\key, fn)
     // and stay in sync regardless of where the change originated.
-
-    // Rhythm/drone meta-control: sets the base every parameter below bends.
-    granularMorph_ { |val|
-        granularMorph = val.clip(0, 1);
-        this.prSetGranular(\morph, granularMorph, \granularMorph);
-    }
-
-    // Level of the granular layer against the engine, pre-limiter.
-    // The stored level, which is what the GUI shows. What reaches the synth is
-    // this times the arc's granular multiplier, so the slider keeps meaning
-    // "the level at full intensity" rather than drifting under the pedal.
-    granularAmp_ { |val|
-        granularAmp = val.clip(0, 1);
-        this.prApplyMixes;
-        this.changed(\granularAmp, granularAmp);
-    }
-
-    // Grain transposition in semitones. The pointer is unaffected, so this
-    // pitches the layer without changing how fast it reads the loop.
-    granularPitch_ { |val|
-        granularPitch = val.clip(-48, 48);
-        this.prSetGranular(\pitch, granularPitch, \granularPitch);
-    }
-
-    // Random detune applied afresh to each grain, +/- this many semitones.
-    // Small values thicken (chorus); large ones shatter the loop into confetti.
-    granularDetune_ { |val|
-        granularDetune = val.clip(0, 24);
-        this.prSetGranular(\detune, granularDetune, \granularDetune);
-    }
-
-    // Grain length as a multiple of what morph asks for. Below ~0.2 the grains
-    // stop carrying pitch and start reading as texture.
-    granularSize_ { |val|
-        granularSize = val.clip(0.01, 16);
-        this.prSetGranular(\size, granularSize, \granularSize);
-    }
-
-    // Overlap count as a multiple of morph's. Thickness — and the CPU bill.
-    granularDensity_ { |val|
-        granularDensity = val.clip(0.01, 16);
-        this.prSetGranular(\density, granularDensity, \granularDensity);
-    }
-
-    // Warp1's windowRandRatio: how much grain LENGTH varies grain to grain.
-    // A little breaks up the comb filtering of perfectly regular overlaps.
-    granularSizeRand_ { |val|
-        granularSizeRand = val.clip(0, 1);
-        this.prSetGranular(\sizeRand, granularSizeRand, \granularSizeRand);
-    }
-
-    // Where in the loop the grains read from, 0..1 of the loop region. At the
-    // drone end (no scan) this IS the freeze point — sweep it to move the drone
-    // through the recording by hand.
-    granularPosition_ { |val|
-        granularPosition = val.clip(0, 1);
-        this.prSetGranular(\position, granularPosition, \granularPosition);
-    }
-
-    // EXTRA passes through the loop per loop duration, added to morph's own.
-    // 0 leaves morph in charge; small values drift a drone; negative runs the
-    // read head backwards; -1 exactly cancels a fully pulsed scan.
-    granularScan_ { |val|
-        granularScan = val.clip(-8, 8);
-        this.prSetGranular(\scan, granularScan, \granularScan);
-    }
-
-    // Absolute per-grain position randomness in ms. Unlike morph's own jitter
-    // this survives at the pulsed end, which is how you loosen a locked grid.
-    granularSpray_ { |val|
-        granularSpray = val.clip(0, 2000);
-        this.prSetGranular(\sprayMs, granularSpray, \granularSpray);
-    }
-
-    // Grain window shape — index into Looper.granularEnvNames.
-    granularEnv_ { |val|
-        granularEnv = val.asInteger.clip(0, Looper.granularEnvNames.size - 1);
-        granularSynth !? { |syn| syn.set(\envbuf, this.prGranularEnvBuf) };
-        this.changed(\granularEnv, granularEnv);
-    }
 
     outChannel_ { |val|
         outChannel = val;
@@ -4246,7 +3918,7 @@ Looper {
         chainPart !? { |c| c.free };
         recSynth !? { |s| s.free };
         engineSynth !? { |s| s.free };
-        granularSynth !? { |s| s.free };
+        grainsPart !? { |g| g.free };
         masterSynth !? { |s| s.free };
         tapLevelSynth !? { |s| s.free };
         clickRoutine !? { |r| r.stop };
@@ -4266,7 +3938,6 @@ Looper {
         phaseBus !? { |b| b.free };
         tapGainBus !? { |b| b.free };
         insertBus !? { |b| b.free };
-        granularEnvBufs !? { |bufs| bufs.do { |b| b.free } };
         this.stopOnsetNotes;
         onsetResp !? { |r| r.free };
         pitchResp !? { |r| r.free };

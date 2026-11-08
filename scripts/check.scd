@@ -310,7 +310,7 @@ if(~breakMacroCc.inclusivelyBetween(0, 127).not) {
 };
 // The preset table names accessors by symbol, so a renamed setter would only
 // surface as a throw the first time someone recalls a preset.
-Looper.granularPresetFields.do { |f|
+LooperGrains.presetFields.do { |f|
     if(Looper.findRespondingMethodFor(f[1]).isNil) {
         ("  MISSING  Looper:" ++ f[1] ++ " (granularPresetFields)").postln; bad = bad + 1;
     };
@@ -320,8 +320,8 @@ Looper.granularPresetFields.do { |f|
     };
 };
 ("  " ++ ~granularParams.size ++ " parameters, "
-    ++ Looper.granularEnvNames.size ++ " grain windows, "
-    ++ Looper.granularPresetFields.size ++ " saved fields").postln;
+    ++ LooperGrains.envNames.size ++ " grain windows, "
+    ++ LooperGrains.presetFields.size ++ " saved fields").postln;
 
 // The onset-notes panel calls these by name on ~looper; unlike the granular
 // window there is no table to generate them from, so a rename on the class side

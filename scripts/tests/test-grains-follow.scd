@@ -87,6 +87,8 @@ l.prGranularFollow;
     [[0, 1.75, 1e9], [9, 2, 0], LooperSynthDefs.chordSlots]);
 l.granularFollowChords = true;
 ~tEq.("switched on: the grains follow, and it is said", [~tLastSet.(l, g, \follow), l.granularFollowChords], [1, true]);
+l.prGranularFollow;
+~tEq.("...and every follow after sends it on (a swap, a multiply, a reading)", ~tLastSet.(l, g, \follow), 1);
 ~tPut.(l, \lastResult, r.copy.put(\chordSegments, segs.keep(1)));
 l.prGranularFollow;
 ~tEq.("a take of one chord has nothing to follow (period 0)", ~tLastSet.(l, g, \chordPeriod), 0);
@@ -96,6 +98,26 @@ l.prGranularFollow;
 ~tEq.("a reading the analyser ranked carries the take's chords and their period",
     MeterDecision.readingFor((candidates: [r], chordSegments: segs, chordPeriod: 3.5), 0, 3.5) !? { |x| [x[\chordSegments].size, x[\chordPeriod]] },
     [2, 3.5]);
+
+// What the Looper tells the grains as the loop moves under them (LooperGrains,
+// split out of the Looper on 2026-11-08): the arc's level, the direction,
+// and a stop.
+l.granularAmp = 0.5;
+~tPut.(l, \intensity, 0.5);
+~tPut.(l, \dissolvePos, 0);
+l.prApplyMixes;
+~tEq.("the arc sets the grains' level: their own times the arc's mix", ~tLastSet.(l, g, \amp), 0.5 * l.prGranularMix);
+~tPut.(l, \reverseFlag, true);
+l.prReverseSaid;
+~tEq.("a reverse plays the grains backwards", ~tLastSet.(l, g, \rate), -1);
+~tPut.(l, \reverseFlag, false);
+l.prReverseSaid;
+~tEq.("...and forwards again", ~tLastSet.(l, g, \rate), 1);
+l.stopPlayback;
+~tEq.("a stop takes the grains off, and says so", [l.granularOn, ~tGet.(l, \granularSynth)], [false, nil]);
+g = ~tStubSynth.(l, \looperGranular);
+~tPut.(l, \granularSynth, g);
+~tPut.(l, \state, \playing);
 
 // In a granular preset, by name; one from before it plays as it did.
 data = l.granularPresetData("x");

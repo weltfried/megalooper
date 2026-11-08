@@ -295,10 +295,10 @@
             get: { ~looper !? { |l| l.onsetNoteChance } }, set: { |v| ~looper !? { |l| l.onsetNoteChance = v } },
             fromPos: { |c| c }, toPos: { |v| v },
             format: shown.({ |v| (v * 100).round.asInteger.asString ++ "%" }), available: looper));
-        // The Grains tab's Window menu: an index into Looper.granularEnvNames,
+        // The Grains tab's Window menu: an index into LooperGrains.envNames,
         // which is what the menu lists.
         add.('looper.granularEnv', "Window", "Grains", \choice, choice.((group: "Grain",
-            items: Looper.granularEnvNames,
+            items: LooperGrains.envNames,
             get: { ~looper !? { |l| l.granularEnv } },
             set: { |i| ~looper !? { |l| l.granularEnv = i } },
             available: looper)));

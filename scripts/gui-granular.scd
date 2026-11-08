@@ -79,12 +79,12 @@
 };
 
 // The window's tiles, and the line under them.
-~granularEnvHints = Looper.granularEnvHints;
+~granularEnvHints = LooperGrains.envHints;
 ~granularPaintEnv = { |val|
     ~granularEnvSeg !? { |s| ~guiSegSet.(s, val) };
     ~granularEnvHint !? { |t|
         if(t.isClosed.not) {
-            t.string_((Looper.granularEnvNames[val] ? "") ++ ": " ++ (~granularEnvHints[val] ? ""));
+            t.string_((LooperGrains.envNames[val] ? "") ++ ": " ++ (~granularEnvHints[val] ? ""));
         };
     };
 };
@@ -220,8 +220,8 @@
         .action_({ ~controlDo.('looper.granular', \press, nil, \gui) }),
         'looper.granular',
         "Toggle the granular layer (key G). Refused, and left off, while no loop is recorded.");
-    // The window shapes, from Looper.granularEnvNames, one tile each.
-    ~granularEnvSeg = ~guiSeg.(Looper.granularEnvNames,
+    // The window shapes, from LooperGrains.envNames, one tile each.
+    ~granularEnvSeg = ~guiSeg.(LooperGrains.envNames,
         (gap: 6, height: 38, fill: \grain, ink: \onacc, base: \bg, font: ~guiSans.(15, true),
             action: { |i| ~controlDo.('looper.granularEnv', \set, i, \gui) }));
     ~granularEnvMenu = ~mapTag.(~granularEnvSeg[\view], 'looper.granularEnv',

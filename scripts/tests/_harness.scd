@@ -568,7 +568,11 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     onsetNoteRoutine: \onsetNotesPart, onsetNoteSounding: \onsetNotesPart, onsetNoteSink: \onsetNotesPart,
     halfOnsets: \onsetNotesPart,
     nextBuffer: \chainPart, nextRecSynth: \chainPart, nextRecRoutine: \chainPart, nextRecTail: \chainPart,
-    nextRecState: \chainPart, nextRecStopRequested: \chainPart, nextRecReps: \chainPart, chainRecOffsetMs: \chainPart
+    nextRecState: \chainPart, nextRecStopRequested: \chainPart, nextRecReps: \chainPart, chainRecOffsetMs: \chainPart,
+    granularSynth: \grainsPart, granularEnvBufs: \grainsPart, granularMorph: \grainsPart, granularAmp: \grainsPart,
+    granularPitch: \grainsPart, granularDetune: \grainsPart, granularSize: \grainsPart, granularDensity: \grainsPart,
+    granularSizeRand: \grainsPart, granularPosition: \grainsPart, granularScan: \grainsPart, granularSpray: \grainsPart,
+    granularEnv: \grainsPart, granularFollowChords: \grainsPart
 );
 ~tOwner = { |obj, key|
     var part = if(obj.isKindOf(Looper)) { ~tWhere[key] };

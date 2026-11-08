@@ -326,7 +326,7 @@ protect {
         ["0.46", "46%", "42 · " ++ ~midiNoteName.(42), "30 dB", "20 ms", "8",
             ~granularFormat.(~granularParams.detect { |r| r[\key] == \granularPitch }, -12)]);
     ~tEq.("a choice reads as its item", [targets['looper.granularEnv'][\format].value(2),
-        targets['sa.fx.filterType'][\format].value(1)], [Looper.granularEnvNames[2], "High-pass"]);
+        targets['sa.fx.filterType'][\format].value(1)], [LooperGrains.envNames[2], "High-pass"]);
     ~tEq.("the counts run over their boxes' ranges",
         ['looper.dissolveBars', 'looper.breakLoops', 'looper.onsetNote', 'looper.onsetNoteVelLo',
             'looper.onsetNoteVelHi', 'looper.onsetNoteDynRange', 'looper.onsetNoteGateMs'].collect { |id|
@@ -335,9 +335,9 @@ protect {
 
     // ------------------------------------------------------- choices' items --
     source = { |file| File.readAllString(scripts +/+ file) ? "" };
-    ~tAssert.("the grain window's items are the Grains pane's tiles (Looper.granularEnvNames)",
-        (targets['looper.granularEnv'][\items] == Looper.granularEnvNames)
-            and: { source.("gui-granular.scd").contains("~guiSeg.(Looper.granularEnvNames,") });
+    ~tAssert.("the grain window's items are the Grains pane's tiles (LooperGrains.envNames)",
+        (targets['looper.granularEnv'][\items] == LooperGrains.envNames)
+            and: { source.("gui-granular.scd").contains("~guiSeg.(LooperGrains.envNames,") });
     // Perform's tiles drive this control by their index (~controlDo), so
     // their order is the items' order.
     ~tAssert.("the cutter's mode items are Perform's tiles, in their order",

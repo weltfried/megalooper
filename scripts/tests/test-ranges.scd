@@ -29,12 +29,12 @@ params = ~granularParams;
     "~granularParams is " ++ params);
 
 ~tEq.("every granular parameter is saveable",
-    params.size, Looper.granularPresetFields.size);
+    params.size, LooperGrains.presetFields.size);
 
 params.do { |p|
     var key = p[\key];
     var spec = p[\spec];
-    var field = Looper.granularPresetFields.detect { |f| f[1] == key };
+    var field = LooperGrains.presetFields.detect { |f| f[1] == key };
     var lo, hi;
 
     ~tAssert.(key ++ ": has a preset field", field.notNil,

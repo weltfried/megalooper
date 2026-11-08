@@ -17,7 +17,7 @@ l.granularMorph = 0.4; l.granularPitch = 7; l.granularSize = 2.5;
 l.granularDensity = 3; l.granularScan = -1.5; l.granularSpray = 120;
 data = l.granularPresetData("My Test");
 ~tEq.("captures every declared field",
-    Looper.granularPresetFields.every { |f| data[f[0]].notNil }, true);
+    LooperGrains.presetFields.every { |f| data[f[0]].notNil }, true);
 ~tEq.("captures the name", data[\name], "My Test");
 ~tEq.("stamps the format version", data[\version], l.granularPresetVersion);
 ~tNear.("captures a set value", data[\pitch], 7.0, 1e-9);
@@ -25,7 +25,7 @@ data = l.granularPresetData("My Test");
 // Window shape is stored by NAME, not index — inserting a shape into
 // granularEnvNames would otherwise re-point every older preset at a different
 // envelope, silently.
-~tEq.("stores the window by name", data[\env], Looper.granularEnvNames[0]);
+~tEq.("stores the window by name", data[\env], LooperGrains.envNames[0]);
 ~tAssert.("the window name is not an index", data[\env].isString,
     "got a " ++ data[\env].class);
 
@@ -34,16 +34,16 @@ data = l.granularPresetData("My Test");
 str = l.granularPresetText(data);
 parsed = MegaFiles.parseObject(str);
 ~tAssert.("the serialised preset is one JSON object, a granular preset",
-    parsed.isKindOf(MegaJsonObject) and: { parsed.at("format") == Looper.granularPresetFormat }, str.keep(200));
+    parsed.isKindOf(MegaJsonObject) and: { parsed.at("format") == LooperGrains.presetFormat }, str.keep(200));
 parsed = MegaFiles.eventOf(parsed);
 ~tAssert.("...and yields an Event", parsed.isKindOf(Dictionary),
     "got a " ++ parsed.class);
 ~tEq.("round trip preserves size", parsed[\size], 2.5);
 ~tEq.("round trip preserves a negative value", parsed[\scan], -1.5);
 ~tEq.("...one field a line, in the table's order after the header",
-    str.split($\n).drop(1).keep(Looper.granularPresetFields.size + 6).collect { |line| line.stripWhiteSpace.split($:)[0] },
+    str.split($\n).drop(1).keep(LooperGrains.presetFields.size + 6).collect { |line| line.stripWhiteSpace.split($:)[0] },
     ["format", "version", "name", "savedAt", "env", "followChords"].collect { |k| "\"" ++ k ++ "\"" }
-        ++ Looper.granularPresetFields.collect { |f| "\"" ++ f[0] ++ "\"" });
+        ++ LooperGrains.presetFields.collect { |f| "\"" ++ f[0] ++ "\"" });
 
 // ---- recall --------------------------------------------------------------
 
@@ -155,7 +155,7 @@ var clean = l.prValidateGranularPreset((version: 1, name: "Old Build"), w);
 {
 var w = List.new;
 var clean = l.prValidateGranularPreset(
-    (version: 1, env: Looper.granularEnvNames[2].toUpper), w);
+    (version: 1, env: LooperGrains.envNames[2].toUpper), w);
 ~tEq.("window names match case-insensitively", clean[\env], 2);
 }.value;
 

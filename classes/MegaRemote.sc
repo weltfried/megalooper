@@ -855,7 +855,7 @@ MegaRemote {
         if(settings.isNil and: { window.isNil } and: { on.isNil } and: { chords.isNil }) {
             ^this.class.failure("nothing to change: give settings, window, followChords, on, or several")
         };
-        names = Looper.granularPresetFields.collect { |f| f[0].asString };
+        names = LooperGrains.presetFields.collect { |f| f[0].asString };
         if(settings.notNil) {
             if(settings.isKindOf(MegaJsonObject).not) { ^this.class.failure("settings must be an object: name -> number") };
             settings.keysValuesDo { |k, v|
@@ -868,7 +868,7 @@ MegaRemote {
         };
         if(window.notNil and: { this.class.grainWindowIndex(window).isNil }) {
             ^this.class.failure("there is no grain window " ++ window.asString.quote ++ "; there are "
-                ++ Looper.granularEnvNames.join(", "))
+                ++ LooperGrains.envNames.join(", "))
         };
         if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
         if(chords.notNil and: { chords.isKindOf(Boolean).not }) { ^this.class.failure("followChords is true or false") };
@@ -880,24 +880,24 @@ MegaRemote {
             if(settings.notNil or: { window.notNil } or: { chords.notNil }) {
                 data = looper.granularPresetData("ai");
                 settings !? { |set| set.keysValuesDo { |k, v| data[k.asSymbol] = v } };
-                window !? { data[\env] = Looper.granularEnvNames[this.class.grainWindowIndex(window)] };
+                window !? { data[\env] = LooperGrains.envNames[this.class.grainWindowIndex(window)] };
                 chords !? { data[\followChords] = chords };
                 looper.applyGranularPreset(data);
             };
             on !? { |flag| if(flag != looper.granularOn) { looper.toggleGranular } };
         });
         settings !? { |set| set.keysValuesDo { |k, v|
-            this.class.corrections(v, looper.perform(Looper.granularPresetFields.detect { |f| f[0].asString == k }[1]),
+            this.class.corrections(v, looper.perform(LooperGrains.presetFields.detect { |f| f[0].asString == k }[1]),
                 "grains." ++ k, notes) } };
         this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
         ^this.class.success(this.class.grainsOf(looper).add("corrections", notes.asArray).add("aiChanges", this.changeCount))
     }
 
-    // A grain window's index in Looper.granularEnvNames from its name, the
+    // A grain window's index in LooperGrains.envNames from its name, the
     // case not minded, or nil.
     *grainWindowIndex { |name|
         ^if(name.isString.not) { nil } {
-            Looper.granularEnvNames.detectIndex { |n| n.asString.toLower == name.toLower }
+            LooperGrains.envNames.detectIndex { |n| n.asString.toLower == name.toLower }
         }
     }
 
@@ -1092,7 +1092,7 @@ MegaRemote {
         var data = looper.granularPresetData;
         ^this.obj([
             \on, looper.granularOn,
-            \settings, this.obj(Looper.granularPresetFields.collect { |f| [f[0], data[f[0]]] }.flatten(1)),
+            \settings, this.obj(LooperGrains.presetFields.collect { |f| [f[0], data[f[0]]] }.flatten(1)),
             \window, data[\env],
             \followChords, data[\followChords] == true,
             \intensity, looper.intensity
@@ -1676,14 +1676,14 @@ MegaRemote {
                 "the chord where they read to the chord the loop plays now (the take's chords, the nearer way "
                 "round, -6..+5 semitones), so a drone frozen in one chord follows the changes; at morph 1 "
                 "they read where the loop is and nothing moves; a take of one chord moves nothing.",
-            \settings, Looper.granularPresetFields.collect { |f|
+            \settings, LooperGrains.presetFields.collect { |f|
                 var row = (rows ? []).detect { |r| r[\key] == f[1] }, spec = row !? { |r| r[\spec] };
                 this.obj([\name, f[0], \label, row !? { |r| r[\label] }, \min, f[2], \max, f[3], \default, f[4],
                     \windowMin, spec !? { |x| x.minval }, \windowMax, spec !? { |x| x.maxval },
                     \units, row !? { |r| r[\unit] !? { |u| u.stripWhiteSpace } },
                     \tip, row !? { |r| r[\tip] !? { |t| t.replace("\n", " ") } }])
             },
-            \windows, Looper.granularEnvNames.collect { |n, i| this.obj([\name, n, \about, Looper.granularEnvHints[i]]) }
+            \windows, LooperGrains.envNames.collect { |n, i| this.obj([\name, n, \about, LooperGrains.envHints[i]]) }
         ])
     }
 

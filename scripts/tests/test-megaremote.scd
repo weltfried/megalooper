@@ -519,7 +519,7 @@ o = got.at("settings").detect { |row| row.at("name") == "pitch" };
     [got.at("settings").size, o.at("label"), o.at("min"), o.at("max"), o.at("windowMin"), o.at("windowMax"), o.at("units"),
         o.at("tip").contains("semitones"), o.at("tip").contains("\n"), got.at("windows").size, got.at("windows")[3].at("name"),
         got.at("about").contains("morph")],
-    [Looper.granularPresetFields.size, "Pitch", -48, 48, -24, 24, "st", true, false, 4, "Swell", true]);
+    [LooperGrains.presetFields.size, "Pitch", -48, 48, -24, 24, "st", true, false, 4, "Swell", true]);
 ~tEq.("...without the window's rows, the ranges alone",
     MegaRemote.describe("grains", ()).at("settings").collect { |row| [row.at("min"), row.at("tip")] }.first, [0, nil]);
 got = ask.(r, "{\"command\": \"describe\", \"args\": {\"topic\": \"cutter\"}}").at("result");
