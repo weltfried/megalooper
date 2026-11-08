@@ -370,3 +370,59 @@ var boot = File.readAllString(scripts +/+ "boot.scd") ? "";
     listing.("[\"setup-a.scd\", \"gui-b.scd\",\n    \"gui-c.scd\"]") and: { listing.("\"gui-b.scd\"").not });
 }.value;
 
+
+// The setup scripts stand below the window (docs/dev/architecture.md, 5,
+// step 2): none reads a global that only a gui file defines. It started at 54
+// (a MIDI control's law was a pane's, the settings' helpers the theme's); what
+// is left is named here, and the list only shrinks. Most of it is a setup
+// script writing a widget itself, which step 4 ends (models notify, panes
+// listen); the window's own controls (Show a view) and the MIDI monitor reach
+// the window on purpose.
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var scripts = root +/+ "scripts";
+var allowed = [
+    // a setup script writing or painting the window itself (step 4)
+    \exportBarsField, \exportDenomField, \exportDenoms, \exportNumField, \rootLabel,
+    \granularPaintChords, \rigFallbackPaint, \guiSegSet, \performNewLoopSeg,
+    \actionsPaint, \guiAiPaint, \guiSay, \guiView, \presetShow, \presetFamilies,
+    \midiGui, \midiGuiRefresh, \midiMonitorPush,
+    // the window's own controls, which drive the window (Show a view)
+    \guiSelectView, \guiViewOrder, \guiWindow,
+    // the count's state, computed in the status band
+    \countLights, \countLightClock, \countPosAt
+];
+var code = { |path|
+    (File.readAllString(path) ? "").split($\n).collect { |line|
+        var cut = line.find("//");
+        if(cut.isNil) { line } { line.copyRange(0, cut - 1) }
+    }.join("\n")
+};
+var assigned = { |text|
+    text.findRegexp("~[a-z][A-Za-z0-9_]*[ \t]*=[^=]").collect { |m|
+        m[1].copyRange(1, m[1].size - 1).split($=).first.stripWhiteSpace.asSymbol
+    }.asSet
+};
+var used = { |text|
+    text.findRegexp("~[a-z][A-Za-z0-9_]*").collect { |m| m[1].copyRange(1, m[1].size - 1).asSymbol }.asSet
+};
+var setupFiles = (scripts +/+ "setup-*.scd").pathMatch;
+var guiFiles = (scripts +/+ "gui-*.scd").pathMatch;
+var bySetup = Set.new, byGui = Set.new, offenders = List.new, stale;
+setupFiles.do { |p| bySetup = bySetup | assigned.(code.(p)) };
+guiFiles.do { |p| byGui = byGui | assigned.(code.(p)) };
+setupFiles.do { |p|
+    var name = PathName(p).fileName;
+    used.(code.(p)).do { |g|
+        if(byGui.includes(g) and: { bySetup.includes(g).not } and: { allowed.includes(g).not }) {
+            offenders.add(name ++ ": ~" ++ g)
+        };
+    };
+};
+stale = allowed.reject { |g| byGui.includes(g) and: { bySetup.includes(g).not } };
+~tAssert.("no setup script reads a global only a gui file defines, past the named ones",
+    offenders.isEmpty, offenders.asArray.sort.join(", "));
+~tAssert.("…and every named one is still such a global (the list only shrinks)", stale.isEmpty,
+    "no longer: " ++ stale.join(", "));
+~tAssert.("…and the scan sees the window's globals", byGui.includes(\guiWindow) and: { bySetup.includes(\looper) });
+}.value;
