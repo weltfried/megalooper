@@ -70,6 +70,17 @@ r = MeterDecision.readingFor(analysed, 1, 6.0);
 ~tAssert.("no result to compare against: respawn, to be safe",
     MeterDecision.readingChangesCutter(nil, analysed[\candidates][0]), "");
 
+// ---- the time signature a host shows ----------------------------------------
+// Live and SA's plugins: one bar a cycle of uneven bars, so its bar line
+// meets the loop's; Live takes numerators up to 99.
+~tEq.("a host's time signature: the reading's, uneven bars one bar a cycle, at most 99, none without one",
+    [MeterDecision.hostSignature((numerator: 7, denominator: 8, k: 2)),
+        MeterDecision.hostSignature((numerator: 7, denominator: 8, bars: [7, 7, 7, 8])),
+        MeterDecision.hostSignature((numerator: 32, denominator: 16, bars: [32, 31, 32, 31, 32, 31])),
+        MeterDecision.hostSignature(nil), MeterDecision.hostSignature((error: \noFit))],
+    [[7, 8], [29, 8], [63, 16], nil, nil]);
+~tEq.("...clipped to 99", MeterDecision.hostSignature((numerator: 32, denominator: 16, bars: [32, 31, 32, 30])), [99, 16]);
+
 // ---- ticks: what Live counts ------------------------------------------------
 ~tEq.("a 6/8 bar is 72 ticks",  MeterDecision.barTicksOf(analysed[\candidates][0]), 72);
 ~tEq.("a 12/8 bar is 144 ticks", MeterDecision.barTicksOf(analysed[\candidates][1]), 144);

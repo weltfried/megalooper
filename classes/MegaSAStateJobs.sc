@@ -71,11 +71,12 @@ MegaSAStateJobs {
     }
 
     // The last job has answered: the plugins, no longer busy, are told the
-    // tempo they may have missed meanwhile, and the guitar is let go.
+    // tempo and time signature they may have missed meanwhile, and the
+    // guitar is let go.
     finished {
         bankBusy = false;
         if(sa.alive) {
-            sa.tempo !? { |t| sa.pluginDevices.do { |d| d.plugin.setTempo(t) } };
+            sa.pluginDevices.do { |d| sa.prHostTime(d.plugin) };
             sa.unhold(\guitar, \bank);
         };
     }

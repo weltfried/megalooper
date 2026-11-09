@@ -431,12 +431,16 @@ if(vst.isNil) { ~tSkip.("the plugin's switches", "VSTPlugin is not installed her
     b.instVarPut(\controller, (
         open: { |self, path, editor, verbose, action| calls.add([\open, path]); pending = action },
         readBank: { |self, path, action| calls.add([\readBank, path]); bankAction = action },
-        setTempo: { |self, bpm| calls.add([\tempo, bpm]) }));
-    [\closed, \opening, \failed, \crashed].do { |st| b.instVarPut(\state, st); b.setTempo(120) };
-    ~tEq.("...tells a plugin that is not open no tempo", calls.asArray, []);
+        setTempo: { |self, bpm| calls.add([\tempo, bpm]) },
+        setTimeSignature: { |self, num, denom| calls.add([\sig, num, denom]) }));
+    [\closed, \opening, \failed, \crashed].do { |st| b.instVarPut(\state, st); b.setTempo(120); b.setTimeSignature(7, 8) };
+    ~tEq.("...tells a plugin that is not open no tempo and no time signature", calls.asArray, []);
     b.instVarPut(\state, \open);
     b.setTempo(120);
     ~tEq.("...and one that is open the tempo, once", calls.asArray, [[\tempo, 120]]);
+    b.setTimeSignature(7, 8);
+    ~tEq.("...and the time signature, as VSTPlugin's host's", calls.last, [\sig, 7, 8]);
+    calls.pop;
     // A MIDI controller, for the plugin's own MIDI learn: through VSTPlugin's
     // MIDI, and only while the plugin is open.
     b.controller.put(\midi, { |self| (control: { |me, chan, num, val| calls.add([\cc, chan, num, val]) }) });
@@ -555,6 +559,9 @@ sent = stub[\msgs].copyToEnd(before).asArray;
         [15, sa.drumsChain.group.nodeID, \beatDur, 0.5], [15, sa.bassChain.group.nodeID, \beatDur, 0.5],
         [15, sa.synthChain.group.nodeID, \beatDur, 0.5]]);
 if(vst.notNil) { ~tEq.("...and the plugin's own tempo, which it reads instead of a control", fake[\tempo], 120) };
+sa.setTimeSignature(7, 8);
+if(vst.notNil) { ~tEq.("a time signature goes to the plugin as its host's", fake[\timeSignature], [7, 8]) };
+~tEq.("...and is kept", sa.timeSignature, [7, 8]);
 ~tAssert.("...which reaches every device that reads the beat, each in one of those groups",
     sa.devices.select(_.followsTempo).notEmpty and: { sa.devices.select(_.followsTempo).every { |x|
         [sa.guitarChain.group.nodeID, sa.loopChain.group.nodeID].includes(t[\parent][x.node.nodeID]) } });
@@ -566,14 +573,16 @@ if(vst.notNil) {
     plug[\open] = { |self, bankFile, action| self[\state] = \opening; late = action };
     m = ~tMegaSA.(nil, plug);
     m.setTempo(150);
-    ~tEq.("a reading while the plugin opens does not reach it", plug[\tempo], nil);
+    m.setTimeSignature(5, 4);
+    ~tEq.("a reading while the plugin opens does not reach it", [plug[\tempo], plug[\timeSignature]], [nil, nil]);
     plug[\state] = \open;
     late.value(plug, true);
-    ~tEq.("...it is told the tempo once it has opened", plug[\tempo], 150);
+    ~tEq.("...it is told the tempo and time signature once it has opened", [plug[\tempo], plug[\timeSignature]], [150, [5, 4]]);
     plug[\tempo] = nil;
+    plug[\timeSignature] = nil;
     m.hold(\guitar, \bank);
     m.prBankJobsDone;
-    ~tEq.("...and again when its bank jobs are done, the guitar let go", [plug[\tempo], m.held(\guitar)], [150, []]);
+    ~tEq.("...and again when its bank jobs are done, the guitar let go", [plug[\tempo], plug[\timeSignature], m.held(\guitar)], [150, [5, 4], []]);
     m.free;
 };
 

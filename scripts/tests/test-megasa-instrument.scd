@@ -39,6 +39,10 @@ inst = stub[\msgs].detect { |m| (m[0] == 9) and: { m[1] == \megaSAInstrument } }
         and: { ().putPairs(inst.copyToEnd(5))[\out] == sa.synthBus.index }, inst.asString);
 ~tEq.("...made for its key and opened", [made.last[\madeFor][1..2], made.last[\opened]], [[\plugin, "Fake Synth"], 1]);
 ~tEq.("...and said: open (the fake answers at once), and chosen", said.keep(-2).asArray, [["Fake Synth", true], ["Fake Synth"]]);
+// The loop's time follows it once open (until 2026-11-09 only as it opened).
+sa.setTempo(97);
+sa.setTimeSignature(7, 8);
+~tEq.("...and is told the loop's tempo and time signature as they change", [made.last[\tempo], made.last[\timeSignature]], [97, [7, 8]]);
 
 // Its notes.
 l = ~tLooper.();

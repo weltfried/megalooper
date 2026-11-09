@@ -336,6 +336,13 @@ MegaSAPlugin {
         if(bpm.notNil and: { bpm > 0 } and: { state == \open }) { controller !? { |c| c.setTempo(bpm) } };
     }
 
+    // The loop's time signature, VSTPlugin's host time signature, for a
+    // plugin that counts bars. Only while open.
+    setTimeSignature { |num, denom|
+        if(num.notNil and: { denom.notNil } and: { state == \open }) {
+            controller !? { |c| c.setTimeSignature(num.asInteger, denom.asInteger) } };
+    }
+
     // A MIDI controller to the plugin, as a controller plugged into it would
     // send it: what its own MIDI learn hears. megalooper hears your
     // controllers and the plugin does not, so megalooper sends. Only while

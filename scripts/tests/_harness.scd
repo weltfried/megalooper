@@ -467,6 +467,7 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
         bypass: { |self, flag| self[\bypassed] = flag },
         // As MegaSAPlugin: a tempo reaches only a plugin that is open.
         setTempo: { |self, bpm| if(self[\state] == \open) { self[\tempo] = bpm } },
+        setTimeSignature: { |self, num, denom| if(self[\state] == \open) { self[\timeSignature] = [num, denom] } },
         editor: { |self| },
         // What megalooper sent it as MIDI controllers, in order.
         sendControl: { |self, chan, num, val|

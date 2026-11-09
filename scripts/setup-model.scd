@@ -258,15 +258,15 @@
                 ++ bars ++ tag
                 ++ " (" ++ r.onsetCount ++ " onsets, N=" ++ r.n ++ ")").postln;
             ~ableton.sendMsg("/live/song/set/tempo", r.bpm.asFloat);
-            // Megalooper SA's loop echo is synced to the loop the same way,
-            // and its drums keep the whole reading (MegaSA.setAnalysis).
-            ~megaSA !? { |m| m.setAnalysis(r) };
+            // Megalooper SA follows the Looper's reading itself (its effects,
+            // plugins and drums: MegaSA.prFollowLoop).
             // Uneven bars go to Live as one bar per cycle of them (29/8 for
             // 7 7 7 8), so its bar line still meets the loop's
-            // (MeterDecision.barTicksOf). Live takes numerators up to 99.
-            ~ableton.sendMsg("/live/song/set/signature_numerator",
-                MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(r)).sum.asInteger.clip(1, 99));
-            ~ableton.sendMsg("/live/song/set/signature_denominator", r.denominator.asInteger);
+            // (MeterDecision.hostSignature). Live takes numerators up to 99.
+            MeterDecision.hostSignature(r) !? { |sig|
+                ~ableton.sendMsg("/live/song/set/signature_numerator", sig[0]);
+                ~ableton.sendMsg("/live/song/set/signature_denominator", sig[1]);
+            };
         } {
             ("=> " ++ (if(r.error == \noFit) { "no meter: nothing fits, the loop plays at its length" } { r.error })
                 ++ " (" ++ r.onsetCount ++ " onsets)").postln

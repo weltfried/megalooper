@@ -342,6 +342,16 @@ MeterDecision {
         ^(((from[\tau] - to[\tau]).abs > 1e-6) or: { fromBeats != toBeats })
     }
 
+    // The time signature a host shows for a reading: one bar per cycle of
+    // uneven bars (29/8 for 7 7 7 8), so its bar line still meets the loop's
+    // (as barTicksOf). [numerator (1 to 99, as Live takes it), denominator],
+    // or nil with no reading.
+    *hostSignature { |result|
+        if(result.isNil or: { result[\denominator].isNil }) { ^nil };
+        ^[MeterAnalyzer.cycleOf(MeterAnalyzer.barsOf(result)).sum.asInteger.clip(1, 99),
+            result[\denominator].asInteger]
+    }
+
     *readingString { |r|
         ^(MeterAnalyzer.sigString(r) ++ " @ "
             ++ (r[\bpm] ? 0).round(0.1) ++ " BPM · " ++ (r[\k] ? 1)

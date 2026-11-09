@@ -642,7 +642,7 @@ master = SynthDescLib.global[\megaSAMaster];
 {
     var stub = ~tStubServer.();
     var savedMegaSA = ~megaSA, savedRp = ~rp;
-    var sa, d, l, kids, busses, ids, r, pc, caught, n, frees, atFree, guitarFreed, seen, ctl, stems, specs;
+    var sa, d, l, kids, busses, ids, r, pc, caught, n, frees, atFree, guitarFreed, seen, ctl, stems, specs, r2, rt;
     // The order a server would run what the recorded /g_new (21) and /s_new
     // (9) make: node -> its children, from the root (0), which holds the
     // default group (1). Add actions: 0 head, 1 tail, 2 before, 3 after.
@@ -779,6 +779,23 @@ master = SynthDescLib.global[\megaSAMaster];
     ~tEq.("and a Start relocates nothing on SA", l.startsRelocate, false);
     ~tAssert.("the drums follow that Looper", d.looper === l);
     ~tAssert.("its session recorder still goes after the mixer", l.sessionRec.target === sa.recordGroup);
+    // The reading in force on the attached Looper, followed (prFollowLoop):
+    // a take's at once, a reading only on its boundary, an undo's too.
+    r = (bpm: 100, numerator: 4, denominator: 4, k: 1, loopDur: 2.4);
+    l.prSetResult(r);
+    ~tEq.("the Looper's reading is followed: its tempo and time signature", [sa.tempo, sa.timeSignature], [100, [4, 4]]);
+    ~tAssert.("...and the drums keep it", d.analysis === r);
+    r2 = (bpm: 150, numerator: 7, denominator: 8, bars: [7, 7, 7, 8], k: 4, loopDur: 4.64);
+    ~tPut.(l, \pendingReading, (index: 1, result: r2, at: SystemClock.seconds + 10, loops: 1, restart: false));
+    rt = Routine { l.prLandReading(l.timeline.token(\reading)) };
+    rt.next;
+    ~tEq.("a reading swapped in a little before its boundary is not followed yet", [l.lastResult === r2, sa.tempo], [true, 100]);
+    rt.next;
+    ~tEq.("...on its boundary it is, uneven bars as one bar a cycle (29/8)", [sa.tempo, sa.timeSignature], [150, [29, 8]]);
+    l.prSetResult(r);
+    ~tEq.("an undo's reading is followed too (the effects went on at the undone take's tempo before)", sa.tempo, 100);
+    l.prSetResult(nil);
+    ~tEq.("a clear leaves the tempo where it was", sa.tempo, 100);
     {
         // Inside the default group, after everything the Looper had put there
         // (its master, on a rig), so the loop-chain recorder, which the Looper
@@ -841,6 +858,8 @@ master = SynthDescLib.global[\megaSAMaster];
     ~tEq.("the drums are dead and let go of the Looper, which keeps their transport and sink, dead too",
         [d.alive, l.transport === d.transport, l.onsetNoteSink === d, d.transport.alive],
         [false, true, true, false]);
+    l.prSetResult((bpm: 77, numerator: 4, denominator: 4, k: 1));
+    ~tEq.("a freed SA follows the Looper's reading no more", sa.tempo != 77, true);
     ~tCheck.("...so the old Looper's calls on them do nothing and throw nothing",
         { l.startMidiClock(120, 2.0); l.transport.startNow; l.transport.stop; l.startOnsetNotes; l.stopOnsetNotes });
     ~tAssert.("the drum group goes, and every drum bus", frees.includes(sa.drumGroup.nodeID)

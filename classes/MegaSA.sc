@@ -111,6 +111,11 @@ MegaSA {
     // given one: what each plugin is told, also once it opens or a bank job
     // ends (a plugin busy or not yet open misses a tempo sent meanwhile).
     var <beatDur = 0.6, <tempo;
+    // The loop's time signature as a host shows it ([numerator, denominator],
+    // MeterDecision.hostSignature), nil until a reading; told to every plugin
+    // with the tempo. And what follows the Looper's reading in force
+    // (prFollowLoop), and the reading it last followed.
+    var <timeSignature, loopFollower, followed;
     var <ready = false;
     // init's routine (prBuild). free stops it if it has not finished, so a
     // MegaSA freed early builds nothing afterwards.
@@ -171,6 +176,7 @@ MegaSA {
             hold: [\state, [\strip, \held], "a strip held silent (a plugin opening, its bank loading)"],
             instrument: [\state, [\key, \ok], "what plays the notes (nil: the Wave synth), and whether it opened"],
             tempo: [\state, [\bpm], "the tempo the chains are synced to"],
+            timeSignature: [\state, [\numerator, \denominator], "the time signature the plugins are told"],
             kept: [\event, [], "the chains kept for the next start"],
             soundLoaded: [\event, [\slug, \ok, \notes], "a sound loaded, or not, and what was said about it"],
             soundSaved: [\event, [\slug, \ok, \why, \withStates], "a sound saved, or not"],
@@ -485,7 +491,7 @@ MegaSA {
 
     prPluginOpened { |plug, ok, device|
         var dev = device ? this.prPluginDevice;
-        tempo !? { |t| plug.setTempo(t) };
+        this.prHostTime(plug);
         plug.held !? { |why| ("MegaSA: " ++ plug.name ++ " opened, but " ++ why ++ "; the instrument plays without it.").warn };
         case
         { ok } {
@@ -587,6 +593,7 @@ MegaSA {
         loopChain.build(server.defaultGroup, \addToTail, beatDur);
         looper.sessionRec.target = this.recordGroup;
         drums !? { |d| d.attach(looper) };
+        this.prFollowLoop(looper);
         server.sync;
         // The loop chain's plugins, once their synths are there. Nothing is
         // held for them: until one is open its device passes the loop through.
@@ -715,10 +722,10 @@ MegaSA {
                     instrumentSynth = nil;
                     instrumentKey = nil;
                 } {
-                    tempo !? { |t| instrument.setTempo(t) };
+                    this.prHostTime(instrument);
                     // Answered again if it opens after its timeout, unless
                     // another instrument has taken its place by then.
-                    answer = { |p, ok| if(alive and: { instrument === p }) { tempo !? { |t| p.setTempo(t) }; this.changed(\instrument, key, ok) } };
+                    answer = { |p, ok| if(alive and: { instrument === p }) { this.prHostTime(p); this.changed(\instrument, key, ok) } };
                     instrument.open(state, answer, nil, answer);
                 };
             };
@@ -1278,7 +1285,7 @@ MegaSA {
                 ++ this.prPhaseMsgs(device, chain);
             if(device.on) { msgs = msgs ++ device.switchMsgs(true) };
             this.prSend(t0, msgs);
-            device.plugin !? { |p| tempo !? { |t| p.setTempo(t) } };
+            device.plugin !? { |p| this.prHostTime(p) };
         };
         device.pendingUntil = t1;
         editsBusyUntil = t1;
@@ -1822,6 +1829,9 @@ MegaSA {
             tempo = bpm;
             beatDur = 60 / bpm;
             this.chains.do { |c| c.setTempo(beatDur, bpm) };
+            // The instrument's plugin too (until 2026-11-09 it was told the
+            // tempo only as it opened).
+            instrument !? { |p| p.setTempo(bpm) };
             this.devices.do { |d|
                 if(d.followsTempo and: { d.node.notNil } and: { d.pending }) {
                     d.sendToSynth([15, d.node.nodeID, \beatDur, beatDur]) } };
@@ -1829,15 +1839,58 @@ MegaSA {
         };
     }
 
-    // A reading of the loop, as the Looper's onAnalysis hands it over
-    // (setup-model.scd): its tempo for the effects, and the whole result for
-    // the drums, which keep it for a Start that finds no reading on the
-    // Looper. A running transport is not moved by it: the drums take a new
-    // grid from the readings the Looper lands and the Starts it sends.
+    // The loop's time signature, to every plugin (VSTPlugin's host time
+    // signature), as the tempo goes to them.
+    setTimeSignature { |num, denom|
+        if(num.notNil and: { denom.notNil }) {
+            timeSignature = [num.asInteger, denom.asInteger];
+            this.prHostPlugins.do { |p| p.setTimeSignature(timeSignature[0], timeSignature[1]) };
+            this.changed(\timeSignature, timeSignature[0], timeSignature[1]);
+        };
+    }
+
+    // Every plugin that hosts time: the chains' and the instrument's.
+    prHostPlugins { ^this.pluginDevices.collect(_.plugin) ++ (instrument !? { [instrument] } ? []) }
+
+    // The tempo and the time signature to one plugin (one that opened late,
+    // or was busy, missed them).
+    prHostTime { |plug|
+        plug !? { |p|
+            tempo !? { |t| p.setTempo(t) };
+            timeSignature !? { |s| p.setTimeSignature(s[0], s[1]) };
+        };
+    }
+
+    // A reading of the loop: its tempo for the effects, its time signature
+    // for the plugins, and the whole result for the drums, which keep it for
+    // a Start that finds no reading on the Looper. A running transport is not
+    // moved by it: the drums take a new grid from the readings the Looper
+    // lands and the Starts it sends.
     setAnalysis { |result|
         if(result.isNil) { ^this };
         this.setTempo(result.bpm);
+        MeterDecision.hostSignature(result) !? { |s| this.setTimeSignature(s[0], s[1]) };
         drums !? { |d| d.setAnalysis(result) };
+    }
+
+    // The reading in force on the attached Looper (Looper.countResult),
+    // followed: a take's analysis, an overdub's, a reading on its boundary
+    // (lastResult swaps a little before it, the count at the boundary), an
+    // undo. Until 2026-11-09 a script handed each analysis and landing over
+    // (setup-model.scd's onAnalysis), and an undo left the effects at the
+    // tempo of the take undone.
+    prFollowLoop { |looper|
+        loopFollower !? { |c| c.remove };
+        followed = nil;
+        loopFollower = SimpleController(looper);
+        [\result, \reading, \readingIndex].do { |what|
+            loopFollower.put(what, { this.prFollowReading(looper.countResult) }) };
+    }
+
+    prFollowReading { |result|
+        if(alive.not or: { result.isNil } or: { result === followed } or: { result[\bpm].isNil }) { ^this };
+        followed = result;
+        this.setAnalysis(result);
     }
 
     // ---- MIDI to a plugin ---------------------------------------------------
@@ -1872,6 +1925,9 @@ MegaSA {
         this.devices.do { |d| this.prMark(d, false) };
         alive = false;
         CmdPeriod.remove(this);
+        // The Looper's reading followed no more.
+        loopFollower !? { |c| c.remove };
+        loopFollower = nil;
         // A build still under way builds nothing more, a plugin not yet asked
         // to open is not, and a bank job stops.
         [builder, opener].do { |r| r !? { if(r !== thisThread) { r.stop } } };
