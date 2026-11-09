@@ -12,7 +12,7 @@ tells you which packages it needs.
 ## Install
 
 ```bash
-git clone --branch v1.13 https://github.com/weltfried/megalooper.git
+git clone --branch v1.14 https://github.com/weltfried/megalooper.git
 cd megalooper
 ./tools/install.sh
 ```
