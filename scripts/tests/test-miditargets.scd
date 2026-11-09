@@ -71,7 +71,7 @@ families = [
     [\fxRandom, "^sa\\.fxRandom\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 16],
     [\level, "^sa\\.level\\.(guitar|bass|loop|drums|onsetKit|synth|master)$", 7],
     [\mute, "^sa\\.mute\\.(guitar|bass|loop|drums|onsetKit|synth)$", 6],
-    [\drums, "^sa\\.drums\\.(on|breakPattern|repeats|reverbMix|livePattern\\.(main|break))$", 6],
+    [\drums, "^sa\\.drums\\.(on|breakPattern|arcLanes|repeats|reverbMix|livePattern\\.(main|break))$", 7],
     [\timing, "^sa\\.drums\\.(main|break)\\.(" ++ MegaSASteps.paramSpecs.collect { |x| x[\name] }.join("|") ++ ")$", 28],
     [\lane, "^sa\\.drums\\.(main|break)\\.lane[1-4]\\.(note|altNote|delay|mute|lock)$", 40],
     [\length, "^sa\\.drums\\.(main|break)\\.lane[1-4]\\.length\\.(chance|alt|velo|roll)$", 32],
@@ -498,6 +498,16 @@ protect {
     ~tEq.("Beat Repeat, there with this steps kit, flips through setRepeats",
         [there.(targets['sa.drums.repeats']), heard.(d, { act.('sa.drums.repeats', [\flip]) }), d.repeats],
         [true, [[\repeats, true]], true]);
+    {
+        var was = ~prefSave, kept;
+        ~prefSave = { |key, value| kept = [key, value] };
+        ~tEq.("the arc's switch flips through setArcLanes, the drums say so, and the choice is kept",
+            [heard.(d, { act.('sa.drums.arcLanes', [\flip]) }), d.arcLanes, kept],
+            [[[\arcLanes, true]], true, ["drumsArc", "lanes"]]);
+        act.('sa.drums.arcLanes', [\flip]);
+        ~tEq.("...and back", [d.arcLanes, kept], [false, ["drumsArc", "off"]]);
+        ~prefSave = was;
+    }.value;
     ~tEq.("the reverb sets on its slider's law, and says so",
         [heard.(d, { act.('sa.drums.reverbMix', [\position, 0.4]) }), d.reverbMix], [[[\mix, \reverbMix, 0.4]], 0.4]);
     // The presets (MegaSADrums.recallPreset): with the transport stopped, as

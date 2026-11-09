@@ -28,7 +28,7 @@ bandmate*, below).
 | **The loop** | Its meter (uneven bars too) and how each bar is grouped (2+2+3), how well the take's loud hits fit that meter's strong beats (the analyser's accent score), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
 | **Now** | Where the loop is (bar, beat, beat group), half-time, reverse, a break or a dissolve, the arc's intensity, and what lands on a coming boundary; with **Log every action** on, what you and it changed in the last minute | — |
 | **Past sets** | Every set recorded with **Record set**: each take, what was played on its bar grid, the meter the analyser applied and its runners-up, and what you changed (readings, bars by hand, the threshold); recorded with **Log every action**, every change and how everything was set at any second of the set | — |
-| **The drums** | Both step patterns, the kits and their pads, your drum presets | The patterns, the kit the steps play; load one of your drum presets; save as a drum preset |
+| **The drums** | Both step patterns, the kits and their pads, whether the arc thins the lanes and how many play, your drum presets | The patterns, the kit the steps play; load one of your drum presets; save as a drum preset |
 | **The synth** | The note sequence and the Wave synth's settings, your synth presets | Both, and the sequencer on or off; load one of your synth presets; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
 | **The Grains** | On or off, every setting, the grain window, whether they follow the chords | All of them; save as a granular preset |

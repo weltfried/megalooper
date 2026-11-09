@@ -52,21 +52,23 @@
 // (wallClock) decides what is still in the future; a bundle's delta is always
 // stamp - thisThread.seconds, so the absolute stamp stays exact from any thread,
 // however stale its logical time. A hit sounds iff, at its own grid time, its
-// pattern is in force, the drums are on, the transport plays and its epoch is
-// the one in force, and its stamp is still after wall + margin; a hit that
-// would be later than that is dropped and counted, one warning per burst.
+// pattern is in force, the drums are on, the transport plays, its epoch is the
+// one in force and its lane is neither muted nor held back by the arc, and its
+// stamp is still after wall + margin; a hit that would be later than that is
+// dropped and counted, one warning per burst.
 //
-// What can change after hits are sent (a break, PC 17, a stop, a reading, a
-// Start over a running transport) changes at a grid time t. Every sent hit owns
-// one of 1024 cancel busses of its slot, which its voices latch in their first
-// block, so one /c_set silences exactly that hit and no other. cut(t) re-judges
-// exactly the hits decided at or after t whose stamps are still after wall +
-// margin: those no longer wanted are cancelled, those now wanted are sent; hits
-// before t, and hits too close to cancel, are left alone, so nothing doubles and
-// nothing before t is lost. A change to the grid itself (a reading put in or
-// taken out, an epoch) also rewinds the patterns to the first step at or after
-// t and decides those steps again; the dice are a pure function of the step, so
-// a step decided twice decides the same way.
+// What can change after hits are sent (a break, PC 17, the arc's lanes, a
+// stop, a reading, a Start over a running transport) changes at a grid time
+// t. Every sent hit owns one of 1024 cancel busses of its slot, which its
+// voices latch in their first block, so one /c_set silences exactly that hit
+// and no other. cut(t) re-judges exactly the hits decided at or after t whose
+// stamps are still after wall + margin: those no longer wanted are cancelled,
+// those now wanted are sent; hits before t, and hits too close to cancel, are
+// left alone, so nothing doubles and nothing before t is lost. A change to the
+// grid itself (a reading put in or taken out, an epoch) also rewinds the
+// patterns to the first step at or after t and decides those steps again; the
+// dice are a pure function of the step, so a step decided twice decides the
+// same way.
 //
 // Nothing in the pump waits. A change asked for while it runs is queued and
 // applied when it is done, and the notifications it raises go out after it
@@ -115,6 +117,13 @@ MegaSADrums {
     var <retrigAt = \barLine;
     // PC 17, the pattern in force now, and whether the transport plays.
     var <on = true, <breakActive = false, <playing = false;
+    // The arc over the lanes (see The arc below): the switch (arcLanes, off
+    // by default: a pedal then changes nothing here), how many lanes the
+    // Looper's intensity allows now (arcLevel, 1..4, followed whatever the
+    // switch says, so switching on takes the pedal where it is), and how
+    // many play, as a condition history (lanesHist: arcLevel while the
+    // switch is on, else 4).
+    var <arcLanes = false, <arcLevel = 4, lanesHist;
     // A new loop starts with the drums off: true switches PC 17 off as a
     // first take starts recording, so the loop's Start runs the transport
     // with the steps silent, and PC 17 (or the Drums view's switch) brings
@@ -216,6 +225,8 @@ MegaSADrums {
             on: [\state, [\on], "the steps on"],
             playing: [\state, [\on], "the drums play (the loop runs, they follow it)"],
             breakActive: [\state, [\on], "the Break pattern plays"],
+            arcLanes: [\state, [\on], "the arc pedal thins the steps' lanes (the Drums view's switch)"],
+            lanesAllowed: [\state, [\lanes], "how many of the steps' lanes may play, lane 1 first (4 while arcLanes is off)"],
             pattern: [\event, [\pattern], "a pattern changed wholesale (\\main or \\break)"],
             steps: [\event, [\pattern], "a pattern's steps changed wholesale"],
             step: [\state, [\pattern, \page, \lane, \step, \value], "one step of a page"],
@@ -269,6 +280,7 @@ MegaSADrums {
         breakHist = [[inf.neg, \main]];
         holeHist = [[inf.neg, false]];
         onHist = [[inf.neg, true]];
+        lanesHist = [[inf.neg, 4]];
         playHist = [[inf.neg, false]];
         jobs = List.new;
         queuedNotes = List.new;
@@ -735,6 +747,66 @@ MegaSADrums {
     }
 
     toggleOn { |now| this.setOn(on.not, now) }
+
+    // ---- The arc ------------------------------------------------------------
+    // The Looper's intensity (the arc, the expression pedal) thins the steps:
+    // at heel lane 1 plays alone, and lanes 2, 3 and 4 join as the pedal
+    // rises, all four at toe. Like the arc's other work it is a limit over
+    // what is set, never an edit of it: a lane's own Mute stays as it is, and
+    // a lane the arc holds back still draws its dice, so it comes back in
+    // place. A change counts from the moment heard, as PC 17's (setOn): hits
+    // already sent past it are cancelled or sent. Off (the default), the pedal
+    // changes nothing here; a rig without one stays at 1, all four lanes.
+
+    // The pedal in four even steps (lane 1 alone below a quarter, all four
+    // from three quarters on), with a dead zone of arcDeadZone each side of
+    // every step's edge, so a pedal resting on one can't flicker a lane in and
+    // out: from `current`, the level in force, a step is taken only past its
+    // edge plus the zone. 0 is always 1, and 1 always 4.
+    *arcDeadZone { ^0.03 }
+    *arcLevelFor { |x, current = 4|
+        var n = (current ? 4).asInteger.clip(1, 4), dz = this.arcDeadZone;
+        x = (x ? 1).clip(0, 1);
+        while { (n < 4) and: { x >= ((n / 4) + dz) } } { n = n + 1 };
+        while { (n > 1) and: { x < (((n - 1) / 4) - dz) } } { n = n - 1 };
+        ^n
+    }
+
+    // How many lanes may play now, lane 1 first: the arc's level while the
+    // switch is on, else all four.
+    lanesAllowed { ^if(arcLanes) { arcLevel } { 4 } }
+
+    // The arc's intensity, 0..1 (the Looper's \intensity). Notifies
+    // \lanesAllowed when what may play changes.
+    followArc { |x, now|
+        var level;
+        if(alive.not) { ^this };
+        level = this.class.arcLevelFor(x, arcLevel);
+        if(level != arcLevel) {
+            arcLevel = level;
+            if(arcLanes) { this.prLanesFrom(now) };
+        };
+    }
+
+    // The Drums view's switch. Always notifies \arcLanes, also when
+    // unchanged, as setOn does; \lanesAllowed when what may play changes.
+    setArcLanes { |flag, now|
+        var was;
+        if(alive.not) { ^this };
+        was = this.lanesAllowed;
+        arcLanes = flag == true;
+        this.prNotify(\arcLanes, arcLanes);
+        if(this.lanesAllowed != was) { this.prLanesFrom(now) };
+    }
+
+    prLanesFrom { |now|
+        var edge;
+        now = now ?? { thisThread.seconds };
+        edge = now - this.class.loopAudioDelay;
+        lanesHist = this.class.historyFrom(lanesHist, edge, this.lanesAllowed);
+        this.prRequest([\cut, edge]);
+        this.prNotify(\lanesAllowed, this.lanesAllowed);
+    }
 
     // ---- The note sequencer (MegaSANoteSeq) --------------------------------
     // Its pattern is `notes`; edit it through these, which notify. Edits
@@ -1205,12 +1277,14 @@ MegaSADrums {
             .put(\reverse, { |obj, what, flag| this.prReversed(flag) })
             .put(\halfTime, { |obj, what, x| this.prHalfTimeChanged })
             .put(\speed, { |obj, what, x| this.prSpeedChanged(x) })
+            .put(\intensity, { |obj, what, x| this.followArc(x) })
             .put(\state, { |obj, what, st|
                 if((st == \recording) and: { newLoopOff } and: { on }) { this.setOn(false) };
                 this.prCheckSpawn(wallClock.value) })
             .put(\sessionRecording, { |obj, what, flag| this.prSessionRecording(flag) });
         aLooper.transport = transport;
         aLooper.onsetNoteSink = this;
+        this.followArc(aLooper.intensity);
         this.drift.from(aLooper.loopStartTime);
         logState = nil;
     }
@@ -1949,7 +2023,8 @@ MegaSADrums {
             and: { this.prPatternAt(g) == rec[\which] }
             and: { this.prOnAt(g) }
             and: { this.prPlayingAt(g) }
-            and: { lane.isNil or: { (patterns[rec[\which]][\mute][lane] == true).not } }
+            and: { lane.isNil or: {
+                ((patterns[rec[\which]][\mute][lane] == true).not) and: { lane < this.prLanesAt(g) } } }
             and: { this.prRepeatWants(rec) }
     }
 
@@ -2742,6 +2817,7 @@ MegaSADrums {
     prPatternAt { |g| ^this.class.historyAt(breakHist, g) }
     prHoleAt { |g| ^this.class.historyAt(holeHist, g) }
     prOnAt { |g| ^this.class.historyAt(onHist, g) }
+    prLanesAt { |g| ^this.class.historyAt(lanesHist, g) }
     prPlayingAt { |g| ^this.class.historyAt(playHist, g) }
     prNotesOnAt { |g| ^this.class.historyAt(notesHist, g) }
 
@@ -2830,6 +2906,7 @@ MegaSADrums {
         breakHist = this.class.historyPruned(breakHist, before);
         holeHist = this.class.historyPruned(holeHist, before);
         onHist = this.class.historyPruned(onHist, before);
+        lanesHist = this.class.historyPruned(lanesHist, before);
         playHist = this.class.historyPruned(playHist, before);
         repeatHist = this.class.historyPruned(repeatHist, before);
         // A hit stays remembered while it may sound, and so does everything

@@ -658,6 +658,40 @@ Routine {
         ok.("Main again", brk.value == 0);
     });
 
+    section.("the arc's switch, and the lanes it holds back", {
+        var arc = ~drumsWidgets[\arcLanes][\view], wasSave = ~prefSave, kept, refreshes;
+        var colour = { |lane| ~drumsWidgets[~drumsLaneKey.(\label, lane)][\view].stringColor };
+        ~prefSave = { |key, value| kept = [key, value] };
+        ok.("off at boot", (d.arcLanes == false) and: { arc.value == 0 } and: { arc.states[0][0] == "Arc off" },
+            arc.states.asString);
+        arc.valueAction_(1);
+        tick.();
+        ok.("a click switches the arc on, kept for the next start",
+            (d.arcLanes == true) and: { kept == ["drumsArc", "lanes"] }, kept.asString);
+        ok.("lit, saying how many lanes play", (arc.value == 1) and: { arc.states[1][0] == "ARC · 4 of 4" },
+            arc.states.asString);
+        refreshes = ~drumsLaneRefreshes;
+        d.followArc(0.0);
+        tick.();
+        ok.("the pedal at heel: one lane", arc.states[1][0] == "ARC · 1 of 4", arc.states.asString);
+        ok.("...the lanes repaint", ~drumsLaneRefreshes >= (refreshes + 4), (~drumsLaneRefreshes - refreshes).asString);
+        ok.("...lanes 2-4's labels grey, as a muted lane's, lane 1's not",
+            near.(colour.(0), ~guiInk) and: { [1, 2, 3].every { |lane| near.(colour.(lane), ~gt[\mute]) } },
+            (0..3).collect(colour).asString);
+        ok.("...their own Mute untouched", (0..3).every { |lane| d.laneParam(\main, lane, \mute) == false }
+            and: { ~drumsWidgets[\mute1][\view].value == 0 });
+        ok.("...and a held lane's tip says so", ~drumsLaneTip.(2).contains("The arc holds it back")
+            and: { ~drumsLaneTip.(0).contains("The arc").not });
+        arc.valueAction_(0);
+        tick.();
+        ok.("off again: every lane plays, none grey, and that is kept",
+            (d.lanesAllowed == 4) and: { arc.value == 0 } and: { kept == ["drumsArc", "off"] }
+                and: { (0..3).every { |lane| near.(colour.(lane), ~guiInk) } },
+            [d.lanesAllowed, kept, (0..3).collect(colour)].asString);
+        d.followArc(1.0);
+        ~prefSave = wasSave;
+    });
+
     section.("the playhead", {
         var refreshes;
         d.setAnalysis((numerator: 4, denominator: 4, k: 1, bpm: 120));

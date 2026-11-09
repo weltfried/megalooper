@@ -147,6 +147,8 @@ if(sa.notNil) {
     ~tEq.("...the drums' switches and their kits",
         [ctx.at("drums").at("on"), ctx.at("drums").at("breakActive"), ctx.at("drums").at("kits").class],
         [sa.drums.on, false, Array]);
+    ~tEq.("...whether the arc thins the lanes, and how many may play",
+        [ctx.at("drums").at("arcLanes"), ctx.at("drums").at("lanesAllowed")], [false, 4]);
     o = ctx.at("synth");
     ~tEq.("...the note sequence, and what plays it",
         [o.at("notes").at("lanes").at("pitch").at("values"), o.at("notes").at("scale"), o.at("instrument"),

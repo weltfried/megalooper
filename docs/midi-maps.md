@@ -108,7 +108,7 @@ chords), `granularResetTweaks`.
 `guitar` (shown as **Instrument**), `bass` (**Instrument 2**), `loop`, `drums`, `onsetKit`,
 `synth` and `master`; the master has no mute.
 
-**The drums:** `sa.drums.on`, `sa.drums.breakPattern`, `sa.drums.repeats`,
+**The drums:** `sa.drums.on`, `sa.drums.breakPattern`, `sa.drums.arcLanes`, `sa.drums.repeats`,
 `sa.drums.reverbMix`, `sa.drums.livePattern.<main|break>`, a pattern's
 settings as `sa.drums.<main|break>.<setting>`, a lane's as
 `sa.drums.<main|break>.lane<1-4>.<note|altNote|delay|mute|lock>` and

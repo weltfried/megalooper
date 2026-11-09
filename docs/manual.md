@@ -392,6 +392,11 @@ Intensity **defaults to 1**, so a rig with no expression pedal connected behaves
 exactly as it did before this existed — the pedal takes over the moment it is
 touched and never before.
 
+The pedal can thin the drums as well: with **Arc** on, on the Drums view, lane
+1 of the steps plays alone at heel and all four lanes play at toe, each lane
+coming back in its place ([the drums](drums.md#the-steps)). That switch starts
+off, so the pedal leaves the drums alone until you turn it on.
+
 ### Half-time
 
 Press **Half-time** (Perform's Loop column, key `L`, or a switch mapped to

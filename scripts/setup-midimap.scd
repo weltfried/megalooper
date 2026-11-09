@@ -173,7 +173,7 @@
 
 // One choice kept under "gui" in settings.json (the theme, the help lines,
 // and the switches the setup scripts keep: the fallback meter, AI apps, Log
-// every action, the drums' new loop), and read back. They were the window's
+// every action, the drums' new loop and their arc), and read back. They were the window's
 // (gui-theme.scd, whose names forward here), and the setup scripts reached up
 // to the window to keep theirs (docs/dev/architecture.md, 5, step 2).
 //

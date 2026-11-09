@@ -532,6 +532,13 @@
                     view.states_([[if(v == \live) { "On Live's grid" } { "On the bars" }, ~gt[\ink], ~gt[\panel]]]);
                     view.enabled_(w[\available].value == true);
                 },
+                // The arc's switch: off, or on with how many lanes the pedal
+                // lets play now.
+                \arc, {
+                    view.states_([["Arc off", ~gt[\ink], nil],
+                        ["ARC · " ++ (w[\lanes].value ? 4) ++ " of 4", ~gt[\onacc], ~gt[\drum]]]);
+                    view.value = (v == true).binaryValue;
+                },
                 // The dice: new at every Start, or kept (its seed shown).
                 \dice, {
                     view.states_([if(v.isNil) { ["New every Start", ~gt[\ink], ~gt[\panel]] }
@@ -629,7 +636,7 @@
 
 ~drumsRefreshAll = {
     var m = ~megaSA;
-    [\on, \breakActive, \repeats, \repeatGrid, \dice, \reverbMix, \reverbState, \offsetMs].do { |k| ~drumsPaint.(k) };
+    [\on, \breakActive, \arcLanes, \repeats, \repeatGrid, \dice, \reverbMix, \reverbState, \offsetMs].do { |k| ~drumsPaint.(k) };
     [\steps, \onset].do { |slot|
         ~drumsPaint.(~drumsKitKey.(slot));
         ~drumsPaint.(~drumsKitLineKey.(slot));
@@ -741,10 +748,10 @@
     ~drumsPaints = (~drumsPaints ? 0) + 1;     // check-gui.scd counts the paints
     if(d.notNil) {
         len = d.effectiveLength(which, page, lane) ? 16;
-        muted = d.laneParam(which, lane, \mute) == true;
+        muted = (d.laneParam(which, lane, \mute) == true) or: { ~drumsArcHolds.(d, lane) };
         col = ~drumsPlayhead !? { |p| ~drumsColumnAt.(p[\ls], len) };
-        // The drums' colour, and a muted lane in \mute: it still runs, but
-        // nothing of it is heard.
+        // The drums' colour, and a muted lane in \mute (or one the arc holds
+        // back): it still runs, but nothing of it is heard.
         hue = if(muted) { ~gt[\mute] } { ~gt[\drum] };
         16.do { |i|
             x = i * w;
@@ -849,6 +856,10 @@
     }
 };
 
+// Whether the arc holds the lane back now (MegaSADrums.lanesAllowed: lane 1
+// first), whatever its own Mute says.
+~drumsArcHolds = { |d, lane| d.notNil and: { lane >= (d.lanesAllowed ? 4) } };
+
 ~drumsLaneTip = { |lane|
     var d = ~drumsModel.();
     if(d.isNil) { "" } {
@@ -858,6 +869,8 @@
             ++ " when its Alt step wins (Note and Alt below)."
             ++ (if(d.laneParam(~drumsPattern, lane, \mute) == true) {
                 "\nMuted: it keeps drawing its dice, so it comes back in place." } { "" })
+            ++ (if(~drumsArcHolds.(d, lane)) {
+                "\nThe arc holds it back now: it comes in, in place, as the pedal rises." } { "" })
     }
 };
 
@@ -945,7 +958,8 @@
         .toolTip_("Randomize less: every step of this lane, on the page shown, moves one up,\n"
             "one down or stays (the device's small dice). Press it again to wander further.")
         .action_({ ~drumsRandomize.(lane, \less) });
-    var muted = { ((~drumsModel.() !? { |d| d.laneParam(~drumsPattern, lane, \mute) }) == true) };
+    var muted = { ~drumsModel.() !? { |d|
+        (d.laneParam(~drumsPattern, lane, \mute) == true) or: { ~drumsArcHolds.(d, lane) } } ? false };
     ~drumsWidgets.put(~drumsLaneKey.(\label, lane), (kind: \text, view: label,
         get: { ~drumsLaneLabel.(lane) }, tip: { ~drumsLaneTip.(lane) },
         color: { if(muted.()) { ~gt[\mute] } { ~guiInk } }));
@@ -1165,6 +1179,18 @@
         "The pattern shown below (Main or Break) back as megalooper ships it: every\n"
         "step, length, lane setting and its timing. A double-click on a step does it for one.\n"
         "Save a preset first to keep an edit.");
+    // The arc's switch: lit while the arc pedal thins the lanes, saying how
+    // many play now. Lit from the drums' own switch, not by the click.
+    var arc = ~mapTag.(~drumsButton.().fixedSize_(Size(116, 34)).font_(~guiSans.(14, true))
+        .action_({ |b|
+            ~controlDo.('sa.drums.arcLanes', \set, b.value == 1, \gui);
+            ~drumsPaint.(\arcLanes);
+        }), 'sa.drums.arcLanes',
+        "The arc pedal thins the steps: at heel lane 1 plays alone, and lanes 2, 3 and 4\n"
+        "join as the pedal rises, all four at toe. A lane's own Mute stays as it is, and a\n"
+        "lane the arc holds back keeps drawing its dice, so it comes back in place. A change\n"
+        "counts from the moment you hear it. Off, the pedal leaves the drums alone.\n"
+        "Both patterns; the onset kit and the synth are not thinned. Kept for the next start.");
     var keep = ~drumsButton.().fixedSize_(Size(140, 34)).cycles_(false)
         .states_([["Start with this", ~gt[\ink], ~gt[\panel]]])
         .toolTip_("Keep the drums as they are now (both patterns, the kits, trims, repeats,\n"
@@ -1174,7 +1200,11 @@
     ~drumsWidgets.put(\on, (kind: \button, view: on, get: { ~drumsModel.() !? { |d| d.on } }));
     ~drumsWidgets.put(\breakActive, (kind: \button, view: brk,
         get: { ~drumsModel.() !? { |d| d.breakActive } }));
-    HLayout(~guiTitle.("Drums", 26), on, brk, nil, importButton, live, keep).spacing_(14)
+    ~drumsWidgets.put(\arcLanes, (kind: \arc, view: arc,
+        get: { ~drumsModel.() !? { |d| d.arcLanes } },
+        lanes: { ~drumsModel.() !? { |d| d.lanesAllowed } }));
+    ~drumsPaint.(\arcLanes);
+    HLayout(~guiTitle.("Drums", 26), on, brk, arc, nil, importButton, live, keep).spacing_(14)
 };
 
 // The kits a part can play: those whose samples are here. A kit's map
@@ -1501,6 +1531,10 @@
                 ~guiRefreshTabs !? { |f| f.value } }.defer })
             .put(\playing, { { ~drumsPollPlayhead.(true); ~guiRefreshTabs !? { |f| f.value } }.defer })
             .put(\breakActive, { { ~drumsPaint.(\breakActive); ~drumsPollPlayhead.(true) }.defer })
+            // The arc: its switch, and the lanes it holds back drawn as muted.
+            .put(\arcLanes, { { ~drumsPaint.(\arcLanes) }.defer })
+            .put(\lanesAllowed, { { ~drumsPaint.(\arcLanes);
+                4.do { |lane| ~drumsPaint.(~drumsLaneKey.(\label, lane)) }; ~drumsRefreshLanes.() }.defer })
             .put(\step, { |obj, what, which, sub, lane|
                 { if((which == ~drumsPattern) and: { sub == ~drumsPage }) { ~drumsRefreshLane.(lane) };
                     ~drumsRefreshTiles.() }.defer })

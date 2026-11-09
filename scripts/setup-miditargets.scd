@@ -464,15 +464,29 @@
     };
 
     // The drums, as the Drums tab shows them (gui-drums.scd): which pattern
-    // plays, Beat Repeat, the reverb, each pattern back as the Live set has
-    // it, and each pattern's timing and lanes.
+    // plays, the arc's switch, Beat Repeat, the reverb, each pattern back as
+    // the Live set has it, and each pattern's timing and lanes.
     drumsFamily = {
+        // The arc's switch, kept in settings.json by setup-sa.scd's
+        // ~saDrumsArcSet (the drums' own switch alone where that is not
+        // loaded).
+        var arcSet = { |on|
+            if(~saDrumsArcSet.notNil) { ~saDrumsArcSet.(on == true) } {
+                drums.value !? { |d| d.setArcLanes(on == true) } }
+        };
         // The header's Main | BREAK switch, by hand until the Looper's next
         // break edge, from the moment heard. Lit by what the drums did.
         add.('sa.drums.breakPattern', "Break plays", "Drums", \toggle, (
             flip: { drums.value !? { |d| d.setBreakPattern((d.breakActive == true).not) } },
             get: { drums.value !? { |d| d.breakActive } },
             set: { |on| drums.value !? { |d| d.setBreakPattern(on == true) } },
+            available: hasDrums));
+        // The header's Arc switch: the arc pedal thins the lanes, lane 1
+        // alone at heel, all four at toe (MegaSADrums.setArcLanes).
+        add.('sa.drums.arcLanes', "Arc thins lanes", "Drums", \toggle, (
+            flip: { drums.value !? { |d| arcSet.((d.arcLanes == true).not) } },
+            get: { drums.value !? { |d| d.arcLanes } },
+            set: { |on| arcSet.(on) },
             available: hasDrums));
         // There only while the steps kit in force has Beat Repeat, as the tab's
         // switch is: elsewhere it says "no repeats" and takes no click.

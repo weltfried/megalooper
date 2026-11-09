@@ -76,7 +76,7 @@ var expected = [
     \buildSARigSection, \saLevelSpec,
     \saDrumsKitDir, \saDrumsDefaultKits, \saDrumsStartKit, \saKeptDrumsPath, \saKeptDrumsBefore, \saAdoptKeptDrums, \saKeepDrums, \saLoadKeptDrums,
     \saKeptSynthPath, \saKeepSynth, \saLoadKeptSynth,
-    \saDrumsKitLine, \setupSADrums, \saDrumsNewLoopApply, \saDrumsNewLoopSet,
+    \saDrumsKitLine, \setupSADrums, \saDrumsNewLoopApply, \saDrumsNewLoopSet, \saDrumsArcApply, \saDrumsArcSet,
     \remoteApply, \remoteSet, \remoteOn, \remoteRevert, \remoteSource, \remotePresetFamilies, \rigAiSection, \guiAiPaint, \guiAiTileMake,
     \buildMidiPane, \guiSetupShow, \guiSetupNext, \guiSetupMenu, \guiSetupMenuOf, \guiPaneSeen, \guiTabLabel, \guiTabMenu,
     \remotePython, \remoteConfigText, \remoteCopyConfig, \remoteInstallExtension, \remoteRepo,

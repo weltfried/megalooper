@@ -2,7 +2,8 @@
 // in Perform's Drums column): a first take starting to record switches PC 17 off, so
 // the loop's Start runs the transport with the steps silent; overdubs and the
 // other states leave the switch as it is, and with the option off nothing
-// changes at all. The setting is kept in settings.json's "gui" part.
+// changes at all. The setting is kept in settings.json's "gui" part, and so is
+// the Drums view's Arc switch (MegaSADrums.arcLanes), at the end.
 
 if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").load };
 ~tFile.("test-megadrums-newloop");
@@ -65,6 +66,19 @@ d.newLoopOff = false;
 saved = ();
 ~saDrumsNewLoopApply.();
 ~tEq.("with nothing kept, the drums play", d.newLoopOff, false);
+
+// ---- the arc's switch, kept the same way ("gui": {"drumsArc": ...}) -------------
+~tEq.("the arc's switch starts off", d.arcLanes, false);
+~saDrumsArcSet.(true);
+~tEq.("the Drums view's switch sets the drums and keeps the choice", [d.arcLanes, saved[\drumsArc]], [true, "lanes"]);
+~saDrumsArcSet.(false);
+~tEq.("...either way", [d.arcLanes, saved[\drumsArc]], [false, "off"]);
+saved.put(\drumsArc, "lanes");
+~saDrumsArcApply.();
+~tEq.("a boot applies what was kept", d.arcLanes, true);
+saved = ();
+~saDrumsArcApply.();
+~tEq.("with nothing kept, it is off", d.arcLanes, false);
 ~prefSave = wasSave;
 ~prefSaved = wasSaved;
 ~megaSA = nil;

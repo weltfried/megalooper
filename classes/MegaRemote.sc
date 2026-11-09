@@ -1501,7 +1501,8 @@ MegaRemote {
     *noteName { |midi| ^midi !? { |m| MegaSANoteSeq.rootNames[m % 12] ++ ((m div: 12) - 1) } }
 
     // Both step patterns, which is in force, the kits (with how far each was
-    // levelled, in dB) and their pads.
+    // levelled, in dB) and their pads, and whether the arc thins the lanes
+    // (arcLanes) and how many may play now (lanesAllowed, lane 1 first).
     *drumsOf { |d|
         var pads = { |slot|
             var o = MegaJsonObject.new;
@@ -1510,6 +1511,7 @@ MegaRemote {
         };
         ^this.obj([
             \on, d.on, \playing, d.playing, \breakActive, d.breakActive,
+            \arcLanes, d.arcLanes, \lanesAllowed, d.lanesAllowed,
             \stepsKit, d.kit(\steps) !? { |k| k.asString },
             \onsetKit, d.kit(\onset) !? { |k| k.asString },
             \kitLevels, this.obj([\steps, d.kitLevel(\steps), \onset, d.kitLevel(\onset)]),

@@ -16,6 +16,7 @@
 //     ~megaSA.saveSound(~saSoundsDir.(), "Warm"); // a sound under a name; loadSound recalls it
 //     ~megaSA.drums.toggleOn;           // the drums' steps on or off, as PC 17
 //     ~saDrumsNewLoopSet.(true);        // a new loop starts with the drums off (kept)
+//     ~saDrumsArcSet.(true);            // the arc pedal thins the drums' lanes (kept)
 //     ~megaSA.drums.setKit(\steps, 'core-909'); // or \onset; ~megaSA.drums.kitKeys
 //     ~saKeepDrums.();                  // the next boot starts with these drums
 (
@@ -760,6 +761,20 @@
 ~saDrumsNewLoopSet = { |off|
     ~megaSA !? { |m| m.drums !? { |d| d.newLoopOff = off == true } };
     ~prefSave !? { |f| f.value(~saDrumsNewLoopKey, if(off == true) { "off" } { "play" }, "the drums' new-loop switch") };
+};
+
+// Whether the arc thins the drums' lanes (MegaSADrums.arcLanes), as
+// settings.json keeps it: "gui": {"drumsArc": "lanes"}, or "off", the
+// default. Read once the settings are (boot.scd, beside the new-loop switch);
+// set from the Drums view's switch and its MIDI control (setup-miditargets.scd).
+~saDrumsArcKey = "drumsArc";
+~saDrumsArcApply = {
+    ~megaSA !? { |m| m.drums !? { |d|
+        d.setArcLanes((~prefSaved !? { |f| f.value(~saDrumsArcKey) }) == "lanes") } }
+};
+~saDrumsArcSet = { |on|
+    ~megaSA !? { |m| m.drums !? { |d| d.setArcLanes(on == true) } };
+    ~prefSave !? { |f| f.value(~saDrumsArcKey, if(on == true) { "lanes" } { "off" }, "the drums' arc switch") };
 };
 
 ~setupSA = {

@@ -888,6 +888,107 @@ var off = go.(\on), stop = go.(\stop);
 ~tEq.("a Stop at 92.51 cuts the kick on 92.5 too", stop.last, 92.375);
 }.value;
 
+// ---------------------------------------------------------------- the arc --
+// The arc's intensity (the expression pedal) over the lanes: lane 1 alone at
+// heel, all four at toe, with a dead zone at each step's edge; only while the
+// switch is on, each change from the moment heard, as PC 17's.
+{
+var c = MegaSADrums;
+var from = { |current, xs| xs.collect { |x| c.arcLevelFor(x, current) } };
+~tEq.("the pedal in four steps: heel lane 1 alone, toe all four, from either side",
+    [from.(1, [0, 0.1, 0.4, 0.6, 0.9, 1]), from.(4, [0, 0.1, 0.4, 0.6, 0.9, 1])],
+    [[1, 1, 2, 3, 4, 4], [1, 1, 2, 3, 4, 4]]);
+~tEq.("...on a step's edge the level in force holds: a pedal resting there can't flicker a lane",
+    [from.(1, [0.26, 0.27]), from.(2, [0.24, 0.23]), from.(3, [0.76, 0.77]), from.(4, [0.74, 0.73])],
+    [[1, 1], [2, 2], [3, 3], [4, 4]]);
+~tEq.("...and past the zone it steps", [from.(1, [0.29]), from.(2, [0.21]), from.(3, [0.79]), from.(4, [0.71])],
+    [[2], [1], [4], [3]]);
+~tEq.("...a jump takes every step at once; out of range and nil are clipped (nil: no pedal, all four)",
+    [c.arcLevelFor(1, 1), c.arcLevelFor(0, 4), c.arcLevelFor(-3, 4), c.arcLevelFor(7, 1), c.arcLevelFor(nil, 1)],
+    [4, 1, 1, 4, 4]);
+}.value;
+{
+var fx = ~dsMake.();
+var d = fx[\drums];
+var said = List.new;
+var ctl = SimpleController(d)
+    .put(\arcLanes, { |o, w, v| said.add([\arcLanes, v]) })
+    .put(\lanesAllowed, { |o, w, v| said.add([\lanesAllowed, v]) });
+var notes, snd, of, all;
+~dsPlain.(d, \main, (0: ~dsEvery, 1: ~dsEvery, 2: ~dsEvery, 3: ~dsEvery));
+notes = 4.collect { |lane| d.laneParam(\main, lane, \note) };
+~tEq.("(the four lanes play four pads)", notes.asSet.size, 4);
+~tEq.("it starts off, the pedal at 1: all four lanes", [d.arcLanes, d.arcLevel, d.lanesAllowed], [false, 4, 4]);
+~dsStart.(fx, 92.0);
+~dsRun.(fx, 92.5);
+d.followArc(0.0, 92.5);
+~tEq.("off, the pedal at heel is followed but thins nothing", [d.arcLevel, d.lanesAllowed, said.asArray], [1, 4, []]);
+~dsRun.(fx, 93.0);
+d.setArcLanes(true, 93.0);
+~dsRun.(fx, 93.5);
+d.followArc(0.3, 93.5);
+~dsRun.(fx, 94.0);
+d.followArc(1.0, 94.0);
+~dsRun.(fx, 94.5);
+d.setArcLanes(false, 94.5);
+d.followArc(0.0, 94.6);
+~dsRun.(fx, 95.0);
+d.setArcLanes(true, 95.0);
+~dsRun.(fx, 95.5);
+snd = ~dsSounding.(fx[\log]);
+all = ~dsHits.(fx[\log]);
+~tAssert.("bundles were sent", snd.size > 0);
+of = { |lane, lo, hi| ~dsGrid.(~dsOf.(snd, notes[lane])).select { |t| (t > (lo - 1e-6)) and: { t < (hi - 1e-6) } }
+    .collect(_.round(1e-6)) };
+~tEq.("lane 1 plays throughout", of.(0, 92.0, 95.5).size, 28);
+~tEq.("switched on at heel: lanes 2-4 stop from the moment heard (t - 0.020), lane 1 plays on",
+    [1, 2, 3].collect { |lane| [of.(lane, 92.0, 93.0).last, of.(lane, 93.0, 93.5)] },
+    [1, 2, 3].collect { [92.875, []] });
+~tAssert.("...their hits on 93.0, already sent, cancelled", [1, 2, 3].every { |lane|
+    all.any { |h| (h[\note] == notes[lane]) and: { h[\cancelled] } and: { ((h[\time] - 0.02) - 93.0).abs < 1e-9 } } });
+~tEq.("the pedal at 0.3: lane 2 back from its edge, sent though it was decided held back, lanes 3 and 4 not yet",
+    [of.(1, 93.0, 94.0).first, of.(2, 93.0, 94.0), of.(3, 93.0, 94.0)], [93.5, [], []]);
+~tEq.("toe: all four from its edge", [2, 3].collect { |lane| of.(lane, 93.0, 94.5).first }, [94.0, 94.0]);
+~tEq.("switched off, the pedal at heel leaves every lane playing",
+    [1, 2, 3].collect { |lane| of.(lane, 94.5, 95.0).size }, [4, 4, 4]);
+~tEq.("switched on again with the pedal still at heel: lane 1 alone from its edge",
+    [1, 2, 3].collect { |lane| of.(lane, 95.0, 95.5) }, [[], [], []]);
+~tEq.("nothing sounds twice", ~dsKeys.(snd).asSet.size, snd.size);
+~tEq.("the drums say the switch at every press and what may play when that changes",
+    said.asArray, [[\arcLanes, true], [\lanesAllowed, 1], [\lanesAllowed, 2], [\lanesAllowed, 4],
+        [\arcLanes, false], [\arcLanes, true], [\lanesAllowed, 1]]);
+~tEq.("a lane's own Mute is left as it was", 4.collect { |lane| d.laneParam(\main, lane, \mute) }, false ! 4);
+ctl.remove;
+}.value;
+// Both patterns, a lane's own Mute, and the Looper's pedal.
+{
+var fx = ~dsMake.();
+var d = fx[\drums], l = fx[\looper];
+var notes, snd, of;
+~dsPlain.(d, \main, (0: ~dsEvery, 1: ~dsEvery, 2: ~dsEvery, 3: ~dsEvery));
+~dsPlain.(d, \break, (0: ~dsEvery, 1: ~dsEvery, 2: ~dsEvery, 3: ~dsEvery));
+notes = 4.collect { |lane| d.laneParam(\break, lane, \note) };
+d.setLaneParam(\break, 0, \mute, true);
+// Switched on after the pedal moved: the Looper's notification carries no
+// time, and this thread's (standing still) is not the test's clock.
+l.changed(\intensity, 0.4);
+~tEq.("the drums follow the Looper's intensity", [d.arcLevel, d.lanesAllowed], [2, 4]);
+d.setArcLanes(true, 91.0);
+~tEq.("...switched on, it counts", d.lanesAllowed, 2);
+d.setBreakPattern(true, 91.0);
+~dsStart.(fx, 92.0);
+~dsRun.(fx, 93.0);
+snd = ~dsSounding.(fx[\log]);
+of = { |lane| ~dsGrid.(~dsOf.(snd, notes[lane])).select { |t| (t > 91.99) and: { t < 92.99 } } };
+~tAssert.("bundles were sent", snd.size > 0);
+~tEq.("the break pattern is thinned too; a lane the arc lets play keeps its own Mute",
+    4.collect { |lane| of.(lane).size }, [0, 8, 0, 0]);
+d.detach;
+~tPut.(l, \intensity, 0.0);
+d.attach(l);
+~tEq.("attached, the drums take the Looper's pedal where it is", d.arcLevel, 1);
+}.value;
+
 // ------------------------------------------------------- stale logical time --
 // The Start, the pump and a stomp from a thread whose logical time lags wall
 // by 0.2 s (an analysis just ran on it), through the DEFAULT sender: deltas
