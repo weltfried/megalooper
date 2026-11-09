@@ -32,6 +32,9 @@ LoopTimeline {
     var <speed = 1, <passOrigin, <speedChangedAt;
     // key -> (token:, at:, routine:), and key -> the last token given out.
     var arms, tokens;
+    // How late the loop's audio runs behind this grid (LoopDrift), made when
+    // first asked for.
+    var drift;
 
     *new { |periodFunc| ^super.newCopyArgs(periodFunc).init }
 
@@ -77,6 +80,9 @@ LoopTimeline {
         loopSecs = loopSecs ?? { this.period };
         ^(t - (loopStartTime ? t)).mod(loopSecs)
     }
+
+    // The drift estimate: how much later than this grid the loop is heard.
+    drift { ^drift ?? { drift = LoopDrift.new } }
 
     // ---- The arms -----------------------------------------------------------
 

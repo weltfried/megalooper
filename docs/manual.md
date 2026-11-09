@@ -1577,6 +1577,7 @@ megalooper/
     MeterDecision.sc     -- what a reading means for the loop: the snap, bar and beat, counts, readings
     LooperTrainingExport.sc -- a loop written out as labelled training data (WAV + JSON sidecar)
     LoopTimeline.sc -- the loop's time: its anchor, speed and boundaries, and what is armed on them
+    LoopDrift.sc -- how late the loop's audio runs behind that time: the drift estimate, from probes
     LoopTransport.sc -- the transport that follows the loop: Live's MIDI clock (LiveMidiTransport); the drums' is MegaSATransport
     LooperOnsetNotes.sc  -- the loop's onsets replayed as a drum part (MIDI notes, or the drums' onset kit)
     LooperChainRecorder.sc -- Rec next loop: records the next loop over this one, for the swap

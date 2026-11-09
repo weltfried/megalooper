@@ -580,7 +580,7 @@ MegaSA {
     // there (a chain built anywhere else would leave the loop-chain recorder,
     // which reads loopFxBus from that group's tail, recording silence), its
     // session recorder moved after the mixer, and the drums attached: they
-    // become its MIDI port and its onset-note sink, and follow its break,
+    // become its transport and its onset-note sink, and follow its break,
     // readings, reverse and state (MegaSADrums.attach). A chain built for an
     // earlier Looper goes first; the new one starts from the devices as they
     // stand, once the edits on their way have landed: the bundles they sent
@@ -1936,9 +1936,9 @@ MegaSA {
         stateJobsPart !? { |j| j.stop };
         // The drums first: they stop deciding hits and let go of the Looper's
         // notifications before anything they play into goes. The Looper keeps
-        // their port and their onset sink, which do nothing from now on: on a
-        // reboot the old Looper is freed after the new MegaSA is up, and it is
-        // still calling them (its MIDI clock every tick).
+        // their transport and their onset sink, which do nothing from now on:
+        // on a reboot the old Looper is freed after the new MegaSA is up, and
+        // it is still calling them.
         drums !? (_.free);
         (this.devices ++ (limbo ? [])).do { |d| d.plugin !? { |p| p.removeDependant(this) } };
         this.chains.do(_.free);

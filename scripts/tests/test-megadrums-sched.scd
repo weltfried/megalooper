@@ -254,13 +254,14 @@ h4 = c.historyFrom(h3, 11, \break);
 ~tEq.("...setting a value from an earlier time removes the later edges", [h4.size, c.historyAt(h4, 13)], [2, \break]);
 ~tEq.("...setting what is already in force adds no edge", c.historyFrom(h2, 11, \break).size, 2);
 ~tEq.("...and pruning keeps what was in force", c.historyPruned(h3, 10.5), [[inf.neg, \break], [12, \main]]);
+// The drift estimate's arithmetic (LoopDrift, the drums' until 2026-11-09).
 ~tNear.("a probe of a loop 3 ms late reads -3 ms (the drums move later)",
-    c.probeError(late.(100.0), 48000, 100.0, 90.0, 0, 2.0, 0.125), -0.003, 1e-9);
-~tNear.("...an estimate already at 3 ms reads 0", c.probeError(late.(100.0), 48000, 100.0, 90.0, 0.003, 2.0, 0.125), 0, 1e-9);
-~tNear.("...and so across the loop's wrap", c.probeError(late.(92.001), 48000, 92.001, 90.0, 0, 2.0, 0.125), -0.003, 1e-9);
-~tEqArray.("a drift step: a quarter of the error", c.driftStep(0, -0.003, 0), [0.00075, 0], 1e-12);
-~tEqArray.("...at most 2 ms", c.driftStep(0, 0.02, 0), [-0.002, 1], 1e-12);
-~tEqArray.("...the whole error when two in a row are over 10 ms", c.driftStep(-0.002, 0.018, 1), [-0.02, 0], 1e-12);
+    LoopDrift.probeError(late.(100.0), 48000, 100.0, 90.0, 0, 2.0, 0.125), -0.003, 1e-9);
+~tNear.("...an estimate already at 3 ms reads 0", LoopDrift.probeError(late.(100.0), 48000, 100.0, 90.0, 0.003, 2.0, 0.125), 0, 1e-9);
+~tNear.("...and so across the loop's wrap", LoopDrift.probeError(late.(92.001), 48000, 92.001, 90.0, 0, 2.0, 0.125), -0.003, 1e-9);
+~tEqArray.("a drift step: a quarter of the error", LoopDrift.driftStep(0, -0.003, 0), [0.00075, 0], 1e-12);
+~tEqArray.("...at most 2 ms", LoopDrift.driftStep(0, 0.02, 0), [-0.002, 1], 1e-12);
+~tEqArray.("...the whole error when two in a row are over 10 ms", LoopDrift.driftStep(-0.002, 0.018, 1), [-0.02, 0], 1e-12);
 ~tEq.("choke: a group's bus, a retriggering pad's own, otherwise the scratch bus with chokeOn 0",
     [c.chokeFor((note: 42, choke: 1), 100), c.chokeFor((note: 42, choke: 16), 100),
         c.chokeFor((note: 41, retrigger: true), 100), c.chokeFor((note: 60, retrigger: true), 100),
@@ -443,7 +444,7 @@ d.setLaneParam(\main, 3, \delay, 7.5);
 // A roll on step 2, two hits at 1/16t (80 ticks, a 16th being 120): the second
 // is cut by step 3's note.
 d.setSteps(\main, \roll, 0, Array.fill(16, { |i| if(i == 2) { 2 } { 0 } }));
-d.instVarPut(\dHat, 0.0017);
+~tPut.(d, \dHat, 0.0017);
 d.setOffsetMs(7);
 fx[\recs] = IdentitySet.new;
 ~dsStart.(fx, 92.0);
@@ -1265,6 +1266,9 @@ probeTimes = fp[\log].select { |b| b[1].any { |m| (m[0] == \s_new) and: { m[1] =
 ~tAssert.("...on a steady 2 s cadence: the k-th 2k s after the first (within this test's 50 ms pumps), never drifting",
     probeTimes.every { |t, k| ((t - (probeTimes[0] + (2 * k))) > -0.002) and: { (t - (probeTimes[0] + (2 * k))) < 0.052 } });
 ~tNear.("the estimate settles on the loop's 3 ms", fp[\drums].dHat, 0.003, 1e-5);
+~tAssert.("...the Looper's timeline's estimate (LoopDrift), which the drums probe for",
+    fp[\drums].drift === fp[\looper].timeline.drift and: { fp[\looper].timeline.drift.dHat == fp[\drums].dHat });
+~tAssert.("...and with no Looper, the drums' own", MegaSADrums((server: ~tStubServer.())).drift.isKindOf(LoopDrift));
 ~tNear.("...the last probe's error about nothing", fp[\drums].lastProbeError, 0, 1e-5);
 lastKick = fp[\drums].decided.select { |r| (r[\kind] == \step) and: { r[\emitted] == true } }.last;
 ~tNear.("...so the hits are stamped 3 ms later: nominal + 0.003", lastKick[\stamp] - lastKick[\grid], 0.023, 1e-5);
@@ -1295,13 +1299,13 @@ var id, held, rec;
 fx[\wall] = 93.0;
 id = d.probe(93.0);
 ~tAssert.("a probe is sent while the loop plays forwards", id.notNil);
-rec = d.instVarAt(\probes)[id];
+rec = ~tGet.(d, \probes)[id];
 d.probeReply(id, late.(rec[\time]), rec[\time] + 0.01);
 ~tNear.("...and moves the estimate", d.dHat, 0.00075, 1e-9);
 held = d.dHat;
 fx[\wall] = 94.0;
 id = d.probe(94.0);
-rec = d.instVarAt(\probes)[id];
+rec = ~tGet.(d, \probes)[id];
 ~tPut.(l, \reverseFlag, true);
 l.changed(\reverse, true);
 d.probeReply(id, late.(rec[\time]), rec[\time] + 0.01);
@@ -1320,11 +1324,11 @@ l.changed(\state, \playing);
 ~tEq.("a new engine (loopStartTime moved): the estimate from 0", d.dHat, 0);
 id = d.probe(98.1);
 ~tAssert.("...and probes again", id.notNil);
-rec = d.instVarAt(\probes)[id];
+rec = ~tGet.(d, \probes)[id];
 d.probeReply(id, late.(rec[\time], 98.0), rec[\time] + 0.04);
 ~tEq.("a reply arriving more than 30 ms after its time is discarded", d.dHat, 0);
 id = d.probe(98.2);
-rec = d.instVarAt(\probes)[id];
+rec = ~tGet.(d, \probes)[id];
 ~tPut.(l, \loopStartTime, 100.0);
 d.probeReply(id, late.(rec[\time], 98.0), rec[\time] + 0.01);
 ~tEq.("...and one whose engine changed under it", d.dHat, 0);
@@ -1344,7 +1348,7 @@ var hits, n, all, pat2;
 ~tPut.(l, \onsetNoteRolls, [0.1, 0.2, 0.3]);
 ~tPut.(l, \onsetNoteOffsetMs, 5);
 d.setOffsetMs(7);
-d.instVarPut(\dHat, 0.001);
+~tPut.(d, \dHat, 0.001);
 fx[\wall] = 91.0;
 d.startOnsets(l, pat, 2.0, 91.0);
 ~dsRun.(fx, 95.0);
@@ -1792,7 +1796,7 @@ d.wallClock = { wall };
 Routine { d.build(Group.basicNew(stub, 900), 16, 18, 20, 22) }.next;
 d.attach(l);
 id = d.probe(wall);
-rec = id !? { d.instVarAt(\probes)[id] };
+rec = id !? { ~tGet.(d, \probes)[id] };
 resp = d.instVarAt(\probeResp);
 ~tAssert.("a probe, and its responder", rec.notNil and: { resp.notNil });
 rec !? {

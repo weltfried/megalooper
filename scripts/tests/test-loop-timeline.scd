@@ -211,3 +211,42 @@ l.stopPlayback;
 ~tEq.("a stop leaves nothing armed", l.timeline.armedKeys, []);
 try { l.free } { |err| ~tFail.("free threw", err.errorString) };
 }.value;
+
+// ---- the drift estimate (LoopDrift) -------------------------------------------------
+// The timeline's, the drums' own until 2026-11-09: they send the probes and
+// hand the answers here. A loop 3 ms late, probed: the answer its phase read
+// would carry (A2K holds a block's first sample: 31.5 samples early).
+{
+var tl = LoopTimeline({ 2.0 }), drift = tl.drift, id, s16 = { 0.125 };
+var late = { |t| (((t - 90.0) - 0.003) % 2.0) - (31.5 / 48000) };
+~tEq.("the timeline has one drift estimate, from 0", [drift === tl.drift, drift.dHat], [true, 0]);
+drift.from(90.0);
+id = drift.sent(100.0, 90.0);
+drift.answer(id, late.(100.0), 100.01, true, 90.0, 2.0, 48000, s16);
+~tNear.("an answer moves it a quarter of the way", drift.dHat, 0.00075, 1e-9);
+id = drift.sent(102.0, 90.0);
+drift.reversed;
+drift.reversed;
+drift.answer(id, late.(102.0), 102.01, true, 90.0, 2.0, 48000, s16);
+~tNear.("one sent across a reverse, even one there and back since, is thrown away", drift.dHat, 0.00075, 1e-9);
+id = drift.sent(104.0, 90.0);
+drift.speedChanged;
+drift.answer(id, late.(104.0), 104.01, true, 90.0, 2.0, 48000, s16);
+~tNear.("...and one sent across a speed change", drift.dHat, 0.00075, 1e-9);
+id = drift.sent(106.0, 90.0);
+drift.answer(id, late.(106.0), 106.01, false, 90.0, 2.0, 48000, s16);
+~tNear.("...and one while the loop's model does not hold", drift.dHat, 0.00075, 1e-9);
+id = drift.sent(108.0, 90.0);
+drift.answer(id, late.(108.0), 108.04, true, 90.0, 2.0, 48000, s16);
+~tNear.("...and one more than 30 ms late", drift.dHat, 0.00075, 1e-9);
+drift.answer(id, late.(108.0), 108.01, true, 90.0, 2.0, 48000, s16);
+~tNear.("...and an answer for no probe (or one answered already)", drift.dHat, 0.00075, 1e-9);
+drift.sent(110.0, 90.0);
+drift.sent(130.0, 90.0);
+drift.prune(120.0);
+~tEq.("probes that never came back are forgotten, those still due kept", drift.instVarAt(\probes).size, 1);
+~tEq.("a new engine (the anchor moved): from 0, once", [drift.engine(95.0), drift.dHat, drift.engine(95.0)], [true, 0, false]);
+id = drift.sent(95.02, 95.0);
+drift.answer(id, late.(95.02), 95.03, true, 95.0, 2.0, 48000, s16);
+~tEq.("...an answer within 50 ms of its start is thrown away (its own start lag)", drift.dHat, 0);
+}.value;

@@ -30,8 +30,9 @@
 //     stamp = g + loopAudioDelay + dHat + (offsetMs / 1000)
 //
 // with the lane's delay and a roll's spacing already inside g, and dHat the
-// drift probe's estimate of how late the loop's audio runs behind the nominal
-// grid (it enters the stamp only, never the grid). The bundles are timestamped
+// drift estimate of how late the loop's audio runs behind the nominal grid
+// (it enters the stamp only, never the grid): the Looper's timeline's
+// (LoopDrift), from the probes the drums send. The bundles are timestamped
 // and the voices start with OffsetOut, so a hit lands on its sample.
 //
 // The grid comes in EPOCHS (a transport start: the Looper's Start, the drums'
@@ -149,7 +150,7 @@ MegaSADrums {
     // The dice (keepDice): a seed every Start plays, or nil for new dice at
     // every Start; and the seed of the epoch last begun.
     var <keptDice, <lastSeed;
-    var <dHat = 0, <lastProbeError, <dropped = 0, lastDropWall, lastPumpError;
+    var <dropped = 0, lastDropWall, lastPumpError;
     // The last analysis the Looper reported (setAnalysis): a start with no
     // Looper takes its grid from it.
     var <analysis;
@@ -183,8 +184,9 @@ MegaSADrums {
     var <drumGroup, <stepsGroup, <repeatGroup, <onsetGroup, <synthGroup, <fxSynth, <onsetFxSynth;
     var ringBusses, chokeBusses, pumpRoutine, probeResp, <built = false;
     // The drift probe.
-    var probes, probeSerial = 0, nextProbeAt, spawnCount = 0, reverseCount = 0, speedCount = 0;
-    var lastLam, lastSpawnAt, bigErrors = 0;
+    // The drift probe: when the next is due. The estimate is the Looper's
+    // timeline's (LoopDrift), or the drums' own with no Looper.
+    var nextProbeAt, ownDrift;
     // The drums' reverb: the four spectra once in (else nil), the zero spectrum
     // it starts on, a load's serial, the effects' busses [in, out], and
     // whether build loads it (a real server only) through which reader.
@@ -296,7 +298,6 @@ MegaSADrums {
         queuedNotes = List.new;
         ringSerials = (steps: 0, onset: 0, synth: 0);
         hitSerials = (steps: 0, onset: 0, synth: 0);
-        probes = IdentityDictionary.new;
         captures = List.new;
         repeatMemory = List.new;
         repeatHist = [[inf.neg, repeats]];
@@ -401,24 +402,6 @@ MegaSADrums {
     // The loop boundary nearest x.
     *loopBoundaryNear { |x, lam, loopDur| ^lam + ((((x - lam) / loopDur).round) * loopDur) }
 
-    // How far the loop's audio is ahead of the model at probe time (e > 0: the
-    // loop is earlier than modelled), within half a 16th. `value` is the
-    // engine's phase as the probe read it: A2K holds a block's first sample, and
-    // the probe's time is dithered over the block, so on average it is 31.5
-    // samples later than that.
-    *probeError { |value, sampleRate, probeTime, lam, dHat, loopDur, s16|
-        var phiHat = value + (31.5 / sampleRate);
-        var model = ((probeTime - lam) - dHat) % loopDur;
-        ^(phiHat - model).wrap(s16.neg / 2, s16 / 2)
-    }
-
-    // One probe's correction: [new dHat, consecutive large errors]. A quarter
-    // of the error, at most 2 ms; the whole error once two in a row exceed
-    // 10 ms (the loop moved, it did not drift).
-    *driftStep { |dHat, err, bigCount|
-        var big = if(err.abs > 0.010) { bigCount + 1 } { 0 };
-        ^if(big >= 2) { [dHat - err, 0] } { [dHat - (0.25 * err).clip(-0.002, 0.002), big] }
-    }
 
     // [bus, chokeOn] for a pad, `base` being its slot's choke block: 16 pad
     // busses for notes 36..51 (a retriggering pad chokes itself), 16 group
@@ -1439,8 +1422,7 @@ MegaSADrums {
             .put(\sessionRecording, { |obj, what, flag| this.prSessionRecording(flag) });
         aLooper.transport = transport;
         aLooper.onsetNoteSink = this;
-        lastLam = aLooper.loopStartTime;
-        lastSpawnAt = lastLam;
+        this.drift.from(aLooper.loopStartTime);
         logState = nil;
     }
 
@@ -2270,7 +2252,7 @@ MegaSADrums {
         ^id
     }
 
-    prStampDelta { ^(this.class.loopAudioDelay + dHat) + (offsetMs / 1000) }
+    prStampDelta { ^(this.class.loopAudioDelay + this.dHat) + (offsetMs / 1000) }
 
     // ---- The onset part in the pump --------------------------------------
 
@@ -3077,9 +3059,7 @@ MegaSADrums {
         };
         while { (epochs.size > 1) and: { epochs[1][\t0] < (before - 0.5) }
             and: { this.prEpochUsed(epochs[0][\id]).not } } { epochs.removeAt(0) };
-        if(probes.notEmpty) {
-            probes.keys.select { |id| probes[id][\time] < (before - 1) }.do { |id| probes.removeAt(id) };
-        };
+        this.drift.prune(before - 1);
     }
 
     // An epoch stays while anything still names it: a pattern's cursor, a hit
@@ -3275,8 +3255,18 @@ MegaSADrums {
     // ---- The drift probe ----------------------------------------------------
     // The loop runs on the interface's crystal, the language on the host's
     // clock: 20 ppm is 1.2 ms a minute, and a loop can play for twenty. Every
-    // 2 s the drums read the engine's phase at a known time and pull dHat a
-    // quarter of the way to it.
+    // 2 s the drums read the engine's phase at a known time; the estimate it
+    // moves (dHat) is the Looper's timeline's (LoopDrift), the drums' own
+    // until 2026-11-09.
+
+    // The estimate: the attached Looper's timeline's, or with none the
+    // drums' own (a Looper the tests stand in with an Event has none).
+    drift {
+        ^(looper !? { |l| l.tryPerform(\timeline) } !? { |t| t.drift })
+            ?? { ownDrift ?? { ownDrift = LoopDrift.new } }
+    }
+    dHat { ^this.drift.dHat }
+    lastProbeError { ^this.drift.lastProbeError }
 
     // The loop's model holds: it plays forwards, at its own speed (not at
     // half-time, rc600-picks.md 3a: its phase then runs at half the wall's).
@@ -3300,61 +3290,37 @@ MegaSADrums {
         if(alive.not or: { this.prProbeValid.not } or: { groupIds.isNil }) { ^nil };
         sr = (server !? { |s| s.sampleRate }) ? 48000;
         when = (wall + 0.05) + (64 / sr).rand;
-        probeSerial = (probeSerial % 16777215) + 1;
-        id = probeSerial;
-        probes.put(id, (time: when, lam: looper.loopStartTime, spawn: spawnCount, reverse: reverseCount,
-            speed: speedCount));
+        id = this.drift.sent(when, looper.loopStartTime);
         this.prSend(when, [[\s_new, \megaSADrumsProbe, -1, 0, groupIds[\drum],
             \phaseBus, looper.phaseBus.index, \id, id]]);
         ^id
     }
 
     // A probe's answer: the engine's phase `value` (seconds into the loop),
-    // `arrival` the wall time it came (default now). Kept only if it came within
-    // 30 ms of its time, nothing about the loop changed since it was sent, and
-    // it is not within 50 ms of the engine's start.
+    // `arrival` the wall time it came (default now), to the estimate
+    // (LoopDrift.answer says which it keeps).
     probeReply { |id, value, arrival|
-        var p, lam, loopDur, err, step;
+        var loopDur;
         if(alive.not) { ^this };
-        p = probes.removeAt(id);
-        if(p.isNil or: { value.isNil }) { ^this };
-        arrival = arrival ?? { wallClock.value };
-        lam = looper !? { |l| l.loopStartTime };
         loopDur = this.prLoopDur;
-        if(this.prProbeValid.not or: { arrival > (p[\time] + 0.03) } or: { p[\lam] != lam }
-            or: { p[\spawn] != spawnCount } or: { p[\reverse] != reverseCount } or: { p[\speed] != speedCount }
-            or: { (p[\time] - (lastSpawnAt ? inf.neg)) < 0.05 } or: { loopDur <= 0 }) { ^this };
-        err = this.class.probeError(value, (server !? { |s| s.sampleRate }) ? 48000, p[\time], lam, dHat,
-            loopDur, this.prSixteenthAt(p[\time], loopDur));
-        lastProbeError = err;
-        step = this.class.driftStep(dHat, err, bigErrors);
-        dHat = step[0];
-        bigErrors = step[1];
+        this.drift.answer(id, value, arrival ?? { wallClock.value }, this.prProbeValid,
+            looper !? { |l| l.loopStartTime }, loopDur, (server !? { |s| s.sampleRate }) ? 48000,
+            { |t| this.prSixteenthAt(t, loopDur) });
     }
 
-    // A new engine (loopStartTime moved): its own start lag, so dHat from 0 and
-    // a probe at once.
+    // A new engine (loopStartTime moved): its own start lag, so the estimate
+    // from 0, and a probe at once.
     prCheckSpawn { |wall|
-        var lam = looper !? { |l| l.loopStartTime };
-        if(lam.notNil and: { lam != lastLam }) {
-            lastLam = lam;
-            lastSpawnAt = lam;
-            spawnCount = spawnCount + 1;
-            dHat = 0;
-            bigErrors = 0;
-            nextProbeAt = wall;
-        };
+        if(this.drift.engine(looper !? { |l| l.loopStartTime })) { nextProbeAt = wall };
     }
 
     // A reverse landed: a probe sent across it is thrown away.
-    prReversed { |flag|
-        reverseCount = reverseCount + 1;
-    }
+    prReversed { |flag| this.drift.reversed }
 
     // Half-time landed or ended: a probe sent across it is thrown away. A
     // speed the grid does not have yet (a stop's) the drums follow at once.
     prSpeedChanged { |x|
-        speedCount = speedCount + 1;
+        this.drift.speedChanged;
         this.prFollowSpeedNow;
     }
 
@@ -3545,11 +3511,10 @@ MegaSADrums {
 
     // Everything goes: the routine, the Looper's controllers, the probe's
     // responder, the nodes (the groups take their voices with them), the
-    // busses and every buffer. The Looper keeps the port and the sink, dead
-    // now, so every call it still makes does nothing: on a reboot the old
-    // Looper plays on, its MIDI clock calling its port every tick, until
-    // ~setupLooper frees it after the new MegaSA is up (detach would leave it
-    // calling nil).
+    // busses and every buffer. The Looper keeps the transport and the sink,
+    // dead now, so every call it still makes does nothing: on a reboot the old
+    // Looper plays on, calling them, until ~setupLooper frees it after the new
+    // MegaSA is up (detach would hand it Live's transport instead).
     free {
         alive = false;
         this.prLetGo;
