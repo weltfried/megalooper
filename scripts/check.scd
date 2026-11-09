@@ -56,6 +56,10 @@ var alsoParse = [
     "sa/spike-biasfx-nrt.scd", "sa/spike-biasfx-rig.scd", "sa/nrt-drum-voices.scd",
     "sa/nrt-drums-fx.scd", "sa/nrt-drums.scd", "sa/nrt-session.scd"
 ];
+// The scripts among those that name VSTPlugin's classes outright: without
+// VSTPlugin (installed with --no-vstplugin, or its download failed) they
+// cannot compile, and megalooper runs without it, so they are skipped then.
+var needsVST = ["sa/spike-biasfx-nrt.scd", "sa/spike-biasfx-rig.scd"];
 // Entry points boot.scd calls, plus the shared data the callers read.
 var expected = [
     \actionsApply, \actionsSet, \actionsOn, \actionsParts, \actionsNote, \actionsHeader, \actionsSection, \actionsHint,
@@ -243,8 +247,12 @@ var bad = 0;
 "== parse ==".postln;
 (parts ++ alsoParse ++ testFiles).do { |f|
     var src = File.readAllString(dir +/+ f);
-    if(src.isNil) {
+    case
+    { src.isNil } {
         ("  UNREADABLE " ++ f).postln; bad = bad + 1;
+    }
+    { \VSTPlugin.asClass.isNil and: { needsVST.includesEqual(f) } } {
+        ("  skip  " ++ f ++ " — it names VSTPlugin's classes, and VSTPlugin is not installed here").postln;
     } {
         if(src.compile.isNil) { ("  FAIL  " ++ f).postln; bad = bad + 1 }
                               { ("  ok    " ++ f).postln };

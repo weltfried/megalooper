@@ -389,8 +389,9 @@ if(vst.notNil) {
     m.free;
 };
 // The plugin among them since 2026-11-06: its tile has its square, and a
-// footswitch can bypass it.
-~tEq.("the footswitches are every device's, the plugin's too", sa.fxOn.keys.asArray.sort, (MegaSAFx.keys ++ [\plugin1]).sort);
+// footswitch can bypass it. Without VSTPlugin there is no plugin device.
+~tEq.("the footswitches are every device's, the plugin's too (with VSTPlugin)", sa.fxOn.keys.asArray.sort,
+    (MegaSAFx.keys ++ if(vst.notNil) { [\plugin1] } { [] }).sort);
 if(vst.notNil) {
     n = stub[\msgs].size;
     sa.setFx(\plugin1, false);

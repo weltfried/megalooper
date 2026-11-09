@@ -83,10 +83,15 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
         m.setFx(\shifter, true);
         ~tNear.("the Shifter switched on: its 2 samples on top", looper[\latencyMs], 20 + (2000 / 48000), 1e-9);
         ~tNear.("...in the report too", ~latencyReportedMs.(), 20 + (2000 / 48000), 1e-9);
-        plug[\latency] = 32;
-        plug[\dryDelay] = 32;
-        plug.changed(\latency, 32);
-        ~tNear.("a plugin reporting a latency on the instrument chain", looper[\latencyMs], 20 + (34000 / 48000), 1e-9);
+        // Without VSTPlugin the chain has no plugin device to hear it.
+        if(\VSTPlugin.asClass.isNil) {
+            ~tSkip.("a plugin reporting a latency on the instrument chain", "VSTPlugin is not installed here");
+        } {
+            plug[\latency] = 32;
+            plug[\dryDelay] = 32;
+            plug.changed(\latency, 32);
+            ~tNear.("a plugin reporting a latency on the instrument chain", looper[\latencyMs], 20 + (34000 / 48000), 1e-9);
+        };
         looper[\latencyMs] = 30;
         m.setFx(\shifter, false);
         ~tNear.("...a latency set by hand moves by the change from where it is", looper[\latencyMs], 30 - (2000 / 48000), 1e-9);
