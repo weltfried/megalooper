@@ -197,8 +197,7 @@ o = at.(1.0, (error: \lengthAnchored, numerator: 7, denominator: 8, tau: 0.5, su
     ~tPut.(l, \granularSynth, ~tStubSynth.(l, \looperGranular));
     ~tAssert.("nothing landing: countResult is lastResult", l.countResult === rOld, "");
     ~tPut.(l, \pendingReading, (index: 1, result: rNew, at: SystemClock.seconds + 10, loops: 1, restart: false));
-    r = Routine { l.prLandReading(~tGet.(l, \readingSeq)) };
-    ~tPut.(l, \readingRoutine, r);
+    r = Routine { l.prLandReading(l.timeline.token(\reading)) };
     r.next;
     ~tAssert.("landing: lastResult has swapped before the boundary", l.lastResult === rNew, "");
     ~tAssert.("...and the count stays on the reading before it", l.countResult === rOld, "");

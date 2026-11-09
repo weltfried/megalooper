@@ -233,7 +233,7 @@ newTake = { |l|
 readingLands = { |l|
     l.pendingReading !? { |p|
         p[\at] = SystemClock.seconds - 0.01;
-        l.prLandReading(~tGet.(l, \readingSeq));
+        l.prLandReading(l.timeline.token(\reading));
     };
 };
 
@@ -467,7 +467,7 @@ invariants = [
         var bad = List.new;
         var says = (l.lastResult !? { |r| r[\reading] }) ? 0;
         l.pendingReading !? { |p|
-            if(~tGet.(l, \readingRoutine).isNil) {
+            if(l.timeline.isArmed(\reading).not) {
                 bad.add("pending reading with no routine to land it") };
             if((l.state != \playing) and: { l.state != \overdubbing }) {
                 bad.add("pending reading while " ++ l.state) };
@@ -517,12 +517,14 @@ restInvariants = [
 
     [\rest_leaves_no_routine_running, { |l, ctx|
         var bad = List.new;
-        [\breakRoutine, \dissolveRoutine, \onsetNoteRoutine, \readingRoutine,
-            \chordRoutine, \clickRoutine, \overdubSyncRoutine, \nextRecRoutine]
+        [\dissolveRoutine, \onsetNoteRoutine, \chordRoutine, \clickRoutine, \nextRecRoutine]
             .do { |name|
                 if(~tGet.(l, name).notNil) {
                     bad.add(name.asString ++ " survived the clear") };
             };
+        // The timeline's arms: a break's end, a reading, half-time, a
+        // reverse, the transport's start.
+        l.timeline.armedKeys.do { |k| bad.add("the timeline's " ++ k ++ " arm survived the clear") };
         // The clock is the deliberate exception: outside \full it keeps running
         // so Live's external sync stays alive across a stop.
         if((l.transportMode == \full) and: { ~tGet.(l, \midiClockRoutine).notNil }) {

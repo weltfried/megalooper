@@ -534,16 +534,18 @@ var readers = app.select { |path|
 // everything passed in: the offline harnesses and renders use them without a
 // Looper, and MeterAnalyzer reached into the Looper for its snap until
 // 2026-11-08 (docs/dev/architecture.md 5, step 8). None of them names it.
+// Nor does LoopTimeline (step 10): it is handed the loop's length as a
+// function, so the drums, the tests and the renders can count on it alone.
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 var found = List.new;
-["MeterAnalyzer.sc", "MeterDecision.sc", "LooperSynthDefs.sc"].do { |f|
+["MeterAnalyzer.sc", "MeterDecision.sc", "LooperSynthDefs.sc", "LoopTimeline.sc"].do { |f|
     (File.readAllString(root +/+ "classes" +/+ f) ? "").split($\n).do { |line, i|
         var cut = line.find("//"), code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
         if((" " ++ code).findRegexp("[^A-Za-z]Looper[.(]").notEmpty) { found.add(f ++ ":" ++ (i + 1)) };
     };
 };
-~tAssert.("MeterAnalyzer, MeterDecision and LooperSynthDefs name no Looper", found.isEmpty, found.join(", "));
+~tAssert.("MeterAnalyzer, MeterDecision, LooperSynthDefs and LoopTimeline name no Looper", found.isEmpty, found.join(", "));
 }.value;
 
 // ---- a variable moved into a part of the Looper is reached through it ----------

@@ -577,7 +577,8 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     granularEnv: \grainsPart, granularFollowChords: \grainsPart,
     bbcut: \cutterPart, bbcutMode: \cutterPart, bbcutVoices: \cutterPart, bbcutProcSpecs: \cutterPart,
     bbcutProcOrder: \cutterPart, bbcutFxSpecs: \cutterPart, bbcutFxOrder: \cutterPart, bbcutBuffer: \cutterPart,
-    bbcutEnabling: \cutterPart, bbcutEnableRoutine: \cutterPart
+    bbcutEnabling: \cutterPart, bbcutEnableRoutine: \cutterPart,
+    loopStartTime: \timeline, speed: \timeline, passOrigin: \timeline, speedChangedAt: \timeline
 );
 ~tParts = (
     Looper: ~tWhere,
@@ -588,6 +589,14 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
 ~tOwner = { |obj, key|
     var part = ~tParts[obj.class.name] !? { |t| t[key] };
     if(part.isNil) { obj } { obj.perform(part) }
+};
+// An arm on the Looper's timeline (LoopTimeline) run through now, on its own
+// routine, as if its time had come: each wait in it just yields. Answers
+// whether there was one.
+~tFire = { |looper, key|
+    var r = looper.timeline.routine(key), n = 0;
+    r !? { while { (n < 8) and: { r.next.notNil } } { n = n + 1 } };
+    r.notNil
 };
 ~tPut = { |looper, key, val| ~tOwner.(looper, key).instVarPut(key, val); looper };
 ~tGet = { |looper, key| ~tOwner.(looper, key).instVarAt(key) };

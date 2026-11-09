@@ -281,7 +281,7 @@ spawnAndAnalyse = { |rig, t0, ta|
             \gateMode, if(l.bbcut) { l.bbcutGateCode } { 0 }])
     } { Synth.basicNew(defName, stub) };
     l.instVarPut(\engineSynth, eng);
-    l.instVarPut(\loopStartTime, t0);
+    l.timeline.restart(t0);
     l.startOnsetNotes;
     l.prSetState(\playing);
     rig[\wall] = ta;
@@ -350,7 +350,7 @@ breakAt = { |rig, b, early|
      [stomp + 0.002, { |r, t|
         var l = r[\l], phase = ((t - 0.001) - l.loopStartTime) % r[\loopDur];
         thisProcess.recvOSCmessage(t, NetAddr("127.0.0.1", 57110), 57120, ['/c_set', l.phaseBus.index, phase]);
-        l.instVarAt(\breakRoutine) !? { |br| r[\routines].add([t, br, \break]) };
+        l.timeline.routine(\break) !? { |br| r[\routines].add([t, br, \break]) };
      }]]
 };
 
@@ -516,7 +516,7 @@ histoStr = { |h| h.keys.asArray.sort.collect { |k| (if(k > 0) { "+" } { "" }) ++
 freeRig = { |rig|
     rig[\routines].do { |e| e[1].stop };
     rig[\l].instVarAt(\midiClockRoutine) !? { |r| r.stop };
-    rig[\l].instVarAt(\breakRoutine) !? { |r| r.stop };
+    rig[\l].timeline.cancelAll;
     rig[\sa].free;
 };
 
@@ -830,7 +830,7 @@ halfTimeScene = { |label, bpm, num, den|
     // the landing (or the end), stepped at its logical times.
     press = { |r, t|
         r[\l].toggleHalfTime;
-        r[\l].instVarAt(\halfTimeRoutine) !? { |hr| r[\routines].add([t, hr, \halfTime]) };
+        r[\l].timeline.routine(\halfTime) !? { |hr| r[\routines].add([t, hr, \halfTime]) };
     };
     events = [[t0 + (2.3 * ld), press], [t0 + (3.6 * ld), press]]
         ++ [2.5, 4.0, 6.5].collect { |p| [t0 + (p * ld), { |r, t| valid.add([p, r[\d].prLoopValid]) }] };

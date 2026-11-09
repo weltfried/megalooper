@@ -1049,13 +1049,12 @@ midi[\midiClock] = { |self| self };
 ~tPut.(l, \clockTickRate, 48);
 ~tPut.(l, \clockPeriod, 1 / 48);
 // A landing whose boundary has passed, driven through a routine as the real
-// one runs inside readingRoutine (see prStopRoutine).
+// one runs inside the reading's arm (LoopTimeline).
 land = { |relocate|
     var r;
     ~tPut.(l, \pendingReading, (index: 1, result: result, at: SystemClock.seconds - 0.01, loops: 1, restart: true));
     l.startsRelocate = relocate;
-    r = Routine { l.prLandReading(~tGet.(l, \readingSeq)) };
-    ~tPut.(l, \readingRoutine, r);
+    r = Routine { l.prLandReading(l.timeline.token(\reading)) };
     r.next;
 };
 l.sessionRec.instVarPut(\recording, true);

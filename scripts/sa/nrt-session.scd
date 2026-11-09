@@ -376,7 +376,7 @@ spawnAndAnalyse = { |rig, t0, ta|
         \gateBus, l.instVarAt(\insertBus).index, \phaseBus, l.phaseBus.index,
         \gateMode, if(l.bbcut) { l.bbcutGateCode } { 0 }]);
     l.instVarPut(\engineSynth, eng);
-    l.instVarPut(\loopStartTime, t0);
+    l.timeline.restart(t0);
     l.startOnsetNotes;
     l.prSetState(\playing);
     rig[\wall] = ta;
@@ -447,7 +447,7 @@ breakAt = { |rig, b, early|
      [stomp + 0.002, { |r, t|
         var l = r[\l], phase = (r[\toScore].(t - 0.001) - r[\toScore].(l.loopStartTime)) % r[\loopDur];
         thisProcess.recvOSCmessage(t, NetAddr("127.0.0.1", 57110), 57120, ['/c_set', l.phaseBus.index, phase]);
-        l.instVarAt(\breakRoutine) !? { |br| r[\routines].add([t, br, \break]) };
+        l.timeline.routine(\break) !? { |br| r[\routines].add([t, br, \break]) };
      }]]
 };
 
@@ -651,7 +651,7 @@ tapDiff = { |tap, input, b0|
 freeRig = { |rig|
     rig[\routines].do { |e| e[1].stop };
     rig[\l].instVarAt(\midiClockRoutine) !? { |r| r.stop };
-    rig[\l].instVarAt(\breakRoutine) !? { |r| r.stop };
+    rig[\l].timeline.cancelAll;
     rig[\sa].free;
 };
 

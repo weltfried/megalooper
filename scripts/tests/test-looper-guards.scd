@@ -15,7 +15,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 ~tFile.("test-looper-guards");
 
 {
-var l, said, heard, playing, r, ht, rv, bus;
+var l, said, heard, playing, r, ht, rv, bus, dead;
 // What the looper said while `fn` ran: [what, args...] per notification.
 heard = { |model, fn|
     var out = List.new;
@@ -188,16 +188,21 @@ l.free;
 
 // ---- free ------------------------------------------------------------------------------
 l = playing.();
-ht = Routine { loop { 10.wait } }.play(SystemClock);
-rv = Routine { loop { 10.wait } }.play(SystemClock);
+l.timeline.armAt(\halfTime, SystemClock.seconds + 10, {});
+l.timeline.armAt(\reverse, SystemClock.seconds + 10, {});
+ht = l.timeline.routine(\halfTime);
+rv = l.timeline.routine(\reverse);
 r = Routine { loop { 10.wait } }.play(SystemClock);
 bus = Bus.control(~tGet.(l, \server), 1);
-~tPut.(l, \halfTimeRoutine, ht);
-~tPut.(l, \reverseRoutine, rv);
 ~tPut.(l, \bbcutEnableRoutine, r);
 ~tPut.(l, \insertBus, bus);
+// Thread:isPlaying answers only while a routine waits, which a routine
+// scheduled but not yet run does not: the state stop leaves says it.
+dead = Routine { 1.wait };
+dead.stop;
+~tEq.("(none of them stopped before free)", [ht, rv, r].collect { |x| x.state == dead.state }, [false, false, false]);
 try { l.free } { |err| ~tFail.("free threw on the harness's looper", err.errorString) };
-~tEq.("free stops the half-time and reverse routines and a cutter starting",
-    [ht.isPlaying, rv.isPlaying, r.isPlaying], [false, false, false]);
+~tEq.("free stops the half-time and reverse arms and a cutter starting",
+    [ht, rv, r].collect { |x| x.state == dead.state }, [true, true, true]);
 ~tEq.("...and frees the insert bus", bus.index, nil);
 }.value;

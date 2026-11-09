@@ -102,11 +102,8 @@ at = MeterDecision.loopPositionAt((14 * e8) + 0.01, even, 28 * e8);
 var l = ~tLooper.();
 var analysed = MeterAnalyzer.anchorToLength(7.25, 7, 8, 20);
 var land = {
-    var rt;
     l.pendingReading[\at] = SystemClock.seconds - 0.01;
-    rt = Routine { l.prLandReading(~tGet.(l, \readingSeq)) };
-    ~tPut.(l, \readingRoutine, rt);
-    rt.next;
+    ~tFire.(l, \reading);
 };
 var refused = List.new;
 ~tPut.(l, \state, \playing);

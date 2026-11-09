@@ -26,8 +26,8 @@ fresh = {
 };
 // The landing the press armed, as its routine would run it on time.
 land = { |x|
-    ~tGet.(x, \reverseRoutine) !? { |rt| rt.stop };
-    x.prReverseLands(~tGet.(x, \reverseSeq));
+    x.timeline.routine(\reverse) !? { |rt| rt.stop };
+    x.prReverseLands(x.timeline.token(\reverse));
 };
 // The bundles sent to the engine, as [time, value] of its direction.
 dirs = { |x| ~tGet.(x, \server)[\bundles].select { |e| e[1].any { |m| (m[0] == 15) and: { m[2] == \dir } } }
@@ -49,7 +49,7 @@ l.reverse;
 ~tEq.("pressed again before the boundary: taken back, the engine sent forwards",
     [l.reverseArmed, l.reverseFlag, ~tLastSet.(l, eng, \dir), l.reverseAt], [false, false, 1, nil]);
 ~tEq.("...said, and nothing coming", [heard.asArray, l.upcoming(now)], [[[\reverseArmed, false]], []]);
-seq = ~tGet.(l, \reverseSeq);
+seq = l.timeline.token(\reverse);
 l.prReverseLands(seq - 1);
 ~tEq.("...and the routine of the arm taken back lands nothing", [l.reverseFlag, l.reverseArmed], [false, false]);
 

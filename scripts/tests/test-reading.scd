@@ -119,7 +119,7 @@ SimpleController(l).put(\reading, { |lp, what, val| notified.add(val) });
 l.nextReading;
 ~tAssert.("a press arms the runner-up", l.pendingReading.notNil and: { l.pendingReading[\index] == 1 },
     "pending " ++ l.pendingReading);
-~tAssert.("a routine will land it", ~tGet.(l, \readingRoutine).notNil, "no routine");
+~tAssert.("an arm on the timeline will land it", l.timeline.isArmed(\reading), "no arm");
 ~tEq.("with no Start on record it lands on the next boundary", l.pendingReading[\loops], 1);
 ~tAssert.("and needs no Start", l.pendingReading[\restart] == false, "restart set");
 ~tEq.("the arming was published", notified.size, 1);
@@ -135,19 +135,17 @@ l.nextReading;
 ~tEq.("and on round again", l.pendingReading[\index], 1);
 
 // Landing, driven synchronously: the boundary is put in the past, so the
-// landing runs straight through with no yield, exactly as if the routine had
-// woken on the boundary. It is driven THROUGH a routine because the landing
-// stops the routine it is running inside (see prStopRoutine).
+// landing runs straight through with no yield, exactly as if the arm had
+// woken on the boundary. It is driven THROUGH the arm's own routine because
+// the landing ends the arm it is running inside (LoopTimeline's cancel).
 landed = nil;
 l.onAnalysis = { |res| landed = res };
 l.pendingReading[\at] = SystemClock.seconds - 0.01;
-r = Routine { l.prLandReading(~tGet.(l, \readingSeq)) };
-~tPut.(l, \readingRoutine, r);
-r.next;
+~tAssert.("the arm ran", ~tFire.(l, \reading));
 ~tEq.("the take is now the runner-up", [l.lastResult[\numerator], l.lastResult[\denominator], l.lastResult[\k]], [12, 8, 1]);
 ~tEq.("readingIndex followed", l.readingIndex, 1);
 ~tAssert.("nothing pending after the landing", l.pendingReading.isNil, "still pending");
-~tAssert.("the routine slot is clear", ~tGet.(l, \readingRoutine).isNil, "routine survived");
+~tAssert.("the arm is over", l.timeline.isArmed(\reading).not, "arm survived");
 ~tAssert.("Live was told, through the analysis callback", landed.notNil and: { landed[\numerator] == 12 }, "onAnalysis not called");
 ~tNear.("the grains took the pulse", ~tLastSet.(l, gran, \tau), 0.25, 1e-9);
 ~tAssert.("the landing was published as no longer pending", notified.last.isNil, "last notification " ++ notified.last);
@@ -166,9 +164,7 @@ l.nextReading;                     // -> reading 2, 3/4 at sub 2: 72-tick bar, 1
     l.pendingReading[\loops], 1);
 l.pendingReading[\at] = SystemClock.seconds - 0.01;
 l.pendingReading[\restart] = true;   // as if no boundary in reach had aligned
-r = Routine { l.prLandReading(~tGet.(l, \readingSeq)) };
-~tPut.(l, \readingRoutine, r);
-r.next;
+~tFire.(l, \reading);
 ~tEq.("the take is the third reading", [l.lastResult[\numerator], l.lastResult[\denominator]], [3, 4]);
 ~tNear.("the clock period follows the new tempo", ~tGet.(l, \clockPeriod), 60 / (120 * 24), 1e-12);
 ~tEq.("a reading that could not meet Live's bar line re-sent Start", midi[\log].asArray, [\start]);
@@ -181,7 +177,7 @@ l.revertReading;
 // Stopping cancels whatever is armed, and nothing is left running.
 l.stopPlayback;
 ~tAssert.("stop cancels the pending reading", l.pendingReading.isNil, "still pending");
-~tAssert.("stop leaves no reading routine", ~tGet.(l, \readingRoutine).isNil, "routine survived");
+~tAssert.("stop leaves no reading armed", l.timeline.isArmed(\reading).not, "arm survived");
 ~tAssert.("stop published the cancel", notified.last.isNil, "last " ++ notified.last);
 
 // Refusals: nothing playing, and a take that fit no grid.

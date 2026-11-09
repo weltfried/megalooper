@@ -28,8 +28,8 @@ var fresh = {
 };
 // The landing or release the press armed, as its routine would run it on time.
 land = { |x|
-    ~tGet.(x, \halfTimeRoutine) !? { |rt| rt.stop };
-    x.prHalfTimeLands(~tGet.(x, \halfTimeSeq));
+    x.timeline.routine(\halfTime) !? { |rt| rt.stop };
+    x.prHalfTimeLands(x.timeline.token(\halfTime));
 };
 // The bundles sent to the engine, as [time, value] of its speed.
 speeds = { |x| ~tGet.(x, \server)[\bundles].select { |e| e[1].any { |m| m[0] == 15 and: { m[2] == \speed } } }
@@ -167,8 +167,8 @@ land.(l);
 ~tEq.("landed: the grains scan at the engine's speed, their pulse twice as long",
     [~tLastSet.(l, b, \rate), ~tLastSet.(l, b, \tau)], [0.5, 0.5]);
 l.reverse;
-~tGet.(l, \reverseRoutine) !? { |rt| rt.stop };
-l.prReverseLands(~tGet.(l, \reverseSeq));
+l.timeline.routine(\reverse) !? { |rt| rt.stop };
+l.prReverseLands(l.timeline.token(\reverse));
 ~tEq.("...reversed (on the boundary it lands on), backwards at it", ~tLastSet.(l, b, \rate), -0.5);
 l.reverse;
 ~tNear.("a dissolve of two passes at half-time: each pass twice as long", l.dissolveDuration(2), 14.0, 1e-9);

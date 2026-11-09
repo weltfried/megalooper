@@ -317,7 +317,7 @@ Routine {
         // counted from loopStartTime, so that is put where this playhead
         // says the loop began.
         ~renderPhase = 25.5 * tau;
-        ~looper.instVarPut(\loopStartTime, SystemClock.seconds - ~renderPhase);
+        ~looper.timeline.restart(SystemClock.seconds - ~renderPhase);
         ~looper.chainPart.instVarPut(\nextRecState, \armed);
         wait.(0.3);
         cropTo.(rectOf.(~statusCountView).union(rectOf.(~guiPositionView)), "count-in");

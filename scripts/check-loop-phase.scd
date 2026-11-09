@@ -55,7 +55,7 @@
                         0.005.wait; waited = waited + 0.005;
                     };
                     if(got) {
-                        predicted = (at - (l.instVarAt(\loopStartTime) ? at)).mod(ld);
+                        predicted = (at - (l.loopStartTime ? at)).mod(ld);
                         // Wrapped to +/- half a loop, so a difference either side
                         // of the boundary reads as a small signed number, not ~ld.
                         diff = (actual - predicted + (ld / 2)).mod(ld) - (ld / 2);

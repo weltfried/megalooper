@@ -56,7 +56,7 @@ try {
     looper.instVarPut(\server, stub);
     looper.instVarPut(\state, \playing);
     looper.instVarPut(\loopFrames, (loopDur * sr).round.asInteger);
-    looper.instVarPut(\loopStartTime, lam);
+    looper.timeline.restart(lam);
     looper.instVarPut(\lastResult, (numerator: 4, denominator: 4, k: 1, bpm: 120, loopDur: loopDur));
     d = MegaSADrums((server: stub));
     d.prUseBusses(synthBus: 0, synthGrp: group, synthRing: ring, synthChoke: choke);

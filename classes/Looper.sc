@@ -88,7 +88,7 @@ Looper {
     var <overdubMinDensity = 0.5;
     // [loopPhase, strength] per onset, in LOOP coordinates. Kept after the
     // overdub ends so "Detect now" can re-run on the same material.
-    var overdubOnsets, overdubSynth, overdubResp, overdubSyncRoutine;
+    var overdubOnsets, overdubSynth, overdubResp;
     // The engine publishes its read position here so the overdub analyser can
     // latch it at each onset — loop coordinates with no clock arithmetic.
     // Readable because Megalooper SA's drums probe it to measure how far the
@@ -140,11 +140,12 @@ Looper {
     // a half-speed pass is two of its loops, counted from passOrigin. The
     // engine takes a new speed on the sample its reference wraps
     // (LooperSynthDefs.engineGraph), so the language only sends it in the right pass.
-    var <speed = 1, <halfTime = \off, <halfTimeAt, <passOrigin, <speedChangedAt;
-    var halfTimeRoutine, halfTimeSeq = 0, halfTimeSentAt;
+    // speed, passOrigin and speedChangedAt are the timeline's (LoopTimeline).
+    var <halfTime = \off, <halfTimeAt;
+    var halfTimeSentAt;
     // A reverse armed for the next boundary (reverse): `reverseArmed`, and
     // `reverseAt` where it lands; reverseFlag flips there.
-    var <reverseArmed = false, <reverseAt, reverseRoutine, reverseSeq = 0, reverseSentAt;
+    var <reverseArmed = false, <reverseAt, reverseSentAt;
     // ---- Breaks -------------------------------------------------------------
     // Drop the looper out so the room can play into the hole, then come back ON
     // A LOOP DOWNBEAT. This MUTES and never stops: stopPlayback would tear down
@@ -166,10 +167,8 @@ Looper {
     var <breakEndsAt;
     // Where the playhead is has to be ASKED for (a control-bus round trip), so
     // the resume is scheduled in a callback that lands a few ms after the mute.
-    // This counts fires, so a callback belonging to a break that was cancelled
-    // or re-fired in the meantime knows to do nothing.
-    var breakSeq = 0;
-    var breakRoutine;
+    // The timeline's \break token says so, so a callback belonging to a break
+    // that was cancelled or re-fired in the meantime knows to do nothing.
     // The latest time a gate write sent ahead is due on the server (endBreak's
     // reopening, 20 ms on), or nil: a write sent before then goes in again
     // just after it (prSetBreakGate).
@@ -213,7 +212,6 @@ Looper {
     // The reading armed but not yet landed — (index:, result:, at:, loops:,
     // restart:) — or nil. Published as \reading so the header can count down.
     var <pendingReading;
-    var readingRoutine, readingSeq = 0;
     // The reading in force until a landing's `at`: lastResult swaps a little
     // before it (prLandReading), and countResult answers this meanwhile.
     var landingFrom;
@@ -245,10 +243,11 @@ Looper {
     // `insertBus` (1 while a repetition plays); the engine reads it to duck
     // the dry loop. The engine's, so the Looper's.
     var insertBus;
-    // When the current engine started, in SystemClock (logical) seconds: the
-    // anchor every language-side layer counts the loop from. Readable for
-    // Megalooper SA's drums, which put their grid on it.
-    var <loopStartTime;
+    // The loop's time (LoopTimeline): when the current engine started, in
+    // SystemClock (logical) seconds, the anchor every language-side layer
+    // counts the loop from (Megalooper SA's drums put their grid on it); the
+    // speed and the passes; and what is armed on it. Made when first asked for.
+    var timeline;
     // MIDI-clock sync offset (ms, may be negative). Shifts WHEN SC sends the MIDI
     // Start + clock stream relative to the loop's audio, to cancel the ~10-20 ms
     // Live otherwise lags as a MIDI-clock follower: negative pulls Live earlier.
@@ -496,9 +495,8 @@ Looper {
         ready = false;
         engineSynth = nil; recSynth = nil; masterSynth = nil; grainsPart !? { |g| g.forget };
         tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; chainPart !? { |c| c.forget };
-        clickRoutine = nil; midiClockRoutine = nil; chordRoutine = nil; breakRoutine = nil;
-        dissolveRoutine = nil; readingRoutine = nil; halfTimeRoutine = nil; reverseRoutine = nil;
-        overdubSyncRoutine = nil;
+        clickRoutine = nil; midiClockRoutine = nil; chordRoutine = nil;
+        dissolveRoutine = nil; this.timeline.forget;
         cutterPart !? { |c| c.forget };
         this.changed(\granular, false);
         if((state != \empty) and: { state != \stopped }) { this.prSetState(\stopped) };
@@ -618,22 +616,25 @@ Looper {
     // The next loop boundary after `now`, counted from loopStartTime as the
     // reading, the next loop and the cutter count it; at half-time, the next
     // end of a half-speed pass, counted from where they began.
-    prNextBoundaryAt { |now|
-        var ld = this.wallPeriod, origin;
-        origin = if((speed != 1) and: { passOrigin.notNil }) { passOrigin } { loopStartTime ? now };
-        ^origin + ((((now - origin) / ld).floor + 1) * ld)
-    }
+    prNextBoundaryAt { |now| ^this.timeline.nextBoundaryAt(now) }
 
     // A pass in wall time: the loop's length at the speed it plays.
-    wallPeriod { ^this.loopDuration / speed }
+    wallPeriod { ^this.timeline.wallPeriod }
 
     // Where a pass at the speed now began (one of them): loopStartTime, or at
     // half-time the boundary it landed on. The onset kit counts from it.
-    passStart { ^if((speed != 1) and: { passOrigin.notNil }) { passOrigin } { loopStartTime } }
+    passStart { ^this.timeline.passStart }
+
+    // ---- The loop's time (LoopTimeline) ---------------------------------------
+    timeline { ^timeline ?? { timeline = LoopTimeline({ this.loopDuration }) } }
+    loopStartTime { ^this.timeline.loopStartTime }
+    speed { ^this.timeline.speed }
+    passOrigin { ^this.timeline.passOrigin }
+    speedChangedAt { ^this.timeline.speedChangedAt }
 
     // The speed after the next boundary, with what is armed: a landing or a
     // release.
-    prSpeedAfterNext { ^switch(halfTime, \armed, { 0.5 }, \releasing, { 1 }, { speed }) }
+    prSpeedAfterNext { ^switch(halfTime, \armed, { 0.5 }, \releasing, { 1 }, { this.speed }) }
 
     stopRecordStartPlay {
         var sr         = server.sampleRate;
@@ -844,7 +845,7 @@ Looper {
         //
         // Corrected 2026-09-07. Every timing value in setup-routing.scd moved by
         // roughly +185 ms as a result; see the note there.
-        loopStartTime = SystemClock.seconds;
+        this.timeline.restart(SystemClock.seconds);
         // A granular layer toggled on over the stopped loop had no engine to
         // follow and scans freely; now there is one, and the new engine sits
         // ahead of it in the node order. See \looperGranular. And it reads
@@ -1135,18 +1136,13 @@ Looper {
     prStartTransportAtPhase { |result|
         var loopSecs = loopFrames / server.sampleRate;
         var target = result[\downbeatPhase] ? 0;
-        overdubSyncRoutine !? { |r| r.stop };
-        overdubSyncRoutine = Routine {
-            var now  = (SystemClock.seconds - (loopStartTime ? SystemClock.seconds))
-                .mod(loopSecs);
-            var wait = (target - now).mod(loopSecs);
-            ("Overdub detect: " ++ result[\numerator] ++ "/" ++ result[\denominator]
-                ++ " @ " ++ result[\bpm].round(0.1) ++ " BPM over " ++ result[\k]
-                ++ " bars from " ++ result[\onsetCount] ++ " onsets — the transport starts in "
-                ++ wait.round(0.01) ++ " s.").postln;
-            wait.wait;
-            this.startTempoClocks(result);
-        }.play(SystemClock);
+        var now = SystemClock.seconds;
+        var wait = (target - this.timeline.positionAt(now, loopSecs)).mod(loopSecs);
+        ("Overdub detect: " ++ result[\numerator] ++ "/" ++ result[\denominator]
+            ++ " @ " ++ result[\bpm].round(0.1) ++ " BPM over " ++ result[\k]
+            ++ " bars from " ++ result[\onsetCount] ++ " onsets — the transport starts in "
+            ++ wait.round(0.01) ++ " s.").postln;
+        this.timeline.armAt(\overdubTransport, now + wait, { this.startTempoClocks(result) });
     }
 
     // Start the tuning lamp's feed. Independent of transport: it runs whether
@@ -1467,7 +1463,7 @@ Looper {
             result: Looper.resultForLog(result),
             candidates: (result[\candidates] ? []).collect { |c| Looper.resultForLog(c) },
             loopDur: result[\loopDur],
-            play: this.prLogTime(loopStartTime),
+            play: this.prLogTime(this.loopStartTime),
             applied: applied
         );
         // The tap against the input, so the replay can tell a starved take
@@ -1798,8 +1794,7 @@ Looper {
         this.prResetReverse;
         // A detection may have a transport start queued for the next downbeat;
         // stopping the loop cancels it rather than firing into a stopped looper.
-        overdubSyncRoutine !? { |r| r.stop };
-        overdubSyncRoutine = nil;
+        this.timeline.cancel(\overdubTransport);
         this.stopOverdubAnalysis;
         this.prCancelBBCutEnable;
         if(this.bbcut) { this.disableBBCut };
@@ -2002,9 +1997,7 @@ Looper {
         };
         // Re-firing mid-break restarts the count. Stacking a second resume
         // would let the first one unmute early, halfway through the new break.
-        breakRoutine = this.prStopRoutine(breakRoutine);
-        breakSeq = breakSeq + 1;
-        seq = breakSeq;
+        seq = this.timeline.claim(\break);
         this.prSetBreakGate(0);
         // The onset-note part is the looper's own voice, going out to Live as
         // MIDI. A break that left the drums playing would not be a break.
@@ -2016,26 +2009,24 @@ Looper {
         // this point; the few ms of latency only move the resume, and only by
         // less than a millisecond of loop position.
         this.queryLoopPhase { |phase|
-            var dur = MeterDecision.breakDuration(phase, loopDur, n, reverseFlag, speed, this.prSpeedAfterNext);
+            var dur = MeterDecision.breakDuration(phase, loopDur, n, reverseFlag, this.speed, this.prSpeedAfterNext);
             // A cancel or a re-fire in the meantime owns the gate now; this
             // callback belongs to a break that no longer exists.
-            if((seq == breakSeq) and: { onBreak }) {
+            if(this.timeline.holds(\break, seq) and: { onBreak }) {
                 breakEndsAt = SystemClock.seconds + dur;
                 this.changed(\breakEndsAt, breakEndsAt);
                 ("Break: " ++ dur.round(0.01) ++ " s, resuming on a loop downbeat.")
                     .postln;
-                breakRoutine = Routine {
-                    dur.wait;
-                    this.endBreak;
-                }.play(SystemClock);
+                this.timeline.armAt(\break, breakEndsAt, { this.endBreak });
             };
         };
         ^this
     }
 
     endBreak {
-        // Via prStopRoutine, because the usual caller IS breakRoutine.
-        breakRoutine = this.prStopRoutine(breakRoutine);
+        // The usual caller IS the break's arm: the timeline's cancel is safe
+        // from inside it.
+        this.timeline.cancel(\break);
         breakEndsAt = nil;
         // The gate sits after the master's limiter, whose look-ahead puts the
         // engine's downbeat at the gate 20 ms after the engine plays it: opened
@@ -2058,11 +2049,10 @@ Looper {
     // armed across a stop would strand breakAmp at 0, and the NEXT loop would
     // play into a silent output with nothing on screen to explain it.
     prCancelBreak {
-        breakRoutine = this.prStopRoutine(breakRoutine);
+        // A new token, so a phase callback still in flight cannot arm a resume
+        // for a break that has just been cancelled.
+        this.timeline.cancel(\break);
         breakEndsAt = nil;
-        // Bumped so a phase callback still in flight cannot arm a resume for a
-        // break that has just been cancelled.
-        breakSeq = breakSeq + 1;
         this.prSetBreakGate(1);
         if(onBreak) {
             onBreak = false;
@@ -2129,7 +2119,7 @@ Looper {
         // Too close, the boundary after: one pass at the speed after this
         // one (a half-time landing there makes it two loops long).
         if((at - now) < Looper.halfTimeMargin) {
-            after = if(((halfTimeAt ? inf) - at).abs < 1e-6) { this.prSpeedAfterNext } { speed };
+            after = if(((halfTimeAt ? inf) - at).abs < 1e-6) { this.prSpeedAfterNext } { this.speed };
             at = at + (ld / after);
         };
         // The engine's reference wraps once a loop, whatever the speed: sent
@@ -2153,25 +2143,16 @@ Looper {
 
     // Armed for `at`, with a routine waiting for it, or not armed.
     prReverseArm { |flag, at|
-        var seq;
-        reverseRoutine = this.prStopRoutine(reverseRoutine);
-        reverseSeq = reverseSeq + 1;
-        seq = reverseSeq;
+        this.timeline.cancel(\reverse);
         reverseArmed = flag;
         reverseAt = if(flag) { at };
-        if(flag) {
-            reverseRoutine = Routine {
-                (at - SystemClock.seconds).max(0).wait;
-                this.prReverseLands(seq);
-            }.play(SystemClock);
-        };
+        if(flag) { this.timeline.armAt(\reverse, at, { |token| this.prReverseLands(token) }) };
         this.changed(\reverseArmed, reverseArmed);
     }
 
     // On the boundary, as the engine takes the direction.
     prReverseLands { |seq|
-        if((seq != reverseSeq) or: { reverseArmed.not }) { ^this };
-        reverseRoutine = nil;
+        if(this.timeline.holds(\reverse, seq).not or: { reverseArmed.not }) { ^this };
         reverseArmed = false;
         reverseAt = nil;
         reverseFlag = reverseFlag.not;
@@ -2190,8 +2171,7 @@ Looper {
     // has none to land on.
     prResetReverse {
         var was = reverseArmed;
-        reverseRoutine = this.prStopRoutine(reverseRoutine);
-        reverseSeq = reverseSeq + 1;
+        this.timeline.cancel(\reverse);
         reverseSentAt = nil;
         reverseArmed = false;
         reverseAt = nil;
@@ -2281,7 +2261,7 @@ Looper {
     }
 
     // The engine's speed, signed, as the grains scan by it.
-    prGrainRate { ^(if(reverseFlag) { -1 } { 1 }) * speed }
+    prGrainRate { ^(if(reverseFlag) { -1 } { 1 }) * this.speed }
 
     // How close to a boundary a press may come and still land on it. With the
     // cutter on it is respawned for the new speed, which writes the loop out
@@ -2306,22 +2286,18 @@ Looper {
     // What a press leaves: the state, and the boundary it lands on (nil for
     // none), with a routine waiting for it.
     prHalfTimeArm { |next, at|
-        var seq;
-        halfTimeRoutine = this.prStopRoutine(halfTimeRoutine);
-        halfTimeSeq = halfTimeSeq + 1;
-        seq = halfTimeSeq;
+        this.timeline.cancel(\halfTime);
         halfTime = next;
         halfTimeAt = at;
         if(at.notNil) {
-            halfTimeRoutine = Routine {
+            this.timeline.armAt(\halfTime, at - 0.5, { |token|
                 // The cutter comes in again at the new speed on the boundary
                 // (enableBBCut waits for it), as for a reading that changes
                 // its pulse.
-                ((at - 0.5) - SystemClock.seconds).max(0).wait;
-                if((seq == halfTimeSeq) and: { this.bbcut } and: { this.bbcutEnabling.not }) { this.enableBBCut };
-                (at - SystemClock.seconds).max(0).wait;
-                this.prHalfTimeLands(seq);
-            }.play(SystemClock);
+                if(this.bbcut and: { this.bbcutEnabling.not }) { this.enableBBCut };
+                if(at > SystemClock.seconds) { (at - SystemClock.seconds).wait };
+                this.prHalfTimeLands(token);
+            });
         };
         this.changed(\halfTime, halfTime);
     }
@@ -2330,39 +2306,33 @@ Looper {
     // What keeps time with the loop follows: the onset kit and the chords.
     prHalfTimeLands { |seq|
         var at = halfTimeAt, landing = halfTime == \armed;
-        if((seq != halfTimeSeq) or: { at.isNil }) { ^this };
-        halfTimeRoutine = nil;
-        speed = if(landing) { 0.5 } { 1 };
-        passOrigin = if(landing) { at };
-        speedChangedAt = at;
+        if(this.timeline.holds(\halfTime, seq).not or: { at.isNil }) { ^this };
+        this.timeline.speedFrom(if(landing) { 0.5 } { 1 }, at, if(landing) { at });
         halfTime = if(landing) { \on } { \off };
         halfTimeAt = nil;
-        this.prLogEvent(\halfTime, (speed: speed, at: this.prLogTime(at)));
+        this.prLogEvent(\halfTime, (speed: this.speed, at: this.prLogTime(at)));
         ("Half-time " ++ (if(landing) { "on" } { "off" }) ++ ".").postln;
         this.changed(\halfTime, halfTime);
-        this.changed(\speed, speed);
+        this.changed(\speed, this.speed);
         this.startOnsetNotes;
         chordRoutine !? { this.startChordRoutine(lastResult) };
         // The grains scan as the loop moves, their pulse the loop's.
         this.grainsPart.setRate(this.prGrainRate);
-        lastResult !? { |r| r[\tau] !? { |t| this.grainsPart.setTau(t / speed) } };
+        lastResult !? { |r| r[\tau] !? { |t| this.grainsPart.setTau(t / this.speed) } };
     }
 
     // Back to 1 at once, for a new engine (it plays at 1) and a stop.
     prResetHalfTime {
-        var was = (halfTime != \off) or: { speed != 1 };
-        halfTimeRoutine = this.prStopRoutine(halfTimeRoutine);
-        halfTimeSeq = halfTimeSeq + 1;
+        var was = (halfTime != \off) or: { this.speed != 1 };
+        this.timeline.cancel(\halfTime);
         halfTimeSentAt = nil;
         if(was) {
-            speed = 1;
+            this.timeline.speedFrom(1, SystemClock.seconds, nil);
             halfTime = \off;
             halfTimeAt = nil;
-            passOrigin = nil;
-            speedChangedAt = SystemClock.seconds;
             this.grainsPart.setRate(this.prGrainRate);
             this.changed(\halfTime, halfTime);
-            this.changed(\speed, speed);
+            this.changed(\speed, this.speed);
         };
     }
 
@@ -2476,13 +2446,11 @@ Looper {
         var loopSecs = this.loopDuration;
         var result   = MeterDecision.readingFor(analysedResult, index, loopSecs);
         var now      = SystemClock.seconds;
-        var nextAt, period, ticksAtNext, ticksPerLoop, wait, restart, landAt, seq;
+        var nextAt, period, ticksAtNext, ticksPerLoop, wait, restart, landAt, lead;
         if(result.isNil or: { loopSecs <= 0 }) { ^this };
         // Re-arming replaces: the reading after the pending one is what was
         // asked for, and two landings would fight over the clock.
-        readingRoutine = this.prStopRoutine(readingRoutine);
-        readingSeq = readingSeq + 1;
-        seq = readingSeq;
+        this.timeline.cancel(\reading);
         landingFrom = nil;
         // The next boundary, and the passes after it in wall time: at
         // half-time (armed, on or releasing) twice the loop's length.
@@ -2508,19 +2476,16 @@ Looper {
             ++ " loop" ++ (if(wait > 1) { "s" } { "" })
             ++ (if(restart) { " — no boundary in reach carries the bar line, so Start goes out again" }
                 { ", on the bar line" }) ++ ".").postln;
-        readingRoutine = Routine {
-            // A cutter respawn writes the loop out and reads it back before it
-            // can wait for the boundary itself (enableBBCut): half a second
-            // covers that. Otherwise the landing is the boundary.
-            var lead = if(this.bbcut and: { MeterDecision.readingChangesCutter(lastResult, result) })
-                { 0.5 } { 0.02 };
-            ((landAt - lead) - SystemClock.seconds).max(0).wait;
-            if(seq == readingSeq) { this.prLandReading(seq) };
-        }.play(SystemClock);
+        // A cutter respawn writes the loop out and reads it back before it can
+        // wait for the boundary itself (enableBBCut): half a second covers
+        // that. Otherwise the landing is the boundary.
+        lead = if(this.bbcut and: { MeterDecision.readingChangesCutter(lastResult, result) })
+            { 0.5 } { 0.02 };
+        this.timeline.armAt(\reading, landAt - lead, { |token| this.prLandReading(token) });
         ^this
     }
 
-    // Inside readingRoutine, a little before the boundary. The new result goes
+    // Inside the reading's arm, a little before the boundary. The new result goes
     // in first, so a cutter respawn — which waits for the boundary itself —
     // spawns on the new grid; then, ON the boundary, everything else that
     // follows the meter. pendingReading stays published until then, so the
@@ -2538,7 +2503,7 @@ Looper {
         // Conditional, so a landing whose boundary has passed — which is how
         // the headless tests drive this — runs straight through without a yield.
         if(landAt > SystemClock.seconds) { (landAt - SystemClock.seconds).wait };
-        if(seq != readingSeq) { ^this };   // cancelled or re-armed meanwhile
+        if(this.timeline.holds(\reading, seq).not) { ^this };   // cancelled or re-armed meanwhile
         readingIndex   = p[\index];
         pendingReading = nil;
         landingFrom    = nil;
@@ -2578,8 +2543,9 @@ Looper {
         // Live gets the tempo and the signature the way an analysis delivers
         // them, through the same callback.
         onAnalysis.value(result);
-        // Via prStopRoutine: this IS readingRoutine.
-        readingRoutine = this.prStopRoutine(readingRoutine);
+        // The arm is over (a test may have landed it by hand: its routine
+        // goes too). Safe from inside it.
+        this.timeline.cancel(\reading);
         this.changed(\reading, nil);
         this.changed(\readingIndex, readingIndex);
         this.prLogEvent(\readingLanded, (index: readingIndex, restart: p[\restart],
@@ -2590,9 +2556,9 @@ Looper {
     }
 
     prCancelReading {
-        readingRoutine = this.prStopRoutine(readingRoutine);
-        // Bumped so a landing in flight belongs to a reading that no longer is.
-        readingSeq = readingSeq + 1;
+        // A new token, so a landing in flight belongs to a reading that no
+        // longer is.
+        this.timeline.cancel(\reading);
         landingFrom = nil;
         if(pendingReading.notNil) {
             this.prLogEvent(\readingCancelled, (index: pendingReading[\index]));
@@ -2662,7 +2628,7 @@ Looper {
         var tau = if(lastResult.notNil and: { lastResult.tau.notNil }) { lastResult.tau } {
             loopFrames / server.sampleRate / 4
         };
-        ^tau / speed
+        ^tau / this.speed
     }
 
     // All settable parameters notify dependents via `this.changed(\key, val)`.
@@ -2911,7 +2877,7 @@ Looper {
                     // And to whoever listens (the window's key).
                     this.changed(\chord, seg);
                     // At half-time each segment lasts twice as long.
-                    ((nextStart - seg[\start]) / speed).wait;
+                    ((nextStart - seg[\start]) / this.speed).wait;
                 };
             };
         }.play(SystemClock);
@@ -3011,7 +2977,7 @@ Looper {
         // next boundary regardless.
         clockTicksAtRef = nil; clockRefTime = nil; clockTickRate = nil;
         midiClockRoutine = Routine {
-            var origin   = loopStartTime ? SystemClock.seconds;
+            var origin   = this.loopStartTime ? SystemClock.seconds;
             var latency  = midiOut.latency ? 0;
             var minPre   = 60 / bpm;   // one beat of pre-roll to lock the tempo
             var started  = false;
@@ -3070,13 +3036,12 @@ Looper {
         clickRoutine !? { |r| r.stop };
         midiClockRoutine !? { |r| r.stop };
         chordRoutine !? { |r| r.stop };
-        breakRoutine !? { |r| r.stop };
         dissolveRoutine !? { |r| r.stop };
-        readingRoutine !? { |r| r.stop };
-        // Before 2026-11-08 free left these two running: a half-time landing
-        // after free restarted the onset notes and sent MIDI.
-        halfTimeRoutine = this.prStopRoutine(halfTimeRoutine);
-        reverseRoutine = this.prStopRoutine(reverseRoutine);
+        // Every arm: a break's end, a reading, half-time, a reverse, the
+        // transport's start (before 2026-11-08 free left half-time and the
+        // reverse running: a landing after free restarted the onset notes and
+        // sent MIDI).
+        this.timeline.cancelAll;
         if(transportMode == \full) { midiOut !? { |m| m.stop } };
         buffer !? { |b| b.free };
         undoBuffer !? { |b| b.free };
@@ -3091,6 +3056,5 @@ Looper {
         tapLevelResp !? { |r| r.free };
         this.stopAnalysisMonitor;
         this.stopOverdubAnalysis;
-        overdubSyncRoutine !? { |r| r.stop };
     }
 }

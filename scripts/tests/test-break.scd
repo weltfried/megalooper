@@ -175,7 +175,8 @@ var playing = {
 // REGRESSION. On the rig, a break muted the looper permanently: the hole opened
 // and the loop never came back.
 //
-// endBreak is reached from INSIDE breakRoutine, and its first act was to stop
+// endBreak is reached from INSIDE the break's routine (its arm on the
+// timeline since 2026-11-09), and its first act was to stop
 // that routine. Routine:stop on the current thread is `nil.alwaysYield` — it
 // does not return — so endBreak died on its first line and never reached the
 // line that reopens the gate.
@@ -194,9 +195,8 @@ var playing = {
     var reachedEnd = false;
     var r;
     ~tPut.(l, \onBreak, true);
-    r = Routine { l.endBreak; reachedEnd = true };
-    ~tPut.(l, \breakRoutine, r);
-    r.next;
+    l.timeline.armAt(\break, SystemClock.seconds - 1, { l.endBreak; reachedEnd = true });
+    ~tFire.(l, \break);
     ~tAssert.("endBreak survives being called from inside its own routine",
         reachedEnd);
     ~tAssert.("so a timed break actually ends", l.onBreak.not);
@@ -208,9 +208,8 @@ var playing = {
     var reachedEnd = false;
     var r;
     ~tPut.(l, \onBreak, true);
-    r = Routine { l.prCancelBreak; reachedEnd = true };
-    ~tPut.(l, \breakRoutine, r);
-    r.next;
+    l.timeline.armAt(\break, SystemClock.seconds - 1, { l.prCancelBreak; reachedEnd = true });
+    ~tFire.(l, \break);
     ~tAssert.("prCancelBreak survives running inside its own routine", reachedEnd);
     ~tAssert.("and still clears the break", l.onBreak.not);
 }.value;
