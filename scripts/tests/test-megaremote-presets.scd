@@ -90,10 +90,25 @@ protect {
     got = load.(r, "load_drum_preset", "groove");
     ~tEq.("a preset loaded leaves the drums' switch off, and the answer says so",
         [got.at("ok"), d.on, got.at("result").at("drums").at("on")], [true, false, false]);
+    ~tEq.("...and a note says, in words, that they stay silent until switched on",
+        (got.at("result").at("note") ? "").contains("drums are off"), true);
     d.setOn(true);
     r.handle("{\"command\": \"revert\"}");
     ~tEq.("...its load taken back leaves the switch as the player set it since",
         [d.on, d.patterns[\main]], [true, before]);
+    d.setOn(false);
+    got = ask.(r, "{\"command\": \"load_drum_preset\", \"args\": {\"name\": \"groove\", \"on\": true}}");
+    ~tEq.("with on: true the drums come in with the preset: one change, named for both, no note",
+        [got.at("ok"), d.on, got.at("result").at("drums").at("on"), d.patterns[\main][\delay][0],
+            got.at("result").at("aiChanges"), said.last.contains("drum preset \"groove\" and drums' switch"),
+            got.at("result").at("note")],
+        [true, true, true, 17.0, 1, true, nil]);
+    got = ask.(r, "{\"command\": \"revert\"}");
+    ~tEq.("...taken back: the drums as before and off again",
+        [got.at("ok"), d.on, d.patterns[\main], r.changeCount], [true, false, before, 0]);
+    got = ask.(r, "{\"command\": \"load_drum_preset\", \"args\": {\"name\": \"groove\", \"on\": \"yes\"}}");
+    ~tEq.("an on that is no switch is refused, loading nothing",
+        [got.at("ok"), got.at("error"), d.patterns[\main], r.changeCount], [false, "on is true or false", before, 0]);
 
     ~tEq.("no folder, or an empty one, is said",
         [MegaRemote({ (sa: sa) }).handle("{\"command\": \"load_drum_preset\", \"args\": {\"name\": \"x\"}}").at(\error),

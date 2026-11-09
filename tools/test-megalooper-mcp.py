@@ -246,7 +246,8 @@ class Asking:
             ("set_grains", {"settings": {"morph": 0.2}, "window": "Swell", "on": True}),
             ("set_cutter", {"voices": [None, {"proc": "warp", "params": {"accel": 1.1}}], "voiceCount": 2, "mode": "gate"}),
             ("save_grains_preset", {"name": "g"}), ("save_cutter_preset", {"name": "c", "overwrite": True}),
-            ("load_drum_preset", {"name": "groove"}), ("load_synth_preset", {"name": "Bass Line"}),
+            ("load_drum_preset", {"name": "groove"}), ("load_drum_preset", {"name": "groove", "on": True}),
+            ("load_synth_preset", {"name": "Bass Line"}),
         ]
         for name, args in cases:
             text, err = self.tool(name, args)

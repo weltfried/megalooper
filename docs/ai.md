@@ -64,11 +64,11 @@ as picking it in the Synth view does.
 
 **Your presets.** Ask for one by name ("load the drum preset Groove", "start
 from my synth preset Bass Line and make it busier"). The AI recalls it as
-the view's menu does, and the menu shows it as loaded. The drums' switch,
-the break, the mixer and the sequencer's switch stay as they are. Drums that
-are off, as **New loop** set to *Off* leaves them after a new loop, stay
-silent until switched on: the AI can do that too ("load Groove and start
-the drums").
+the view's menu does, and the menu shows it as loaded. The break, the mixer
+and the sequencer's switch stay as they are. Drums that are off, as **New
+loop** set to *Off* leaves them after a new loop, wait for a cue: asking the
+AI to start, play or bring in drums is one, and it switches them on with the
+preset. Asked only to change the drums, it leaves the switch as you set it.
 
 A preset or sound is never saved over one of the same name unless you say
 so in the conversation.

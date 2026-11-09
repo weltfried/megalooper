@@ -189,6 +189,11 @@ MegaRemote {
         applying = command;
         answer = this.prAnswer(command, args);
         applying = nil;
+        // A refusal is said in the post window (megalooper's log) too: the
+        // app shows it only in its conversation.
+        if(answer.at(\ok) == false) {
+            ("MegaRemote: refused " ++ command.asString ++ ": " ++ answer.at(\error).asString).postln
+        };
         ^answer
     }
 
@@ -312,7 +317,16 @@ MegaRemote {
         ^this.class.success(this.class.obj([
             \which, which, \kit, drums.kit(\steps), \on, drums.on, \corrections, notes.asArray,
             \pattern, drums.patterns[which], \aiChanges, this.changeCount
-        ]))
+        ] ++ this.class.drumsOffNote(drums)))
+    }
+
+    // [\note, why the drums are silent] while their switch is off, else []:
+    // an answer that leaves them off says so in words, where the app reads.
+    *drumsOffNote { |drums|
+        ^if(drums.on) { [] } {
+            [\note, "The drums are off: they stay silent until switched on (on: true, here or with "
+                "load_drum_preset or set_drum_pattern)."]
+        }
     }
 
     // The drums as a snapshot holds them: what a preset holds, the switch,
@@ -448,26 +462,30 @@ MegaRemote {
 
     // One of the Drums view's presets, recalled as its menu recalls it: both
     // patterns, the kits, their trims, Repeats, the reverb and the offset;
-    // the drums' switch (set_drum_pattern's on), the break and the mixer's
-    // levels stay. Values held to a range are said in the answer's
-    // corrections.
+    // the break and the mixer's levels stay. The drums' switch stays too,
+    // unless `on` sets it, after the preset, so the drums come in with it
+    // (one change, as set_drum_pattern's on). Values held to a range are
+    // said in the answer's corrections.
     loadDrumPreset { |args|
         var src = source.value, drums = this.prDrums(src), dir = src !? { |s| s[\drumsPresetDir] };
-        var slug, before, notes = List.new, label;
+        var slug, before, notes = List.new, label, on;
         if(drums.isNil) { ^this.prNoDrums };
+        on = args !? { |a| a.at("on") };
+        if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
         slug = this.prPresetAsked(args, dir, "drum", drums.presetNames(dir), { |n| drums.presetSlug(n) });
         if(slug.isString.not) { ^slug };
-        before = this.prDrumsData(drums);
+        before = this.prDrumsData(drums, on.notNil);
         if(drums.loadPreset(dir, slug, notes).not) {
             ^this.class.failure("the drum preset " ++ slug.quote ++ " could not be read"
                 ++ if(notes.isEmpty) { "" } { ": " ++ notes.join("; ") })
         };
-        label = "drum preset " ++ slug.quote;
+        on !? { |flag| if(flag != drums.on) { drums.setOn(flag) } };
+        label = "drum preset " ++ slug.quote ++ (on !? { " and drums' switch" } ? "");
         this.prSnapshot(\drums, label, before, src);
         this.prShowPreset(src, \drums, slug);
         this.prSay(src, "The AI loaded the " ++ label ++ " (it can revert it)");
         ^this.class.success(this.class.obj([\loaded, slug, \corrections, notes.asArray,
-            \drums, this.class.drumsOf(drums), \aiChanges, this.changeCount]))
+            \drums, this.class.drumsOf(drums), \aiChanges, this.changeCount] ++ this.class.drumsOffNote(drums)))
     }
 
     // One of the Synth view's presets, recalled as its menu recalls it: the
@@ -1622,8 +1640,9 @@ MegaRemote {
                 "per step of a shuffleLength cycle, scaled by globalShuffle. Lane 0 is the hats in "
                 "the shipped pattern. The pads a kit has are in the context's drums.pads.steps. "
                 "The steps play only while the drums' switch is on (the context's drums.on; "
-                "set_drum_pattern's on sets it): the player's New loop setting may switch them off "
-                "as a new loop is recorded, and a loaded preset leaves the switch as it is.",
+                "set_drum_pattern's or load_drum_preset's on sets it): the player's New loop setting "
+                "may switch them off as a new loop is recorded, so that they wait for a cue; asked to "
+                "start, play or bring in drums, you are that cue: switch them on.",
             \velocities, MegaSASteps.velocities,
             \pages, MegaSASteps.subs,
             \stepValues, this.obj([\min, 0, \max, 6]),

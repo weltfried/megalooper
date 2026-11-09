@@ -293,6 +293,7 @@ if(sa.notNil) {
         [got.at("ok"), d.on, got.at("result").at("on"), d.patterns[\main], r.changeCount, said.last.contains("drums' switch")],
         [true, true, true, before, 1, true]);
     ~tEq.("...and the context says it", ask.(r, "{\"command\": \"context\"}").at("result").at("drums").at("on"), true);
+    ~tEq.("...with the drums on, the answer has no note", got.at("result").at("note"), nil);
     got = ask.(r, "{\"command\": \"revert\"}");
     ~tEq.("revert switches them off again",
         [got.at("ok"), d.on, got.at("result").at("reverted")], [true, false, ["drums' switch"]]);
@@ -313,7 +314,9 @@ if(sa.notNil) {
     }.value;
     r.handle("{\"command\": \"revert\", \"args\": {\"count\": 2}}");
     ~tEq.("...both taken back: the pattern and the switch as before the earliest", [d.on, d.patterns[\main]], [false, before]);
-    r.handle("{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"mute\": [true]}}}");
+    got = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"mute\": [true]}}}");
+    ~tEq.("a pattern changed while the drums are off: the answer says, in words, that they stay silent",
+        [got.at("result").at("on"), (got.at("result").at("note") ? "").contains("stay silent until switched on")], [false, true]);
     d.setOn(true);
     got = ask.(r, "{\"command\": \"revert\"}");
     ~tEq.("a pattern change taken back leaves the switch as the player set it since",

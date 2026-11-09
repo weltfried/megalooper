@@ -82,7 +82,7 @@
     },
     {
       "name": "load_drum_preset",
-      "description": "Load one of your drum presets from megalooper's Drums view."
+      "description": "Load one of your drum presets from megalooper's Drums view, and start the drums with it."
     },
     {
       "name": "load_synth_preset",
