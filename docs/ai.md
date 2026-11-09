@@ -120,7 +120,9 @@ across restarts. While it is off, no app can reach megalooper at all.
   If the app's config already has other settings, add `"mcpServers"` beside
   them. Paths are full paths: an app started from the Dock does not search
   your shell's `PATH`. Claude Desktop takes this too (Settings → Developer →
-  Edit Config), if you would rather not use the extension.
+  Edit Config), if you would rather not use the extension. Use one or the
+  other, not both: both are named megalooper, and with both Claude Desktop
+  starts neither.
 
 **3. Try it.** In a new conversation (restart the app first if you edited
 its config), with a loop playing, ask "What is megalooper playing? Describe
@@ -217,6 +219,7 @@ To build such a workflow:
 | megalooper is not running, or AI apps are not let in | Start megalooper, and switch AI APPS on (Setup › MIDI & AI) |
 | megalooper did not answer in 10 s | megalooper is busy or stuck: restart it |
 | The megalooper tool is missing, or shows an error | Claude Desktop: Settings → Extensions shows whether megalooper is installed and on; install it again with the button. Another app: check the two paths in its config, then restart it |
+| Claude Desktop's log says "Node.js server requires a resolvable entry point" | megalooper is both an extension and an entry in Claude Desktop's config. Keep one: uninstall the extension (Settings → Extensions), or remove `megalooper` from the config (Settings → Developer → Edit Config); then restart Claude Desktop |
 | `python3` is not found (other apps) | Put its full path in `command` (`which python3`), or install it (`xcode-select --install`) |
 
 ## The tools

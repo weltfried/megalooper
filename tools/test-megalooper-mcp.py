@@ -320,14 +320,52 @@ class Osc(unittest.TestCase):
 
     @unittest.skipIf(NODE is None, "node is not installed")
     def test_the_node_bridge_makes_the_same_bytes(self):
-        out = subprocess.run([NODE, "-e", "process.stdout.write(require(process.argv[1]).oscMessage("
-                              "'/megalooper/remote', 'tok', 'id-1', '').toString('hex'))",
-                              os.path.join(HERE, "mcpb", "server", "index.js")],
-                             capture_output=True, text=True, check=True).stdout
+        out = subprocess.run([NODE, "-e", "process.stdout.write(require(process.env.BRIDGE).oscMessage("
+                              "'/megalooper/remote', 'tok', 'id-1', '').toString('hex'))"],
+                             env=dict(os.environ, BRIDGE=BRIDGES["node"][1]), stdin=subprocess.DEVNULL,
+                             capture_output=True, text=True, check=True, timeout=30).stdout
         self.assertEqual(bytes.fromhex(out), mcp.osc_message("/megalooper/remote", "tok", "id-1", ""))
 
 
 # ---- the extension ------------------------------------------------------------------------
+
+# Claude Desktop runs an extension's Node bridge in its own Node: its
+# mcp-runtime/nodeHost.js names the bridge in process.argv[1] and loads it
+# with import(), so require.main is the host, not the bridge. A host that
+# does the same, over plain stdio.
+NODE_HOST = ("const p = require('path').resolve(process.argv[1]);"
+             "process.argv = [process.argv[0], p];"
+             "import(require('url').pathToFileURL(p).href);")
+HELLO = [{"jsonrpc": "2.0", "id": 0, "method": "initialize",
+          "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}}},
+         {"jsonrpc": "2.0", "method": "notifications/initialized"},
+         {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}]
+
+
+@unittest.skipIf(NODE is None, "node is not installed")
+class ClaudeDesktopsNode(unittest.TestCase):
+    def test_the_bridge_serves_when_a_host_loads_it_with_import_as_claude_desktop_does(self):
+        got = run_bridge([NODE, "-e", NODE_HOST, BRIDGES["node"][1]], HELLO, timeout=15)
+        self.assertEqual([m.get("id") for m in got], [0, 1], got)
+        self.assertEqual(got[0]["result"]["serverInfo"]["name"], "megalooper")
+        self.assertEqual(got[1]["result"]["tools"], SPEC["tools"])
+
+    def test_a_program_that_only_requires_it_starts_no_server(self):
+        # stdin stays open: a server would wait on it, and not end.
+        proc = subprocess.Popen([NODE, "-e", "process.stdout.write(typeof require(process.env.BRIDGE).handle)"],
+                                env=dict(os.environ, BRIDGE=BRIDGES["node"][1]), stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, text=True)
+        try:
+            proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        finally:
+            proc.stdin.close()
+        out = proc.stdout.read()
+        proc.stdout.close()
+        self.assertEqual((proc.returncode, out), (0, "function"))
+
 
 class Extension(unittest.TestCase):
     def test_the_manifest_offers_the_tool_lists_tools_and_runs_the_bridge_with_claude_desktops_node(self):
@@ -369,6 +407,8 @@ class Extension(unittest.TestCase):
                 got = run_bridge([NODE, os.path.join(tmp, "x", "server", "index.js")],
                                  [{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
                 self.assertEqual(got[0]["result"]["tools"], SPEC["tools"])
+                got = run_bridge([NODE, "-e", NODE_HOST, os.path.join(tmp, "x", "server", "index.js")], HELLO, timeout=15)
+                self.assertEqual([m.get("id") for m in got], [0, 1], "the bundle's bridge, as Claude Desktop runs it")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

@@ -221,6 +221,22 @@ function serve() {
   });
 }
 
-module.exports = { oscMessage, handle, callTool };
+// Whether this file was started as the server: by `node index.js`, or by a
+// host that loads it with import() after naming it in process.argv[1], as
+// Claude Desktop's own Node does (its mcp-runtime/nodeHost.js), where
+// require.main is the host and not this file. A program that only requires
+// it, for its functions, starts no server.
+function startedAsServer() {
+  if (require.main === module) return true;
+  const named = process.argv[1];
+  if (!named) return false;
+  try {
+    return fs.realpathSync(path.resolve(named)) === fs.realpathSync(__filename);
+  } catch (e) {
+    return false;
+  }
+}
 
-if (require.main === module) serve();
+module.exports = { oscMessage, handle, callTool, startedAsServer };
+
+if (startedAsServer()) serve();
