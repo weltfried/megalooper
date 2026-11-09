@@ -65,7 +65,7 @@ check.("MegaSA", MegaSA.notifications, saidIn.(["MegaSA.sc"] ++ saParts.collect 
     saParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);
 // The drums' parts likewise (step 9): they say the drums' changes through
 // drums.prNotify.
-drumsParts = ["MegaSADrumsPresets"];
+drumsParts = ["MegaSADrumsPresets", "MegaSADrumsKits"];
 check.("MegaSADrums", MegaSADrums.notifications, saidIn.(["MegaSADrums.sc"] ++ drumsParts.collect { |n| n ++ ".sc" }));
 [MegaSADevice, MegaSAPlugin, MegaSAWave, LooperCalibrator, MegaRemote, MegaSAKit].do { |c|
     check.(c.name.asString, c.notifications, saidIn.(c.name.asString ++ ".sc"));

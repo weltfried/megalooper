@@ -754,7 +754,7 @@ protect {
     // they are not there until it is in force.
     v = MegaSADrums(sa);
     v.kitDir = tmp;
-    v.instVarPut(\kitRequested, (steps: 'mt-steps', onset: nil));
+    ~tPut.(v, \kitRequested, (steps: 'mt-steps', onset: nil));
     ~megaSA = (drums: v);
     targets = ~tCheck.("the controls are made with a kit still loading", { ~midiTargetsBuild.() }) ? IdentityDictionary.new;
     ~tEq.("...its trims from its file, not there until it is in force",

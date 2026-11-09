@@ -226,14 +226,14 @@ if(sa.notNil) {
             f.write("{ \"version\": 1, \"key\": \"maponly\", \"name\": \"Map Only\", \"pads\": { \"36\": { \"name\": \"Kick\", "
                 ++ "\"layers\": [ { \"file\": \"maponly/k.wav\" } ] } } }") });
         d.instVarPut(\kitDir, dir);
-        d.instVarPut(\kitIndex, nil);
+        ~tPut.(d, \kitIndex, nil);
         refused = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"kit\": \"maponly\"}}");
         listed = ask.(r, "{\"command\": \"context\"}").at("result").at("drums").at("kits");
         ~tEq.("a kit with its map and no samples is refused, saying so, and not listed among the kits",
             [refused.at("ok"), refused.at("error").contains("has no samples on this Mac"), listed.includesEqual("maponly")],
             [false, true, false]);
         d.instVarPut(\kitDir, was);
-        d.instVarPut(\kitIndex, nil);
+        ~tPut.(d, \kitIndex, nil);
         File.delete(dir +/+ "maponly.json");
         File.delete(dir);
     }.value;

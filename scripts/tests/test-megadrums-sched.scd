@@ -412,7 +412,7 @@ ctl.remove;
 // ----------------------------------------------------------------- the kits --
 {
 var fx = ~dsMake.();
-var d = fx[\drums];
+var d = fx[\drums], heard;
 ~tEq.("the kits in the folder, by key", d.kitKeys, [\tkit, \tkit2]);
 ~tEq.("...with their names and pads", [d.kitInfo(\tkit)[\name], d.kitInfo(\tkit2)[\pads], d.kitInfo(\nope)],
     ["Test kit", [36, 42], nil]);
@@ -427,9 +427,30 @@ d.setGroupTrim(\steps, \main, -40);
     [12, -24, 0, 12]);
 d.setPadTrim(\steps, 42, 0);
 d.setGroupTrim(\steps, \main, 0);
-d.setKit(\onset, \nope);
+d.setKit(\onset, \nope, { |who, state| heard = [who, state] });
 ~tEq.("a kit that is not there: the slot is silent and says so", [d.kit(\onset), d.kitState(\onset), d.kitFor(\onset)],
     [\nope, \missing, nil]);
+~tEq.("...and its action hears the drums and the state (the kits are a part of theirs since 2026-11-09)",
+    [heard[0] === d, heard[1]], [true, \missing]);
+d.kitDir = ~dsDir +/+ "gap";
+~tEq.("a new kits folder is read again: its kits, not the old folder's", d.kitKeys, [\gkit]);
+d.kitDir = ~dsDir;
+~tEq.("...and back", d.kitKeys, [\tkit, \tkit2]);
+}.value;
+
+// The kits' buffers go with the drums; a real server levels the kits as they
+// load, a stub (the tests, the renders) plays their files' own levels.
+{
+var fx = ~dsMake.(), d = fx[\drums], held, srv;
+held = d.bufferCache.values.asArray;
+~tAssert.("(the kits' buffers are in)", held.notEmpty);
+d.free;
+// (The stub's buffers are Events, which answer free themselves (Object), so
+// the cache emptied is what can be seen.)
+~tEq.("free lets go of every buffer the kits held, and plays no kit", [d.bufferCache.size, d.kitFor(\steps)], [0, nil]);
+srv = Server(("tKits" ++ UniqueID.next).asSymbol, NetAddr("127.0.0.1", 59321));
+~tEq.("a real server's drums level the kits; a stub's do not", [MegaSADrums((server: srv)).levelKits, MegaSADrums((server: ~tStubServer.())).levelKits], [true, false]);
+Server.all.remove(srv);
 }.value;
 
 // ---------------------------------------------------------------- stamps --

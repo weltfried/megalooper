@@ -1610,6 +1610,7 @@ megalooper/
     MegaSASound.sc       -- a sound: the chains as a document
     MegaSADrums.sc       -- the drums: patterns, kits, the scheduler, the voices
     MegaSADrumsPresets.sc -- the drums' presets as files: what one holds, its text, read, checked, applied
+    MegaSADrumsKits.sc -- the drums' kits: the folder's index, the kit in each slot, its load and level, the trims, the shared buffers
     MegaSADrumsFx.sc     -- the drums' effects
     MegaSAKit.sc         -- one drum kit
     MegaSASteps.sc       -- the step sequencer's rules and patterns

@@ -128,23 +128,10 @@ MegaSADrums {
     // of their dice would about once a minute. The kits keep their pads'
     // beatRepeat flags, and the Drums tab's switch (or a preset) turns it on.
     var <reverbMix = 0.1508, <offsetMs = 0, <repeats = false;
-    // Kits: the folder, its index (scanKits), per slot the kit in force, the key
-    // asked for, its state and the request serial; the buffers, shared by path,
-    // with the last time a voice of each can end and when it is due to go, and
-    // the reads still on their way (MegaSAKit.load: a load that needs a file
-    // another is reading waits for that read).
-    var <kitDir, kitIndex, kitObjects, kitRequested, kitStates, kitSerials, loadingKits;
-    var <bufferCache, bufferEnds, bufferFreeAt, readsInFlight;
-    // Per kit key: note -> dB, and group -> dB (the layer trim).
-    var <padTrims, <groupTrims;
-    // reader.(server, path, done) for MegaSAKit.load; nil: Buffer.read.
-    var <>kitReader;
-    // Whether a kit is levelled as it loads: measured from its samples
-    // (MegaSAKit.measureLevel) and its levelDb set to bring it to its slot's
-    // reference (levelReference). On for a real server; on a stub (the
-    // tests, the renders) the kits play their files' own levels unless it is
-    // switched on (levelKits_).
-    var <levelKits;
+    // The kits' folder (their reverb's impulse responses live there too); the
+    // kits themselves, their loads, trims and buffers, are MegaSADrumsKits',
+    // made when first asked for (kitsPart).
+    var <kitDir, kitsPart;
     var <lead = 0.1, <margin = 0.006, <pumpPeriod = 0.01;
     var <>wallClock, <>sender, <>randSeed, <>autoProbe = false;
     // The dice (keepDice): a seed every Start plays, or nil for new dice at
@@ -268,19 +255,8 @@ MegaSADrums {
         // after the device loads, once per device (ResyncOnNextTimeShiftLoop).
         timeShiftArm = (main: true, break: true);
         kitDir = this.class.defaultKitDir;
-        kitObjects = (steps: nil, onset: nil);
-        kitRequested = (steps: nil, onset: nil);
-        kitStates = (steps: \unset, onset: \unset);
-        kitSerials = (steps: 0, onset: 0);
-        loadingKits = (steps: nil, onset: nil);
-        bufferCache = IdentityDictionary.new;
-        bufferEnds = IdentityDictionary.new;
-        bufferFreeAt = IdentityDictionary.new;
         fxQuietAt = IdentityDictionary.new;
         fxAsleep = IdentityDictionary.new;
-        readsInFlight = IdentityDictionary.new;
-        padTrims = IdentityDictionary.new;
-        groupTrims = IdentityDictionary.new;
         wallClock = { Main.elapsedTime };
         // A nil time is a bundle to run at once.
         sender = { |absTime, msgs| server.sendBundle(absTime !? { |t| t - thisThread.seconds }, *msgs) };
@@ -313,7 +289,6 @@ MegaSADrums {
         // server to read the impulse responses.
         autoProbe = server.isKindOf(Server);
         autoIR = server.isKindOf(Server);
-        levelKits = server.isKindOf(Server);
     }
 
     // presets/sa/drums/kits/ in the repository, or nil if it cannot be found.
@@ -897,44 +872,45 @@ MegaSADrums {
     kitDir_ { |dir|
         var moved = dir != kitDir;
         kitDir = dir;
-        kitIndex = nil;
+        kitsPart !? { |k| k.forgetIndex };
         if(moved and: { built } and: { autoIR }) { this.reloadReverb };
     }
 
-    kitKeys { ^this.prKitIndex.keys.asArray.sort }
-
-    kitInfo { |key| ^key !? { |k| this.prKitIndex[k.asSymbol] } }
-
-    // The kits that can sound on this Mac: those with a sample of theirs in
-    // the kits folder. megalooper ships every kit's map, and the audio of two,
-    // the Analog Kit and the Bolt Kit; the kits it was built on play
-    // Ableton's. Only these are offered (the kit menus, the AI tool): a map
-    // alone plays nothing. With none (a clone with the kits' folders gone),
-    // the Drums pane says so and shows nothing else.
-    kitsWithAudio { ^this.kitKeys.select { |k| this.kitInfo(k)[\audio] == true } }
-
-    // Read the folder again (a kit added while running).
-    rescanKits { kitIndex = nil; ^this.prKitIndex }
-
-    prKitIndex { ^kitIndex ?? { kitIndex = this.class.scanKits(kitDir) } }
-
-    // The key asked for last (the menu's), or nil.
-    kit { |slot| ^if(this.prSlotOk(slot, false)) { kitRequested[slot] } }
-
-    // The MegaSAKit playing in the slot, or nil.
-    kitFor { |slot| ^if(this.prSlotOk(slot, false)) { kitObjects[slot] } }
-
-    // Is the slot empty because it was asked to be (setKit(slot, nil): the
-    // Drums tab's "— none —", a preset's or the kept drums' "none"), rather
-    // than never given a kit? A boot fills only the slots never given one.
-    kitEmptied { |slot|
-        ^this.prSlotOk(slot, false) and: { kitRequested[slot].isNil } and: { kitSerials[slot] > 0 }
-    }
-
     // How a preset names a slot without a kit.
-    *noKit { ^"none" }
+    // ---- The kits (MegaSADrumsKits) ---------------------------------------------
+    // The part, made when first asked for: the index, the kit in each slot,
+    // its load and level, the trims, the shared buffers.
+    kitsPart { ^kitsPart ?? { kitsPart = MegaSADrumsKits(this) } }
+    kitKeys { ^this.kitsPart.keys }
+    kitInfo { |key| ^this.kitsPart.info(key) }
+    kitsWithAudio { ^this.kitsPart.withAudio }
+    rescanKits { ^this.kitsPart.rescan }
+    kit { |slot| ^this.kitsPart.kit(slot) }
+    kitFor { |slot| ^this.kitsPart.kitFor(slot) }
+    kitEmptied { |slot| ^this.kitsPart.emptied(slot) }
+    kitState { |slot| ^this.kitsPart.state(slot) }
+    levelKits { ^this.kitsPart.levelKits }
+    levelKits_ { |on| this.kitsPart.levelKits = on }
+    kitLevel { |slot| ^this.kitsPart.level(slot) }
+    setKit { |slot, key, action| this.kitsPart.setKit(slot, key, action) }
+    pads { |slot| ^this.kitsPart.pads(slot) }
+    padName { |slot, note| ^this.kitsPart.padName(slot, note) }
+    padTrim { |slot, note| ^this.kitsPart.padTrim(slot, note) }
+    setPadTrim { |slot, note, db| this.kitsPart.setPadTrim(slot, note, db) }
+    groupTrim { |slot, group| ^this.kitsPart.groupTrim(slot, group) }
+    setGroupTrim { |slot, group, db| this.kitsPart.setGroupTrim(slot, group, db) }
+    padTrims { ^this.kitsPart.padTrims }
+    groupTrims { ^this.kitsPart.groupTrims }
+    bufferCache { ^this.kitsPart.bufferCache }
+    kitReader { ^this.kitsPart.kitReader }
+    kitReader_ { |reader| this.kitsPart.kitReader = reader }
+    prKitIndex { ^this.kitsPart.index }
+    prPutTrims { |pads, groups| this.kitsPart.putTrims(pads, groups) }
+    prNoteBufferUse { |kit, layers, stamp| this.kitsPart.noteBufferUse(kit, layers, stamp) }
+    prReleaseBuffers { this.kitsPart.releaseBuffers }
+    prFreeBuffers { |wall| this.kitsPart.freeBuffers(wall) }
 
-    kitState { |slot| ^if(this.prSlotOk(slot, false)) { kitStates[slot] } }
+    *noKit { ^"none" }
 
     // Each slot's reference level (MegaSAKit.measureLevel, measured on the kit
     // the slot starts on): Kit-Carbon + layer for the steps, the One Hit Kit
@@ -943,139 +919,6 @@ MegaSADrums {
     // brought to them.
     *levelReference {
         ^(steps: (rms: -10.283, peak: 5.007), onset: (rms: -19.577, peak: -2.775))
-    }
-
-    levelKits_ { |on|
-        levelKits = on == true;
-        [\steps, \onset].do { |slot|
-            [loadingKits[slot], kitObjects[slot]].do { |k| k !? { k.levelDb = this.prLevelFor(slot, k) } };
-            kitObjects[slot] !? { |k| this.prNotify(\kitLevel, slot, k.levelDb) };
-        };
-    }
-
-    // The correction the slot's kit plays with, in dB (MegaSAKit.levelDb): 0
-    // with levelKits off, or for a kit whose samples could not be measured;
-    // nil with no kit in the slot.
-    kitLevel { |slot| ^this.kitFor(slot) !? { |k| k.levelDb } }
-
-    prLevelFor { |slot, kit|
-        ^if(levelKits) { MegaSAKit.levelCorrection(kit.measureLevel(kitDir), this.class.levelReference[slot]) } { 0 }
-    }
-
-    // Load a kit by key and swap it in when its buffers are in: notifies \kit,
-    // slot, key at once, \kitLevel, slot, dB once it is measured (with
-    // levelKits on), and \kitState, slot, state as it goes (\loading, then
-    // \ready \partial \missing or \failed). action.(drums, state) hears the
-    // final state. Each request has a serial: one overtaken by a later request
-    // is dropped when it completes, its buffers freed if nothing else uses
-    // them. The swap happens between two pumps, so no step plays half one kit.
-    setKit { |slot, key, action|
-        var serial, kit, path;
-        if(alive.not or: { this.prSlotOk(slot, true).not }) { ^this };
-        kitSerials[slot] = kitSerials[slot] + 1;
-        serial = kitSerials[slot];
-        if(key.isNil) {
-            kitRequested[slot] = nil;
-            kitObjects[slot] = nil;
-            this.prNotify(\kit, slot, nil);
-            this.prKitState(slot, \unset);
-            this.prReleaseBuffers;
-            action.value(this, \unset);
-            ^this
-        };
-        key = key.asSymbol;
-        kitRequested[slot] = key;
-        this.prNotify(\kit, slot, key);
-        path = kitDir !? { |d| MegaSAKit.fileFor(d, key) };
-        kit = path !? { |p| MegaSAKit.read(p) };
-        if(kit.isNil) {
-            ("MegaSADrums: no kit " ++ key ++ " to read in " ++ kitDir ++ "; the " ++ slot
-                ++ " kit is silent.").warn;
-            kitObjects[slot] = nil;
-            this.prKitState(slot, \missing);
-            this.prReleaseBuffers;
-            action.value(this, \missing);
-            ^this
-        };
-        if(levelKits) {
-            kit.levelDb = this.prLevelFor(slot, kit);
-            this.prNotify(\kitLevel, slot, kit.levelDb);
-        };
-        loadingKits[slot] = kit;
-        this.prKitState(slot, \loading);
-        kit.load(server, kitDir, bufferCache, { |k, state|
-            if(state != \loading) { this.prKitLoaded(slot, serial, k, state, action) };
-        }, kitReader, readsInFlight);
-    }
-
-    prKitLoaded { |slot, serial, kit, state, action|
-        if(alive.not) {
-            // Kits sharing a file share its buffer, and free freed the cache:
-            // only what is still allocated.
-            kit.buffers.do { |b| if(b.bufnum.notNil) { b.free } };
-            ^this
-        };
-        if(loadingKits[slot] === kit) { loadingKits[slot] = nil };
-        if(serial != kitSerials[slot]) {
-            this.prReleaseBuffers;
-            ^this
-        };
-        kitObjects[slot] = kit;
-        this.prKitState(slot, state);
-        this.prReleaseBuffers;
-        action.value(this, state);
-    }
-
-    prKitState { |slot, state|
-        kitStates[slot] = state;
-        this.prNotify(\kitState, slot, state);
-    }
-
-    // The pads of the slot's kit, by note.
-    pads { |slot| ^((this.kitFor(slot) !? { |k| k.notes }) ? []) }
-
-    padName { |slot, note| ^this.kitFor(slot) !? { |k| k.padName(note) } }
-
-    // A pad's trim in dB, -24..+12, kept per kit key. Notifies \padTrim, slot,
-    // note, db.
-    padTrim { |slot, note| ^((this.prTrimTable(padTrims, slot) !? { |t| t[note] }) ? 0) }
-
-    setPadTrim { |slot, note, db|
-        var table;
-        if(this.prSlotOk(slot, true).not) { ^this };
-        if(note.isNumber.not or: { db.isNumber.not } or: { db.isNaN }) {
-            ("MegaSADrums: a pad trim is a note and dB, not " ++ [note, db].asCompileString).warn;
-            ^this
-        };
-        table = this.prTrimTable(padTrims, slot, true);
-        if(table.isNil) { ("MegaSADrums: no " ++ slot ++ " kit to trim.").warn; ^this };
-        table.put(note.asInteger, db.clip(-24, 12));
-        this.prNotify(\padTrim, slot, note.asInteger, table[note.asInteger]);
-    }
-
-    // A group's trim in dB, -24..+12, per kit key: the layer trim of a kit
-    // with two (the KJ stand-ins under Kit-Carbon). Notifies \groupTrim, slot,
-    // group, db.
-    groupTrim { |slot, group| ^((this.prTrimTable(groupTrims, slot) !? { |t| t[group ? \none] }) ? 0) }
-
-    setGroupTrim { |slot, group, db|
-        var table;
-        if(this.prSlotOk(slot, true).not) { ^this };
-        if(group.isNil or: { db.isNumber.not } or: { db.isNaN }) {
-            ("MegaSADrums: a group trim is a group and dB, not " ++ [group, db].asCompileString).warn;
-            ^this
-        };
-        table = this.prTrimTable(groupTrims, slot, true);
-        if(table.isNil) { ("MegaSADrums: no " ++ slot ++ " kit to trim.").warn; ^this };
-        table.put(group.asSymbol, db.clip(-24, 12));
-        this.prNotify(\groupTrim, slot, group.asSymbol, table[group.asSymbol]);
-    }
-
-    prTrimTable { |tables, slot, create = false|
-        var key = this.kit(slot);
-        if(key.isNil) { ^nil };
-        if(create and: { tables[key].isNil }) { tables.put(key, IdentityDictionary.new) };
-        ^tables[key]
     }
 
     // Beat Repeat on the kits that have it, from the moment heard (now -
@@ -1117,53 +960,6 @@ MegaSADrums {
         if((slot == \steps) or: { slot == \onset }) { ^true };
         if(loud) { ("MegaSADrums: no kit slot " ++ slot ++ "; there are \\steps and \\onset.").warn };
         ^false
-    }
-
-    // Every cached buffer no kit in use (or being loaded) plays is freed a
-    // second after its last voice can have ended.
-    prReleaseBuffers {
-        var wall = wallClock.value, used = this.prPathsInUse;
-        bufferCache.keys.do { |path|
-            if(used.includes(path)) { bufferFreeAt.removeAt(path) } {
-                if(bufferFreeAt[path].isNil) {
-                    bufferFreeAt.put(path, (wall + 1).max((bufferEnds[path] ? 0) + 1));
-                };
-            };
-        };
-    }
-
-    // Each kit's files resolved against the folder it was loaded from, as its
-    // buffers are cached: kitDir may have moved since.
-    prPathsInUse {
-        var used = IdentitySet.new;
-        (kitObjects.values ++ loadingKits.values).do { |k|
-            k !? { k.files(k.root).do { |p| used.add(p.asSymbol) } };
-        };
-        ^used
-    }
-
-    prFreeBuffers { |wall|
-        var due, used;
-        if(bufferFreeAt.isEmpty) { ^this };
-        due = bufferFreeAt.keys.select { |path| bufferFreeAt[path] <= wall };
-        if(due.isEmpty) { ^this };
-        used = this.prPathsInUse;
-        due.do { |path|
-            bufferFreeAt.removeAt(path);
-            if(used.includes(path).not) {
-                bufferEnds.removeAt(path);
-                bufferCache.removeAt(path) !? { |b| b.free };
-            };
-        };
-    }
-
-    // When the last voice of each buffer a hit plays can end.
-    prNoteBufferUse { |kit, layers, stamp|
-        layers.do { |layer|
-            var path = kit.pathFor(layer).asSymbol;
-            var end = stamp + ((kit.soundingDur(layer) ? 10) + 0.005);
-            if((bufferEnds[path] ? inf.neg) < end) { bufferEnds.put(path, end) };
-        };
     }
 
     // ---- Mix --------------------------------------------------------------
@@ -1258,13 +1054,6 @@ MegaSADrums {
     prApplyPreset { |clean| this.presetsPart.apply(clean) }
     prPresetSummary { ^this.presetsPart.summary }
     *prFieldOrder { ^MegaSADrumsPresets.fieldOrder }
-    // A preset's trim tables in whole (per kit key), as it was saved: the
-    // presets' part applies them here (nil: those left as they are).
-    prPutTrims { |pads, groups|
-        pads !? { padTrims = pads };
-        groups !? { groupTrims = groups };
-    }
-
     *presetVersion { ^1 }
     *presetFormat { ^"megalooper drums" }
 
@@ -2183,7 +1972,7 @@ MegaSADrums {
         var slot = rec[\slot], kit, pad, layers, ring, hitId, msgs;
         if(rec[\kind] == \repeat) { ^this.prEmitRepeat(rec) };
         if(slot == \synth) { ^this.prEmitNote(rec) };
-        kit = kitObjects[slot];
+        kit = this.kitFor(slot);
         if(kit.isNil or: { kit.isPlayable.not } or: { groupIds.isNil }) { ^false };
         pad = kit.pad(rec[\note]);
         layers = kit.layersFor(rec[\note], rec[\vel]);
@@ -2543,7 +2332,7 @@ MegaSADrums {
 
     // Decide one capture: the pads that fire, and their repeats.
     prBeatRepeatProcess { |ev, wall|
-        var ep = ev[\epoch], kit = kitObjects[\steps], key = [ep[\id], ev[\c]], cap;
+        var ep = ev[\epoch], kit = this.kitFor(\steps), key = [ep[\id], ev[\c]], cap;
         captureCursor = (epoch: ep[\id], c: ev[\c] + 1);
         cap = (key: key, epoch: ep[\id], c: ev[\c], tc: ev[\tc], s16: ev[\s16], sliceEnd: ev[\time],
             gateEnd: ev[\tc] + (ev[\s16] * (MegaSADrumsFx.beatRepeatGate / MegaSADrumsFx.beatRepeatGrid)),
@@ -2738,7 +2527,7 @@ MegaSADrums {
     // one's sounds.
     prEmitRepeat { |rec|
         var kit = rec[\kitObj], pad, ring, hitId, msgs;
-        if(kit.isNil or: { kit !== kitObjects[\steps] } or: { kit.isPlayable.not } or: { groupIds.isNil }) { ^false };
+        if(kit.isNil or: { kit !== this.kitFor(\steps) } or: { kit.isPlayable.not } or: { groupIds.isNil }) { ^false };
         pad = kit.pad(rec[\note]);
         if(pad.isNil) { ^false };
         ring = this.prRingBus(\steps);
@@ -3519,12 +3308,8 @@ MegaSADrums {
         alive = false;
         this.prLetGo;
         this.prFreeServerSide;
-        bufferCache.do { |b| b.free };
-        bufferCache = IdentityDictionary.new;
-        bufferFreeAt = IdentityDictionary.new;
-        // A load still on its way frees what it brings (prKitLoaded).
-        readsInFlight = IdentityDictionary.new;
-        kitObjects = (steps: nil, onset: nil);
+        // Every buffer, and a load still on its way frees what it brings.
+        kitsPart !? { |k| k.free };
         onsetRun = nil;
         pending = List.new;
         captures = List.new;

@@ -1040,11 +1040,11 @@ Routine {
         ok.("...so the kit menus list only it", [\kit_steps, \kit_onset].every { |k|
             ~drumsWidgets[k][\view].items == ["— none —", "Mine"] },
             [\kit_steps, \kit_onset].collect { |k| ~drumsWidgets[k][\view].items }.asString);
-        d2.instVarAt(\kitRequested).put(\steps, \maponly);
+        d2.kitsPart.instVarAt(\kitRequested).put(\steps, \maponly);
         ok.("...but a part that has a map-only kit still finds it in its menu",
             (~drumsKitChoices.(d2, \steps) == [\maponly, \mine]) and: { ~drumsKitChoices.(d2, \onset) == [\mine] },
             ~drumsKitChoices.(d2, \steps).asString);
-        d2.instVarAt(\kitRequested).put(\steps, nil);
+        d2.kitsPart.instVarAt(\kitRequested).put(\steps, nil);
         File.delete(dir +/+ "maponly.json");
         File.delete(dir +/+ "mine" +/+ "k.wav");
         File.delete(dir +/+ "mine");
