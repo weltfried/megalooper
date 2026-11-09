@@ -12,7 +12,8 @@ Each part plays a **kit**: a set of samples on pads.
 The steps start with every new loop you record. To have them wait instead,
 set **New loop** to **Off** in the Drums column on Perform. A new loop then
 keeps the drums in time but silent, until you switch them on: the tile at the
-top of that column, the switch on the Drums view, or a footswitch mapped to it.
+top of that column, the switch on the Drums view, a footswitch mapped to it,
+or an [AI app](ai.md) asked to start them.
 Overdubs leave them as they are. megalooper keeps the choice for the next
 start. Whether they also stop with the loop is **Drums follow the loop**, on
 the Setup view's Rig page.

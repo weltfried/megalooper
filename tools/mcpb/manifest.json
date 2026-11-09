@@ -38,7 +38,7 @@
     },
     {
       "name": "set_drum_pattern",
-      "description": "Change a drum step pattern and the kit the steps play."
+      "description": "Change a drum step pattern, the kit the steps play and the drums' switch."
     },
     {
       "name": "set_synth",

@@ -30,7 +30,7 @@
   {
    "name": "get_context",
    "title": "What megalooper is playing",
-   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (both step patterns, main and break, the kits and their pads, and kitLevels: how far megalooper levelled each kit, in dB; presets, the drum presets saved in the Drums view, and loadedPreset, the one it shows as loaded), the synth (the note sequencer's pattern and the Wave synth's settings; presets and loadedPreset, as the Synth view has them), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window, whether they follow the chords) and the cutter (on, mode, its voices). recent (with Log every action on in megalooper): what the players and you changed in the last minute, oldest first, each with how long ago, the part, what, its arguments and by: player or ai. Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
+   "description": "The running megalooper's state: the loop (state; the meter reading: signature, bars in units of 1/denominator, each bar's beat groups (2+2+3 for 7/8), bpm in quarter notes, length in seconds, and how the take's loudness fits it: accentFit 0..1 for a meter, barLineAccent for uneven bars, the bar lines against the mean hit; and take, what the first take played: per bar a grid of sixteenths, X a strong hit, x a hit, . none, the hits with their strength and pitch, the chords heard), now (where the playhead is: bar, beat and beat group; half-time, reverse, a break, a dissolve, the arc's intensity, and what lands on a coming boundary), the drums (on, their switch: false while they are silent; both step patterns, main and break, the kits and their pads, and kitLevels: how far megalooper levelled each kit, in dB; presets, the drum presets saved in the Drums view, and loadedPreset, the one it shows as loaded), the synth (the note sequencer's pattern and the Wave synth's settings; presets and loadedPreset, as the Synth view has them), every effect chain (devices in order, their switches and settings), the grains (on, settings, grain window, whether they follow the chords) and the cutter (on, mode, its voices). recent (with Log every action on in megalooper): what the players and you changed in the last minute, oldest first, each with how long ago, the part, what, its arguments and by: player or ai. Ask for some parts only to keep the answer short. aiChangeLabels lists your own changes revert can take back, oldest first.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -90,7 +90,7 @@
   {
    "name": "set_drum_pattern",
    "title": "Change the drums",
-   "description": "Change a drum step pattern (main, or break) and/or the kit the steps play. The pattern is merged over the one playing, so send only what changes: a member left out, or null, stays as it is; a list item null stays; a list shorter than the one there changes only its first items. For example {\"steps\": {\"chance\": [null, [6, 0, 6, 0]]}} sets the first four chance steps of lane 1 and leaves everything else. Steps are 0..6 (call describe with topic drums first). Values out of range are held to it and listed in the answer's corrections. The answer holds the pattern as it now plays. Every change can be taken back with revert.",
+   "description": "Change a drum step pattern (main, or break), the kit the steps play, and/or switch the drums on or off (on). The drums play only while their switch is on: the player's New loop setting may switch them off as a new loop is recorded, and loading a drum preset leaves the switch as it is, so to start the drums send {\"on\": true}. The pattern is merged over the one playing, so send only what changes: a member left out, or null, stays as it is; a list item null stays; a list shorter than the one there changes only its first items. For example {\"steps\": {\"chance\": [null, [6, 0, 6, 0]]}} sets the first four chance steps of lane 1 and leaves everything else. Steps are 0..6 (call describe with topic drums first). Values out of range are held to it and listed in the answer's corrections. The answer holds the pattern as it now plays. Every change can be taken back with revert.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -109,6 +109,10 @@
      "kit": {
       "type": "string",
       "description": "A kit's key from drums.kits in get_context: the kits whose samples are on this Mac."
+     },
+     "on": {
+      "type": "boolean",
+      "description": "Whether the drums play: their switch, drums.on in get_context. It goes after the pattern and the kit, so the drums come in with them."
      }
     },
     "additionalProperties": false
@@ -497,7 +501,7 @@
   {
    "name": "load_drum_preset",
    "title": "Load a drum preset",
-   "description": "Load one of the player's drum presets, as picking it in megalooper's Drums view does: both patterns, the kits, their trims, Repeats, the reverb and the offset. The drums' switch, the break and the mixer's levels stay as they are. get_context lists the presets under drums.presets, and drums.loadedPreset is the one the view shows. Values a hand-edited file holds out of range are held to it and listed in the answer's corrections. The answer holds the drums as they now are. It can be taken back with revert.",
+   "description": "Load one of the player's drum presets, as picking it in megalooper's Drums view does: both patterns, the kits, their trims, Repeats, the reverb and the offset. The drums' switch, the break and the mixer's levels stay as they are: if drums.on is false, the drums stay silent until set_drum_pattern switches them on. get_context lists the presets under drums.presets, and drums.loadedPreset is the one the view shows. Values a hand-edited file holds out of range are held to it and listed in the answer's corrections. The answer holds the drums as they now are. It can be taken back with revert.",
    "inputSchema": {
     "type": "object",
     "properties": {

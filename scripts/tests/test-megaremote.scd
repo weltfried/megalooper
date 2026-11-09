@@ -1,14 +1,13 @@
-// megalooper as a tool for an AI app (MegaRemote, docs/dev/ai-tool.md, Phase 0):
-// who may ask (127.0.0.1 and this boot's token, an id that names nothing
+// megalooper as a tool for an AI app (MegaRemote, docs/dev/ai-tool.md, Phase
+// 0): who may ask (127.0.0.1 and this boot's token, an id that names nothing
 // but its own two files), what is answered (ping, the context, what every
-// setting means), the drums, the synth and the chains it may change and
-// take back (a pattern merged over the one playing, the steps' kit, the note
-// sequence, the Wave synth, the sequencer's switch, built-in effects in, out,
-// moved, set and switched, the grains' settings, window and switch, the
-// cutter's voices, mode and switch, revert across all of them, presets and
-// sounds saved), and that
-// every answer is JSON that reads back. The OSC
-// round trip itself is tools/megalooper-mcp.py's check
+// setting means), the drums, the synth and the chains it may change and take
+// back (a pattern merged over the one playing, the steps' kit, the drums'
+// switch, the note sequence, the Wave synth, the sequencer's switch, built-in
+// effects in, out, moved, set and switched, the grains' settings, window and
+// switch, the cutter's voices, mode and switch, revert across all of them,
+// presets and sounds saved), and that every answer is JSON that reads back. The
+// OSC round trip itself is tools/megalooper-mcp.py's check
 // (tools/test-megalooper-mcp.py).
 
 if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").load };
@@ -283,6 +282,42 @@ if(sa.notNil) {
                 .at(\ok)],
         [true, false, false]);
     ~tEq.("...and it reads back as the drums are", d.loadPreset(presets, "ai-groove"), true);
+
+    // ---- the drums' switch ----
+    // Off, as the New loop setting leaves it when a loop is recorded.
+    r.handle("{\"command\": \"revert\", \"args\": {\"count\": 99}}");
+    d.setOn(false);
+    before = d.patterns[\main].deepCopy;
+    got = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"on\": true}}");
+    ~tEq.("on alone switches the drums on and leaves the pattern: one change, said, and in the answer",
+        [got.at("ok"), d.on, got.at("result").at("on"), d.patterns[\main], r.changeCount, said.last.contains("drums' switch")],
+        [true, true, true, before, 1, true]);
+    ~tEq.("...and the context says it", ask.(r, "{\"command\": \"context\"}").at("result").at("drums").at("on"), true);
+    got = ask.(r, "{\"command\": \"revert\"}");
+    ~tEq.("revert switches them off again",
+        [got.at("ok"), d.on, got.at("result").at("reverted")], [true, false, ["drums' switch"]]);
+    got = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"mute\": [true]}, \"on\": true}}");
+    ~tEq.("a pattern and on together: both land, as one change named for both",
+        [got.at("ok"), d.on, d.patterns[\main][\mute][0], r.changeCount, said.last.contains("drums' main pattern and switch")],
+        [true, true, true, 1, true]);
+    ~tEq.("refused, changing nothing: an on that is no switch",
+        [ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"on\": 1}}").at("ok"),
+            ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"on\": \"true\"}}").at("ok"), d.on, r.changeCount],
+        [false, false, true, 1]);
+    {
+        var heard = 0, ctl = SimpleController(d).put(\on, { heard = heard + 1 });
+        got = ask.(r, "{\"command\": \"set_drum_pattern\", \"args\": {\"on\": true}}");
+        ctl.remove;
+        ~tEq.("on as the switch already is: answered and kept as a change, the switch not set again (no cut)",
+            [got.at("ok"), d.on, heard, r.changeCount], [true, true, 0, 2]);
+    }.value;
+    r.handle("{\"command\": \"revert\", \"args\": {\"count\": 2}}");
+    ~tEq.("...both taken back: the pattern and the switch as before the earliest", [d.on, d.patterns[\main]], [false, before]);
+    r.handle("{\"command\": \"set_drum_pattern\", \"args\": {\"pattern\": {\"mute\": [true]}}}");
+    d.setOn(true);
+    got = ask.(r, "{\"command\": \"revert\"}");
+    ~tEq.("a pattern change taken back leaves the switch as the player set it since",
+        [got.at("ok"), d.on, d.patterns[\main]], [true, true, before]);
 
     // ---- the synth ----
     r.handle("{\"command\": \"revert\", \"args\": {\"count\": 99}}");

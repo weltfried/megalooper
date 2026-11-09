@@ -599,8 +599,8 @@ The controls, by view:
   - *Off*: they do not start with the loop; switch them on yourself.
 - **New loop** *(Perform's Drums column)* — what the drums do when you record
   a new loop. *Play* (default): they start with it. *Off*: they keep time but
-  stay silent until you switch them on, with the tile above it or their
-  footswitch. Overdubs leave them as they are. megalooper keeps the choice for
+  stay silent until you switch them on, with the tile above it, their
+  footswitch or an AI app. Overdubs leave them as they are. megalooper keeps the choice for
   the next start.
 - **Input** *(Setup › Rig)* — *Mono* or *Stereo*; the profile's
   `inChannelCount` sets it at boot (saSystem: Stereo). Stereo records both

@@ -85,6 +85,16 @@ protect {
         [got.at("ok"), got.at("result").at("reverted"), d.patterns[\main], showCalls.last, shown[\drums]],
         [true, ["drum preset \"groove\"", "drum preset \"groove\""], before, [\drums, nil], nil]);
 
+    // As the New loop setting leaves them: a load does not switch them on.
+    d.setOn(false);
+    got = load.(r, "load_drum_preset", "groove");
+    ~tEq.("a preset loaded leaves the drums' switch off, and the answer says so",
+        [got.at("ok"), d.on, got.at("result").at("drums").at("on")], [true, false, false]);
+    d.setOn(true);
+    r.handle("{\"command\": \"revert\"}");
+    ~tEq.("...its load taken back leaves the switch as the player set it since",
+        [d.on, d.patterns[\main]], [true, before]);
+
     ~tEq.("no folder, or an empty one, is said",
         [MegaRemote({ (sa: sa) }).handle("{\"command\": \"load_drum_preset\", \"args\": {\"name\": \"x\"}}").at(\error),
             MegaRemote({ (sa: sa, drumsPresetDir: root +/+ "none") })

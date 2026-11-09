@@ -10,21 +10,21 @@
 //
 // Reading: \ping, \context (what is playing and how it is set, where the
 // playhead is, and the AI's own changes), \describe (what every setting
-// means), \list_sets and \get_set (the sets recorded before: what was
-// played, what the analyser heard and what the players changed;
-// docs/dev/roadmap.md item 20, "the AI as the experimenter"). Writing: \set_drum_pattern (a
-// pattern, the steps' kit), \set_synth (the note sequencer's pattern, the
-// Wave synth's settings, the sequencer's switch), \set_chain (built-in
-// effects in, out and moved, settings, switches), \set_grains (the granular
-// layer's settings, its window, its switch), \set_cutter (the cutter's
-// voices, its mode, its switch), \revert (the AI's own changes, newest
-// first), \save_drum_preset, \save_synth_preset, \save_sound,
-// \save_grains_preset and \save_cutter_preset, \load_drum_preset and
-// \load_synth_preset (the player's own presets, as the Drums and Synth
+// means), \list_sets and \get_set (the sets recorded before: what was played,
+// what the analyser heard and what the players changed; docs/dev/roadmap.md
+// item 20, "the AI as the experimenter"). Writing: \set_drum_pattern (a
+// pattern, the steps' kit, the drums' switch), \set_synth (the note
+// sequencer's pattern, the Wave synth's settings, the sequencer's switch),
+// \set_chain (built-in effects in, out and moved, settings, switches),
+// \set_grains (the granular layer's settings, its window, its switch),
+// \set_cutter (the cutter's voices, its mode, its switch), \revert (the AI's
+// own changes, newest first), \save_drum_preset, \save_synth_preset,
+// \save_sound, \save_grains_preset and \save_cutter_preset, \load_drum_preset
+// and \load_synth_preset (the player's own presets, as the Drums and Synth
 // views' menus recall them). Every change is snapshotted before it lands, so
-// it can be taken back. A plugin is never put in or taken out by the AI,
-// but by a synth preset of the player's that names one; the plugin playing
-// before keeps its sound for a revert.
+// it can be taken back. A plugin is never put in or taken out by the AI, but
+// by a synth preset of the player's that names one; the plugin playing before
+// keeps its sound for a revert.
 //
 // Everything a request reads or changes comes from `source`, a function
 // answering an Event (looper:, sa:, profile:, drumsPresetDir:,
@@ -41,13 +41,15 @@ MegaRemote {
     classvar <applying;
     var <source, <token, <port, responder, onShutDown, <started = false;
     // The AI's changes, oldest first: (part:, label:, data:, shown:), data
-    // the part as it was just before the change: the drums' presetData, the
-    // synth's (notes:, wave:, on:, table:, instrument:, and from a preset's
-    // load switched: true and instrumentState: the path the plugin playing
-    // then wrote its sound to), the chains' (sound:, on: [[id, flag] ...]),
-    // the grains' (preset:, on:) or the cutter's (preset:, on:), preset the
-    // Looper's own preset data for them. shown, for the drums and the synth
-    // where a window answers: [the slug its view showed as loaded, or nil].
+    // the part as it was just before the change: the drums' (preset:, on:,
+    // onGiven:), preset their presetData, onGiven true when the change set
+    // the switch, the synth's (notes:, wave:, on:, table:, instrument:, and
+    // from a preset's load switched: true and instrumentState: the path the
+    // plugin playing then wrote its sound to), the chains' (sound:, on: [[id,
+    // flag] ...]), the grains' (preset:, on:) or the cutter's (preset:, on:),
+    // preset the Looper's own preset data for them. shown, for the drums and
+    // the synth where a window answers: [the slug its view showed as loaded,
+    // or nil].
     var changes;
     // A preset's instrument waiting for the plugin playing now to write its
     // sound (a Function, run once), and how many such sounds were written
@@ -272,20 +274,27 @@ MegaRemote {
         src !? { |s| s[\say] } !? { |f| { f.value(msg) }.defer };
     }
 
-    // A pattern for `which` (main or break, main if not said) and/or the
-    // steps' kit. The pattern is merged over the one playing (mergePattern):
-    // what it leaves out, or gives as null, stays. Then it is cleaned as a
-    // preset's is (MegaSASteps.cleanPattern), and every correction is said.
+    // A pattern for `which` (main or break, main if not said), the steps'
+    // kit and/or the drums' switch (on: the player's PC 17, which the New
+    // loop setting turns off as a loop is recorded). The pattern is merged
+    // over the one playing (mergePattern): what it leaves out, or gives as
+    // null, stays. Then it is cleaned as a preset's is
+    // (MegaSASteps.cleanPattern), and every correction is said. The switch
+    // goes last, so the drums come in with the pattern and kit asked for.
     setDrumPattern { |args|
-        var src = source.value, drums = this.prDrums(src), which, given, kit, notes = List.new, label;
+        var src = source.value, drums = this.prDrums(src), which, given, kit, on, notes = List.new, label;
         if(drums.isNil) { ^this.prNoDrums };
         which = (args !? { |a| a.at("which") }) ? "main";
         if(#["main", "break"].includesEqual(which).not) { ^this.class.failure("which is main or break") };
         which = which.asSymbol;
         given = args !? { |a| a.at("pattern") };
         kit = args !? { |a| a.at("kit") };
-        if(given.isNil and: { kit.isNil }) { ^this.class.failure("nothing to change: give a pattern, a kit, or both") };
+        on = args !? { |a| a.at("on") };
+        if(given.isNil and: { kit.isNil } and: { on.isNil }) {
+            ^this.class.failure("nothing to change: give a pattern, a kit, on, or several")
+        };
         if(given.notNil and: { given.isKindOf(MegaJsonObject).not }) { ^this.class.failure("pattern must be an object") };
+        if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
         // Only a kit whose samples are here: a map alone plays nothing.
         if(kit.notNil and: { drums.kitsWithAudio.includes(kit.asString.asSymbol).not }) {
             ^this.class.failure(if(drums.kitKeys.includes(kit.asString.asSymbol)) {
@@ -293,15 +302,23 @@ MegaRemote {
             } { "there is no kit " ++ kit.asString.quote ++ "; there are " }
                 ++ drums.kitsWithAudio.collect(_.asString).join(", "))
         };
-        label = "drums' " ++ [given !? { which.asString ++ " pattern" }, kit !? { "kit" }].reject(_.isNil).join(" and ");
-        this.prSnapshot(\drums, label, drums.presetData("before the AI's change"), src);
+        label = "drums' " ++ [given !? { which.asString ++ " pattern" }, kit !? { "kit" }, on !? { "switch" }]
+            .reject(_.isNil).join(" and ");
+        this.prSnapshot(\drums, label, this.prDrumsData(drums, on.notNil), src);
         kit !? { |k| if(k.asString.asSymbol != drums.kit(\steps)) { drums.setKit(\steps, k.asString.asSymbol) } };
         given !? { |g| drums.setPattern(which, this.class.mergePattern(drums.patterns[which], this.class.plain(g)), notes) };
+        on !? { |flag| if(flag != drums.on) { drums.setOn(flag) } };
         this.prSay(src, "The AI changed the " ++ label ++ " (it can revert it)");
         ^this.class.success(this.class.obj([
-            \which, which, \kit, drums.kit(\steps), \corrections, notes.asArray,
+            \which, which, \kit, drums.kit(\steps), \on, drums.on, \corrections, notes.asArray,
             \pattern, drums.patterns[which], \aiChanges, this.changeCount
         ]))
+    }
+
+    // The drums as a snapshot holds them: what a preset holds, the switch,
+    // and whether the change set it (`onGiven`).
+    prDrumsData { |drums, onGiven = false|
+        ^(preset: drums.presetData("before the AI's change"), on: drums.on, onGiven: onGiven)
     }
 
     // Everything as it was before the newest `count` changes (1 if not said;
@@ -360,8 +377,13 @@ MegaRemote {
             data[\on].do { |pair| sa.device(pair[0]) !? { |d| if(d.on != pair[1]) { sa.setFx(pair[0], pair[1]) } } };
             ^nil
         };
+        // The switch goes back only when one of the changes set it: a
+        // pattern taken back leaves the drums on that the player switched on
+        // since.
         if(part == \drums) {
-            ^if(drums.applyPresetData(data, notes)) { nil } { "the drums could not be put back: " ++ notes.join("; ") }
+            if(drums.applyPresetData(data[\preset], notes).not) { ^"the drums could not be put back: " ++ notes.join("; ") };
+            if(mine.any { |c| c[\data][\onGiven] == true } and: { drums.on != data[\on] }) { drums.setOn(data[\on]) };
+            ^nil
         };
         if(wave.isNil) { ^"there is no synth to put back" };
         drums.setNotes(data[\notes]);
@@ -426,15 +448,16 @@ MegaRemote {
 
     // One of the Drums view's presets, recalled as its menu recalls it: both
     // patterns, the kits, their trims, Repeats, the reverb and the offset;
-    // the drums' switch, the break and the mixer's levels stay. Values held
-    // to a range are said in the answer's corrections.
+    // the drums' switch (set_drum_pattern's on), the break and the mixer's
+    // levels stay. Values held to a range are said in the answer's
+    // corrections.
     loadDrumPreset { |args|
         var src = source.value, drums = this.prDrums(src), dir = src !? { |s| s[\drumsPresetDir] };
         var slug, before, notes = List.new, label;
         if(drums.isNil) { ^this.prNoDrums };
         slug = this.prPresetAsked(args, dir, "drum", drums.presetNames(dir), { |n| drums.presetSlug(n) });
         if(slug.isString.not) { ^slug };
-        before = drums.presetData("before the AI's change");
+        before = this.prDrumsData(drums);
         if(drums.loadPreset(dir, slug, notes).not) {
             ^this.class.failure("the drum preset " ++ slug.quote ++ " could not be read"
                 ++ if(notes.isEmpty) { "" } { ": " ++ notes.join("; ") })
@@ -1597,7 +1620,10 @@ MegaRemote {
                 })
                 ++ "mute[lane] silences a lane, delay[lane] moves it later in ms. Shuffle: shuffle[0..7] "
                 "per step of a shuffleLength cycle, scaled by globalShuffle. Lane 0 is the hats in "
-                "the shipped pattern. The pads a kit has are in the context's drums.pads.steps.",
+                "the shipped pattern. The pads a kit has are in the context's drums.pads.steps. "
+                "The steps play only while the drums' switch is on (the context's drums.on; "
+                "set_drum_pattern's on sets it): the player's New loop setting may switch them off "
+                "as a new loop is recorded, and a loaded preset leaves the switch as it is.",
             \velocities, MegaSASteps.velocities,
             \pages, MegaSASteps.subs,
             \stepValues, this.obj([\min, 0, \max, 6]),

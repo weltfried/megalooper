@@ -237,6 +237,7 @@ class Asking:
                     for c in SPEC["passedOn"]})
         cases = [
             ("set_drum_pattern", {"which": "break", "pattern": {"steps": {"chance": [None, [6]]}}, "kit": "core-808"}),
+            ("set_drum_pattern", {"on": True}),
             ("set_synth", {"notes": {"root": 2}, "wave": {"x": 1}, "on": True}),
             ("set_chain", {"insert": [{"track": "loop", "type": "echo"}], "on": {"echo": False}}),
             ("revert", {"count": 2}), ("revert", {}),
@@ -503,6 +504,15 @@ class RoundTrip:
         self.assertFalse(self.tool("revert")[1])
         after = json.loads(self.tool("get_context", {"parts": ["drums"]})[0])["drums"]["patterns"]["main"]
         self.assertEqual(after, before)
+
+    def test_the_drums_switched_on_over_osc_and_back(self):
+        was = json.loads(self.tool("get_context", {"parts": ["drums"]})[0])["drums"]["on"]
+        text, err = self.tool("set_drum_pattern", {"on": not was})
+        self.assertFalse(err, text)
+        self.assertEqual(json.loads(text)["on"], not was)
+        self.assertEqual(json.loads(self.tool("get_context", {"parts": ["drums"]})[0])["drums"]["on"], not was)
+        self.assertFalse(self.tool("revert")[1])
+        self.assertEqual(json.loads(self.tool("get_context", {"parts": ["drums"]})[0])["drums"]["on"], was)
 
     def test_a_synth_change_over_osc_and_back(self):
         before = json.loads(self.tool("get_context", {"parts": ["synth"]})[0])["synth"]

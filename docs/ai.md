@@ -28,7 +28,7 @@ bandmate*, below).
 | **The loop** | Its meter (uneven bars too) and how each bar is grouped (2+2+3), how well the take's loud hits fit that meter's strong beats (the analyser's accent score), tempo and length, and what the first take played: the hits on the bar grid, their pitches and the chords heard | — |
 | **Now** | Where the loop is (bar, beat, beat group), half-time, reverse, a break or a dissolve, the arc's intensity, and what lands on a coming boundary; with **Log every action** on, what you and it changed in the last minute | — |
 | **Past sets** | Every set recorded with **Record set**: each take, what was played on its bar grid, the meter the analyser applied and its runners-up, and what you changed (readings, bars by hand, the threshold); recorded with **Log every action**, every change and how everything was set at any second of the set | — |
-| **The drums** | Both step patterns, the kits and their pads, whether the arc thins the lanes and how many play, your drum presets | The patterns, the kit the steps play; load one of your drum presets; save as a drum preset |
+| **The drums** | Their switch, both step patterns, the kits and their pads, whether the arc thins the lanes and how many play, your drum presets | The patterns, the kit the steps play, the drums on or off; load one of your drum presets; save as a drum preset |
 | **The synth** | The note sequence and the Wave synth's settings, your synth presets | Both, and the sequencer on or off; load one of your synth presets; save as a synth preset |
 | **The effects** | Every chain, its devices, switches and settings | Built-in effects in, out, moved, set and switched; save as a sound |
 | **The Grains** | On or off, every setting, the grain window, whether they follow the chords | All of them; save as a granular preset |
@@ -65,7 +65,10 @@ as picking it in the Synth view does.
 **Your presets.** Ask for one by name ("load the drum preset Groove", "start
 from my synth preset Bass Line and make it busier"). The AI recalls it as
 the view's menu does, and the menu shows it as loaded. The drums' switch,
-the break, the mixer and the sequencer's switch stay as they are.
+the break, the mixer and the sequencer's switch stay as they are. Drums that
+are off, as **New loop** set to *Off* leaves them after a new loop, stay
+silent until switched on: the AI can do that too ("load Groove and start
+the drums").
 
 A preset or sound is never saved over one of the same name unless you say
 so in the conversation.
@@ -147,7 +150,8 @@ small files in `remote/`, beside it, in megalooper's folder
   "(3)" after it says how many there are.
 - **In the conversation**: "revert that", or "revert the last three".
 - Revert puts back the part the AI changed as it was just before: the drums
-  (both patterns, the kits, the pad trims, Repeats, the reverb), the synth
+  (both patterns, the kits, the pad trims, Repeats, the reverb, and their
+  switch if the AI switched them), the synth
   (the note sequence, the Wave synth, your table, the instrument, its
   switch), the effects (devices, places, settings, switches), the Grains
   (settings, window, switch) or the Cutter (voices, mode, switch). A
@@ -223,7 +227,7 @@ What the app is offered, for reference. You never call these yourself.
 |---|---|
 | `get_context` | What is playing and how it is set, the take included; where the loop is now and what is coming; the AI's own changes by name; with Log every action, what was changed in the last minute |
 | `describe` | What every setting of the drums, the synth, the effects, the Grains or the Cutter means |
-| `set_drum_pattern` | Change a drum pattern (main or break) and the steps' kit |
+| `set_drum_pattern` | Change a drum pattern (main or break), the steps' kit, the drums' switch |
 | `set_synth` | Change the note sequence, the Wave synth, the sequencer's switch |
 | `set_chain` | Add, remove, move, set and switch effects |
 | `set_grains` | Change the Grains' settings, their window, their switch |
