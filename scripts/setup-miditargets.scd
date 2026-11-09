@@ -481,7 +481,7 @@
             get: { drums.value !? { |d| d.breakActive } },
             set: { |on| drums.value !? { |d| d.setBreakPattern(on == true) } },
             available: hasDrums));
-        // The header's Arc switch: the arc pedal thins the lanes, lane 1
+        // The header's Arc switch: the arc pedal thins the lanes, lane 4
         // alone at heel, all four at toe (MegaSADrums.setArcLanes).
         add.('sa.drums.arcLanes', "Arc thins lanes", "Drums", \toggle, (
             flip: { drums.value !? { |d| arcSet.((d.arcLanes == true).not) } },

@@ -856,9 +856,9 @@
     }
 };
 
-// Whether the arc holds the lane back now (MegaSADrums.lanesAllowed: lane 1
+// Whether the arc holds the lane back now (MegaSADrums.lanesAllowed, lane 4
 // first), whatever its own Mute says.
-~drumsArcHolds = { |d, lane| d.notNil and: { lane >= (d.lanesAllowed ? 4) } };
+~drumsArcHolds = { |d, lane| d.notNil and: { MegaSADrums.arcHoldsLane(lane, d.lanesAllowed) } };
 
 ~drumsLaneTip = { |lane|
     var d = ~drumsModel.();
@@ -1186,11 +1186,12 @@
             ~controlDo.('sa.drums.arcLanes', \set, b.value == 1, \gui);
             ~drumsPaint.(\arcLanes);
         }), 'sa.drums.arcLanes',
-        "The arc pedal thins the steps: at heel lane 1 plays alone, and lanes 2, 3 and 4\n"
-        "join as the pedal rises, all four at toe. A lane's own Mute stays as it is, and a\n"
-        "lane the arc holds back keeps drawing its dice, so it comes back in place. A change\n"
-        "counts from the moment you hear it. Off, the pedal leaves the drums alone.\n"
-        "Both patterns; the onset kit and the synth are not thinned. Kept for the next start.");
+        "The arc pedal thins the steps: at heel lane 4 plays alone (the kick, in the patterns\n"
+        "megalooper ships), and lanes 3, 2 and 1 join as the pedal rises, all four at toe.\n"
+        "A lane's own Mute stays as it is, and a lane the arc holds back keeps drawing its\n"
+        "dice, so it comes back in place. A change counts from the moment you hear it.\n"
+        "Off, the pedal leaves the drums alone. Both patterns; the onset kit and the synth\n"
+        "are not thinned. Kept for the next start.");
     var keep = ~drumsButton.().fixedSize_(Size(140, 34)).cycles_(false)
         .states_([["Start with this", ~gt[\ink], ~gt[\panel]]])
         .toolTip_("Keep the drums as they are now (both patterns, the kits, trims, repeats,\n"

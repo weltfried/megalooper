@@ -226,7 +226,7 @@ MegaSADrums {
             playing: [\state, [\on], "the drums play (the loop runs, they follow it)"],
             breakActive: [\state, [\on], "the Break pattern plays"],
             arcLanes: [\state, [\on], "the arc pedal thins the steps' lanes (the Drums view's switch)"],
-            lanesAllowed: [\state, [\lanes], "how many of the steps' lanes may play, lane 1 first (4 while arcLanes is off)"],
+            lanesAllowed: [\state, [\lanes], "how many of the steps' lanes may play, lane 4 first (4 while arcLanes is off)"],
             pattern: [\event, [\pattern], "a pattern changed wholesale (\\main or \\break)"],
             steps: [\event, [\pattern], "a pattern's steps changed wholesale"],
             step: [\state, [\pattern, \page, \lane, \step, \value], "one step of a page"],
@@ -750,15 +750,17 @@ MegaSADrums {
 
     // ---- The arc ------------------------------------------------------------
     // The Looper's intensity (the arc, the expression pedal) thins the steps:
-    // at heel lane 1 plays alone, and lanes 2, 3 and 4 join as the pedal
-    // rises, all four at toe. Like the arc's other work it is a limit over
+    // at heel lane 4 plays alone (the kick, in every pattern megalooper ships
+    // and in the duo's), and lanes 3, 2 and 1 join as the pedal rises, all
+    // four at toe: the duo's order (2026-11-09; it was lane 1 first for a
+    // day, and the kick came last). Like the arc's other work it is a limit over
     // what is set, never an edit of it: a lane's own Mute stays as it is, and
     // a lane the arc holds back still draws its dice, so it comes back in
     // place. A change counts from the moment heard, as PC 17's (setOn): hits
     // already sent past it are cancelled or sent. Off (the default), the pedal
     // changes nothing here; a rig without one stays at 1, all four lanes.
 
-    // The pedal in four even steps (lane 1 alone below a quarter, all four
+    // The pedal in four even steps (one lane alone below a quarter, all four
     // from three quarters on), with a dead zone of arcDeadZone each side of
     // every step's edge, so a pedal resting on one can't flicker a lane in and
     // out: from `current`, the level in force, a step is taken only past its
@@ -772,9 +774,13 @@ MegaSADrums {
         ^n
     }
 
-    // How many lanes may play now, lane 1 first: the arc's level while the
+    // How many lanes may play now, lane 4 first: the arc's level while the
     // switch is on, else all four.
     lanesAllowed { ^if(arcLanes) { arcLevel } { 4 } }
+
+    // Whether the arc holds lane 0..3 back while `allowed` lanes may play:
+    // the order in one place, for the scheduler and the Drums view.
+    *arcHoldsLane { |lane, allowed| ^lane < (4 - (allowed ? 4)) }
 
     // The arc's intensity, 0..1 (the Looper's \intensity). Notifies
     // \lanesAllowed when what may play changes.
@@ -2024,7 +2030,7 @@ MegaSADrums {
             and: { this.prOnAt(g) }
             and: { this.prPlayingAt(g) }
             and: { lane.isNil or: {
-                ((patterns[rec[\which]][\mute][lane] == true).not) and: { lane < this.prLanesAt(g) } } }
+                ((patterns[rec[\which]][\mute][lane] == true).not) and: { this.class.arcHoldsLane(lane, this.prLanesAt(g)).not } } }
             and: { this.prRepeatWants(rec) }
     }
 

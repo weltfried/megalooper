@@ -675,13 +675,13 @@ Routine {
         tick.();
         ok.("the pedal at heel: one lane", arc.states[1][0] == "ARC · 1 of 4", arc.states.asString);
         ok.("...the lanes repaint", ~drumsLaneRefreshes >= (refreshes + 4), (~drumsLaneRefreshes - refreshes).asString);
-        ok.("...lanes 2-4's labels grey, as a muted lane's, lane 1's not",
-            near.(colour.(0), ~guiInk) and: { [1, 2, 3].every { |lane| near.(colour.(lane), ~gt[\mute]) } },
+        ok.("...lanes 1-3's labels grey, as a muted lane's, lane 4's (the kick's) not",
+            near.(colour.(3), ~guiInk) and: { [0, 1, 2].every { |lane| near.(colour.(lane), ~gt[\mute]) } },
             (0..3).collect(colour).asString);
         ok.("...their own Mute untouched", (0..3).every { |lane| d.laneParam(\main, lane, \mute) == false }
             and: { ~drumsWidgets[\mute1][\view].value == 0 });
-        ok.("...and a held lane's tip says so", ~drumsLaneTip.(2).contains("The arc holds it back")
-            and: { ~drumsLaneTip.(0).contains("The arc").not });
+        ok.("...and a held lane's tip says so", ~drumsLaneTip.(0).contains("The arc holds it back")
+            and: { ~drumsLaneTip.(3).contains("The arc").not });
         arc.valueAction_(0);
         tick.();
         ok.("off again: every lane plays, none grey, and that is kept",

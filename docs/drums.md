@@ -140,16 +140,16 @@ loop's break switches it; a click switches it by hand until the next break.
 
 **Arc off**, beside it, lets the arc pedal thin the steps
 ([the arc](manual.md#the-arc--intensity-and-dissolve)). Click it and it reads
-**ARC · 4 of 4**, how many lanes play: at heel lane 1 plays alone, and lanes
-2, 3 and 4 come in as you press the pedal down, all four from three
+**ARC · 4 of 4**, how many lanes play: at heel lane 4 plays alone, and lanes
+3, 2 and 1 come in as you press the pedal down, all four from three
 quarters of the way. Each step of the pedal has a little give either side, so
 a pedal resting on an edge does not flicker a lane in and out. A change
 counts from the moment you hear it, as the **ON** switch's does. A lane the
 arc holds back is drawn grey, as a muted one is, and keeps its place, so it
 comes back in time; its own **Mute** stays as you set it. It works on both
 patterns; the onset kit and the synth are not thinned. In the patterns
-megalooper ships, lane 1 is the hi-hat and lane 4 the kick, so the hat plays
-alone at heel and the kick comes in last. Off, as it starts, the pedal leaves
+megalooper ships, lane 4 is the kick and lane 1 the hi-hat, so the kick plays
+alone at heel and the hat comes in last. Off, as it starts, the pedal leaves
 the drums alone. megalooper remembers the switch for the next start; a preset
 does not change it.
 

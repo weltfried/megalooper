@@ -1502,7 +1502,7 @@ MegaRemote {
 
     // Both step patterns, which is in force, the kits (with how far each was
     // levelled, in dB) and their pads, and whether the arc thins the lanes
-    // (arcLanes) and how many may play now (lanesAllowed, lane 1 first).
+    // (arcLanes) and how many may play now (lanesAllowed, lane 4 first).
     *drumsOf { |d|
         var pads = { |slot|
             var o = MegaJsonObject.new;
