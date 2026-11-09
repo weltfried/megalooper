@@ -367,7 +367,8 @@
             "Shifts WHEN the MIDI clock/Start is sent relative to the loop, to cancel the lag Live\n"
                 "adds as a clock follower. Centre = 0 ms · full scale ±" ++ ~syncMax ++ " ms."))
             // Without Live there is nothing to pull: on SA the drums' Start
-            // lands on the boundary whatever this says (MegaSATransport).
+            // lands on the boundary, and their transport ignores this
+            // (MegaSATransport).
             .visible_((~rp !? { |r| r[\live] }) != false),
         ~rigTiming.("Declick at the loop seam",
             ~declickSlider = ~guiBar.(\ink, 16).neutral_(3 / ~declickMax)

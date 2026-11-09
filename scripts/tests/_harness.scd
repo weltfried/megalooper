@@ -578,7 +578,10 @@ if(MegaFiles.rootOverride.isNil or: { MegaFiles.rootOverride != ~tTrapRoot }) {
     bbcut: \cutterPart, bbcutMode: \cutterPart, bbcutVoices: \cutterPart, bbcutProcSpecs: \cutterPart,
     bbcutProcOrder: \cutterPart, bbcutFxSpecs: \cutterPart, bbcutFxOrder: \cutterPart, bbcutBuffer: \cutterPart,
     bbcutEnabling: \cutterPart, bbcutEnableRoutine: \cutterPart,
-    loopStartTime: \timeline, speed: \timeline, passOrigin: \timeline, speedChangedAt: \timeline
+    loopStartTime: \timeline, speed: \timeline, passOrigin: \timeline, speedChangedAt: \timeline,
+    // Live's transport (a Looper with SA's drums attached has theirs instead)
+    midiClockRoutine: \transport, clockTicksAtRef: \transport, clockRefTime: \transport,
+    clockTickRate: \transport, clockPeriod: \transport, clockNudge: \transport
 );
 ~tParts = (
     Looper: ~tWhere,

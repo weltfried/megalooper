@@ -1,78 +1,85 @@
-// The MIDI port the Looper drives on Megalooper SA (docs/dev/megalooper-sa.md,
-// Phase 4). In Live the Looper sent Live a MIDI clock, a Start aimed at a loop
-// boundary and a Stop, and its onset notes; Live's drums followed. On SA there
-// is no Live: MegaSA.attachLooper sets looper.midiOut to one of these, so the
-// Looper's own transport code (boundary alignment with a beat of pre-roll, the
-// readings' waits for the bar line, Stop in \full, transportMode \off for no
-// drums and \startOnly for drums that keep running after a stop) drives SA's
-// drums exactly as it drove Live's. Nothing in Looper.sc had to learn about
-// them for it.
+// The transport on Megalooper SA (docs/dev/megalooper-sa.md, Phase 4): the
+// drums. In Live the Looper sent Live a MIDI clock, a Start aimed at a loop
+// boundary and a Stop, and Live's drums followed; here the Start is the
+// drums' bar 1 on that boundary, the Stop theirs, and they take the tempo
+// from the loop, so no clock runs. MegaSADrums.attach makes it the Looper's
+// transport (Looper.transport): a sibling of LiveMidiTransport (LoopTransport),
+// driven by the same transport code (the boundary with a beat of pre-roll,
+// the readings' count and their Start where no boundary in reach carries the
+// bar line, Stop in \full, transportMode \off for no drums and \startOnly
+// for drums that keep running after a stop).
 //
-// It answers everything a MIDIOut does and turns the four calls that matter
-// into calls on the drums object, which must answer:
+// Until 2026-11-09 it posed as the Looper's MIDI port: a MIDIOut's every call,
+// a latency that added the Live sync trim back to cancel the Looper's Live
+// arithmetic, and a 24-a-quarter clock routine calling a no-op.
+//
+// The drums must answer:
 //
 //   alive                          false once the drums are freed: every call
 //                                  here is then a no-op (on a reboot the old
 //                                  Looper is freed after the new MegaSA and
-//                                  still calls stop on its old port)
+//                                  still calls stop on its old transport)
 //   lead                           seconds the drums decide ahead of the audio
-//   looper                         the Looper attached, or nil
-//   transportStart(now)            a MIDI Start: the drums' bar 1 is the loop
+//   transportStart(now)            a Start: the drums' bar 1 is the loop
 //                                  boundary nearest now + latency
-//   transportStop(now)             a MIDI Stop
-//   onsetNoteOn(note, vel, at)     one onset-kit hit at absolute time `at`
+//   transportStop(now)             a Stop
 //
 // `now` is the calling thread's time, thisThread.seconds. MegaSADrums supplies
 // all of these; the tests use an Event.
-//
-// latency is what the Looper aims the Start early by, and it adds the Live
-// sync trim to it, which it adds back after (startMidiClock: startAt =
-// boundary - latency + abletonSyncMs). So answering lead + abletonSyncMs /
-// 1000 lands every Start `lead` before its boundary whatever the trim, with
-// the boundary itself still the Looper's.
-//
-// noteOn is the Looper's onset-note routine and ~onsetNoteTest: on SA the
-// routine never runs (the drums play the onset part themselves, through
-// Looper.onsetNoteSink), but a test note sent by hand still sounds, `lead`
-// from now. A noteOn at velocity 0 is a note-off, as in MIDI.
-MegaSATransport {
+MegaSATransport : LoopTransport {
     var <drums;
+    // The Start on its way: a routine waiting for `lead` before the boundary.
+    var startRoutine;
+    var <running = false;
 
-    *new { |drums| ^super.newCopyArgs(drums) }
+    *new { |drums| ^super.new.prInit(drums) }
+    prInit { |aDrums| drums = aDrums }
 
     alive { ^drums.notNil and: { drums.alive == true } }
+    routine { ^startRoutine }
+    connected { ^drums.notNil }
 
-    latency {
-        var syncMs;
-        if(this.alive.not) { ^0 };
-        syncMs = (drums.looper !? { |l| l.abletonSyncMs }) ? 0;
-        ^(drums.lead ? 0) + (syncMs / 1000)
+    // A Start relocates nothing here: mid-recording a later analysis or a
+    // reading restarts the drums on the loop all the same.
+    startsRelocate { ^false }
+
+    // How early a Start goes: the drums decide `lead` ahead of the audio.
+    latency { ^if(this.alive) { drums.lead ? 0 } { 0 } }
+
+    // The drums' bar 1 on the first boundary from origin a beat of pre-roll
+    // on (as Live's, so the same boundary), the Start sent `lead` before it.
+    start { |bpm, alignDur, origin|
+        var now = SystemClock.seconds, latency = this.latency, boundary, startAt;
+        if(this.alive.not) { ^this };
+        startRoutine !? { |r| r.stop };
+        this.prReset(bpm);
+        boundary = LoopTransport.startBoundary(now, bpm, alignDur, origin ? now, latency);
+        // No meter: a beat on, phase unaligned.
+        startAt = if(boundary.notNil) { boundary - latency } { now + (60 / bpm) };
+        running = true;
+        startRoutine = Routine {
+            if(startAt > SystemClock.seconds) { (startAt - SystemClock.seconds).wait };
+            startRoutine = nil;
+            if(this.alive) { drums.transportStart(thisThread.seconds) };
+            boundary !? { |b| this.prStarted(b) };
+        }.play(SystemClock);
     }
 
-    start { if(this.alive) { drums.transportStart(thisThread.seconds) } }
-    stop { if(this.alive) { drums.transportStop(thisThread.seconds) } }
+    startNow { if(this.alive) { drums.transportStart(thisThread.seconds) } }
 
-    noteOn { |chan, note, veloc|
-        if(this.alive and: { (veloc ? 0) > 0 }) {
-            drums.onsetNoteOn(note, veloc, thisThread.seconds + (drums.lead ? 0));
-        };
+    stop {
+        startRoutine !? { |r| r.stop };
+        startRoutine = nil;
+        running = false;
+        if(this.alive) { drums.transportStop(thisThread.seconds) };
     }
 
-    // The 24-a-quarter clock is Live's way of following the tempo; the drums
-    // take the tempo from the loop. One-shots need no note-offs, and nothing
-    // on SA listens for the rest.
-    midiClock { }
-    noteOff { |chan, note, veloc| }
-    control { |chan, ctlNum, val| }
-    program { |chan, num| }
-    bend { |chan, val| }
-    touch { |chan, val| }
-    polyTouch { |chan, note, val| }
-    allNotesOff { |chan| }
-    continue { }
-    reset { }
-    songPtr { |songPtr| }
-    songSelect { |song| }
-    smpte { |frames, seconds, minutes, hours, frameRate| }
-    sysex { |packet| }
+    free { |sendStop = false|
+        if(sendStop) { ^this.stop };
+        startRoutine !? { |r| r.stop };
+        startRoutine = nil;
+        running = false;
+    }
+
+    forget { startRoutine = nil; running = false }
 }

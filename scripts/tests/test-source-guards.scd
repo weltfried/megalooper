@@ -534,18 +534,19 @@ var readers = app.select { |path|
 // everything passed in: the offline harnesses and renders use them without a
 // Looper, and MeterAnalyzer reached into the Looper for its snap until
 // 2026-11-08 (docs/dev/architecture.md 5, step 8). None of them names it.
-// Nor does LoopTimeline (step 10): it is handed the loop's length as a
-// function, so the drums, the tests and the renders can count on it alone.
+// Nor do LoopTimeline and LoopTransport (step 10): they are handed the loop's
+// length, its origin and the port, so the drums, the tests and the renders
+// can count on them alone.
 {
 var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 var found = List.new;
-["MeterAnalyzer.sc", "MeterDecision.sc", "LooperSynthDefs.sc", "LoopTimeline.sc"].do { |f|
+["MeterAnalyzer.sc", "MeterDecision.sc", "LooperSynthDefs.sc", "LoopTimeline.sc", "LoopTransport.sc", "MegaSATransport.sc"].do { |f|
     (File.readAllString(root +/+ "classes" +/+ f) ? "").split($\n).do { |line, i|
         var cut = line.find("//"), code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
         if((" " ++ code).findRegexp("[^A-Za-z]Looper[.(]").notEmpty) { found.add(f ++ ":" ++ (i + 1)) };
     };
 };
-~tAssert.("MeterAnalyzer, MeterDecision, LooperSynthDefs and LoopTimeline name no Looper", found.isEmpty, found.join(", "));
+~tAssert.("MeterAnalyzer, MeterDecision, LooperSynthDefs and the loop's time and transports name no Looper", found.isEmpty, found.join(", "));
 }.value;
 
 // ---- a variable moved into a part of the Looper is reached through it ----------
@@ -568,7 +569,9 @@ moved = where.keys.reject { |k| owners.any { |c| c.instVarNames.includes(k) } };
 files.reject { |p| p.endsWith("_harness.scd") }.do { |path|
     (File.readAllString(path) ? "").split($\n).do { |line, i|
         var cut = line.find("//"), code = if(cut.isNil) { line } { line.copyRange(0, cut - 1) };
-        var hits = code.findRegexp("([A-Za-z_]+)\\.instVar(?:At|Put)\\(\\\\([a-zA-Z]+)");
+        // The receiver as written, an index included (rig[\l].instVarAt(...)
+        // went unseen until 2026-11-09).
+        var hits = code.findRegexp("([][A-Za-z_\\\\]+)\\.instVar(?:At|Put)\\(\\\\([a-zA-Z]+)");
         // findRegexp answers the match, then each group: [whole, receiver, name] per hit.
         hits.clump(3).do { |h|
             if(h.size == 3 and: { moved.includes(h[2][1].asSymbol) } and: { where[h[2][1].asSymbol].asString != h[1][1] }) {

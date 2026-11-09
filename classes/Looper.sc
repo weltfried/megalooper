@@ -3,7 +3,7 @@ Looper {
     var buffer, undoBuffer;
     var recSynth, engineSynth, masterSynth;
     var outBus;
-    var clickRoutine, midiClockRoutine, chordRoutine;
+    var clickRoutine, chordRoutine;
     var <>onChordChange;
     // recStartTime: when the take started, on SystemClock — the window counts
     // the recording's seconds from it.
@@ -114,14 +114,12 @@ Looper {
     // or nil. What it answers never replaces a field of the Looper's own, and
     // its failing costs the header nothing.
     var <>sessionExtras;
-    // Does a Start relocate anything worth protecting? In Live it does: it
-    // jumps the arrangement back to 1.1.1, so while a session recording runs a
-    // later analysis or a reading keeps its Start to itself (startTempoClocks,
-    // prLandReading). On Megalooper SA the Start goes to SA's own drums, which
-    // just begin their bar on the loop, and the session recorder writes SC's
-    // own files: MegaSA sets this false, so the drums' bar line follows the
-    // loop there too. True is the behaviour every Live profile has always had.
-    var <>startsRelocate = true;
+    // The transport that follows the loop (LoopTransport): Live's MIDI clock
+    // through midiOut (LiveMidiTransport), made when first asked for, or
+    // Megalooper SA's drums (MegaSATransport), which MegaSADrums.attach puts
+    // here. Whether a Start relocates anything worth protecting is its own
+    // (startsRelocate).
+    var transport;
     // ---- Onset notes -------------------------------------------------------
     // The loop's detected onsets replayed every pass as MIDI notes (or by the
     // drums' onset kit): LooperOnsetNotes, held here and made when first asked
@@ -215,16 +213,10 @@ Looper {
     // The reading in force until a landing's `at`: lastResult swaps a little
     // before it (prLandReading), and countResult answers this meanwhile.
     var landingFrom;
-    // Where Live's tick count stands: clockTicksAtRef ticks had gone out at
-    // SystemClock time clockRefTime, and clockTickRate per second have gone out
-    // since. Set by every aligned Start, moved by every reading that changes
-    // the tempo. Kept as a TIME rather than a loop index, so a chain handoff
-    // or a multiply that moves loopStartTime cannot stale it. Together they
-    // say, for any future loop boundary, whether Live's bar line falls on it —
-    // which is what decides where a reading lands. nil until a Start goes out.
-    var clockTicksAtRef, clockRefTime, clockTickRate;
-    // The clock's tick period, an ivar so a reading can move it live.
-    var clockPeriod;
+    // Where the transport's count stands (clockTicksAtRef, clockRefTime,
+    // clockTickRate, clockPeriod) is the transport's own: LoopTransport.ticksAt
+    // says, for any future loop boundary, whether its bar line falls on it,
+    // which is what decides where a reading lands.
     // ---- Granular voice ----------------------------------------------------
     // The grains: LooperGrains, made when first asked for (grainsPart). The
     // Looper's granular* methods are its facade; what the grains read (the
@@ -251,11 +243,11 @@ Looper {
     // MIDI-clock sync offset (ms, may be negative). Shifts WHEN SC sends the MIDI
     // Start + clock stream relative to the loop's audio, to cancel the ~10-20 ms
     // Live otherwise lags as a MIDI-clock follower: negative pulls Live earlier.
-    // Applied to the Start timing at play (startMidiClock), and folded into the
-    // running stream live via abletonSyncMs_ (clockNudge). See also Live's own
-    // MIDI Clock Sync Delay preference for a per-input trim.
+    // A setting of the Looper's (calibrated, kept per rig), handed to Live's
+    // transport (LiveMidiTransport.syncMs_), which applies it to the Start and
+    // folds a change into the running stream. SA's drums ignore it. See also
+    // Live's own MIDI Clock Sync Delay preference for a per-input trim.
     var <abletonSyncMs = 0;
-    var clockNudge = 0;   // seconds to fold into upcoming clock-tick waits (live shift)
     // Loop chaining, the capture: LooperChainRecorder, made when first asked
     // for (chainPart). It records the next loop over this one and hands it
     // over on a boundary; the swap is the Looper's (prSwapInNextLoop).
@@ -495,8 +487,8 @@ Looper {
         ready = false;
         engineSynth = nil; recSynth = nil; masterSynth = nil; grainsPart !? { |g| g.forget };
         tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; chainPart !? { |c| c.forget };
-        clickRoutine = nil; midiClockRoutine = nil; chordRoutine = nil;
-        dissolveRoutine = nil; this.timeline.forget;
+        clickRoutine = nil; chordRoutine = nil;
+        dissolveRoutine = nil; this.timeline.forget; this.transport.forget;
         cutterPart !? { |c| c.forget };
         this.changed(\granular, false);
         if((state != \empty) and: { state != \stopped }) { this.prSetState(\stopped) };
@@ -867,16 +859,12 @@ Looper {
     }
 
     // Live-sync fine-tune (ms, may be negative — negative pulls Live earlier).
-    // While a loop plays, fold the CHANGE into the running MIDI-clock stream as a
-    // phase nudge (clockNudge, drained over a few ticks in startMidiClock) so
-    // Live's clock-follower slews to the new offset live, without a jarring
-    // re-Start. The value is also applied to the Start timing on the next play.
-    // Sign: a more-negative offset shortens upcoming tick gaps, advancing Live.
+    // Live's transport folds the CHANGE into its running clock stream as a
+    // phase nudge, so Live's clock-follower slews to the new offset live, and
+    // aims the next Start by it (LiveMidiTransport.syncMs_).
     abletonSyncMs_ { |val|
-        if(midiClockRoutine.notNil) {
-            clockNudge = clockNudge + ((val - abletonSyncMs) / 1000);
-        };
         abletonSyncMs = val;
+        this.transport.syncMs = val;
         this.changed(\abletonSyncMs, abletonSyncMs);
     }
 
@@ -1806,13 +1794,10 @@ Looper {
         chordRoutine !? { |r| r.stop };
         chordRoutine = nil;
         this.stopOnsetNotes;
-        // MIDI Clock and MIDI Stop travel together: only stop the clock when we also
-        // send Stop, otherwise Live loses sync and turns off external sync.
-        if(transportMode == \full) {
-            midiClockRoutine !? { |r| r.stop };
-            midiClockRoutine = nil;
-            midiOut !? { |m| m.stop };
-        };
+        // The transport stops with the loop in \full only (in Live, MIDI Clock
+        // and MIDI Stop travel together: the clock stops only with a Stop,
+        // otherwise Live loses sync and turns off external sync).
+        if(transportMode == \full) { this.transport.stop };
         if(state != \empty) { this.prSetState(\stopped) };
         "Stopped.".postln;
     }
@@ -2456,12 +2441,10 @@ Looper {
         // half-time (armed, on or releasing) twice the loop's length.
         nextAt = this.prNextBoundaryAt(now);
         period = loopSecs / this.prSpeedAfterNext;
-        // Where Live's tick count will stand at that boundary, if a Start has
-        // gone out on a known boundary; otherwise every boundary is as good.
-        if(clockRefTime.notNil and: { midiClockRoutine.notNil }) {
-            ticksAtNext  = clockTicksAtRef + ((nextAt - clockRefTime) * clockTickRate);
-            ticksPerLoop = period * clockTickRate;
-        };
+        // Where the transport's count will stand at that boundary, if a Start
+        // has gone out on a known boundary; otherwise every boundary is as good.
+        ticksAtNext  = this.transport.ticksAt(nextAt);
+        ticksPerLoop = ticksAtNext !? { period * this.transport.clockTickRate };
         wait    = MeterDecision.readingWait(ticksAtNext, ticksPerLoop, MeterDecision.barTicksOf(result), 2);
         restart = wait.isNil;
         wait    = wait ? 1;
@@ -2507,31 +2490,15 @@ Looper {
         readingIndex   = p[\index];
         pendingReading = nil;
         landingFrom    = nil;
-        // The clock: a new period from this tick, and the tick reference moved
-        // to this boundary so the next reading can find Live's bar line again.
-        // When no boundary in reach could carry it, Start goes out again — the
+        // The transport: a new period from this tick, its count's reference
+        // moved to this boundary so the next reading finds its bar line again,
+        // and when no boundary in reach could carry it, Start again — the
         // relocation the first take does — unless a session recording is
-        // running, when a Start would overwrite the take (see startTempoClocks)
-        // and the bar line is left where it falls, tempo still right. Where a
-        // Start relocates nothing (startsRelocate false: Megalooper SA), it
-        // goes out regardless, and the drums' bar line stays on the loop's.
-        if(midiClockRoutine.notNil and: { result[\bpm].notNil }) {
-            if(clockRefTime.notNil) {
-                clockTicksAtRef = clockTicksAtRef + ((landAt - clockRefTime) * clockTickRate);
-                clockRefTime    = landAt;
-            };
-            clockPeriod   = 60 / (result[\bpm] * 24);
-            clockTickRate = 1 / clockPeriod;
-            if(p[\restart]) {
-                if(startsRelocate and: { this.sessionRecording }) {
-                    ("Reading landed; the set is being recorded, so no Start — "
-                        "the transport's bar line may sit off the loop's.").postln;
-                } {
-                    midiOut !? { |m| m.start };
-                    clockTicksAtRef = 0;
-                    clockRefTime    = landAt;
-                };
-            };
+        // running and a Start relocates something (Live), when it would
+        // overwrite the take (see startTempoClocks). SA's drums restart on the
+        // loop regardless (LoopTransport.landTempo).
+        if(this.transport.running and: { result[\bpm].notNil }) {
+            this.transport.landTempo(result[\bpm], landAt, p[\restart], this.sessionRecording);
         };
         // The grains take the new pulse at once; the click restarts on it. The
         // onset notes are the hits that were played and never looked at the
@@ -2657,11 +2624,11 @@ Looper {
     //      `/live/song/continue_playing` message.
     //   2. Switching transportMode mid-play is not handled gracefully. Going
     //      from \full or \startOnly to \off while a loop is playing leaves
-    //      `midiClockRoutine` running until session shutdown — no
+    //      the transport's clock running until session shutdown — no
     //      `stopPlayback` in \full mode will ever come to clean it up. If this
     //      matters, gate cleanup inside `transportMode_`: on entering \off,
-    //      send `midiOut.stop` and free `midiClockRoutine` so Live disengages
-    //      cleanly instead of panicking on lost clock.
+    //      stop the transport so Live disengages cleanly instead of panicking
+    //      on lost clock.
     transportMode_ { |mode|
         if(#[\full, \startOnly, \off].includes(mode)) {
             transportMode = mode;
@@ -2743,9 +2710,26 @@ Looper {
     // rather than offering it.
     canUndo { ^undoState.notNil }
 
-    // Whether the MIDI clock is going out to Live: the window holds back what
-    // would stall the language (its theme's rebuild) while it does.
-    midiClockRunning { ^midiClockRoutine.notNil }
+    // Whether the transport runs (Live's MIDI clock going out, SA's drums
+    // started): the window holds back what would stall the language (its
+    // theme's rebuild) while it does.
+    midiClockRunning { ^this.transport.running }
+
+    // ---- The transport (LoopTransport) ----------------------------------------
+    // Live's, on midiOut, unless another was put here (SA's drums).
+    transport {
+        ^transport ?? { transport = LiveMidiTransport({ midiOut }).syncMs_(abletonSyncMs) }
+    }
+    // A new transport (SA's drums attaching; nil: Live's again, on midiOut).
+    // The old one's clock stops, saying nothing.
+    transport_ { |aTransport|
+        transport !? { |t| if(t !== aTransport) { t.free(false) } };
+        transport = aTransport;
+    }
+    // Whether a Start relocates something worth protecting (Live: the
+    // arrangement jumps to 1.1.1), so mid-recording a later analysis or a
+    // reading keeps its Start to itself. SA's drums answer false.
+    startsRelocate { ^this.transport.startsRelocate }
 
     // An action this Looper would not take, said once to whoever listens: the
     // window puts "Refused: why" in its status line, whichever surface asked
@@ -2810,7 +2794,7 @@ Looper {
         if(metronome and: { result.tau.notNil }) {
             this.startClick(result.tau, MeterDecision.clickBars(result));
         };
-        if(midiOut.notNil and: { result.bpm.notNil }) {
+        if(this.transport.connected and: { result.bpm.notNil }) {
             var barDur = MeterDecision.cycleDur(result);
             // Live's Start is aligned to the LOOP, not to any bar. A loop is k
             // bars long, so only every k-th bar boundary is the true start of
@@ -2838,7 +2822,7 @@ Looper {
             // (startsRelocate): on Megalooper SA the Start is the drums' bar 1
             // and nothing else, so a later analysis restarts them on the loop
             // whether or not the set is being recorded.
-            if(startsRelocate and: { this.sessionRecording } and: { midiClockRoutine.notNil }) {
+            if(this.startsRelocate and: { this.sessionRecording } and: { this.transport.running }) {
                 ("Session recording: not restarting the transport ("
                     ++ result.bpm.round(0.1) ++ " BPM detected). A MIDI Start "
                     "would jump it back to bar 1 and overwrite the take.").postln;
@@ -2955,69 +2939,15 @@ Looper {
         }.play(SystemClock);
     }
 
-    // Live only locks its external tempo once a stream of MIDI Clock pulses is
-    // flowing, so we must NOT send Start cold: a cold Start makes Live begin at
-    // its last/default tempo and only catch up over the first bar. So: stream
-    // clock pulses immediately to lock the tempo, then send Start on the next
-    // `alignDur` boundary (>= one beat of pre-roll away) so Live's 1.1.1 lands
-    // where we want it. Callers pass the LOOP period, not a bar: any repetition
-    // will do, but never mid-take. The wait is therefore up to one full loop —
-    // that is the point, and the clock stream keeps Live's tempo locked while it
-    // lasts. startAt is nudged earlier by midiOut.latency (so the Start is
-    // RECEIVED on the boundary) and by abletonSyncMs (the Live-sync offset:
-    // negative pulls Live earlier to cancel its ~10-20 ms follower lag).
+    // Start the transport on the loop: its bar line on the first loop boundary
+    // at least a beat of pre-roll away (Callers pass the LOOP period, not a
+    // bar: any repetition will do, never mid-take). Live's streams its clock
+    // at once and aims the Start by its port's latency and the sync trim
+    // (LiveMidiTransport); SA's drums begin their bar 1 there
+    // (MegaSATransport). Nothing with transportMode \off.
     startMidiClock { |bpm, alignDur|
-        var syncOff = abletonSyncMs / 1000;
         if(transportMode == \off) { ^this };
-        midiClockRoutine !? { |r| r.stop };
-        clockNudge  = 0;
-        clockPeriod = 60 / (bpm * 24);
-        // No Start has gone out on this stream yet, so no boundary is known to
-        // carry Live's bar line; a reading armed before it does lands on the
-        // next boundary regardless.
-        clockTicksAtRef = nil; clockRefTime = nil; clockTickRate = nil;
-        midiClockRoutine = Routine {
-            var origin   = this.loopStartTime ? SystemClock.seconds;
-            var latency  = midiOut.latency ? 0;
-            var minPre   = 60 / bpm;   // one beat of pre-roll to lock the tempo
-            var started  = false;
-            var startAt, target, m, boundary;
-            if(alignDur.notNil and: { alignDur > 0 }) {
-                target = SystemClock.seconds + minPre + latency;
-                // ceil, so a boundary closer than the pre-roll is skipped and we
-                // take the next one — never a partial pass.
-                m = (((target - origin) / alignDur).ceil).max(0);
-                boundary = origin + (m * alignDur);
-                startAt  = boundary - latency + syncOff;
-            } {
-                // No meter: warm up the clock, then Start (phase unaligned).
-                startAt = SystemClock.seconds + minPre + syncOff;
-            };
-            inf.do {
-                var nudge;
-                if(started.not and: { SystemClock.seconds >= startAt }) {
-                    midiOut.start;
-                    started = true;
-                    // Live's count begins at the boundary the Start was aimed
-                    // at. prArmReading reads these to find the next boundary
-                    // that carries Live's bar line.
-                    if(boundary.notNil) {
-                        clockTicksAtRef = 0;
-                        clockRefTime    = boundary;
-                        clockTickRate   = 1 / clockPeriod;
-                    };
-                };
-                midiOut.midiClock;
-                // Drain a bounded slice of any pending live sync nudge, carrying
-                // the rest to later ticks so large slider moves slew smoothly
-                // (a tempo blip of at most half a tick) instead of glitching.
-                // clockPeriod is read per tick, so a reading moves the tempo
-                // from the boundary it lands on.
-                nudge = clockNudge.clip(clockPeriod * -0.5, clockPeriod * 0.5);
-                clockNudge = clockNudge - nudge;
-                (clockPeriod + nudge).max(0).wait;
-            };
-        }.play(SystemClock);
+        this.transport.start(bpm, alignDur, this.loopStartTime);
     }
 
     free {
@@ -3034,7 +2964,6 @@ Looper {
         masterSynth !? { |s| s.free };
         tapLevelSynth !? { |s| s.free };
         clickRoutine !? { |r| r.stop };
-        midiClockRoutine !? { |r| r.stop };
         chordRoutine !? { |r| r.stop };
         dissolveRoutine !? { |r| r.stop };
         // Every arm: a break's end, a reading, half-time, a reverse, the
@@ -3042,7 +2971,7 @@ Looper {
         // reverse running: a landing after free restarted the onset notes and
         // sent MIDI).
         this.timeline.cancelAll;
-        if(transportMode == \full) { midiOut !? { |m| m.stop } };
+        this.transport.free(transportMode == \full);
         buffer !? { |b| b.free };
         undoBuffer !? { |b| b.free };
         outBus !? { |b| b.free };

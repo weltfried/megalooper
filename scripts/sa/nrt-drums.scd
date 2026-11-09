@@ -292,7 +292,9 @@ spawnAndAnalyse = { |rig, t0, ta|
     rig[\sa].setAnalysis(cfg[\result]);
     if(cfg[\onsets].notNil) { l.onsetNotesPart.instVarPut(\onsetNotes, true) };
     l.startTempoClocks(cfg[\result]);
-    r = l.instVarAt(\midiClockRoutine);
+    // The transport's routine (SA's: the drums' Start on its way), stepped
+    // at its logical times.
+    r = l.transport.routine;
     r !? { rig[\routines].add([ta, r, \midiClock]) };
 };
 
@@ -515,7 +517,7 @@ histoStr = { |h| h.keys.asArray.sort.collect { |k| (if(k > 0) { "+" } { "" }) ++
 // The scenario's server side goes; what it sent at free is not rendered.
 freeRig = { |rig|
     rig[\routines].do { |e| e[1].stop };
-    rig[\l].instVarAt(\midiClockRoutine) !? { |r| r.stop };
+    rig[\l].transport.free(false);
     rig[\l].timeline.cancelAll;
     rig[\sa].free;
 };
@@ -931,7 +933,7 @@ halfTimeScene = { |label, bpm, num, den|
 // --------------------------------------------------------------- levels --
 // One kit in both slots, every pad at velocity 127: on the steps through the
 // lane-0 note (Live main pattern replaced by one hit a bar), on the onset kit
-// through MegaSATransport's noteOn a second later.
+// through the drums' onsetNoteOn (a test note, lead on) a second later.
 levels = { |key|
     var bpm = 120, frames = (2 * sr).asInteger, t0 = 0.5, rig, d, l, pads, events, b1, endT, rendered, res;
     var steps, onset, master, stepsAmp, onsetAmp, rows = List.new, nanCount = 0, silent = List.new, hits;
@@ -950,7 +952,7 @@ levels = { |key|
     b1 = t0 + 2.0;
     events = pads.collect { |note, i|
         [[(b1 + (i * 2)) - 0.5, { |r, t| r[\d].setLaneParam(\main, 0, \note, note) }],
-         [(b1 + (i * 2) + 1) - 0.1, { |r, t| r[\d].transport.noteOn(1, note, 127) }]]
+         [(b1 + (i * 2) + 1) - 0.1, { |r, t| r[\d].onsetNoteOn(note, 127, t + r[\d].lead) }]]
     }.flatten(1);
     endT = b1 + (pads.size * 2) + 0.5;
     runTimeline.(rig, t0 + 0.05, endT - 0.4, events, 0);

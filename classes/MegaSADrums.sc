@@ -3,8 +3,9 @@
 // steps' kit and the onset kit (MegaSAKit), the scheduler that puts them on the
 // loop's own time base, and the voices that play them. MegaSA owns one: it
 // builds the server side and attaches the Looper, which then drives the drums'
-// transport through MegaSATransport (its MIDI port on SA) exactly as it drove
-// Live's, and hands over its onset notes through Looper.onsetNoteSink.
+// transport through MegaSATransport (the Looper's transport on SA, a sibling
+// of Live's) with the same code as Live's, and hands over its onset notes
+// through Looper.onsetNoteSink.
 //
 // The server side (build):
 //
@@ -96,7 +97,7 @@
 // its routine. Re-run boot.scd.
 MegaSADrums {
     var <megaSA, <server;
-    // False once freed: the transport port and the onset sink then do nothing
+    // False once freed: the transport and the onset sink then do nothing
     // (on a reboot the old Looper is freed after the new MegaSA and still calls).
     var <alive = true;
     var <transport, <looper, controller;
@@ -1418,9 +1419,9 @@ MegaSADrums {
     // ---- The Looper -------------------------------------------------------
 
     // Listen to the Looper's break, readings, reverse, state and session
-    // recording, and become its MIDI port and its onset-note sink. A Start
-    // relocates nothing here, so the Looper may restart the drums during a
-    // session recording too.
+    // recording, and become its transport and its onset-note sink. A Start
+    // relocates nothing here (MegaSATransport.startsRelocate), so the Looper
+    // may restart the drums during a session recording too.
     attach { |aLooper|
         this.detach;
         if(alive.not or: { aLooper.isNil }) { ^this };
@@ -1436,19 +1437,18 @@ MegaSADrums {
                 if((st == \recording) and: { newLoopOff } and: { on }) { this.setOn(false) };
                 this.prCheckSpawn(wallClock.value) })
             .put(\sessionRecording, { |obj, what, flag| this.prSessionRecording(flag) });
-        aLooper.midiOut = transport;
+        aLooper.transport = transport;
         aLooper.onsetNoteSink = this;
-        aLooper.startsRelocate = false;
         lastLam = aLooper.loopStartTime;
         lastSpawnAt = lastLam;
         logState = nil;
     }
 
-    // Let go of the Looper, for another (attach) or none: its MIDI port and
-    // its onset sink back to none, its Starts relocating again.
+    // Let go of the Looper, for another (attach) or none: its transport back
+    // to Live's (on its MIDI port) and its onset sink to none.
     detach {
         looper !? { |l|
-            if(l.midiOut === transport) { l.midiOut = nil };
+            if(l.transport === transport) { l.transport = nil };
             if(l.onsetNoteSink === this) { l.onsetNoteSink = nil };
         };
         this.prLetGo;
@@ -1457,7 +1457,6 @@ MegaSADrums {
     prLetGo {
         controller !? { |c| c.remove };
         controller = nil;
-        looper !? { |l| l.startsRelocate = true };
         looper = nil;
         logState = nil;
     }

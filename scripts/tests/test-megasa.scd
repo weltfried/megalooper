@@ -774,8 +774,8 @@ master = SynthDescLib.global[\megaSAMaster];
     Synth.tail(stub[\defaultGroup], \looperMaster);
     l = ~tLooper.();
     ~tCheck.("a Looper attaches", { Routine { sa.attachLooper(l) }.next });
-    ~tAssert.("its MIDI port is now the drums' transport, its onset notes their sink",
-        (l.midiOut === d.transport) and: { l.onsetNoteSink === d });
+    ~tAssert.("its transport is now the drums', its onset notes their sink",
+        (l.transport === d.transport) and: { l.onsetNoteSink === d });
     ~tEq.("and a Start relocates nothing on SA", l.startsRelocate, false);
     ~tAssert.("the drums follow that Looper", d.looper === l);
     ~tAssert.("its session recorder still goes after the mixer", l.sessionRec.target === sa.recordGroup);
@@ -827,7 +827,7 @@ master = SynthDescLib.global[\megaSAMaster];
     atFree = List.new;
     stub[\sendMsg] = { |self ... args|
         stub[\msgs].add(args);
-        if(args[0] == 11) { atFree.add([args[1], d.alive, l.midiOut === d.transport]) };
+        if(args[0] == 11) { atFree.add([args[1], d.alive, l.transport === d.transport]) };
         self
     };
     n = stub[\msgs].size;
@@ -837,12 +837,12 @@ master = SynthDescLib.global[\megaSAMaster];
     ~tAssert.("free takes the drums down first: dead, before the guitar chain goes",
         guitarFreed.notNil and: { guitarFreed[1] == false } and: { guitarFreed[2] }, atFree.asString);
     // On a reboot the old Looper plays on until ~setupLooper frees it, after
-    // the new MegaSA is up, its MIDI clock calling its port every tick.
-    ~tEq.("the drums are dead and let go of the Looper, which keeps their port and sink, dead too",
-        [d.alive, l.midiOut === d.transport, l.onsetNoteSink === d, d.transport.alive, l.startsRelocate],
-        [false, true, true, false, true]);
+    // the new MegaSA is up, calling its transport meanwhile.
+    ~tEq.("the drums are dead and let go of the Looper, which keeps their transport and sink, dead too",
+        [d.alive, l.transport === d.transport, l.onsetNoteSink === d, d.transport.alive],
+        [false, true, true, false]);
     ~tCheck.("...so the old Looper's calls on them do nothing and throw nothing",
-        { l.midiOut.midiClock; l.midiOut.start; l.midiOut.stop; l.startOnsetNotes; l.stopOnsetNotes });
+        { l.startMidiClock(120, 2.0); l.transport.startNow; l.transport.stop; l.startOnsetNotes; l.stopOnsetNotes });
     ~tAssert.("the drum group goes, and every drum bus", frees.includes(sa.drumGroup.nodeID)
         and: { busses.every { |b| b.index.isNil } });
     ~tAssert.("...and every stem bus", stems.every { |b| b.index.isNil });

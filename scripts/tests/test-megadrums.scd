@@ -880,49 +880,56 @@ File.delete(tmp +/+ "carbon");
 File.delete(tmp);
 }.value;
 
-// ------------------------------------------------------- the transport port --
+// ------------------------------------------------------------ the transport --
+// MegaSATransport: the Looper's transport on SA, a sibling of Live's
+// (LoopTransport). Until 2026-11-09 it posed as a MIDI port, its latency the
+// drums' lead plus the Live sync trim (which cancelled the Looper's Live
+// arithmetic); now the Start is aimed by the lead alone, and no clock runs.
 {
-var fake = (alive: true, lead: 0.1, looper: (abletonSyncMs: 30), log: List.new);
-var t, now, l, sink;
-fake[\transportStart] = { |self, at| self[\log].add([\start, at]); self };
-fake[\transportStop] = { |self, at| self[\log].add([\stop, at]); self };
-fake[\onsetNoteOn] = { |self, note, vel, at| self[\log].add([\note, note, vel, at]); self };
+var fake = (alive: true, lead: 0.1, log: List.new);
+var at = { |w, fn| Routine { thisThread.seconds = w; fn.value }.next };
+var t, now, l, sink, r;
+fake[\transportStart] = { |self, w| self[\log].add([\start, w]); self };
+fake[\transportStop] = { |self, w| self[\log].add([\stop, w]); self };
 t = MegaSATransport(fake);
-~tNear.("latency: the drums' lead plus the Live sync trim", t.latency, 0.13, 1e-12);
-fake[\looper] = (abletonSyncMs: -20);
-~tNear.("...a negative trim too", t.latency, 0.08, 1e-12);
-fake[\looper] = nil;
-~tNear.("...no looper: the lead alone", t.latency, 0.1, 1e-12);
+~tNear.("latency: the drums' lead, nothing else", t.latency, 0.1, 1e-12);
+~tEq.("a Start relocates nothing; connected; not running yet", [t.startsRelocate, t.connected, t.running], [false, true, false]);
+t.syncMs = 30;
+~tNear.("...and the Live sync trim moves nothing", t.latency, 0.1, 1e-12);
 now = thisThread.seconds;
-t.start;
-~tEq.("start reaches the drums", fake[\log].last[0], \start);
-~tNear.("...with the caller's time", fake[\log].last[1], now, 0.01);
-t.stop;
-~tEq.("stop likewise", fake[\log].last[0], \stop);
-t.noteOn(1, 36, 100);
-~tEq.("a note on goes to the onset kit", fake[\log].last.copyRange(0, 2), [\note, 36, 100]);
-~tNear.("...lead from now", fake[\log].last[3], now + 0.1, 0.01);
+// A 2 s loop from now - 0.25 at 120 BPM: the first boundary a beat (0.5 s)
+// and the lead past now is now + 1.75.
+t.start(120, 2.0, now - 0.25);
+~tEq.("start: running, no count until the Start goes out", [t.running, t.ticksAt(now + 2), fake[\log].size], [true, nil, 0]);
+r = t.instVarAt(\startRoutine);
+~tNear.("...the Start waits until lead before the boundary", r.next, 1.65, 1e-6);
+at.(now + 1.65, { r.next });
+~tEq.("...then the drums get it, at that time (their bar 1 the boundary nearest it + lead)",
+    fake[\log].last, [\start, now + 1.65]);
+~tNear.("...and the count runs from the boundary: 24 ticks a beat", t.ticksAt(now + 2.75), 48, 1e-6);
+at.(now + 3.0, { t.startNow });
+~tEq.("startNow: a Start at once (a reading that restarts)", fake[\log].last, [\start, now + 3.0]);
 fake[\log] = List.new;
-~tCheck.("everything else a MIDI port answers is a no-op", {
-    t.noteOn(1, 36, 0); t.noteOff(1, 36, 0); t.midiClock; t.control(15, 100, 0); t.program(0, 17);
-    t.bend(0, 8192); t.touch(0, 10); t.polyTouch(0, 36, 10); t.allNotesOff(0); t.continue; t.reset;
-    t.songPtr(0); t.songSelect(0); t.smpte; t.sysex(Int8Array[]);
-});
-~tEq.("...a note at velocity 0 included (a note-off)", fake[\log].size, 0);
+at.(now + 3.75, { t.landTempo(90, now + 3.75, true, true) });
+~tEq.("a reading landing that restarts sends the Start even mid-recording", fake[\log].collect(_[0]).asArray, [\start]);
+~tEq.("...the count from its boundary, at its tempo", [t.ticksAt(now + 3.75), t.ticksAt(now + 4.75)], [0, 36]);
+at.(now + 5, { t.stop });
+~tEq.("stop: the drums' Stop, not running, no count", [fake[\log].last, t.running, t.ticksAt(now + 6)], [[\stop, now + 5], false, nil]);
+fake[\log] = List.new;
 fake[\alive] = false;
-t.start; t.stop; t.noteOn(1, 36, 100);
-~tEq.("once the drums are freed every call is a no-op", fake[\log].size, 0);
+t.start(120, 2.0, now); t.startNow; t.stop; t.landTempo(120, now, true, false);
+~tEq.("once the drums are freed every call is a no-op, and it never runs", [fake[\log].size, t.running], [0, false]);
 ~tEq.("...and latency is 0", t.latency, 0);
-~tCheck.("with no drums at all, too", { var n = MegaSATransport(nil); n.start; n.stop; n.noteOn(1, 36, 9); n.latency });
+~tCheck.("with no drums at all, too", { var n = MegaSATransport(nil); n.start(120, 2.0, now); n.startNow; n.stop; n.latency });
 // The Looper's own stop reaches the drums through it, and its sink.
 fake[\alive] = true;
 l = ~tLooper.();
 sink = (log: List.new);
 sink[\startOnsets] = { |self, looper, pattern, period| self[\log].add(\start); self };
 sink[\stopOnsets] = { |self, looper| self[\log].add(\stop); self };
-~tPut.(l, \midiOut, t);
+l.transport = t;
 l.onsetNoteSink = sink;
-~tCheck.("a looper stops with the port and sink in place", { l.stopPlayback });
+~tCheck.("a looper stops with the transport and sink in place", { l.stopPlayback });
 ~tEq.("stopPlayback in \\full sends the drums a Stop", fake[\log].collect(_[0]).asArray, [\stop]);
 ~tEq.("...and stops the sink's onset part", sink[\log].asArray, [\stop]);
 }.value;
@@ -1010,11 +1017,15 @@ l.stopOnsetNotes;
 // ------------------------------------------------- startsRelocate (Live off) --
 // Copied from test-session-recorder.scd's transport guard and test-reading.scd's
 // landing: in Live a Start mid-recording would overwrite the arrangement take,
-// so the Looper keeps it to itself; on SA (startsRelocate false) it goes out.
+// so the Looper keeps it to itself; on SA (MegaSATransport: startsRelocate
+// false) it goes out.
 {
 var l = ~tLooper.();
 var result = (numerator: 4, denominator: 4, tau: 0.5, sub: 1, k: 1, bpm: 120, loopDur: 2.0, downbeatOffset: 0);
+var drums = (alive: true, lead: 0.1, log: List.new);
 var sentinel;
+drums[\transportStart] = { |self, now| self[\log].add(\start); self };
+drums[\transportStop] = { |self, now| self[\log].add(\stop); self };
 l.metronome = false;
 ~tEq.("a Start relocates by default, on every Live profile", l.startsRelocate, true);
 ~tPut.(l, \midiOut, ());
@@ -1024,18 +1035,21 @@ l.sessionRec.instVarPut(\recording, true);
 l.startTempoClocks(result);
 ~tAssert.("by default a later analysis keeps its Start to itself mid-recording",
     ~tGet.(l, \midiClockRoutine) === sentinel);
-l.startsRelocate = false;
-l.startTempoClocks(result);
-~tAssert.("with startsRelocate false it restarts the transport while a session recording runs",
-    ~tGet.(l, \midiClockRoutine) !== sentinel);
-l.sessionRec.instVarPut(\recording, false);
 ~tGet.(l, \midiClockRoutine) !? { |r| r.stop };
+l.transport = MegaSATransport(drums);
+~tEq.("SA's drums as the transport: a Start relocates nothing", l.startsRelocate, false);
+l.startTempoClocks(result);
+~tAssert.("...so it restarts the transport while a session recording runs", l.transport.running);
+l.sessionRec.instVarPut(\recording, false);
+l.transport.free(false);
 }.value;
 {
 var l = ~tLooper.();
 var midi = (log: List.new, latency: 0);
 var result = (numerator: 3, denominator: 4, tau: 0.25, sub: 2, k: 1, bpm: 120, loopDur: 3.0, downbeatOffset: 0);
-var land;
+var land, drums = (alive: true, lead: 0.1, log: List.new);
+drums[\transportStart] = { |self, now| self[\log].add(\start); self };
+drums[\transportStop] = { |self, now| self[\log].add(\stop); self };
 midi[\start] = { |self| self[\log].add(\start); self };
 midi[\midiClock] = { |self| self };
 ~tPut.(l, \state, \playing);
@@ -1050,20 +1064,26 @@ midi[\midiClock] = { |self| self };
 ~tPut.(l, \clockPeriod, 1 / 48);
 // A landing whose boundary has passed, driven through a routine as the real
 // one runs inside the reading's arm (LoopTimeline).
-land = { |relocate|
+land = {
     var r;
     ~tPut.(l, \pendingReading, (index: 1, result: result, at: SystemClock.seconds - 0.01, loops: 1, restart: true));
-    l.startsRelocate = relocate;
     r = Routine { l.prLandReading(l.timeline.token(\reading)) };
     r.next;
 };
 l.sessionRec.instVarPut(\recording, true);
-land.(true);
-~tEq.("by default a landing that needs a Start keeps it to itself mid-recording", midi[\log].size, 0);
+land.();
+~tEq.("in Live a landing that needs a Start keeps it to itself mid-recording", midi[\log].size, 0);
 ~tAssert.("...and still lands", l.pendingReading.isNil and: { l.readingIndex == 1 });
-land.(false);
-~tEq.("with startsRelocate false it sends the Start", midi[\log].asArray, [\start]);
-~tNear.("...and counts Live's ticks from that boundary", ~tGet.(l, \clockTicksAtRef), 0, 1e-9);
+~tPut.(l, \midiClockRoutine, nil);
+l.transport = MegaSATransport(drums);
+l.transport.instVarPut(\running, true);
+l.transport.instVarPut(\clockRefTime, SystemClock.seconds - 3.0);
+l.transport.instVarPut(\clockTicksAtRef, 0);
+l.transport.instVarPut(\clockTickRate, 48);
+land.();
+~tEq.("on SA (a Start relocates nothing) it sends the Start: the drums' bar 1 on the boundary", drums[\log].asArray, [\start]);
+~tNear.("...and counts the ticks from that boundary", l.transport.clockTicksAtRef, 0, 1e-9);
+l.transport.free(false);
 l.sessionRec.instVarPut(\recording, false);
 }.value;
 

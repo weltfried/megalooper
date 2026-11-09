@@ -387,7 +387,9 @@ spawnAndAnalyse = { |rig, t0, ta|
     rig[\sa].setAnalysis(cfg[\result]);
     if(cfg[\onsets].notNil) { l.onsetNotesPart.instVarPut(\onsetNotes, true) };
     l.startTempoClocks(cfg[\result]);
-    r = l.instVarAt(\midiClockRoutine);
+    // The transport's routine (SA's: the drums' Start on its way), stepped
+    // at its logical times.
+    r = l.transport.routine;
     r !? { rig[\routines].add([ta, r, \midiClock]) };
 };
 
@@ -650,7 +652,7 @@ tapDiff = { |tap, input, b0|
 
 freeRig = { |rig|
     rig[\routines].do { |e| e[1].stop };
-    rig[\l].instVarAt(\midiClockRoutine) !? { |r| r.stop };
+    rig[\l].transport.free(false);
     rig[\l].timeline.cancelAll;
     rig[\sa].free;
 };

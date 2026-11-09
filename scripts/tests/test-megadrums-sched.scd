@@ -137,7 +137,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
         d.setSteps(which, \roll, lane, Array.fill(16, 0));
     };
 };
-// The Looper's Start for boundary b: lead before it, as startMidiClock aims it.
+// The Looper's Start for boundary b: lead before it, as MegaSATransport aims it.
 ~dsStart = { |fx, b|
     fx[\wall] = b - 0.1;
     fx[\drums].transportStart(b - 0.1);
@@ -1162,15 +1162,15 @@ r = ~dsVoicesSounding.(fr[\log]);
 {
 var now = thisThread.seconds;          // the main thread's time, standing still
 var fx = ~dsMake.(now - 1.0);          // a loop that started a second ago
-var d = fx[\drums], l = fx[\looper], port = l.midiOut;
+var d = fx[\drums], l = fx[\looper], port = l.transport;
 var at = { |w, fn| Routine { thisThread.seconds = w; fx[\wall] = w; fn.value }.next };
 var snd, kicks, hats, onset, n;
-~tEq.("attach: the Looper's MIDI port is the drums' transport", port === d.transport, true);
+~tEq.("attach: the Looper's transport is the drums'", port === d.transport, true);
 ~tEq.("...its onset sink the drums, and a Start relocates nothing", [l.onsetNoteSink === d, l.startsRelocate], [true, false]);
-~tNear.("the port's latency: the drums' lead", port.latency, d.lead, 1e-12);
+~tNear.("its latency: the drums' lead (no Live sync trim to cancel)", port.latency, d.lead, 1e-12);
 ~dsPlain.(d, \main, (3: ~dsEvery));
 ~dsPlain.(d, \break, (0: ~dsEvery));
-port.start;
+port.startNow;
 fx[\wall] = now + 0.9;
 ~dsRun.(fx, now + 1.5);
 at.(now + 1.5, { l.changed(\break, true) });
@@ -1201,22 +1201,19 @@ onset = ~dsGrid.(snd.select { |h| h[\group] == 1003 });
 ~tAssert.("...nothing after its edge", kicks.every { |t| t < (now + 4.78) });
 d.free;
 // On a reboot the old Looper plays on until ~setupLooper frees it, after the
-// new MegaSA is up: its MIDI clock calls its port every tick meanwhile.
-~tEq.("free lets go of the Looper, which keeps the drums' port and sink, dead now, and its Starts relocate again",
-    [l.midiOut === port, l.onsetNoteSink === d, port.alive, l.startsRelocate], [true, true, false, true]);
-~tCheck.("...so the old Looper's MIDI clock, still running, ticks on into nothing (no nil.midiClock)", {
-    var clock;
+// new MegaSA is up, and calls its transport meanwhile.
+~tEq.("free lets go of the Looper, which keeps the drums' transport and sink, dead now",
+    [l.transport === port, l.onsetNoteSink === d, port.alive], [true, true, false]);
+~tCheck.("...so the old Looper's Start goes into nothing and starts nothing", {
     l.startMidiClock(201, 2.0);
-    clock = ~tGet.(l, \midiClockRoutine);
-    // Each .next is one tick of it: the port's latency, start, midiClock.
-    4.do { clock.next };
-    clock.stop;
+    if(port.running) { Error("a dead transport runs").throw };
 });
 n = fx[\log].size;
 ~tCheck.("a freed drums object and its old port do nothing", {
-    port.start;
+    port.start(120, 2.0, now);
+    port.startNow;
+    port.landTempo(120, now + 7, true, false);
     port.stop;
-    port.noteOn(1, 36, 100);
     d.pump(now + 7);
     d.transportStart(now + 7);
     d.startOnsets(l, [[0.1, 1.0]], 2.0);

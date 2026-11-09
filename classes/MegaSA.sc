@@ -40,10 +40,10 @@
 // private busses here (soundInChannel below), and its outChannel is loopBus.
 // scripts/setup-sa.scd sets all four. What it sent Live, the drums take
 // instead (attachLooper, MegaSADrums.attach): the drums' transport
-// (MegaSATransport) becomes its MIDI port, so its own Starts, Stops and
-// bar-line waits drive the drums as they drove Live's; the drums become its
-// onsetNoteSink, so its onset notes play the onset kit; and its
-// startsRelocate goes false, since a Start relocates nothing here.
+// (MegaSATransport, a sibling of Live's) becomes its transport, so its own
+// Starts, Stops and bar-line waits drive the drums as they drove Live's (a
+// Start relocates nothing here); and the drums become its onsetNoteSink, so
+// its onset notes play the onset kit.
 //
 // Like the Looper, it does not survive Cmd-period: nothing re-creates its
 // nodes. Re-run boot.scd.

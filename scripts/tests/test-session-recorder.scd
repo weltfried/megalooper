@@ -105,10 +105,10 @@ l.metronome = false;
     var startedClock = false;
     // Stub startMidiClock by watching whether the routine slot is replaced —
     // the real one always assigns it. Keep the sentinel and compare identity.
-    var sentinel = l.instVarAt(\midiClockRoutine);
+    var sentinel = ~tGet.(l, \midiClockRoutine);
     l.sessionRec.instVarPut(\recording, true);
     l.startTempoClocks(result);
-    startedClock = l.instVarAt(\midiClockRoutine) !== sentinel;
+    startedClock = ~tGet.(l, \midiClockRoutine) !== sentinel;
     l.sessionRec.instVarPut(\recording, false);
     if(startedClock) {
         Error("the clock was restarted — Live would have jumped to 1.1.1 "
@@ -123,9 +123,9 @@ l.metronome = false;
     ~tPut.(l, \midiClockRoutine, nil);
     l.sessionRec.instVarPut(\recording, true);
     l.startTempoClocks(result);
-    started = l.instVarAt(\midiClockRoutine).notNil;
+    started = ~tGet.(l, \midiClockRoutine).notNil;
     l.sessionRec.instVarPut(\recording, false);
-    l.instVarAt(\midiClockRoutine) !? { |r| r.stop };
+    ~tGet.(l, \midiClockRoutine) !? { |r| r.stop };
     if(started.not) {
         Error("the transport never started — a session recording armed before "
             "the first take would keep Live stopped for the whole set").throw
@@ -136,13 +136,13 @@ l.metronome = false;
 ~tCheck.("outside a session recording, a later analysis restarts as before", {
     var sentinel;
     ~tPut.(l, \midiClockRoutine, Routine {});
-    sentinel = l.instVarAt(\midiClockRoutine);
+    sentinel = ~tGet.(l, \midiClockRoutine);
     l.startTempoClocks(result);
-    if(l.instVarAt(\midiClockRoutine) === sentinel) {
+    if(~tGet.(l, \midiClockRoutine) === sentinel) {
         Error("the clock was NOT restarted; the guard is firing when no "
             "session is being recorded").throw
     };
-    l.instVarAt(\midiClockRoutine) !? { |r| r.stop };
+    ~tGet.(l, \midiClockRoutine) !? { |r| r.stop };
     true
 });
 ~tEq.("(no click was started, so nothing plays on a server after the suite)", l.instVarAt(\clickRoutine), nil);

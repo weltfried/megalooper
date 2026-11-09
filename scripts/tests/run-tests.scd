@@ -86,6 +86,7 @@ var files = [
     "test-audio-settings.scd",
     "test-training-export.scd",
     "test-loop-timeline.scd",
+    "test-loop-transport.scd",
     "test-source-guards.scd"
 ];
 var started = Main.elapsedTime;
