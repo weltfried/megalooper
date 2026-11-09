@@ -12,10 +12,13 @@ tells you which packages it needs.
 ## Install
 
 ```bash
-git clone https://github.com/weltfried/megalooper.git
+git clone --branch v1.13 https://github.com/weltfried/megalooper.git
 cd megalooper
 ./tools/install.sh
 ```
+
+That is the latest release; README.md, "Upgrade", says how to move to the
+next.
 
 The script:
 

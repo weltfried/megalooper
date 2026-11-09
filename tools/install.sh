@@ -15,7 +15,8 @@
 #      into Extensions, unless you have it already (megalooper's classes need
 #      it). On Linux it comes from the package manager, in step 1;
 #   3. fetches BBCut, at the commit megalooper is tested against, into
-#      SuperCollider's Extensions, unless you have it already;
+#      SuperCollider's Extensions, unless you have it already; a BBCut you
+#      have is checked against that commit, and a different one is said;
 #   4. fetches VSTPlugin 0.6.2, which hosts VST plugins in the effect chains,
 #      into Extensions, unless you have it already. megalooper runs without
 #      it, so a download that fails is a warning and the install goes on;
@@ -96,17 +97,30 @@ find_sclang() {
     return 1
 }
 
-# Is a class file of that name in the user's or the system's Extensions, or
-# among the quarks?
-have_class() {
-    local dir
+# Where a class file of that name is, in the user's or the system's
+# Extensions or among the quarks (the first found), or nothing.
+find_class() {
+    local dir found
     for dir in "$EXT" "$QUARKS" "${SYSTEM_EXT[@]}"; do
-        if [ -d "$dir" ] && [ -n "$(find -L "$dir" -name "$1" -print -quit 2>/dev/null)" ]; then return 0; fi
+        if [ -d "$dir" ]; then
+            found="$(find -L "$dir" -name "$1" -print -quit 2>/dev/null)"
+            if [ -n "$found" ]; then echo "$found"; return 0; fi
+        fi
     done
     return 1
 }
+have_class() { find_class "$1" >/dev/null; }
 
-say "installing from $REPO: seven steps, each said as it starts."
+APP_VERSION="$(awk '$1 == "version" { print $2 }' "$REPO/VERSION" 2>/dev/null)"
+say "installing megalooper ${APP_VERSION:-(its VERSION file is missing)} from $REPO: seven steps, each said as it starts."
+# A release is a tag (README.md, "Install"); a checkout elsewhere, main say,
+# holds what is not yet released.
+if command -v git >/dev/null 2>&1 && [ -e "$REPO/.git" ] && [ -n "$APP_VERSION" ]; then
+    if ! git -C "$REPO" describe --tags --exact-match >/dev/null 2>&1; then
+        at="$(git -C "$REPO" describe --tags 2>/dev/null)"
+        say "note: this checkout is not a release (${at:-no release tag here}). The release is v$APP_VERSION: git checkout v$APP_VERSION, then run this again."
+    fi
+fi
 step 1
 
 # ---- 1. SuperCollider, and on Linux the packages beside it ----------------
@@ -257,8 +271,22 @@ fi
 
 # ---- 3. BBCut ----------------------------------------------------------------
 step 3
-if have_class "BBCut2.sc"; then
-    say "BBCut: found"
+# BBCut is cut from git: one already here is checked against the commit
+# megalooper is tested against, as far as git can tell which it is.
+if bbcut_file="$(find_class "BBCut2.sc")"; then
+    bbcut_dir="$(git -C "$(dirname "$bbcut_file")" rev-parse --show-toplevel 2>/dev/null)"
+    bbcut_at=""
+    # Its own checkout, cloned from BBCut, not a folder inside another one.
+    if git -C "$(dirname "$bbcut_file")" remote -v 2>/dev/null | grep -qi "bbcut"; then
+        bbcut_at="$(git -C "$(dirname "$bbcut_file")" rev-parse HEAD 2>/dev/null)"
+    fi
+    if [ -z "$bbcut_at" ]; then
+        say "BBCut: found in $(dirname "$bbcut_file"), not a git checkout, so which BBCut it is can't be told (megalooper is tested against ${BBCUT_COMMIT:0:7})"
+    elif [ "$bbcut_at" = "$BBCUT_COMMIT" ]; then
+        say "BBCut: found, at the commit megalooper is tested against"
+    else
+        say "warning: BBCut in $bbcut_dir is at ${bbcut_at:0:7}, not at the commit megalooper is tested against (${BBCUT_COMMIT:0:7}). If the cutter misbehaves: git -C \"$bbcut_dir\" checkout $BBCUT_COMMIT"
+    fi
 else
     command -v git >/dev/null 2>&1 || fail "git is not installed: it fetches BBCut."
     say "BBCut: fetching it into $EXT/BBCut"

@@ -229,7 +229,8 @@ s.waitForBoot {
         ~actionsApply.();
     });
     ~bootStep.("the boot's report", {
-        ("Boot complete. Keys: " ++ ~controlKeysLine.() ++ " · E export.").postln;
+        ("megalooper " ++ (MegaFiles.appVersion ? "(no VERSION)") ++ ": boot complete. Keys: "
+            ++ ~controlKeysLine.() ++ " · E export.").postln;
         ("MIDI: " ++ (~midiMap !? { |m| m.name } ? "no map") ++ ", set on the Setup view; MIDI MAP (top right) maps a control. ~midiLog = false to silence the MIDI log.").postln;
         "Name fields (export, presets): click to type, Enter or Esc gives the keys back.".postln;
         ("Views: " ++ ~guiViewOrder.collect { |k| ~guiViewNumbers[k].asString ++ " " ++ ~guiViewLabels[k] }.join(" · ")

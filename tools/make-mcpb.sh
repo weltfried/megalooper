@@ -8,7 +8,9 @@
 #   ./tools/make-mcpb.sh /some/x.mcpb    # or there
 #
 # Needs only zip. The Setup view's "Install in Claude Desktop" runs this and
-# opens what it made; a release attaches it.
+# opens what it made; a release attaches it. The extension's version (its
+# manifest's, and the bridge's in mcp-tools.json) is VERSION's, as
+# tools/release.sh writes them all: a copy that says another is refused.
 
 set -euo pipefail
 
@@ -20,6 +22,16 @@ if ! command -v zip >/dev/null 2>&1; then
     echo "error: zip is needed to make the extension, and is not here." >&2
     exit 1
 fi
+
+WANT="$(awk '$1 == "version" { print $2 ".0" }' "$REPO/VERSION" 2>/dev/null)"
+for pair in "tools/mcpb/manifest.json:version" "tools/mcp-tools.json:serverVersion"; do
+    file="${pair%%:*}"; key="${pair##*:}"
+    got="$(sed -n "s/^ *\"$key\": *\"\([^\"]*\)\".*/\1/p" "$REPO/$file" | head -1)"
+    if [ -z "$WANT" ] || [ "$got" != "$WANT" ]; then
+        echo "error: $file says $key ${got:-nothing}, VERSION ${WANT:-nothing}. tools/release.sh writes them together." >&2
+        exit 1
+    fi
+done
 
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/megalooper-mcpb.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT

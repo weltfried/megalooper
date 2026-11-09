@@ -74,10 +74,13 @@ compile. Without any one of them nothing runs, not even the tests.
 ## Install
 
 ```bash
-git clone https://github.com/weltfried/megalooper.git
+git clone --branch v1.13 https://github.com/weltfried/megalooper.git
 cd megalooper
 ./tools/install.sh
 ```
+
+That is the latest release. `main` holds what comes after it, not yet played
+on stage.
 
 The installer:
 
@@ -103,6 +106,20 @@ folder. `./tools/install.sh --help` lists its options.
 
 If SuperCollider is open, restart it afterwards, or recompile the class
 library (Cmd+Shift+L).
+
+### Upgrade
+
+A new release is a tag (`v1.14`, say; [Releases](https://github.com/weltfried/megalooper/releases)
+lists them). In the megalooper folder:
+
+```bash
+git fetch --tags
+git checkout v1.14
+```
+
+then restart megalooper. A checkout cloned from `main` (as this README said
+before 1.14) goes on with `git pull`, or moves to the release with
+`git checkout`.
 
 ## First run
 

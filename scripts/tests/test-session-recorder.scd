@@ -847,6 +847,11 @@ events = LooperSessionRecorder.readEvents(rec.paths[\events]);
 ~tEq.("its header says its format and version (a log from before it says neither: version 0)",
     [events.first[\ev], events.first[\format], events.first[\version].asString],
     ["session", LooperSessionRecorder.eventsFormat, LooperSessionRecorder.eventsVersion.asString]);
+// (readEvents takes a number-like string for a number: the line itself says
+// it is the version's text.)
+~tAssert.("...and which megalooper recorded it (VERSION), as text",
+    (File.readAllString(rec.paths[\events]) ? "").split($\n).first.contains("\"app\": \"" ++ MegaFiles.appVersion ++ "\""),
+    (File.readAllString(rec.paths[\events]) ? "").split($\n).first);
 ~tEq.("...after the tail's hit and transport, and nothing heard once the WAVs had ended",
     events.select { |e| (e[\t] ? 0) > 60 }.collect { |e| [e[\ev], e[\note]] }, [["hit", 38], ["drumsStop", nil]]);
 filesEv = events.detect { |e| e[\ev] == "files" } ? ();

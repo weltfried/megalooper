@@ -58,6 +58,27 @@ MegaFiles {
         ^if(path.notNil and: { File.exists(path) }) { try { File.readAllString(path) } }
     }
 
+    // ---- the version -------------------------------------------------------
+    // megalooper's version ("1.13") and macOS build number (14), from the
+    // repository's VERSION file (tools/release.sh writes it), or nil when it
+    // cannot be read. `path`: another VERSION file (the tests').
+    *appVersion { |path| ^this.versionFields(path)[\version] }
+    *appBuild { |path| ^this.versionFields(path)[\build] !? { |b| b.asInteger } }
+
+    // VERSION's fields: one "name value" a line, # starting a comment. The
+    // file beside classes/, found as Looper.repoRoot finds the repository:
+    // classes/ is reached through a link in Extensions, which realpath sees
+    // through.
+    *versionFields { |path|
+        var here = try { File.realpath(this.filenameSymbol.asString) };
+        var text = this.readText(path ?? { here !? { |h| h.dirname.dirname +/+ "VERSION" } }), out = ();
+        (text ? "").split($\n).do { |line|
+            var words = line.split($#).first.split($ ).reject(_.isEmpty);
+            if(words.size >= 2) { out.put(words[0].asSymbol, words[1]) };
+        };
+        ^out
+    }
+
     // JSON text read into values that keep their kind: an object is a
     // MegaJsonObject (its members in the file's order, each with the text it
     // was written as), a list an Array, a string a String, a number an

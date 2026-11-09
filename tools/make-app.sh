@@ -16,6 +16,15 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${1:-$HOME/Desktop}"
 APP="$DEST/megalooper.app"
 
+# The version and build the bundle says, from VERSION (tools/release.sh
+# writes it).
+APP_VERSION="$(awk '$1 == "version" { print $2 }' "$REPO/VERSION" 2>/dev/null)"
+APP_BUILD="$(awk '$1 == "build" { print $2 }' "$REPO/VERSION" 2>/dev/null)"
+if [ -z "$APP_VERSION" ] || [ -z "$APP_BUILD" ]; then
+    echo "error: $REPO/VERSION does not say the version and the build." >&2
+    exit 1
+fi
+
 # sclang is the only hard dependency. Prefer the standard install, but accept
 # one already on PATH so a Homebrew or custom build works too.
 SCLANG=""
@@ -81,8 +90,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key>        <string>megalooper</string>
     <key>CFBundleIconFile</key>          <string>megalooper</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.13</string>
-    <key>CFBundleVersion</key>           <string>14</string>
+    <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>
+    <key>CFBundleVersion</key>           <string>$APP_BUILD</string>
     <key>NSHighResolutionCapable</key>   <true/>
     <!-- The looper records a guitar. Without a usage string macOS terminates a
          process that touches an input device rather than prompting for it. -->

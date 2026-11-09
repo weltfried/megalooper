@@ -1067,13 +1067,15 @@ LooperSessionRecorder {
     *eventsFormat { ^"megalooper events" }
     *eventsVersion { ^1 }
 
-    // The header: the format and version, the stamp, the sample rate, every
-    // file the set opened (the stems with their roles and channels) and what
-    // the looper knows.
+    // The header: the format and version, megalooper's version (VERSION; nil
+    // when it cannot be read), the stamp, the sample rate, every file the set
+    // opened (the stems with their roles and channels) and what the looper
+    // knows.
     prLogHeader { |stamp, masterChannel, tapChannel, context|
         var fields = (
             format: this.class.eventsFormat,
             version: this.class.eventsVersion,
+            app: MegaFiles.appVersion,
             stamp: stamp,
             date: Date.getDate.asString,
             sampleRate: server !? { |s| s.sampleRate },

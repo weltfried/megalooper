@@ -340,6 +340,19 @@ class Extension(unittest.TestCase):
         self.assertEqual(m["server"]["mcp_config"], {"command": "node", "args": ["${__dirname}/server/index.js"]})
         self.assertTrue(os.path.exists(os.path.join(HERE, "mcpb", m["icon"])))
 
+    def test_the_versions_are_the_version_files(self):
+        # VERSION is the one place the version is written (tools/release.sh):
+        # the extension's manifest and the bridges' tool list say it too.
+        fields = {}
+        for line in open(os.path.join(HERE, "..", "VERSION"), encoding="utf-8"):
+            words = line.split("#")[0].split()
+            if len(words) >= 2:
+                fields[words[0]] = words[1]
+        m = json.load(open(os.path.join(HERE, "mcpb", "manifest.json")))
+        self.assertRegex(fields.get("version", ""), r"^[0-9]+\.[0-9]+$")
+        self.assertRegex(fields.get("build", ""), r"^[0-9]+$")
+        self.assertEqual([m["version"], SPEC["serverVersion"]], [fields["version"] + ".0"] * 2)
+
     def test_the_bundle_holds_the_manifest_at_its_root_and_its_bridge_runs_from_inside_it(self):
         tmp = tempfile.mkdtemp(prefix="megalooper-mcpb-test-")
         try:

@@ -582,3 +582,37 @@ files.reject { |p| p.endsWith("_harness.scd") }.do { |path|
 };
 ~tAssert.("no script reaches a variable that moved into a part of the Looper on the Looper itself", found.isEmpty, found.join(", "));
 }.value;
+
+// ---- the version, written once ----------------------------------------------------
+// VERSION is the one place the version is written (tools/release.sh): the
+// app bundle and the Claude Desktop extension read it, and megalooper says it
+// (MegaFiles.appVersion). Every install line in the docs and on the website
+// clones that release's tag, not main (docs/dev/architecture.md 5, step 11).
+{
+var root = thisProcess.nowExecutingPath.dirname.dirname.dirname;
+var version = MegaFiles.appVersion, build = MegaFiles.appBuild;
+var files = ["README.md", "docs/*.md", "site/src/pages/*.astro"].collect { |g| (root +/+ g).pathMatch }.flatten;
+var clones = List.new, wrong = List.new;
+~tAssert.("VERSION says the version (major.minor) and the build", version.notNil
+    and: { version.findRegexp("^[0-9]+\\.[0-9]+$").notEmpty } and: { build.isKindOf(Integer) }, [version, build].asString);
+files.do { |path|
+    (File.readAllString(path) ? "").split($\n).do { |line, i|
+        if(line.contains("git clone") and: { line.contains("megalooper.git") }) {
+            clones.add(path);
+            if(line.contains("--branch v" ++ version ++ " ").not) {
+                wrong.add(PathName(path).fileName ++ ":" ++ (i + 1));
+            };
+        };
+    };
+};
+~tAssert.("the install lines are there to check (README, docs/linux.md, the website)", clones.size >= 3, clones.asString);
+~tAssert.("...and each clones this release's tag, v" ++ version, wrong.isEmpty, wrong.join(", "));
+~tEq.("a VERSION file of the tests' own is read as one: a comment, blank lines, the order", {
+    var path = ~tTempPath.("version") +/+ "VERSION", got;
+    File.mkdir(path.dirname);
+    File.use(path, "w", { |f| f.write("# a comment\n\nbuild 21  # after\nversion 2.0\nversion # none after the mark: no value\n") });
+    got = [MegaFiles.appVersion(path), MegaFiles.appBuild(path), MegaFiles.appVersion(path ++ "-none")];
+    ~tRemoveTree.(path.dirname);
+    got
+}.value, ["2.0", 21, nil]);
+}.value;
