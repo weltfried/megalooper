@@ -225,6 +225,19 @@
         fromPos: { |c| ~onsetThresholdSpec.map(c) }, toPos: { |v| ~onsetThresholdSpec.unmap(v) },
         format: hundredths,
         available: { ~looper.notNil and: { ~onsetThresholdSpec.notNil } }));
+    // Autostart (Looper.autostart, 2026-11-12): with no loop, the take starts
+    // on the first note. Its switch and start level, on Perform under the
+    // threshold, kept in settings.json (setup-model.scd).
+    add.('looper.autostart', "Autostart", "Perform", \toggle, (group: "Arc and threshold",
+        flip: { ~looper !? { |l| ~autostartSet.(l.autostart.not) } },
+        get: { ~looper !? { |l| l.autostart } },
+        set: { |on| ~autostartSet.(on == true) },
+        available: looper));
+    add.('looper.startLevel', "Start level", "Perform", \continuous, (group: "Arc and threshold",
+        get: { ~looper !? { |l| l.startLevelDb } }, set: { |v| ~startLevelSet.(v) },
+        fromPos: { |c| ~startLevelSpec.map(c) }, toPos: { |v| ~startLevelSpec.unmap(v) },
+        format: shown.({ |v| ~startLevelWords.(v) }),
+        available: { ~looper.notNil and: { ~startLevelSpec.notNil } }));
     // The granular layer's parameters, on the Grains tab's laws: its row of
     // ~granularParams (setup-granular.scd), looked up when a message arrives, so
     // without that table they do nothing. Every key the CC block names, and

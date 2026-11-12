@@ -19,6 +19,7 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
   rhythm and the notes you played, or typed in by hand.
 - **Loops.** Overdub with undo, reverse, multiply, loop chaining, and
   overdubs shifted by your measured round-trip latency so they land in time.
+  No footswitch? Autostart starts the take on the first note you play.
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
   with presets.
 - **Effect chains.** Chains for your instrument, the loop, the drums and
@@ -137,7 +138,9 @@ and the looper plays while it records.
    that clicks or drops out, pick 256 frames under **Buffer** first.
 4. With the megalooper window in front, press **R** to record, play a
    phrase, and press **R** again. The status band shows the meter and the
-   tempo it found. **S** stops, **C** clears.
+   tempo it found. **S** stops, **C** clears. Or switch **Autostart** on
+   (beside the input meter, top right), and the take starts on your first note
+   ([Autostart](docs/manual.md#autostart-recording-without-a-footswitch)).
 
 From the SuperCollider IDE, open `scripts/boot.scd` and evaluate its block.
 The rig then comes from `~defaultRoutingProfile` in `scripts/setup-routing.scd`.

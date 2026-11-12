@@ -149,6 +149,7 @@ s.waitForBoot {
      [\guiPositionView, ~guiPositionView], [\guiPositionStrip, ~guiPositionStrip],
      [\guiLevelView, ~guiLevelView], [\guiLevelStrip, ~guiLevelStrip],
      [\feedbackSlider, ~feedbackSlider], [\performThresholdBar, ~performThresholdBar],
+     [\statusAutostartTile, ~statusAutostartTile], [\statusStartBar, ~statusStartBar],
      [\granularSlider, ~granularSlider], [\keyHintText, ~keyHintText], [\guiFooterStatus, ~guiFooterStatus],
      [\nextLoopButton, ~nextLoopButton], [\bbcutButton, ~bbcutButton],
      [\bbcutPaneButton, ~bbcutPaneButton], [\bbcutVoiceMenu, ~bbcutVoiceMenu],
@@ -238,6 +239,51 @@ s.waitForBoot {
     ~ok.("heel leaves the dry loop at full",  ~looper.prLoopMix == 1);
     ~looper.intensity = 1; 0.2.wait;
     // Same honesty contract as the cutter and the break.
+
+    "== Autostart ==".postln;
+    // Nothing kept in the scratch folder: off, nothing waits. Switched on, it
+    // waits on this server for a note, so the level goes to the top of the
+    // meter first: whatever the default input hears must not start a take
+    // while the check looks.
+    ~ok.("Autostart starts off, and nothing waits",
+        (~looper.autostart == false) and: { ~looper.autostartWaiting.not });
+    ~ok.("...its switch, beside the onset lamp, dark", ~statusAutostartTile.value == 0,
+        ~statusAutostartTile.value.asString);
+    ~ok.("...no mark on the input meter, and the start level's bar under it dimmed",
+        ~statusStartMark.(~looper).isNil and: { ~statusStartBar.dim < 1 }, ~statusStartBar.dim.asString);
+    ~ok.("...that bar as wide as the meter, so it ends where the line will be",
+        (~statusStartBar.bounds.width == ~guiLevelView.bounds.width)
+            and: { ~statusStartBar.absoluteBounds.left == ~guiLevelView.absoluteBounds.left },
+        [~statusStartBar.absoluteBounds, ~guiLevelView.absoluteBounds].asString);
+    ~looper.startLevelDb = 0;
+    ~controlDo.('looper.autostart', \press, nil, \gui); 0.3.wait;
+    ~ok.("pressed: on, and it waits for a note", ~looper.autostart and: { ~looper.autostartWaiting });
+    ~ok.("...its switch lit, with the level in it, the level's bar not dimmed",
+        (~statusAutostartTile.value == 1) and: { ~statusAutostartTile.states[1][0] == "● Autostart 0" }
+            and: { ~statusStartBar.dim == 1 },
+        [~statusAutostartTile.value, ~statusAutostartTile.states[1][0], ~statusStartBar.dim].asString);
+    ~ok.("...the state block says it waits", ~statusShown[\label] == "○ WAITING", ~statusShown[\label]);
+    ~ok.("...and so does the Trigger tile", ~performActions[\trigger].sub == "waiting for a note",
+        ~performActions[\trigger].sub);
+    ~ok.("...the input meter marks the level at its end", ~statusStartMark.(~looper) == 1,
+        ~statusStartMark.(~looper).asString);
+    ~looper.startLevelDb = -6; 0.3.wait;
+    ~ok.("the model moves the mark, the bar and the switch's number",
+        ((~statusStartMark.(~looper) - (54 / 60)).abs < 1e-6) and: { (~statusStartBar.value - (54 / 60)).abs < 1e-6 }
+            and: { ~statusAutostartTile.states[1][0] == "● Autostart -6" },
+        [~statusStartMark.(~looper), ~statusStartBar.value, ~statusAutostartTile.states[1][0]].asString);
+    ~statusStartBar.valueAction_(0.95); 0.3.wait;
+    ~ok.("the bar moves the level, and the switch's number follows",
+        (~looper.startLevelDb == -3) and: { ~statusAutostartTile.states[1][0] == "● Autostart -3" },
+        [~looper.startLevelDb, ~statusAutostartTile.states[1][0]].asString);
+    ~statusStartBar.valueAction_(1); 0.3.wait;
+    ~ok.("...its end is 0 dB", ~looper.startLevelDb == 0, ~looper.startLevelDb.asString);
+    ~controlDo.('looper.autostart', \press, nil, \gui); 0.3.wait;
+    ~ok.("pressed again: off, nothing waits, the state block EMPTY",
+        ~looper.autostart.not and: { ~looper.autostartWaiting.not } and: { ~statusShown[\label] == "EMPTY" }
+            and: { ~statusAutostartTile.value == 0 },
+        [~looper.autostart, ~looper.autostartWaiting, ~statusShown[\label], ~statusAutostartTile.value].asString);
+    ~looper.startLevelDb = -40;
     ~looper.startDissolve; 0.3.wait;
     ~ok.("a REFUSED dissolve leaves its tile unlit", ~dissolveButton.sub.contains("%").not,
         ~dissolveButton.sub);

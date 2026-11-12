@@ -52,7 +52,8 @@
     {
       "n": 5, "slug": "looping", "title": "Looping", "group": "PLAYING", "layer": "loop", "rig": "every",
       "sources": [
-        { "file": "docs/manual.md", "heading": "### Keyboard (the megalooper window must be focused)", "title": "Keyboard" }
+        { "file": "docs/manual.md", "heading": "### Keyboard (the megalooper window must be focused)", "title": "Keyboard" },
+        { "file": "docs/manual.md", "heading": "### Autostart: recording without a footswitch", "title": "Autostart" }
       ]
     },
     {

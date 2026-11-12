@@ -195,6 +195,9 @@ s.waitForBoot {
         // The fallback meter on or off, as settings.json (read just above) says:
         // off unless switched on (setup-model.scd).
         ~fallbackApply.();
+        // Autostart and its start level, as kept (setup-model.scd): off
+        // unless switched on.
+        ~autostartApply.();
     });
     ~bootStep.("the window", {
         // Builds the window, its status band and every pane, in the theme kept in

@@ -172,6 +172,73 @@ LooperSynthDefs {
         }
     }
 
+    // The recorder for Autostart (Looper.autostart), for a player with no
+    // footswitch: made while there is no loop, it waits, and the take starts
+    // on the first note, as the recorder's would on a press there. The start
+    // is the analysis input's level (what the window's input meter shows)
+    // rising through `startLevel` once it has stayed under it for `quiet`
+    // seconds: a guitar still ringing when it is made (after a Clear) starts
+    // nothing until it has died away and a note comes. Decided in the server,
+    // on the sample: waiting in the language for the monitor's onset would
+    // start the take 20 to 60 ms after the attack.
+    //
+    // Frame 0 is `lead` seconds before that sample (the input through a
+    // delay of `lead`), the rest as the recorder writes it. The loop's
+    // frame 0 is its downbeat (MeterDecision.loopPositionAt: the drums' bar
+    // 1, the cutter's beat 0), so the lead is only what keeps the attack
+    // whole: the loop's seam fades in over its first declickMs, and the level
+    // crosses a moment into the attack. A lead of tens of ms would put the
+    // drums' bar line ahead of the note by as much.
+    //
+    // Before the start nothing is written (frame 0 gets silence) and nothing
+    // is reported; from it, onsets, pitches and levels as the recorder
+    // reports them, their times from frame 0 (the take's), and one
+    // /looperAutostart, which hands the take to the Looper. Measured in NRT
+    // (scripts/sa/nrt-autostart.scd).
+    *recAutoGraph { |mono|
+        ^{ |bufnum, in=0, ana=0, onsetThreshold=0.5, tapGainBus = -1,
+            startLevel = 0.01, quiet = 0.2, lead = 0.005|
+            var sig = LooperSynthDefs.input(mono, in);
+            var anaRaw = SoundIn.ar(ana);
+            var above = Amplitude.ar(anaRaw, 0.001, 0.05) > startLevel;
+            // A new level asks for the quiet again: lowered under a note still
+            // ringing, it starts nothing. On the block's first sample; the
+            // comparison above may take the new level later in the block.
+            var moved = T2A.ar(Changed.kr(startLevel));
+            // Seconds under the level since it last rose through it or was
+            // moved: reset there, held while above.
+            var under = Sweep.ar(above + moved, 1 - above);
+            var settled = RunningMax.ar(under >= quiet, moved);
+            var go = RunningMax.ar(above * settled);
+            var goK = A2K.kr(go);
+            var started = goK > Delay1.kr(goK);
+            var gain = LooperSynthDefs.tapGain(tapGainBus);
+            var anaSig = anaRaw * gain;
+            var trig = LooperSynthDefs.onsetTrig(anaSig, onsetThreshold) * goK;
+            // Seconds from frame 0: from the start's sample, plus the lead.
+            var time = A2K.kr(Sweep.ar(go, 1)) + lead;
+            var tartini = Tartini.kr(anaRaw);
+            var pitchTrig = Impulse.kr(25) * tartini[1] * goK;
+            var amp = Amplitude.kr(anaRaw);
+            var onsetStrength = LooperSynthDefs.onsetStrength(anaSig);
+            var tapPeak = RunningMax.kr(Amplitude.kr(anaRaw, 0.001, 0.2) * goK, started);
+            var inPeak  = RunningMax.kr(Amplitude.kr(Mix(sig) * 0.5, 0.001, 0.2) * goK, started);
+            // The write head: 0 until the start, then a frame a sample. A
+            // Phasor counts whole frames exactly (a Sweep at the sample rate
+            // need not); its end is far past any buffer. Its reset lands a
+            // step past resetPos (it interpolates where the trigger crossed,
+            // and a step from 0 crosses at the end of the step), so -1 writes
+            // the first sample to frame 0.
+            var frame = Phasor.ar(go, 1, 0, 16777216, -1) * go;
+            SendReply.kr(started, '/looperAutostart', [lead]);
+            SendReply.kr(LooperSynthDefs.onsetReport(trig), '/looperOnset',
+                [Latch.kr(time, trig), A2K.kr(onsetStrength)]);
+            SendReply.kr(pitchTrig, '/looperPitch', [time, tartini[0], amp]);
+            SendReply.kr(Impulse.kr(4) * goK, '/looperLevels', [tapPeak, inPeak, gain]);
+            BufWr.ar(DelayN.ar(sig, 0.05, lead) * go, bufnum, frame, loop: 0);
+        }
+    }
+
     // Plain recorder for loop chaining: the guitar (in) summed with the
     // processed loop-return from Live (ret, its own stereo pair), no analysis.
     // The new loop inherits tempo/signature from the current one. ret lives on
@@ -394,6 +461,8 @@ LooperSynthDefs {
     *loadSynthDefs {
         SynthDef(\looperRec,     LooperSynthDefs.recGraph(false)).add;
         SynthDef(\looperRecMono, LooperSynthDefs.recGraph(true)).add;
+        SynthDef(\looperRecAuto,     LooperSynthDefs.recAutoGraph(false)).add;
+        SynthDef(\looperRecAutoMono, LooperSynthDefs.recAutoGraph(true)).add;
 
         // Free-running analysis monitor for the onset-tuning lamp. It shares
         // the recorder's detection chain by construction rather than by hand,

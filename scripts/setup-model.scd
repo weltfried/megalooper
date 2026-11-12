@@ -219,6 +219,55 @@
     ~prefSave !? { |f| f.value(~fallbackPrefKey, if(on == true) { "on" } { "off" }, "the fallback meter's switch") };
 };
 
+// ---- Autostart ------------------------------------------------------------------
+// With no loop, a take starts on the first note (Looper.autostart): for
+// playing without a footswitch. Its switch and start level are on Perform
+// (gui-perform.scd) and are MIDI controls (looper.autostart, looper.startLevel),
+// kept in settings.json beside the theme: "autostart" "on" or "off" (the
+// default), "startLevelDb" the level in whole dB, as a string ("-40" by
+// default: the Looper's own).
+//   ~autostartApply.()     both as settings.json says (boot.scd, once the
+//                          settings are read)
+//   ~autostartSet.(true)   on, kept; false off
+//   ~startLevelSet.(-36)   the level, kept once it has rested half a second
+//                          (a knob turned sends dozens a second)
+~autostartPrefKey = "autostart";
+~startLevelPrefKey = "startLevelDb";
+// The kept level, a Number, or nil when none is kept or it is not a number.
+~startLevelSaved = {
+    var s = (~prefSaved !? { |f| f.value(~startLevelPrefKey) }) !? { |v| v.asString.stripWhiteSpace };
+    if(s.notNil and: { s.notEmpty } and: { s.every { |c, i| c.isDecDigit or: { c == $. } or: { (c == $-) and: { i == 0 } } } }
+        and: { s.any(_.isDecDigit) }) { s.asFloat }
+};
+~autostartApply = {
+    ~looper !? { |l|
+        ~startLevelSaved.() !? { |db| l.startLevelDb = db };
+        l.autostart = (~prefSaved !? { |f| f.value(~autostartPrefKey) }) == "on";
+    };
+};
+~autostartSet = { |on|
+    ~looper !? { |l| l.autostart = on == true };
+    ~prefSave !? { |f| f.value(~autostartPrefKey, if(on == true) { "on" } { "off" }, "the Autostart switch") };
+};
+~startLevelSet = { |db|
+    ~looper !? { |l|
+        l.startLevelDb = db;
+        ~startLevelSaveAt = SystemClock.seconds + 0.5;
+        if(~startLevelSaving != true) {
+            ~startLevelSaving = true;
+            AppClock.sched(0.5, {
+                var left = (~startLevelSaveAt ? 0) - SystemClock.seconds;
+                if(left > 0) { left } { ~startLevelSaving = false; ~startLevelKeep.(); nil }
+            });
+        };
+    };
+};
+// The level as the Looper has it, kept now.
+~startLevelKeep = {
+    ~looper !? { |l| ~prefSave !? { |f| f.value(~startLevelPrefKey,
+        l.startLevelDb.round.asInteger.asString, "the start level") } };
+};
+
 ~wireLooperCallbacks = {
     // The break, out to Live as a CC. Both edges are sent, absolutely: 0 when
     // the hole opens, 127 when the loop returns on the downbeat. Live's rack

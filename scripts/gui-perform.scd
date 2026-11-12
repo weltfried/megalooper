@@ -833,11 +833,14 @@
         st = l.state;
         brk = l.onBreak;
         ~performPaintAction.(\trigger,
-            switch(st, \empty, "start recording", \recording, "close loop", \playing, "start overdub",
+            switch(st, \empty, if(l.autostartWaiting) { "waiting for a note" } { "start recording" },
+                \recording, "close loop", \playing, "start overdub",
                 \overdubbing, "back to play", \stopped, "play", ""),
             case
             { st == \recording } { (fill: ~gt[\rec], ink: Color.white, border: ~gt[\rec]) }
             { st == \overdubbing } { (fill: ~gt[\dub], ink: ~gt[\onacc], border: ~gt[\dub]) }
+            // Autostart waits: armed, as Rec next loop waiting for its boundary.
+            { l.autostartWaiting } { (fill: ~gt[\panel], ink: ~gt[\ink], border: ~gt[\armed]) }
             { nil });
         ~performPaintAction.(\stop, case
             { l.transportMode != \full } { "stop playback" }
@@ -1032,7 +1035,9 @@
         reverse: loop, reverseArmed: loop, halfTime: loop,
         onsetThreshold: { |looper, what, val|
             ~wireBar.(~performThresholdBar, ~performThresholdLabel,
-                ~onsetThresholdSpec.unmap(val), val.round(0.01).asString) }
+                ~onsetThresholdSpec.unmap(val), val.round(0.01).asString) },
+        // Autostart waiting: the Trigger tile says so.
+        autostart: actions, autostartWaiting: actions
     );
     // The onset notes' switch and Chance.
     [\onsetNotes, \onsetNote, \onsetNoteChannel, \onsetNoteVelLo, \onsetNoteVelHi, \onsetNoteDynRange,

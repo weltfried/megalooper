@@ -52,6 +52,18 @@ Looper {
     // later — and cancelled by a stop in the meantime. See startAnalysisMonitor.
     var monitorSynth, monitorResp, monitorOnsetResp, monitorWanted = false;
     var <>onMonitor;
+    // ---- Autostart -----------------------------------------------------------
+    // For a player with no footswitch (2026-11-12, the duo's idea for the
+    // release): with `autostart` on and no loop, the looper waits, and the
+    // take starts on the first note. autostartSynth is the recorder waiting
+    // (LooperSynthDefs.recAutoGraph): the note is the analysis input's level
+    // rising through startLevelDb, the level the input meter is marked at,
+    // after autostartQuiet seconds under it, and the take begins
+    // autostartLeadMs before it, so the attack is whole and the downbeat on
+    // it. The synth becomes the take's recorder on its /looperAutostart; the
+    // stop stays a press (R, the Trigger tile, a footswitch), and R while it
+    // waits starts a take by hand, as without it.
+    var <autostart = false, <startLevelDb = -40, autostartSynth, autostartResp;
     // The room (roadmap item 12): the monitor's hits kept in the model, not
     // only lit by the lamp. A ring of the last liveOnsetMax, their times
     // (SystemClock seconds, as heard) and strengths in two Arrays made once
@@ -338,6 +350,7 @@ Looper {
             ]);
             ready = true;
             "Looper ready.".postln;
+            this.prAutostartFollow;
         }.play;
 
         overdubOnsets = List.new;
@@ -358,6 +371,9 @@ Looper {
         levelsResp = OSCdef(\looperLevels, { |msg|
             if(state == \recording) { takeLevels = [msg[3], msg[4], msg[5]] };
         }, '/looperLevels');
+
+        // The recorder waiting for the first note heard it: [cmd, node, id, lead].
+        autostartResp = OSCdef(\looperAutostart, { |msg| this.prAutostartStarted(msg[1]) }, '/looperAutostart');
 
         // Said only when the gain moves by half a dB, so a window showing it
         // repaints twice a second at most and mostly not at all.
@@ -383,6 +399,8 @@ Looper {
     prSetState { |newState|
         state = newState;
         this.changed(\state, newState);
+        // No loop: Autostart waits; a loop: it does not.
+        this.prAutostartFollow;
     }
 
     // The analysis in force, and \result said with it (the result, or nil):
@@ -420,6 +438,9 @@ Looper {
             tapGain: [\state, [\gain], "the automatic level in front of the onset detector, linear"],
             onsetThreshold: [\state, [\threshold], "the onset detector's threshold"],
             analysisMonitor: [\state, [\on], "the analysis monitor runs"],
+            autostart: [\state, [\on], "with no loop, a take starts on the first note (Autostart)"],
+            autostartWaiting: [\state, [\waiting], "no loop, and Autostart waits for the first note"],
+            startLevelDb: [\state, [\db], "the level a first note rises through to start a take, dBFS"],
             liveOnset: [\event, [\time, \strength], "the monitor heard an onset (SystemClock seconds, 0..1)"],
             analyzeOverdubs: [\state, [\on], "overdubs are read for a meter while the loop has none"],
             trainingExport: [\event, [\base], "a labelled loop written: the path its files share"],
@@ -491,6 +512,7 @@ Looper {
         dissolveRoutine = nil; this.timeline.forget; this.transport.forget;
         cutterPart !? { |c| c.forget };
         this.changed(\granular, false);
+        if(autostartSynth.notNil) { autostartSynth = nil; this.changed(\autostartWaiting, false) };
         if((state != \empty) and: { state != \stopped }) { this.prSetState(\stopped) };
         "Looper: Cmd-period freed its synths and stopped its clocks, so the loop is silent; run boot.scd again (or Apply and restart) to rebuild it. The recorded loop is kept until then.".warn;
     }
@@ -512,21 +534,10 @@ Looper {
 
     startRecord {
         var defName = if(inChannelCount == 1) { \looperRecMono } { \looperRec };
-        this.prCancelBBCutEnable;
-        if(this.bbcut) { this.disableBBCut };
-        // A reading armed for the loop being replaced has nothing to land on.
-        this.prCancelReading;
-        this.snapshotForUndo;
+        // A press while Autostart waits: a take by hand, as without it.
+        if(autostartSynth.notNil) { this.prAutostartDisarm };
+        this.prTakeBegins(true);
         buffer.zero;
-        onsets.clear;
-        pitchSamples.clear;
-        takeLevels = nil;
-        this.prSetTapStarved(nil);
-        // The replay pattern belongs to the take it was analysed from. Dropping
-        // it here means the engine spawned below finds nothing to play until the
-        // deferred analysis builds the new one, rather than replaying the
-        // previous loop's rhythm over this one.
-        this.prClearOnsetPattern;
         recStartTime = SystemClock.seconds;
         this.prTapLevelFollow;
         recSynth = Synth(defName, [
@@ -536,10 +547,116 @@ Looper {
             \onsetThreshold, onsetThreshold,
             \tapGainBus, this.prTapGainIndex
         ], server);
+        this.prTakeStarted(());
+    }
+
+    // What a take's start does in the language, whether a press started it
+    // (startRecord) or Autostart's first note (prAutostartStarted). `audio`:
+    // the undo snapshot copies the buffer; Autostart's has nothing to copy
+    // (there was no loop) while its take is being written into it.
+    prTakeBegins { |audio|
+        this.prCancelBBCutEnable;
+        if(this.bbcut) { this.disableBBCut };
+        // A reading armed for the loop being replaced has nothing to land on.
+        this.prCancelReading;
+        this.snapshotForUndo(audio);
+        onsets.clear;
+        pitchSamples.clear;
+        takeLevels = nil;
+        this.prSetTapStarved(nil);
+        // The replay pattern belongs to the take it was analysed from. Dropping
+        // it here means the engine spawned at the stop finds nothing to play
+        // until the deferred analysis builds the new one, rather than
+        // replaying the previous loop's rhythm over this one.
+        this.prClearOnsetPattern;
+    }
+
+    prTakeStarted { |more|
         this.prLogEvent(\recordStart,
-            (threshold: onsetThreshold, ana: this.analysisIn, in: inChannel), recStartTime);
+            (threshold: onsetThreshold, ana: this.analysisIn, in: inChannel).putAll(more), recStartTime);
         this.prSetState(\recording);
         "Recording...".postln;
+    }
+
+    // ===================================================================
+    // Autostart — a take that starts on the first note
+    // ===================================================================
+    // See the variables' note. The level's range, dBFS: the input meter's.
+    *startLevelMinDb { ^-60 }
+    *startLevelMaxDb { ^0 }
+    // Seconds the input must stay under the level before a note can start a
+    // take: so a guitar still ringing after a Clear starts nothing, and a
+    // note can (the gap before a first note is longer).
+    *autostartQuiet { ^0.2 }
+    // How far before the level's crossing the take begins, ms: past the
+    // seam's fade-in (declickMs) and a moment for the attack under the level.
+    autostartLeadMs { ^declickMs + 2 }
+
+    autostart_ { |on|
+        on = on == true;
+        if(on != autostart) {
+            autostart = on;
+            this.changed(\autostart, on);
+        };
+        this.prAutostartFollow;
+    }
+
+    startLevelDb_ { |db|
+        var old = startLevelDb;
+        startLevelDb = db.clip(this.class.startLevelMinDb, this.class.startLevelMaxDb);
+        autostartSynth !? { |s| s.set(\startLevel, startLevelDb.dbamp) };
+        if(startLevelDb != old) { this.changed(\startLevelDb, startLevelDb) };
+    }
+
+    // Whether Autostart is waiting for the first note now.
+    autostartWaiting { ^autostartSynth.notNil }
+
+    // It waits while it is on, the looper is ready and has no loop; called
+    // wherever one of those changes (prSetState, autostart_, the end of init).
+    prAutostartFollow {
+        var want = autostart and: { ready } and: { state == \empty } and: { buffer.notNil };
+        case
+        { want and: { autostartSynth.isNil } } { this.prAutostartArm }
+        { want.not and: { autostartSynth.notNil } } { this.prAutostartDisarm };
+    }
+
+    // A loop's audio may still be on its way out of the buffer (a Clear's
+    // zero, an undo's copy: asynchronous); zeroed again here, which is done
+    // long before a note can start a take (autostartQuiet).
+    prAutostartArm {
+        var defName = if(inChannelCount == 1) { \looperRecAutoMono } { \looperRecAuto };
+        this.prTapLevelFollow;
+        buffer.zero;
+        autostartSynth = Synth(defName, [
+            \bufnum, buffer.bufnum,
+            \in, inChannel,
+            \ana, this.analysisIn,
+            \onsetThreshold, onsetThreshold,
+            \tapGainBus, this.prTapGainIndex,
+            \startLevel, startLevelDb.dbamp,
+            \quiet, this.class.autostartQuiet,
+            \lead, this.autostartLeadMs / 1000
+        ], server);
+        this.changed(\autostartWaiting, true);
+    }
+
+    prAutostartDisarm {
+        autostartSynth.free;
+        autostartSynth = nil;
+        this.changed(\autostartWaiting, false);
+    }
+
+    // The waiting recorder heard the first note and records: the take is
+    // under way, as a press would have started it. A reply from a recorder
+    // no longer waiting (disarmed as the note came) is ignored; it was freed.
+    prAutostartStarted { |nodeID|
+        if(autostartSynth.isNil or: { autostartSynth.nodeID != nodeID } or: { state != \empty }) { ^this };
+        recSynth = autostartSynth;
+        autostartSynth = nil;
+        this.prTakeBegins(false);
+        recStartTime = SystemClock.seconds;
+        this.changed(\autostartWaiting, false);
+        this.prTakeStarted((autostart: true, startLevelDb: startLevelDb, leadMs: this.autostartLeadMs));
     }
 
     // ===================================================================
@@ -873,6 +990,8 @@ Looper {
     declickMs_ { |val|
         declickMs = val.max(0);
         engineSynth !? { |s| s.set(\declickFrames, this.declickFrames) };
+        // Autostart's lead clears the fade (autostartLeadMs).
+        autostartSynth !? { |s| s.set(\lead, this.autostartLeadMs / 1000) };
         this.changed(\declickMs, declickMs);
     }
 
@@ -912,6 +1031,7 @@ Looper {
         analysisChannel = val;
         recSynth !? { |s| s.set(\ana, this.analysisIn) };
         monitorSynth !? { |s| s.set(\ana, this.analysisIn) };
+        autostartSynth !? { |s| s.set(\ana, this.analysisIn) };
         this.prTapLevelFollow;
         this.changed(\analysisChannel, analysisChannel);
     }
@@ -953,6 +1073,7 @@ Looper {
         };
         recSynth     !? { |s| s.set(\onsetThreshold, onsetThreshold) };
         monitorSynth !? { |s| s.set(\onsetThreshold, onsetThreshold) };
+        autostartSynth !? { |s| s.set(\onsetThreshold, onsetThreshold) };
         this.changed(\onsetThreshold, onsetThreshold);
     }
 
@@ -2772,8 +2893,11 @@ Looper {
         "Undo.".postln;
     }
 
-    snapshotForUndo {
-        buffer.copyData(undoBuffer);
+    // `audio` false: a snapshot of no loop while a take is being written into
+    // the buffer (Autostart's start), so the undo buffer is zeroed, which is
+    // what a copy of no loop holds, rather than copied mid-take.
+    snapshotForUndo { |audio = true|
+        if(audio) { buffer.copyData(undoBuffer) } { undoBuffer.zero };
         undoState = (
             startFrame: startFrame,
             loopFrames: loopFrames,
@@ -2959,6 +3083,8 @@ Looper {
         this.teardownBBCut;
         chainPart !? { |c| c.free };
         recSynth !? { |s| s.free };
+        autostartSynth !? { |s| s.free };
+        autostartSynth = nil;
         engineSynth !? { |s| s.free };
         grainsPart !? { |g| g.free };
         masterSynth !? { |s| s.free };
@@ -2982,6 +3108,7 @@ Looper {
         onsetResp !? { |r| r.free };
         pitchResp !? { |r| r.free };
         levelsResp !? { |r| r.free };
+        autostartResp !? { |r| r.free };
         tapLevelResp !? { |r| r.free };
         this.stopAnalysisMonitor;
         this.stopOverdubAnalysis;

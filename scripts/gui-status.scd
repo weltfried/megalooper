@@ -15,7 +15,8 @@
 //
 // The status is READ-ONLY on purpose (but for Revert, which is part of what
 // the reading chip says, and the overdub meter's switch and Detect now beside
-// it, which make a reading of their own). It shows what the model REPORTS, never what the
+// it, which make a reading of their own; and Autostart's switch and start
+// level, which are about this input). It shows what the model REPORTS, never what the
 // keypress asked for: every piece is driven from a `this.changed(...)`
 // notification in Looper or from the shell's position poll, so a refused
 // action leaves the display telling the truth.
@@ -38,6 +39,9 @@
         { st == \playing } { (label: "▶ PLAYING", fill: ~gt[\play], ink: ~gt[\onacc]) }
         { st == \overdubbing } { (label: "● OVERDUB", fill: ~gt[\dub], ink: ~gt[\onacc]) }
         { st == \stopped } { (label: "■ STOPPED", fill: ~gt[\panel2], ink: ~gt[\ink]) }
+        // Autostart waits for the first note (Looper.autostart): armed, as
+        // half-time waiting for its boundary is.
+        { l.notNil and: { l.autostartWaiting } } { (label: "○ WAITING", fill: ~gt[\armed], ink: ~gt[\onacc]) }
         { (label: "EMPTY", fill: ~gt[\panel2], ink: ~gt[\ink]) };
     look[\state] = st;
     look[\next] = ~statusNextLine.(l, st, brk);
@@ -61,6 +65,8 @@
     { st == \playing } { "R → overdub · S stop" }
     { st == \overdubbing } { "R → play · fdbk " ++ l.feedback.round(0.01) }
     { st == \stopped } { "R → play · " ++ l.loopDuration.round(0.01) ++ " s in buffer" }
+    // The level is in Autostart's switch, beside the meter it is marked on.
+    { l.autostartWaiting } { "play → record · R by hand" }
     { "R → record a phrase" }
 };
 
@@ -688,9 +694,13 @@
 // ---- The input: a level and the onset lamp ---------------------------------------------------
 // The meter: the level in dB over -60..0 (a guitar's linear amplitude spends
 // almost all its time in the bottom tenth of a bar), the clip mark at 92 %.
+// With Autostart on, the start level is marked on it too, on both meters: a
+// first note must rise through it (Looper.autostart), so a hum or the room
+// should stay left of it and the softest first note go past it.
 ~statusDrawMeter = { |v, mark|
     var b = v.bounds, w = b.width, h = b.height;
     var norm = (((~analysisLevel ? 0).ampdb + 60) / 60).clip(0, 1);
+    var start = ~statusStartMark.(~looper);
     Pen.fillColor = ~gt[\panel2];
     Pen.addRect(Rect(0, 0, w, h));
     Pen.fill;
@@ -701,6 +711,32 @@
         Pen.fillColor = ~gt[\rec];
         Pen.addRect(Rect((w * 0.92).round, 0, 2, h));
         Pen.fill;
+    };
+    start !? { |x|
+        Pen.fillColor = ~gt[\ink];
+        Pen.addRect(Rect(((w * x).round - 1).clip(0, w - 2), 0, 2, h));
+        Pen.fill;
+    };
+};
+// Where the start level sits on the meter, 0..1, or nil with Autostart off.
+~statusStartMark = { |l|
+    if(l.notNil and: { l.autostart }) { ((l.startLevelDb + 60) / 60).clip(0, 1) }
+};
+// Autostart's switch, beside the onset lamp: lit while on, with the start
+// level in it; and the start level's bar under the meter, dimmed while off.
+~statusPaintAutostart = {
+    var l = ~looper, on;
+    ~statusAutostartTile !? { |t|
+        if(t.isClosed.not and: { l.notNil }) {
+            on = l.autostart;
+            t.states_([["○ Autostart", ~gt[\ink], nil],
+                ["● Autostart " ++ l.startLevelDb.round.asInteger, ~gt[\onacc], ~gt[\ink]]]);
+            t.value_(if(on) { 1 } { 0 });
+            ~statusStartBar !? { |b| if(b.isClosed.not) {
+                b.dim_(if(on) { 1 } { 0.3 });
+                ~wireBar.(b, nil, ~startLevelSpec.unmap(l.startLevelDb), nil);
+            } };
+        };
     };
 };
 
@@ -794,7 +830,34 @@
             "The footer says so when it finds none.");
     ~statusPaintDubMeter.();
     ~guiLevelView = UserView().canFocus_(false).fixedHeight_(18)
+        .toolTip_("The input's level, -60 to 0 dB. With Autostart on, the line across it is the start\n"
+            "level, which the bar under the meter sets.")
         .drawFunc_({ |v| ~statusDrawMeter.(v, true) });
+    // The start level (Looper.startLevelDb), on the meter's own scale and as
+    // wide, so the bar ends where the line on the meter is. Written to the
+    // model and painted back (~statusPaintAutostart).
+    ~statusStartBar = ~mapTag.(~guiBar.(\ink, 8)
+        .value_(~startLevelSpec.unmap((~looper !? { |l| l.startLevelDb }) ? -40))
+        .action_({ |b| ~controlDo.('looper.startLevel', \position, b.value, \gui) }),
+        'looper.startLevel',
+        "Autostart's start level, on the meter's scale: with no loop, a note rising past it\n"
+            "starts the take. Drag it over the hum and the room, under your softest first note;\n"
+            "the line on the meter follows.");
+    // Autostart (Looper.autostart, 2026-11-12): for playing without a
+    // footswitch, the take starts on the first note. Here, beside the lamp,
+    // because what starts it is this input; written to the model and painted
+    // back (~statusPaintAutostart).
+    ~statusAutostartTile = ~mapTag.(LooperTile().cycles_(false)
+        .states_([["○ Autostart", ~gt[\ink], nil], ["● Autostart", ~gt[\onacc], ~gt[\ink]]])
+        .border_(~gt[\line]).font_(~guiSans.(13)).fixedSize_(Size(128, 28)).pad_(6)
+        .action_({ ~controlDo.('looper.autostart', \press, nil, \gui) }),
+        'looper.autostart',
+        "With no loop, the take starts on the first note you play: for playing without a\n"
+            "footswitch. A note starts it when the input rises past the start level (the line\n"
+            "on the meter, and the number here) after a moment's quiet, so a guitar still\n"
+            "ringing after Clear starts nothing. Stop the take with R, the Trigger tile or a\n"
+            "footswitch; R while it waits records by hand.");
+    ~statusPaintAutostart.();
     ~guiLevelDb = ~guiMonoText.("—", 12, ~gt[\mute]).align_(\center);
     ~guiOnsetLampView = UserView().canFocus_(false).fixedSize_(Size(30, 30))
         .toolTip_("Flashes on every onset the detector hears. The tap's level is followed\n"
@@ -845,12 +908,13 @@
         ~guiStatusInput = View().fixedWidth_(300).layout_(VLayout(
             caption.("INPUT"),
             nil,
-            ~guiLevelView,
+            // The meter, the start level's bar on its scale, the scale.
+            VLayout(~guiLevelView, ~statusStartBar).spacing_(4).margins_(0),
             HLayout(~guiMonoText.("-60", 12, ~gt[\mute]), nil, ~guiLevelDb, nil,
                 ~guiMonoText.("0", 12, ~gt[\mute])).margins_(0),
             nil,
             HLayout(~guiOnsetLampView, VLayout(~guiText.("Onset", 15, nil, true), ~guiOnsetThrLabel)
-                .spacing_(0).margins_(0), nil).spacing_(14).margins_(0)
+                .spacing_(0).margins_(0), nil, ~statusAutostartTile).spacing_(14).margins_(0)
         ).margins_([24, 22, 24, 18]).spacing_(8))
     ).margins_(0).spacing_(0));
     // The count under the state block, the grid beside it.
@@ -922,6 +986,7 @@
     ~statusPaintTake.();
     ~statusPaintThreshold.();
     ~statusPaintDubMeter.();
+    ~statusPaintAutostart.();
     ~statusRepaintGrids.();
     ~performRefreshAll !? { |f| f.value };
     ~bbcutPaintHeader !? { |f| f.value };
@@ -1054,6 +1119,11 @@
         // says it until the next take (the footer says it too: the shell's).
         tapStarved: { ~statusPaintTake !? { |f| f.() } },
         onsetThreshold: { ~statusPaintThreshold !? { |f| f.() } },
+        // Autostart: the state block says it waits, the meters mark the level.
+        autostartWaiting: { ~statusPaintState !? { |f| f.() } },
+        autostart: { ~statusPaintState !? { |f| f.() }; ~statusRepaintMeters !? { |f| f.() };
+            ~statusPaintAutostart !? { |f| f.() } },
+        startLevelDb: { ~statusRepaintMeters !? { |f| f.() }; ~statusPaintAutostart !? { |f| f.() } },
         // The automatic level moved by half a dB or more (twice a second at most).
         tapGain: { ~statusPaintThreshold !? { |f| f.() } },
         analyzeOverdubs: { ~statusPaintDubMeter !? { |f| f.() } },

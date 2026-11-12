@@ -191,6 +191,45 @@ loop boundary. Press again to stop at the end of that pass; it keeps a whole
 number of repetitions. Pressed before it starts, it cancels. It needs a loop
 playing, not overdubbing.
 
+### Autostart: recording without a footswitch
+
+With no footswitch, starting a take on the downbeat means a hand off the
+instrument at the one moment it is needed. **Autostart** starts the take on
+the first note you play instead. Its switch is in the status band's INPUT
+block, beside the onset lamp. It's off unless you switch it on, and
+megalooper keeps the choice and the level for the next start.
+
+- With Autostart on and **no loop**, the looper waits: the state block says
+  `○ WAITING`, and the Trigger tile says `waiting for a note`. Play, and the
+  take is recording.
+- **The note** is the instrument's input rising past the **start level**.
+  While Autostart is on, the start level is a line across the input meter,
+  and its number is in the switch. The slim bar under the meter sets it, on
+  the meter's own scale, so the bar ends where the line is: drag it over your
+  hum and the room, under your softest first note. It is -40 dB to begin with,
+  and runs from -60 to 0.
+- **Quiet first.** A note starts the take only after the input has stayed under
+  the start level for 0.2 s. So a guitar still ringing when you press Clear
+  starts nothing; let it die away (or damp it), then play. Moving the start
+  level asks for the quiet again.
+- **The downbeat is your first note.** The take begins 5 ms before the note
+  crosses the level (2 ms more than the seam's fade, *Declick at the loop seam*),
+  so the attack is whole and bar 1 beat 1 is where you played it. A pickup
+  before the downbeat therefore becomes the loop's start, as pressing record on
+  it would.
+- **The stop is still yours**: `R`, the Trigger tile or a footswitch. The
+  length doesn't have to be exact: the take is snapped to whole bars when the
+  stop lands within about 0.1 s of a bar line ([Snapping to whole
+  bars](#snapping-to-whole-bars)).
+- `R` while it waits records by hand, as without Autostart. Clear (and an Undo
+  of the first take) leaves no loop, so it waits again. Overdub, Multiply and
+  Rec next loop keep their presses: the loop is already playing.
+- It listens to the input the onset analysis hears (*Listen for onsets on*,
+  Setup › Rig) and the input meter shows: the instrument, never Instrument 2.
+
+Both are MIDI controls (**Perform › Arc and threshold**): **Autostart**, a
+switch, and **Start level**, a knob in whole dB.
+
 ### MIDI
 
 Which message does what is a **MIDI map**, and a control can be put on any
@@ -627,6 +666,10 @@ The controls, by view:
   sum under −0.45 dBFS. Their level in the mix is the **Loop** strip under
   Levels, which starts at −3 dB, so a hot take with the drums stays clear of
   the master's clip; the whole mix's last fader is **Master**.
+- **Autostart** and **Start level** *(the status band's INPUT block: the
+  switch beside the onset lamp, the level the bar under the meter)* — with no loop,
+  the take starts on the first note that rises past the start level; off by
+  default. See [Autostart](#autostart-recording-without-a-footswitch).
 - **Levels** *(Perform, under the layers)* — a fader and a Mute per strip:
   Instrument, Instrument 2, Loop, Drums, Onset kit, Synth and Master. They
   start at megalooper's own levels: Instrument, Instrument 2 and Master 0 dB,
@@ -659,9 +702,10 @@ The controls, by view:
 
 The top of Perform (`scripts/gui-status.scd` builds and paints it) answers
 "what is it doing right now" at a glance, and its strip keeps the answer on
-every other view. It is **read-only** but for the take line's three tiles —
-Overdub meter, Detect now and Revert — and painted from model notifications,
-so nothing here can be clicked into a state you didn't intend.
+every other view. It is **read-only** but for the take line's three tiles
+(Overdub meter, Detect now and Revert) and Autostart's switch and start level,
+and it is painted from model notifications, so nothing here can be clicked
+into a state you didn't intend.
 
 ![The status band](images/status-band.png)
 
@@ -721,7 +765,7 @@ so nothing here can be clicked into a state you didn't intend.
   own phase bus 20 times a second and predicted between the reads, so it
   cannot drift against the audio. With no meter detected it falls back to
   elapsed/total alone rather than inventing a beat. **Bar 1 beat 1 is where you pressed
-  record** — the same downbeat the drums' step 1, the cutter's beat 0 and the
+  record** (with Autostart, your first note) — the same downbeat the drums' step 1, the cutter's beat 0 and the
   break's resume use, so the four never disagree, even on a take that opens
   with a pickup. A meter detected from an overdub counts from the downbeat that
   detection chose, which is also where it started the drums.
@@ -737,10 +781,13 @@ so nothing here can be clicked into a state you didn't intend.
   [The next reading](#the-next-reading).
 - **Input** — the level, off the analysis monitor's feed, in dB. The first
   answer to "is the instrument getting through at all", so it is never behind a
-  view.
+  view. Beside the onset lamp, the [Autostart](#autostart-recording-without-a-footswitch)
+  switch; under the meter, the bar that sets its start level, which a line
+  across the meter marks while Autostart is on.
 - **State** — the block: `EMPTY`, `● REC`, `▶ PLAYING`, `● OVERDUB` or
   `■ STOPPED`, filled so recording and overdub are unmistakable across a room,
-  and the Break hatch while a break is open.
+  and the Break hatch while a break is open. `○ WAITING` while Autostart waits
+  for the first note.
 
 **MIDI in** (Setup › MIDI & AI) is a scrolling monitor of incoming note / CC / program
 messages, the same lines the post window shows. **Pause** freezes it while you
@@ -1943,7 +1990,7 @@ you did about it with the next-reading switch. See
 
 ## Testing
 
-`./tools/run-checks.sh` runs all twenty-seven checks, one sclang at a time, in
+`./tools/run-checks.sh` runs all twenty-eight checks, one sclang at a time, in
 about six minutes. `./tools/run-checks.sh quick` runs only the unit tests, the
 static check and the AI bridge's test. Nothing opens an audio device or touches
 MIDI, and megalooper may be running beside it. Checks that need material the
@@ -1997,6 +2044,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-midimap-store.scd` | maps as files: shipped and yours, backups, Keep, settings, the boot's choice, learning through the responders |
 | `test-midi-equivalence.scd` | the router against a copy of the responders it replaced (`legacy-midi-bindings.scd`, never run on its own): the same messages make the same calls, sends and log lines |
 | `test-source-guards.scd` | the collapsed duplication stays collapsed |
+| `test-autostart.scd` | Autostart: when it waits and when it doesn't, what its recorder is made with and told while it waits, the take it hands over, a press or a late reply while it waits, Clear, Cmd-period, free, its settings and its two controls (`scripts/sa/nrt-autostart.scd` renders the recorder itself, to the sample) |
 | `test-arc.scd` | the arc: the pedal's intensity and the dissolve, as the shape of a performance |
 | `test-break.scd` | breaks: how long one lasts, when it is refused, and that the master gate never stays shut |
 | `test-loop-position.scd` | a playhead position folded onto the analysed grid: bar, beat, fraction |

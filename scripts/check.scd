@@ -125,6 +125,8 @@ var expected = [
     \fitOnScreen,
     \latencyMax, \declickMax, \syncMax, \fallbackMeters, \transportModes,
     \onsetThresholdMin, \onsetThresholdMax, \onsetThresholdSpec,
+    \startLevelSpec, \startLevelWords, \autostartApply, \autostartSet, \startLevelSet, \startLevelSaved, \startLevelKeep,
+    \statusPaintAutostart, \statusStartMark,
     \inChannelCounts, \keyHintString,
     \guiOn, \guiOff, \guiArmed, \guiDanger, \guiIdleBtn, \guiHint,
     \guiTeardowns, \guiGen, \analysisGen, \statusGen,

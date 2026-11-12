@@ -34,6 +34,12 @@
 // the slider under it is worse than either.
 ~onsetThresholdSpec = ControlSpec(~onsetThresholdMin, ~onsetThresholdMax, \exp);
 
+// Autostart's start level (Looper.startLevelDb), in dB on the input meter's
+// scale, whole dB: Perform's bar and its MIDI control move along it, and the
+// meter's mark sits where the bar does (gui-status.scd, ~statusStartMark).
+~startLevelSpec = ControlSpec(Looper.startLevelMinDb, Looper.startLevelMaxDb, \lin, 1);
+~startLevelWords = { |db| db.round.asInteger.asString ++ " dB" };
+
 // ---- Drawn by gui-analysis.scd --------------------------------------------------
 // Note names in ABLETON's octave numbering (middle C = C3, so note 60 is C3 and
 // the drum rack's first pad, 36, is C1). SC's own convention is an octave higher;

@@ -40,6 +40,10 @@ var baseline = (
     // LooperSynthDefs.onsetStrength and LooperSynthDefs.tapLevelGraph; measured in NRT before the change.
     'looperRec':             [ 2525, 661081953 ],
     'looperRecMono':         [ 2465, 330919120 ],
+    // New 2026-11-12: Autostart's recorder (LooperSynthDefs.recAutoGraph),
+    // which waits for the first note; scripts/sa/nrt-autostart.scd renders it.
+    'looperRecAuto':         [ 3870, 74018984 ],
+    'looperRecAutoMono':     [ 3810, 218503480 ],
     'looperAnalysisMonitor': [ 1648, 528786739 ],
     'looperOverdubAnalysis': [ 1453, 916394117 ],
     // New 2026-11-05: the tap-level tracker (LooperSynthDefs.tapLevelGraph).
@@ -106,6 +110,7 @@ baseline.keys.asArray.sort.do { |name|
 // two is reading the wrong number of channels.
 [
     [\looperRec,       \looperRecMono],
+    [\looperRecAuto,   \looperRecAutoMono],
     [\looperRecPlain,  \looperRecPlainMono],
     [\looperEngine,    \looperEngineMono]
 ].do { |pair|

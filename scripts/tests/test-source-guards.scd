@@ -64,8 +64,8 @@ bare = flat.(stripComments.(src));
 ~tAssert.("the threshold is still an ARGUMENT, not a constant",
     bare.contains("*onsetTrig { |sig, threshold|"),
     "a hard-coded threshold would make the tuning slider a no-op");
-~tEq.("three call sites share it (rec graph, monitor, overdub analysis)",
-    countOf.(bare, "LooperSynthDefs.onsetTrig("), 3);
+~tEq.("four call sites share it (rec graph, Autostart's, monitor, overdub analysis)",
+    countOf.(bare, "LooperSynthDefs.onsetTrig("), 4);
 
 // ---- 2. one onset-salience measure --------------------------------------
 
@@ -75,10 +75,10 @@ bare = flat.(stripComments.(src));
 // hit, read 30 ms after the trigger (LooperSynthDefs.onsetStrength, onsetReport).
 ~tEq.("the salience measure is defined once",
     countOf.(bare, "RunningSum.rms("), 1);
-~tEq.("two call sites share it (recorder, monitor) plus the overdub analyser",
-    countOf.(bare, "LooperSynthDefs.onsetStrength("), 3);
-~tEq.("...and all three report on the delayed trigger",
-    countOf.(bare, "LooperSynthDefs.onsetReport(trig)"), 3);
+~tEq.("three call sites share it (the recorders, Autostart's, the monitor) plus the overdub analyser",
+    countOf.(bare, "LooperSynthDefs.onsetStrength("), 4);
+~tEq.("...and all four report on the delayed trigger",
+    countOf.(bare, "LooperSynthDefs.onsetReport(trig)"), 4);
 ~tAssert.("the old envelope at the trigger is gone",
     bare.contains("0.001, 0.1)").not,
     "Amplitude.kr(sig, 0.001, 0.1) read the waveform's phase — see LooperSynthDefs.onsetStrength");
@@ -89,21 +89,21 @@ bare = flat.(stripComments.(src));
 // what a take will detect and an overdub detection disagrees with a take.
 ~tEq.("the tap gain is read in one way",
     countOf.(bare, "In.kr(bus.max(0))"), 1);
-~tEq.("...by all three detectors (rec graph, monitor, overdub analysis)",
-    countOf.(bare, "LooperSynthDefs.tapGain(tapGainBus)"), 3);
+~tEq.("...by all four detectors (rec graph, Autostart's, monitor, overdub analysis)",
+    countOf.(bare, "LooperSynthDefs.tapGain(tapGainBus)"), 4);
 ~tEq.("...and every spawn of them passes the bus",
-    countOf.(bare, "\\tapGainBus, this.prTapGainIndex"), 3);
+    countOf.(bare, "\\tapGainBus, this.prTapGainIndex"), 4);
 
 // ---- 3. one way to read the loop input ----------------------------------
 
-// Six defs read the guitar. LooperSynthDefs.input is the only place that decides whether
+// Eight defs read the guitar. LooperSynthDefs.input is the only place that decides whether
 // that is one hardware channel doubled or a stereo pair.
 ~tEq.("the stereo input form appears once",
     countOf.(bare, "SoundIn.ar([ch, ch + 1])"), 1);
 ~tEq.("the mono input form appears once",
     countOf.(bare, "SoundIn.ar(ch).dup"), 1);
-~tEq.("three graph builders share it",
-    countOf.(bare, "LooperSynthDefs.input(mono,"), 3);
+~tEq.("four graph builders share it",
+    countOf.(bare, "LooperSynthDefs.input(mono,"), 4);
 
 // ---- 4. each graph builder is instantiated exactly twice ----------------
 
@@ -111,7 +111,7 @@ bare = flat.(stripComments.(src));
 // near-identical defs, and it is also why the mono/stereo choice can stay a
 // language-side flag: SoundIn's channel count is fixed when the graph is built,
 // so it could never have been an argument inside a single def.
-[\recGraph, \recPlainGraph, \engineGraph].do { |builder|
+[\recGraph, \recAutoGraph, \recPlainGraph, \engineGraph].do { |builder|
     // "|mono" and not "|mono|": the engine's builder takes two more arguments
     // after it (its interpolations, 2026-10-27).
     ~tEq.(builder ++ " is defined once",
@@ -122,9 +122,9 @@ bare = flat.(stripComments.(src));
         countOf.(bare, "LooperSynthDefs." ++ builder ++ "(true)"), 1);
 };
 
-// And the six names still exist, because the rest of the class picks between
+// And the eight names still exist, because the rest of the class picks between
 // them by name at spawn time.
-[\looperRec, \looperRecMono, \looperRecPlain, \looperRecPlainMono,
+[\looperRec, \looperRecMono, \looperRecAuto, \looperRecAutoMono, \looperRecPlain, \looperRecPlainMono,
  \looperEngine, \looperEngineMono].do { |name|
     ~tEq.(name ++ " is still defined", countOf.(bare, "SynthDef(\\" ++ name ++ ","), 1);
 };

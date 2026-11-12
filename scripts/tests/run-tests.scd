@@ -38,6 +38,7 @@ var files = [
     "test-count-lights.scd",
     "test-halftime.scd",
     "test-looper-guards.scd",
+    "test-autostart.scd",
     "test-notifications.scd",
     "test-reverse.scd",
     "test-break.scd",
