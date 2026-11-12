@@ -324,11 +324,17 @@
             "voices are rebuilt on the next beat, the dry loop keeps playing.",
         rescan: "Rescan your presets (bbcut/ in your megalooper folder) for files added or removed outside megalooper.",
         name: "File name for Save. Anything but letters and digits becomes '-', so \"Broken 3/2\"\n"
-            "is saved as broken-3-2.scd.",
-        save: "Write the current voices + mix mode to bbcut/<name>.scd in your megalooper folder. Reads 'Overwrite'\n"
+            "is saved as broken-3-2.json.",
+        save: "Write the current voices + mix mode to bbcut/<name>.json in your megalooper folder. Reads 'Overwrite'\n"
             "when the name matches an existing preset; that one needs a second click to confirm.",
         delete: "Delete the selected preset file. Click once to arm, again to confirm. The running\n"
             "cutter keeps playing whatever it is playing."
+    ), (
+        which: \cutter,
+        said: "Kept: the next start begins with these voices and this mode.",
+        tip: "Keep every voice and the Mix/Insert/Gate mode as they are now: the next start\n"
+            "begins with them instead of megalooper's own. The cutter's switch is not in it:\n"
+            "it starts off, as ever."
     ));
     // The cutter's own master switch. Perform carries a second one; both write
     // the same flag and the model paints both, so they cannot disagree. Two of

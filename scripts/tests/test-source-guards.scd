@@ -370,6 +370,14 @@ var boot = File.readAllString(scripts +/+ "boot.scd") ? "";
     boot.contains("\"parts.scd\").load") and: { boot.contains("~megalooperLoadParts.(~megalooperScripts)") });
 ~tAssert.("…and the guard sees a list where there is one",
     listing.("[\"setup-a.scd\", \"gui-b.scd\",\n    \"gui-c.scd\"]") and: { listing.("\"gui-b.scd\"").not });
+// What the Cutter's and the Grains' Start with this kept is put back by the
+// boot alone (nothing else runs boot.scd): once the Looper is ready, before
+// the window that shows it.
+~tAssert.("boot.scd puts back the kept cutter and grains once the Looper is ready, before the window",
+    { |at, ready, win|
+        at = boot.find("~loadKeptParts.()"); ready = boot.find("~looper.waitForReady"); win = boot.find("~bootStep.(\"the window\"");
+        at.notNil and: { ready.notNil } and: { win.notNil } and: { at > ready } and: { at < win }
+    }.value, "at " ++ boot.find("~loadKeptParts.()"));
 }.value;
 
 

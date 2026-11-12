@@ -371,6 +371,41 @@ s.waitForBoot {
     ~ok.("window survived the rebuilds", ~guiWindow.isClosed.not);
     ~ok.("analysis generation advanced", ~analysisGen > 1, ~analysisGen.asString);
 
+    "== Start with this, on the Cutter and the Grains ==".postln;
+    // Their preset rows end in it (the Cutter's pane rebuilt just above). It
+    // keeps under this run's scratch folder (~midiUserRootOverride), and a
+    // boot's ~loadKeptParts puts it back.
+    ~tmpView = ~guiView;
+    ~tmpWin = ~guiWindow.bounds;
+    ~guiSelectView.(\sound);
+    0.3.wait;
+    [
+        [\bbcut, \cutter, { ~looper.bbcutMode = \gate }, { ~looper.bbcutMode = \insert }, { ~looper.bbcutMode }, \gate],
+        [\granular, \grains, { ~looper.granularSize = 2.5 }, { ~looper.granularSize = 1 }, { ~looper.granularSize }, 2.5]
+    ].do { |c|
+        var fam = ~presetFamilies[c[0]], b = fam[\keepButton], del = fam[\deleteButton], path = ~keptPartPath.(c[1]);
+        ~ok.(c[1] ++ ": its preset row ends in Start with this, whole, after Delete",
+            b.notNil and: { b.isClosed.not } and: { b.states[0][0] == "Start with this" }
+                and: { b.parent == del.parent } and: { b.bounds.left > del.bounds.right }
+                and: { b.bounds.top == del.bounds.top } and: { b.bounds.width == 124 }
+                and: { b.bounds.right <= b.parent.bounds.width },
+            (b !? { |v| [v.bounds, del.bounds, v.parent.bounds] }).asString);
+        if(File.exists(path)) { File.delete(path) };
+        c[2].value;
+        b.valueAction_(0);
+        ~ok.(c[1] ++ ": pressed, it keeps under your megalooper folder, and says so",
+            File.exists(path) and: { path.beginsWith(~midiUserRootOverride) }
+                and: { fam[\statusText].string.beginsWith("Kept: the next start") },
+            [path, fam[\statusText].string].asString);
+        c[3].value;
+        ~loadKeptParts.();
+        ~ok.(c[1] ++ ": a start puts it back", c[4].value == c[5], c[4].value.asString);
+        File.delete(path);
+        c[3].value;
+    };
+    ~ok.("...and the window kept its size", ~guiWindow.bounds == ~tmpWin, [~guiWindow.bounds, ~tmpWin].asString);
+    ~guiSelectView.(~tmpView);
+
     "== position readout with no loop ==".postln;
     0.3.wait;
     ~ok.("no loop reports no phase", ~guiLoopPhase.isNil, ~guiLoopPhase.asString);

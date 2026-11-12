@@ -207,11 +207,17 @@
             "Choosing one recalls it straight away — a running granular layer follows without stopping.",
         rescan: "Rescan your presets (granular/ in your megalooper folder) for files added or removed outside megalooper.",
         name: "File name for Save. Anything but letters and digits becomes '-', so \"Frozen Cathedral\"\n"
-            "saves as frozen-cathedral.scd.",
-        save: "Write every control here to granular/<name>.scd in your megalooper folder. Reads 'Overwrite' when the\n"
+            "saves as frozen-cathedral.json.",
+        save: "Write every control here to granular/<name>.json in your megalooper folder. Reads 'Overwrite' when the\n"
             "name matches an existing preset; that one needs a second click to confirm.",
         delete: "Delete the selected preset file. Click once to arm, again to confirm. The running\n"
             "granular layer keeps playing."
+    ), (
+        which: \grains,
+        said: "Kept: the next start begins with every control as it is now.",
+        tip: "Keep morph and every control here, the window shape and Chords too, as they are\n"
+            "now: the next start begins with them instead of megalooper's own. The grains'\n"
+            "switch is not in it: they start off, as ever."
     ));
     // Mirrors the G key and the footswitch. The model is the authority:
     // pressing this with no loop recorded is refused and the tile stays dark.

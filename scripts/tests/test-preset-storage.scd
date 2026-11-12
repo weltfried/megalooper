@@ -158,6 +158,88 @@ if(File.exists(root)) { (root +/+ "*").pathMatch.do { |p|
     }.value;
 };
 
+// ---- kept for the next start (the Cutter's and the Grains' Start with this) ----
+// What a preset holds, in a file of its own: written, read back at boot,
+// and refused whole when it is not this family's, as a preset is.
+[
+    // family, keep, load, the file's name (~keptPartPath), then c[2..5] as above
+    [\bbcut, \keepCutter, \loadKeptCutter, \cutter,
+        { l.setVoiceProc(0, \warp);  l.setVoiceRatio(0, 2); l.bbcutMode = \gate },
+        { l.setVoiceProc(0, \break); l.setVoiceRatio(0, 1); l.bbcutMode = \mix },
+        { var v = ~tGet.(l, \bbcutVoices)[0]; [v[\proc], v[\ratio], l.bbcutMode] }, [\warp, 2.0, \gate]],
+    [\granular, \keepGrains, \loadKeptGrains, \grains,
+        { l.granularSize = 2.5; l.granularMorph = 0.4; l.granularEnv = 2; l.granularFollowChords = true },
+        { l.granularSize = 1;   l.granularMorph = 0;   l.granularEnv = 0; l.granularFollowChords = false },
+        { [l.granularSize, l.granularMorph, l.granularEnv, l.granularFollowChords] }, [2.5, 0.4, 2, true]]
+].do { |c|
+    var key = c[0], keep = c[1], load = c[2];
+    var userDir = root +/+ "kept-" ++ key;
+    var path = userDir +/+ "kept-" ++ c[3] ++ ".json";
+    var wasOverride = ~midiUserRootOverride, wasLooper = ~looper;
+    if(File.exists(path)) { File.delete(path) };
+
+    c[4].value;
+    ~tEq.(key ++ ": nothing kept, nothing is loaded and nothing moves", [l.perform(load, path), c[6].value], [false, c[7]]);
+    ~tEq.(key ++ ": keep writes the file, its folder made", [l.perform(keep, path), File.exists(path)], [nil, true]);
+    ~tAssert.(key ++ ": ...as this family's JSON",
+        (MegaFiles.parseObject(MegaFiles.readText(path)) !? { |o| o.at("format") }) == Looper.prPresetFamilies[key][\format]);
+    c[5].value;
+    ~tEq.(key ++ ": loading what was kept puts it back", [l.perform(load, path), c[6].value], [true, c[7]]);
+    ~tEq.(key ++ ": with no file given, keep says why and load answers false",
+        [l.perform(keep, nil).isString, l.perform(load, nil)], [true, false]);
+
+    // Refused whole, nothing moved: a file that does not parse, another
+    // family's, one from a newer megalooper.
+    [
+        ["a file that does not parse", "{ this is not ]] valid"],
+        ["the other family's file", "{\"format\": \"" ++ Looper.prPresetFamilies[if(key == \bbcut) { \granular } { \bbcut }][\format] ++ "\"}"],
+        ["one from a newer megalooper", "{\"format\": \"" ++ Looper.prPresetFamilies[key][\format] ++ "\", \"version\": 99}"]
+    ].do { |x|
+        File.use(path, "w") { |f| f.write(x[1]) };
+        c[5].value;
+        ~tEq.(key ++ ": " ++ x[0] ++ " is refused, and nothing moves", [l.perform(load, path), c[6].value == c[7]], [false, false]);
+    };
+    File.delete(path);
+
+    // The scripts' half (setup-model.scd): the file under your megalooper
+    // folder, kept from ~looper, and read back for both at boot.
+    if(~keepPart.isNil) { (thisProcess.nowExecutingPath.dirname.dirname +/+ "setup-model.scd").load };
+    protect {
+        ~midiUserRootOverride = userDir;
+        ~looper = l;
+        ~tEq.(key ++ ": ~keptPartPath is kept-" ++ c[3] ++ ".json in your megalooper folder", ~keptPartPath.(c[3]), path);
+        c[4].value;
+        ~tEq.(key ++ ": ~keepPart keeps it", [~keepPart.(c[3]), File.exists(path)], [nil, true]);
+        c[5].value;
+        ~loadKeptParts.();
+        ~tEq.(key ++ ": ~loadKeptParts puts it back", c[6].value, c[7]);
+        File.delete(path);
+        ~looper = nil;
+        ~tAssert.(key ++ ": with no looper, ~keepPart says why", ~keepPart.(c[3]).isString);
+    } {
+        ~midiUserRootOverride = wasOverride;
+        ~looper = wasLooper;
+    };
+};
+// The two read back at once, each from its own file: one kept leaves the
+// other as it is.
+{
+    var userDir = root +/+ "kept-both", wasOverride = ~midiUserRootOverride, wasLooper = ~looper;
+    protect {
+        ~midiUserRootOverride = userDir;
+        ~looper = l;
+        l.granularSize = 3; l.bbcutMode = \insert;
+        ~keepPart.(\grains);
+        l.granularSize = 1; l.bbcutMode = \gate;
+        ~loadKeptParts.();
+        ~tEq.("only the grains kept: they come back, the cutter stays as it is", [l.granularSize, l.bbcutMode], [3.0, \gate]);
+        File.delete(userDir +/+ "kept-grains.json");
+    } {
+        ~midiUserRootOverride = wasOverride;
+        ~looper = wasLooper;
+    };
+}.value;
+
 // Both families share the slug, so one name resolves to one file stem on
 // either side — otherwise the two windows would disagree about what
 // "already exists" means.

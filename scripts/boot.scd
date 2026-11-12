@@ -65,6 +65,8 @@ if(~midiUserRootOverride.notNil) {
 // megalooper writes here is a file git tracks.
 //   bbcut/, granular/    the BBCut and Granular windows' presets, one SC
 //                        literal per file
+//   kept-cutter.json,    what their Start with this keeps for the next
+//   kept-grains.json     start (setup-model.scd's ~keptPartPath)
 //   sa/sounds/           Megalooper SA's sounds saved under a name (the
 //                        Effects pane's bar; setup-sa.scd's ~saSoundsDir)
 //   sa/drum-presets/     its drums' presets (the Drums tab). What that tab's
@@ -183,6 +185,9 @@ s.waitForBoot {
         // its monitor synth as it opens, so without this wait that s_new hit a server
         // that had never heard of \looperAnalysisMonitor — button on, lamp dead.
         ~looper.waitForReady;
+        // The Cutter and the Grains as their Start with this kept them, if
+        // they were (setup-model.scd): before the window, which shows them.
+        ~loadKeptParts.();
         // SA's loop effects go right after the Looper's master synth, so nothing
         // may add synths to the default group before this.
         if(~rp[\sa] == true) { ~setupSALooper.() };

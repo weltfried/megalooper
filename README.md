@@ -158,6 +158,7 @@ folder:
 |---|---|
 | `profiles.scd` | Your own rigs, beside megalooper's saSystem ([Rigs of your own](docs/routing.md#rigs-of-your-own)) |
 | `bbcut/`, `granular/` | The cutter's and the grains' presets |
+| `kept-cutter.json`, `kept-grains.json` | The cutter and the grains a start begins with (**Start with this** on the Sound view) |
 | `midi/`, `midi/backups/` | Your MIDI maps, and the last five versions of each that **Keep** wrote over |
 | `sa/kept.json`, `sa/sounds/` | The sound a boot starts with, and the sounds you saved |
 | `sa/drum-presets/`, `sa/kept-drums/` | The drums' presets, and the drums a boot starts with |

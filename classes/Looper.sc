@@ -1888,6 +1888,42 @@ Looper {
     loadGranularPreset   { |dir, name| ^this.prLoadPreset(\granular, dir, name) }
     deleteGranularPreset { |dir, name| ^this.prDeletePreset(\granular, dir, name) }
 
+    // ---- Kept for the next start ----------------------------------------
+    //
+    // The Cutter's and the Grains' Start with this (since 2026-11-12): what a
+    // preset of theirs holds (the cutter's voices and Mix/Insert/Gate; every
+    // control of the grains), in a file of its own outside the presets'
+    // folder, so it is never in the menu. A boot reads it back once the
+    // Looper is ready. The switches are not in it: both start off, as ever.
+    // `path` is passed in, as `dir` is above.
+    keepCutter     { |path| ^this.prKeep(\bbcut, path) }
+    loadKeptCutter { |path| ^this.prLoadKept(\bbcut, path) }
+    keepGrains     { |path| ^this.prKeep(\granular, path) }
+    loadKeptGrains { |path| ^this.prLoadKept(\granular, path) }
+
+    // nil when written, else why not.
+    prKeep { |family, path|
+        var f = Looper.prPresetFamilies[family];
+        if(path.isNil) { ^"no file given" };
+        ^MegaFiles.writeEvent(path, this.perform(f[\data], "kept"), f[\format], f[\order])
+    }
+
+    // false, and nothing said, when nothing was kept; true once it is in;
+    // false, said, when the file is not read (the part then starts as
+    // megalooper ships it). A file with a value out of range is read, the
+    // value corrected, as a preset's is.
+    prLoadKept { |family, path|
+        var f = Looper.prPresetFamilies[family], data;
+        if(path.isNil or: { File.exists(path).not }) { ^false };
+        data = MegaFiles.readEvent(path, f[\format], this.perform(f[\version]), f[\what], { |why|
+            ("megalooper: what Start with this kept (" ++ path ++ ") is not read: " ++ why ++ ". "
+                ++ if(family == \bbcut) { "The cutter starts as megalooper ships it." }
+                    { "The grains start as megalooper ships them." }).warn;
+        });
+        if(data.isNil) { ^false };
+        ^this.perform(f[\apply], data)
+    }
+
     stopPlayback {
         if(#[\playing, \overdubbing, \recording].includes(state)) {
             this.prLogEvent(\stop, ());

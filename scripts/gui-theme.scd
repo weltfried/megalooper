@@ -326,9 +326,15 @@
 // has room for it), and `edit`, the name field, Save, Revert, Delete and the
 // status line under them. The behaviour is gui-presets.scd's, line for line
 // (~presetBarRows): only the widgets differ. Answers (menu:, edit:).
-~guiPresetParts = { |key, tips|
+//
+// `keep`, if given, puts Start with this at the end of the row, after
+// Delete: (which: \cutter, said: what the status line says once kept, tip:).
+// It keeps through ~keepPart (setup-model.scd), for the next start: the
+// Cutter's and the Grains', whose headers have no room for it.
+~guiPresetParts = { |key, tips, keep|
     var fam = ~presetFamilies[key];
     var t = tips ? ();
+    var keepRow;
     var small = { |label, width, action, tip|
         LooperTile().states_([[label, ~gt[\ink], ~gt[\panel]]]).border_(~gt[\line])
             .font_(~guiSans.(13, false)).fixedHeight_(28).fixedWidth_(width).pad_(6)
@@ -383,6 +389,16 @@
     // Empty, a dark bar did not read as a place to type: Qt's own grey hint
     // says what goes there, and goes when typing starts.
     field.setProperty(\placeholderText, ~presetPlaceholder.(key));
+    // Start with this, a little apart from Delete: it is no preset's. An if,
+    // not `?? {}`: ~keepPart answers nil when it kept.
+    keepRow = keep !? { |k| [
+        View().fixedWidth_(8),
+        ~presetWidget.(key, \keepButton, small.("Start with this", 124, {
+            var why = if(~keepPart.isNil) { "nothing keeps it in this build" } { ~keepPart.(k[\which]) };
+            if(why.isNil) { ~presetSetStatus.(key, k[\said]) }
+                { ~presetSetStatus.(key, "Not kept: " ++ why ++ ".", true) };
+        }, k[\tip]))
+    ] } ? [];
     (
         menu: View().layout_(HLayout(
             // What the bar's files are called: presets, or a family's own word.
@@ -394,14 +410,14 @@
             }, t[\rescan] ? "Rescan the folder for presets added or removed outside megalooper.")
         ).spacing_(8).margins_(0)),
         edit: View().layout_(VLayout(
-            HLayout(
+            HLayout(*([
                 [field, stretch: 1],
                 ~presetWidget.(key, \saveButton, small.("Save new", 92, { ~presetSave.(key) }, t[\save])),
                 ~presetWidget.(key, \revertButton, small.("Revert", 64, { ~presetRevert.(key) },
                     t[\revert] ? "Re-read the selected preset from disk, discarding every edit made since it was loaded.")),
                 ~presetWidget.(key, \deleteButton, small.("Delete", 92, { ~presetDelete.(key) },
                     t[\delete] ? "Delete the selected preset. Click once to arm, again to confirm. What is playing is not touched."))
-            ).spacing_(6).margins_(0),
+            ] ++ keepRow)).spacing_(6).margins_(0),
             status
         ).spacing_(6).margins_(0))
     )

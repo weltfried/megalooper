@@ -1214,6 +1214,12 @@ What differs:
 - **Chords** is in a preset; a preset saved before it existed recalls **As
   played**.
 
+**Start with this**, at the end of the preset bar's row, keeps morph and every
+control as they are now for the next start, the way a preset holds them: the
+grains start with them instead of megalooper's own. Their switch is not in it,
+so they start off as ever. It goes to `kept-grains.json` in your megalooper
+folder, never into the preset menu.
+
 Every control here can be on a knob (keys-and-knobs uses CC 118, 119 and
 40–47). A recall moves the values, not the knobs: with **Send back** on, a
 controller that takes MIDI back follows; otherwise the knob's takeover decides
@@ -1396,6 +1402,12 @@ ship with megalooper and are copied into your folder on the first start.
   version of megalooper is refused rather than half-understood.
 - A hand-edited `ratio` that isn't in the menu's list still plays as written; the
   menu just shows the nearest entry.
+- **Start with this**, at the end of the row after Delete, keeps every voice and
+  the Mix/Insert/Gate mode as they are now for the next start: the cutter starts
+  with them instead of megalooper's own. Its switch is not in it, so it starts
+  off as ever. It goes to `kept-cutter.json` in your megalooper folder, never
+  into the preset menu, and a file there that can't be read is said in the log
+  and left alone: the cutter then starts as megalooper ships it.
 
 The cutter needs BBCut. The installer fetches it (see
 [Install](../README.md#install)).
@@ -2049,7 +2061,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-meter-corpus.scd` | the real loops in `training-data/`, through the real decision path |
 | `test-ranges.scd` | the three definitions of every granular range still nest |
 | `test-synthdefs.scd` | every SynthDef's compiled graph, fingerprinted against a baseline |
-| `test-preset-storage.scd` | the storage both families share, on real files |
+| `test-preset-storage.scd` | the storage both families share, on real files, and what the Cutter's and the Grains' Start with this keeps |
 | `test-preset-bar.scd` | the shared preset bar driven end to end with stub widgets |
 | `test-training-export.scd` | the labelled-loop export: file names from the labels, and every corpus sidecar written again reads back the same |
 | `test-session-recorder.scd` | set recording: file naming with the set's tempo, refusals, the transport guard, the stems, the stop and the WAVs' clock, and the event log — its JSON, the takes and labels read back from it, and what the looper and the drums write |

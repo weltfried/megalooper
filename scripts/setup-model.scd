@@ -268,6 +268,43 @@
         l.startLevelDb.round.asInteger.asString, "the start level") } };
 };
 
+// ---- The Cutter and the Grains, kept for the next start ---------------------
+// Their views' Start with this (gui-bbcut.scd, gui-granular.scd; since
+// 2026-11-12): what a preset of theirs holds, in your megalooper folder
+// beside the presets' folders, as kept-cutter.json and kept-grains.json. A
+// boot reads them back once the Looper is ready (boot.scd). Their switches
+// are not in it: both start off, as ever.
+//   ~keptPartPath.(\cutter)   the file (\grains for the other)
+//   ~keepPart.(\cutter)       kept now; answers nil, or why not
+//   ~loadKeptParts.()         at boot: each one kept put in, and said; fail-soft
+// Each: its Looper methods, and its words (the grains are plural).
+~keptParts = (
+    cutter: (keep: \keepCutter, load: \loadKeptCutter, was: "the cutter was", starts: "the cutter starts", it: "it"),
+    grains: (keep: \keepGrains, load: \loadKeptGrains, was: "the grains were", starts: "the grains start", it: "them")
+);
+~keptPartPath = { |which| (~midiUserRootOverride ?? { MegaFiles.userRoot }) +/+ ("kept-" ++ which ++ ".json") };
+~keepPart = { |which|
+    var l = ~looper, part = ~keptParts[which], path = ~keptPartPath.(which), why;
+    why = if(l.isNil) { "there is no looper" } {
+        try { l.perform(part[\keep], path) } { |err| err.errorString } };
+    if(why.isNil) { ("megalooper: " ++ part[\was] ++ " kept for the next start (" ++ path ++ ").").postln }
+        { ("megalooper: " ++ part[\was] ++ " not kept (" ++ why ++ ").").warn };
+    why
+};
+~loadKeptParts = {
+    ~looper !? { |l|
+        [\cutter, \grains].do { |which|
+            var part = ~keptParts[which];
+            var ok = try { l.perform(part[\load], ~keptPartPath.(which)) } { |err|
+                ("megalooper: what Start with this kept did not load (" ++ err.errorString ++ "); "
+                    ++ part[\starts] ++ " as megalooper ships " ++ part[\it] ++ ".").warn;
+                false
+            };
+            if(ok == true) { ("megalooper: " ++ part[\starts] ++ " as kept.").postln };
+        };
+    };
+};
+
 ~wireLooperCallbacks = {
     // The break, out to Live as a CC. Both edges are sent, absolutely: 0 when
     // the hole opens, 127 when the loop returns on the downbeat. Live's rack
