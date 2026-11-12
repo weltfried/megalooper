@@ -309,7 +309,7 @@ File.delete(tmp);
         .every { |name| SynthDescLib.global[name].notNil });
 [
     \megaSAStrip,    [\in, \out, \amp, \mute, \stem],
-    \megaSAMaster,   [\in, \out, \rec, \amp]
+    \megaSAMaster,   [\in, \out, \rec, \amp, \stems]
 ].pairsDo { |name, controls|
     var desc = SynthDescLib.global[name];
     ~tAssert.(name ++ " is in the library", desc.notNil);
@@ -630,6 +630,13 @@ if(\VSTPlugin.asClass.isNil) {
 master = SynthDescLib.global[\megaSAMaster];
 ~tAssert.("no lookahead limiter in the master, which the guitar's monitoring passes",
     master.notNil and: { master.def.children.any { |u| u.isKindOf(Limiter) }.not });
+// Since 2026-11-12 a safety limiter that does not look ahead turns an over
+// down before the clip (MegaSAMixer.safetyLimit; scripts/sa/nrt-master.scd
+// renders it), and the master reports the meters.
+~tAssert.("...but a safety limiter that does not look ahead (a Compander), before the clip",
+    master.notNil and: { master.def.children.count { |u| u.isKindOf(Compander) } == 2 });
+~tAssert.("...and the meters, fifteen times a second (SendPeakRMS)",
+    master.notNil and: { master.def.children.any { |u| u.isKindOf(SendPeakRMS) } });
 
 // --------------------------------------------------------------- the drums --
 // A real MegaSA on a recording stub, with the drums it owns: what exists the
@@ -748,6 +755,16 @@ master = SynthDescLib.global[\megaSAMaster];
     ~tEq.("every strip starts writing its own stem bus",
         [\guitar, \loop, \drums, \onsetKit, \synth].collect { |k| argsOf.(sa.strips[k])[\stem] }, stems.collect(_.index));
     ~tEq.("...and the master none", argsOf.(sa.masterSynth)[\stem], nil);
+    // The master reads the stems for the meters, in MegaSAMixer.meterKeys'
+    // order: an array control, sent between $[ and $].
+    {
+        var msg = stub[\msgs].detect { |m| (m[0] == 9) and: { m[2] == sa.masterSynth.nodeID } } ? [];
+        var at = msg.indexOf(\stems), got;
+        got = at !? { msg.copyRange(at + 2, at + 7) };
+        ~tEq.("the master reads every strip's stem for the meters, -1 where there is no strip (the bass, here)",
+            [at !? { msg[at + 1] }, got, at !? { msg[at + 8] }],
+            [$[, [stems[0].index, -1, stems[1].index, stems[2].index, stems[3].index, stems[4].index], $]]);
+    }.value;
 
     // ---- the strips, a reading -----------------------------------------------
     seen = List.new;
@@ -760,6 +777,48 @@ master = SynthDescLib.global[\megaSAMaster];
     sa.setMute(\onsetKit, false);
     sa.setLevel(\drums, 0.2951209247);
     ctl.remove;
+
+    // ---- the meters and the master's light ------------------------------------
+    // A reading as the master sends it: a [peak, rms] pair per channel, the six
+    // stems' two sides (guitar, bass, loop, drums, onset kit, synth), the
+    // master's, the limiter's flag and the clip's.
+    {
+        var reading = { |stripPeaks, master = 0.5, over = 0, clip = 0|
+            (stripPeaks ++ [master, master, over, clip]).collect { |p| [p, p * 0.5] }.flatten
+        };
+        var quiet = [0.1, 0.12, 0, 0, 0.5, 0.4, 0.25, 0.3, 0.05, 0.05, 0.2, 0.1];
+        var said = List.new, calls = 0, c2, t0 = 1000.0, resp;
+        c2 = SimpleController(sa).put(\masterLight, { |obj, what, light| said.add(light) });
+        sa.onMeters = { calls = calls + 1 };
+        sa.mixerPart.prMeters(reading.(quiet), t0);
+        ~tEq.("a reading: each strip's peak, the louder of its two sides",
+            [\guitar, \loop, \drums, \onsetKit, \synth].collect { |k| sa.meter(k) }, [0.12, 0.5, 0.3, 0.05, 0.2]);
+        ~tEq.("...none for the bass, which has no strip here", sa.mixerPart.meters.includesKey(\bass), false);
+        ~tEq.("...the master's", sa.meter(\master), 0.5);
+        ~tEq.("...the light dark, said nothing, the window told", [sa.masterLight, said.asArray, calls], [\ok, [], 1]);
+        sa.mixerPart.prMeters(reading.(quiet, 0.97, 1, 0), t0 + 0.1);
+        ~tEq.("the limiter at work: LIMIT, said once", [sa.masterLight, said.asArray], [\limit, [\limit]]);
+        sa.mixerPart.prMeters(reading.(quiet), t0 + 0.6);
+        ~tEq.("...still lit half a second on", sa.masterLight, \limit);
+        sa.mixerPart.prMeters(reading.(quiet, 0.98, 1, 1), t0 + 0.7);
+        ~tEq.("the clip cutting: CLIP", [sa.masterLight, said.asArray], [\clip, [\limit, \clip]]);
+        sa.mixerPart.prMeters(reading.(quiet, 0.97, 1, 0), t0 + 1.2);
+        ~tEq.("...and CLIP outranks LIMIT while both are held", sa.masterLight, \clip);
+        sa.mixerPart.prMeters(reading.(quiet), t0 + 1.75);
+        ~tEq.("a second after the clip, LIMIT again (held from its own last)", [sa.masterLight, said.asArray],
+            [\limit, [\limit, \clip, \limit]]);
+        sa.mixerPart.prMeters(reading.(quiet), t0 + 2.3);
+        ~tEq.("a second after the limiter's last, dark again", [sa.masterLight, said.asArray],
+            [\ok, [\limit, \clip, \limit, \ok]]);
+        ~tEq.("the window heard every reading", calls, 7);
+        resp = OSCdef(\megaSAMeters).func;
+        resp.value(['/megaSAMeters', sa.masterSynth.nodeID + 1, -1] ++ reading.(quiet * 0, 0, 1, 1));
+        ~tEq.("a reading from another node is no reading", [sa.masterLight, calls], [\ok, 7]);
+        resp.value(['/megaSAMeters', sa.masterSynth.nodeID, -1] ++ reading.(quiet * 2, 0.9));
+        ~tEq.("the master's is (as it arrives)", [sa.meter(\loop), calls], [1.0, 8]);
+        c2.remove;
+        sa.onMeters = nil;
+    }.value;
     r = (bpm: 120, numerator: 7, denominator: 8, k: 2, loopDur: 3.5);
     ~tCheck.("a reading is handed over", { sa.setAnalysis(r) });
     ~tEq.("its tempo sets the effects' beat", sa.beatDur, 0.5);

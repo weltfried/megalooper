@@ -284,6 +284,37 @@ s.waitForBoot {
             and: { ~statusAutostartTile.value == 0 },
         [~looper.autostart, ~looper.autostartWaiting, ~statusShown[\label], ~statusAutostartTile.value].asString);
     ~looper.startLevelDb = -40;
+
+    // Megalooper SA's master: its meters and its light (MegaSAMixer), with
+    // the master running on this server. Its readings arrive by themselves;
+    // a loud one is handed to the mixer as the master would send it.
+    if(~rp[\sa] == true) { { |mx, row, loud|
+        "== the meters and the master's light ==".postln;
+        mx = ~megaSA.mixerPart;
+        0.4.wait;
+        ~ok.("the master's readings arrive: a peak per strip", mx.meters.notNil
+            and: { [\guitar, \loop, \drums, \onsetKit, \synth].every { |k| mx.meters[k].isNumber } },
+            mx.meters.asString);
+        ~ok.("a meter under every fader on Perform, the master's light where the strips have Mute",
+            ~saPerformLevels.keys.asArray.every { |k| ~saPerformLevels[k][\meter].notNil }
+                and: { ~saPerformLevels[\master][\light].notNil } and: { ~saPerformLevels[\guitar][\light].isNil },
+            ~saPerformLevels.keys.asArray.asString);
+        ~ok.("...each meter under its fader, as wide",
+            ~saPerformLevels.keys.asArray.every { |k| var w = ~saPerformLevels[k];
+                (w[\meter].bounds.width == w[\slider].bounds.width)
+                    and: { w[\meter].absoluteBounds.top > w[\slider].absoluteBounds.top } });
+        ~ok.("a quiet mix: the light dark", ~megaSA.masterLight == \ok, ~megaSA.masterLight.asString);
+        // The loop at -0.9 dB, the master over its limit.
+        loud = ([0, 0, 0, 0, 0.9, 0.9, 0, 0, 0, 0, 0, 0, 0.97, 0.97, 1, 0]).collect { |p| [p, p] }.flatten;
+        mx.prMeters(loud);
+        0.15.wait;
+        ~ok.("a loud reading: the light says LIMIT", ~megaSA.masterLight == \limit, ~megaSA.masterLight.asString);
+        ~ok.("...and the loop's meter goes red (over -1 dB, falling 24 dB a second after)",
+            (~saMeterShown[\loop] ? -60) > -6, (~saMeterShown[\loop] ? -60).asString);
+        1.3.wait;
+        ~ok.("a second later, dark again", ~megaSA.masterLight == \ok, ~megaSA.masterLight.asString);
+        ~ok.("...and the loop's meter back down", (~saMeterShown[\loop] ? -60) < -20, (~saMeterShown[\loop] ? -60).asString);
+    }.value };
     ~looper.startDissolve; 0.3.wait;
     ~ok.("a REFUSED dissolve leaves its tile unlit", ~dissolveButton.sub.contains("%").not,
         ~dissolveButton.sub);
@@ -680,6 +711,7 @@ s.waitForBoot {
     };
     0.4.wait;
     ~ok.("onMonitor cleared on close", ~looper.onMonitor.isNil);
+    if(~rp[\sa] == true) { ~ok.("the meters' painter cleared on close", ~megaSA.isNil or: { ~megaSA.onMeters.isNil }) };
     ~ok.("analysis monitor stopped on close", ~looper.analysisMonitorOn.not);
 
     "".postln;

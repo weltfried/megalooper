@@ -26,6 +26,19 @@ MegaSAMixer {
     var holds;
     // The strips' synths by strip, and the master's.
     var <strips, <masterSynth;
+    // ---- The meters and the master's light (2026-11-12) -------------------
+    // A rehearsal distorted: the lanes summed past the master's clip, and
+    // nothing said so. The master (masterGraph) now limits the sum before the
+    // clip and reports, meterRate times a second, every strip's peak (read off
+    // its stem: the strip after its fader, as it reaches the master), its own
+    // and whether the limiter worked or the clip cut. `meters` is the last
+    // peak by strip, linear; masterPeak the master's; masterLight \ok, \limit
+    // or \clip, held lightHold seconds after the last, said as \masterLight
+    // when it changes. onMeters is called with this mixer on every reading
+    // (the window's meters): not a notification, as fifteen a second would
+    // fill the action log.
+    var <meters, <masterPeak = 0, <masterLight = \ok, overSeen, clipSeen, meterResp;
+    var <>onMeters;
 
     // `bass`: whether the rig has a bass input, which alone gives the bass a
     // strip.
@@ -71,24 +84,121 @@ MegaSAMixer {
 
     // The strips onto `masterBus`, in order (`busPairs`: strip, bus, ...),
     // each also onto its stem (`stemArgs`, a function of the strip), and the
-    // master to the interface and the recorder: at the tail of `group`.
+    // master to the interface and the recorder: at the tail of `group`. The
+    // master reads the stems for the meters, in meterKeys' order (-1: no
+    // strip, or no stem).
     build { |group, busPairs, masterBus, hwOut, recordBus, stemArgs|
+        var stems = IdentityDictionary.new;
         busPairs.pairsDo { |key, bus|
+            var stem = stemArgs.value(key);
             strips.put(key, Synth.tail(group, \megaSAStrip, [
                 \in, bus.index, \out, masterBus.index,
                 \amp, levels[key], \mute, this.muted(key).binaryValue
-            ] ++ stemArgs.value(key)));
+            ] ++ stem));
+            stem.indexOf(\stem) !? { |i| stems.put(key, stem[i + 1]) };
         };
         masterSynth = Synth.tail(group, \megaSAMaster, [
             \in, masterBus.index, \out, hwOut, \rec, recordBus.index,
-            \amp, levels[\master]
+            \amp, levels[\master],
+            \stems, this.class.meterKeys.collect { |k| stems[k] ? -1 }
         ]);
+        meterResp !? { |r| r.free };
+        meterResp = OSCdef(\megaSAMeters, { |msg|
+            if(masterSynth.notNil and: { msg[1] == masterSynth.nodeID }) { this.prMeters(msg.drop(3)) }
+        }, '/megaSAMeters');
     }
 
     free {
         strips.do(_.free);
         masterSynth !? (_.free);
+        meterResp !? { |r| r.free };
+        meterResp = nil;
+        onMeters = nil;
     }
+
+    // ---- The master's graph ------------------------------------------------
+    // Pure: they build with no server, so an offline render
+    // (scripts/sa/nrt-master.scd) plays what the master plays.
+    //
+    // The order the master reports in: a stem's two sides each, by strip.
+    *meterKeys { ^#[\guitar, \bass, \loop, \drums, \onsetKit, \synth] }
+    *meterRate { ^15 }
+    // Seconds the light stays lit after the limiter last worked or the clip
+    // last cut: long enough to see across a stage.
+    *lightHold { ^1.0 }
+    // Where the safety limiter starts, -1 dBFS, and the clip after it,
+    // -0.18 dBFS (as before 2026-11-12, when the clip was all there was).
+    *limitLevel { ^-1.dbamp }
+    *clipLevel { ^0.98 }
+
+    // The safety limiter: a compressor at 20:1 above limitLevel, both sides
+    // on their louder one's level (the image holds), 0.5 ms to clamp and
+    // 80 ms to let go. It does not look ahead. A Limiter's lookahead delays
+    // what passes it, and the instrument's monitoring passes the master, so
+    // the first moment of a sudden peak (a block or two) still reaches the
+    // clip; what is held over the limit is turned down instead of cut, which
+    // is what a rehearsal heard as distortion. Under limitLevel it passes the
+    // mix as it is, to the bit.
+    *safetyLimit { |sig|
+        ^Compander.ar(sig, max(sig[0].abs, sig[1].abs), this.limitLevel, 1, 0.05, 0.0005, 0.08)
+    }
+
+    // 1 on every sample the limiter works on (the sum over limitLevel) and on
+    // every sample the clip cuts (the limited sum over clipLevel); else 0.
+    *lightSignals { |sum, limited|
+        ^[max(sum[0].abs, sum[1].abs) > this.limitLevel, max(limited[0].abs, limited[1].abs) > this.clipLevel]
+    }
+
+    // The master: its level, the safety limiter, the clip, to the interface
+    // and to `rec` (the session recorder), and the meters: every stem's
+    // peak, the master's and the light's two signals, as /megaSAMeters, a
+    // [peak, rms] pair per channel (SendPeakRMS, peaks unlagged).
+    *masterGraph {
+        ^{ |in, out = 0, rec, amp = 1, stems = #[-1, -1, -1, -1, -1, -1]|
+            var sum = In.ar(in, 2) * Lag.kr(amp, 0.02);
+            var limited = MegaSAMixer.safetyLimit(sum);
+            var sig = limited.clip2(MegaSAMixer.clipLevel);
+            var lanes = stems.collect { |i| In.ar(i.max(0), 2) * (i >= 0) };
+            Out.ar(out, sig);
+            Out.ar(rec, sig);
+            SendPeakRMS.kr(lanes.flatten ++ sig ++ MegaSAMixer.lightSignals(sum, limited),
+                MegaSAMixer.meterRate, 0, '/megaSAMeters');
+        }
+    }
+
+    // ---- The readings ------------------------------------------------------
+    // A reading: a [peak, rms] pair per channel in masterGraph's order. At
+    // `now` (SystemClock seconds, by default the arrival).
+    prMeters { |values, now|
+        var peaks = values.clump(2).collect { |p| p[0] ? 0 };
+        var side = { |i| (peaks[i] ? 0).max(peaks[i + 1] ? 0) };
+        var light;
+        now = now ?? { SystemClock.seconds };
+        meters = meters ?? { IdentityDictionary.new };
+        this.class.meterKeys.do { |k, i| if(levels.includesKey(k)) { meters.put(k, side.(i * 2)) } };
+        masterPeak = side.(12);
+        if((peaks[14] ? 0) > 0.5) { overSeen = now };
+        if((peaks[15] ? 0) > 0.5) { clipSeen = now };
+        light = this.lightAt(now);
+        if(light != masterLight) {
+            masterLight = light;
+            sa.changed(\masterLight, light);
+        };
+        onMeters.value(this);
+    }
+
+    // The light at `now`: \clip within lightHold of the clip's last cut,
+    // else \limit within it of the limiter's last work, else \ok.
+    lightAt { |now|
+        var hold = this.class.lightHold;
+        ^case
+        { clipSeen.notNil and: { (now - clipSeen) < hold } } { \clip }
+        { overSeen.notNil and: { (now - overSeen) < hold } } { \limit }
+        { \ok }
+    }
+
+    // A strip's last peak, or the master's (\master), linear; 0 before any.
+    meter { |key| ^(if(key == \master) { masterPeak } { meters !? { |m| m[key] } }) ? 0 }
 
     // key: a strip (\guitar, \bass, \loop, \drums, \onsetKit) or \master. Amplitude,
     // not dB.

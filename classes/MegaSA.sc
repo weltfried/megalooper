@@ -174,6 +174,7 @@ MegaSA {
             level: [\state, [\strip, \amp], "a strip's level, linear"],
             mute: [\state, [\strip, \on], "a strip muted by the player"],
             hold: [\state, [\strip, \held], "a strip held silent (a plugin opening, its bank loading)"],
+            masterLight: [\state, [\light], "the master's light: \\ok, \\limit (its safety limiter works) or \\clip (the clip cut the mix), held a second"],
             instrument: [\state, [\key, \ok], "what plays the notes (nil: the Wave synth), and whether it opened"],
             tempo: [\state, [\bpm], "the tempo the chains are synced to"],
             timeSignature: [\state, [\numerator, \denominator], "the time signature the plugins are told"],
@@ -623,15 +624,9 @@ MegaSA {
             Out.ar(out, sig);
             XOut.ar(stem, stem > 0, sig);
         }).add;
-        // The master: level, then a hard clip as the last safety before the
-        // interface. Not Limiter: its lookahead delays the signal, and the
-        // guitar's monitoring passes through here. The same signal goes to
-        // `rec` for the session recorder.
-        SynthDef(\megaSAMaster, { |in, out = 0, rec, amp = 1|
-            var sig = (In.ar(in, 2) * Lag.kr(amp, 0.02)).clip2(0.98);
-            Out.ar(out, sig);
-            Out.ar(rec, sig);
-        }).add;
+        // The master: level, a safety limiter that does not look ahead, the
+        // clip, and the meters (MegaSAMixer.masterGraph).
+        SynthDef(\megaSAMaster, MegaSAMixer.masterGraph).add;
         // The drums' voices, their drift probe and their effects, and the
         // Wave synth's voice.
         MegaSADrums.loadSynthDefs;
@@ -679,6 +674,12 @@ MegaSA {
     muted { |key| ^this.mixerPart.muted(key) }
     hold { |key, reason| this.mixerPart.hold(key, reason) }
     unhold { |key, reason| this.mixerPart.unhold(key, reason) }
+    // The meters and the master's light (MegaSAMixer): a strip's last peak or
+    // the master's (\master), linear; the light; who hears every reading.
+    meter { |key| ^this.mixerPart.meter(key) }
+    masterLight { ^this.mixerPart.masterLight }
+    onMeters { ^this.mixerPart.onMeters }
+    onMeters_ { |f| this.mixerPart.onMeters = f }
     prSendMute { |key| this.mixerPart.sendMute(key) }
     prNode { |key| ^this.mixerPart.node(key) }
 

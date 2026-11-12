@@ -44,9 +44,66 @@
     };
 };
 
-// One strip's row: its name, the dB slider, the readout and, for a strip with
-// a mute (the master has none: muting it is the interface's knob), its Mute.
-// The widgets go into `table` for ~saPaintLevel and ~saPaintMute. The slider
+// ---- The meters and the master's light (2026-11-12) ------------------------------
+// A rehearsal distorted with every lane up: the lanes summed past the master's
+// clip. Each strip's peak as it reaches the master (MegaSA.meter, read off its
+// stem fifteen times a second) shows as a bar under its fader, on its own
+// scale, -60 to 0 dBFS: green, amber from -6, red from -1, where the master's
+// safety limiter starts. After a peak the bar falls 24 dB a second, so a hit
+// stays readable. The master's light, where the strips have their Mute: CLIP
+// dark while all is well, LIMIT amber while the limiter turns the mix down,
+// CLIP red when the clip still cut it (MegaSA.masterLight, held a second).
+~saMeterShown = ~saMeterShown ? IdentityDictionary.new;
+~saMeterFallDb = 24;
+~saMeterDb = { |amp| (amp ? 0).max(1e-6).ampdb.max(-60) };
+~saMeterColor = { |db| case { db >= -1 } { ~gt[\rec] } { db >= -6 } { ~gt[\armed] } { ~gt[\play] } };
+~saDrawMeter = { |v, key|
+    var b = v.bounds, db = ~saMeterShown[key] ? -60;
+    Pen.fillColor = ~gt[\panel2];
+    Pen.addRect(Rect(0, 0, b.width, b.height));
+    Pen.fill;
+    Pen.fillColor = ~saMeterColor.(db);
+    Pen.addRect(Rect(0, 0, (b.width * ((db + 60) / 60).clip(0, 1)).round, b.height));
+    Pen.fill;
+};
+// The tables showing strips now (Perform's, the Drums view's, the Synth view's).
+~saMeterTables = { [~saPerformLevels, ~drumsLevels, ~synthLevels].reject(_.isNil) };
+~saMeterViews = { |key|
+    ~saMeterTables.().collect { |t| t[key] !? { |w| w[\meter] } }.reject { |v| v.isNil or: { v.isClosed } }
+};
+// A reading (MegaSA.onMeters, deferred): each strip's bar to its new peak or
+// down by its fall, repainted where it moved by a quarter of a dB or more.
+~saPaintMeters = { |m|
+    var now = SystemClock.seconds, dt = (now - (~saMeterPaintedAt ? now)).clip(0, 1);
+    ~saMeterPaintedAt = now;
+    m !? { ~saLevelKeys.do { |k|
+        var was = ~saMeterShown[k] ? -60;
+        var db = ~saMeterDb.(m.meter(k)).max(was - (~saMeterFallDb * dt));
+        ~saMeterShown[k] = db;
+        if((db - was).abs >= 0.25) { ~saMeterViews.(k).do(_.refresh) };
+    } };
+};
+~saLightWords = (ok: "CLIP", limit: "LIMIT", clip: "CLIP");
+~saDrawMasterLight = { |v|
+    var light = (~megaSA !? { |m| m.masterLight }) ? \ok, b = v.bounds;
+    Pen.fillColor = switch(light, \clip, { ~gt[\rec] }, \limit, { ~gt[\armed] }, { ~gt[\panel2] });
+    Pen.addRect(Rect(0, 0, b.width, b.height));
+    Pen.fill;
+    Pen.strokeColor = ~gt[\line];
+    Pen.width = 1;
+    Pen.addRect(Rect(0.5, 0.5, b.width - 1, b.height - 1));
+    Pen.stroke;
+    Pen.stringCenteredIn(~saLightWords[light] ? "CLIP", Rect(0, 0, b.width, b.height), ~guiMono.(12, true),
+        switch(light, \clip, { Color.white }, \limit, { ~gt[\onacc] }, { ~gt[\mute] }));
+};
+~saPaintMasterLight = {
+    ~saMeterTables.().do { |t| t[\master] !? { |w| w[\light] !? { |v| if(v.isClosed.not) { v.refresh } } } };
+};
+
+// One strip's row: its name, the dB slider with its meter under it, the
+// readout and, for a strip with a mute (the master has none: muting it is the
+// interface's knob), its Mute; the master has its light there instead.
+// The widgets go into `table` for ~saPaintLevel, ~saPaintMute and the meters. The slider
 // writes the model only; MegaSA's \level paints it back, here and on any other
 // tab showing the same strip. The slider and the Mute are tagged for MIDI Map
 // mode here, so a strip maps the same from either tab.
@@ -71,7 +128,21 @@
                 "Muted while the strip is held: its plugin opening or loading its sound. A plugin whose\n"
                 "sound did not load holds it until you unmute it.")
     };
-    table.put(key, (slider: slider, readout: readout, mute: mute));
+    var meter = UserView().canFocus_(false).fixedHeight_(4)
+        .drawFunc_({ |v| ~saDrawMeter.(v, key) })
+        .toolTip_("The strip's peak as it reaches the master, -60 to 0 dB: amber from -6, red from -1,\n"
+            "where the master's limiter starts. Turn the loudest strips down when the master's light\n"
+            "comes on.");
+    var light = if(key == \master) {
+        UserView().canFocus_(false).fixedSize_(Size(70, 26))
+            .drawFunc_({ |v| ~saDrawMasterLight.(v) })
+            .toolTip_("The mix as it leaves: dark while all is well; LIMIT (amber) while the master's limiter\n"
+                "turns it down, at -1 dB; CLIP (red) when a sudden peak still reached the clip, which\n"
+                "distorts. It stays lit a second. Turn the loudest strips down, as their meters show.")
+    };
+    // The slider over its meter: no taller than the Mute beside them.
+    var fader = VLayout(slider, meter).spacing_(3).margins_(0);
+    table.put(key, (slider: slider, readout: readout, mute: mute, meter: meter, light: light));
     ~saPaintLevel.(table, key, m.level(key));
     ~saPaintMute.(table, key, ~saMutedOf.(m, key));
     // Compact (Perform's strips, side by side): the name and the readout
@@ -79,14 +150,14 @@
     if(compact) {
         VLayout(
             HLayout(~guiLabel.(label.replace(":", ""), 14).toolTip_(tip ? ""), nil, readout).spacing_(6),
-            HLayout([slider, stretch: 1], mute ?? { View().fixedWidth_(70) }).spacing_(8)
+            HLayout([fader, stretch: 1], mute ?? { light ?? { View().fixedWidth_(70) } }).spacing_(8)
         ).spacing_(4)
     } {
         HLayout(
             ~guiLabel.(label.replace(":", ""), 14).fixedWidth_(labelWidth).toolTip_(tip ? ""),
-            slider,
+            fader,
             readout,
-            mute ?? { View().fixedWidth_(70) }
+            mute ?? { light ?? { View().fixedWidth_(70) } }
         ).spacing_(10)
     }
 };
@@ -99,6 +170,7 @@
 ~saPerformLevels = IdentityDictionary.new;
 ~guiTeardowns[\saPerform] = {
     ~guiUnwatch.(\saPerform);
+    ~megaSA !? { |m| m.onMeters = nil };
     ~saPerformLevels = IdentityDictionary.new;
 };
 // Start with this's mark: a dot while the levels differ from what a start on
@@ -141,8 +213,11 @@
         ~guiWatch.(\saPerform, m, (
             level: { |obj, what, key, amp| ~saPaintLevel.(~saPerformLevels, key, amp); ~saLevelsKeepPaint.() },
             mute: { |obj, what, key| ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) },
-            hold: { |obj, what, key| ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) }
+            hold: { |obj, what, key| ~saPaintMute.(~saPerformLevels, key, ~saMutedOf.(m, key)) },
+            masterLight: { ~saPaintMasterLight.() }
         ));
+        // Every reading paints the meters, here and on the Drums and Synth views.
+        m.onMeters = { { ~saPaintMeters.(~megaSA) }.defer };
         View().background_(~gt[\panel]).layout_(VLayout(
             ~saLevelsButtons.(),
             HLayout(*keys.collect { |k|

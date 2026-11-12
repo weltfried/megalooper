@@ -681,6 +681,22 @@ The controls, by view:
   says the levels differ from what a start here begins with. **Reset** puts
   megalooper's own back for now; Start with this keeps those too. The mutes
   are never kept: every strip starts unmuted.
+
+  **The meters.** Under each fader, a thin bar shows the strip's peak as it
+  reaches the master, from −60 to 0 dB: green, amber from −6 dB, red from
+  −1 dB. After a peak it falls back slowly, so a hit stays readable. The
+  Drums and Synth views' strips have them too.
+
+  **The master's light**, where the other strips have Mute. The strips add
+  up at the master, so a few lanes that are each well under 0 dB can still
+  be too loud together. The master turns the mix down when it goes over
+  −1 dB, with a limiter that doesn't look ahead (a limiter that looks ahead
+  would delay the instrument you hear), and after it a clip at −0.2 dB is
+  the last safety before the interface. The light is dark while all is
+  well. **LIMIT** (amber) means the limiter is turning the mix down: you are
+  running hot, but it sounds clean. **CLIP** (red) means a sudden peak was
+  still cut by the clip, which distorts. Either stays lit for a second. When
+  it lights, turn down the strips whose meters are highest.
 - **Morph** *(Perform's Grains column)* — between frozen drone (0) and pulsed scan
   locked to the detected pulse (1). Mirrors the Grains' Morph on Sound (CC 118 in the
   keys-and-knobs map); moving either updates both. Sound holds the rest of the layer.
@@ -1990,7 +2006,7 @@ you did about it with the next-reading switch. See
 
 ## Testing
 
-`./tools/run-checks.sh` runs all twenty-eight checks, one sclang at a time, in
+`./tools/run-checks.sh` runs all twenty-nine checks, one sclang at a time, in
 about six minutes. `./tools/run-checks.sh quick` runs only the unit tests, the
 static check and the AI bridge's test. Nothing opens an audio device or touches
 MIDI, and megalooper may be running beside it. Checks that need material the
@@ -2055,7 +2071,7 @@ lookup, which is the whole stub the sample-rate-only methods need).
 | `test-megafiles.scd` | the file kit: your folder, JSON read and written whole, the format and version rules |
 | `test-megaremote.scd` | megalooper as a tool for an AI app: who may ask, what is answered, the changes it may make and take back |
 | `test-audio-settings.scd` | the audio settings: the profile they make against a device list, what gives way when a device or an input is missing, `settings.json`, the server's options, the sample-rate check, Apply and restart |
-| `test-megasa.scd` | The frame around the looper: its routing, server options, the mixer's levels and mutes, its SynthDefs, the drums it owns, the stems |
+| `test-megasa.scd` | The frame around the looper: its routing, server options, the mixer's levels and mutes, the meters and the master's light, its SynthDefs, the drums it owns, the stems (`scripts/sa/nrt-master.scd` renders the master's limiter) |
 | `test-megasa-chains.scd`, `-edits`, `-drumchain`, `-bass` | the device chains: types, devices and chains as models and as built; insert, copy, remove, move, rename, undo and redo; the drums' chain; instrument 2's chain |
 | `test-megasa-sound.scd`, `-keep`, `test-sa-sounds.scd` | sounds: the document and its JSON, Keep and recall onto running chains, what a boot does with the kept sound, variations |
 | `test-megasa-plugins.scd` | the plugin catalog: what the browser offers, which entry a sound names, the scan's rules |

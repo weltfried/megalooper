@@ -127,6 +127,8 @@ var expected = [
     \onsetThresholdMin, \onsetThresholdMax, \onsetThresholdSpec,
     \startLevelSpec, \startLevelWords, \autostartApply, \autostartSet, \startLevelSet, \startLevelSaved, \startLevelKeep,
     \statusPaintAutostart, \statusStartMark,
+    \saDrawMeter, \saPaintMeters, \saMeterViews, \saMeterTables, \saMeterDb, \saMeterColor,
+    \saDrawMasterLight, \saPaintMasterLight,
     \inChannelCounts, \keyHintString,
     \guiOn, \guiOff, \guiArmed, \guiDanger, \guiIdleBtn, \guiHint,
     \guiTeardowns, \guiGen, \analysisGen, \statusGen,
