@@ -540,6 +540,7 @@ Looper {
         buffer.zero;
         recStartTime = SystemClock.seconds;
         this.prTapLevelFollow;
+        this.prFreeRecorder;
         recSynth = Synth(defName, [
             \bufnum, buffer.bufnum,
             \in, inChannel,
@@ -548,6 +549,20 @@ Looper {
             \tapGainBus, this.prTapGainIndex
         ], server);
         this.prTakeStarted(());
+    }
+
+    // The take's recorder freed: the take closed (stopRecordStartPlay) or
+    // dropped (stopPlayback: a Stop, a Clear, an undo of the take, while it
+    // records), and before another is made. One recorder at a time: until
+    // 2026-11-13 only closing a take freed it, so a take cleared while it
+    // recorded left its recorder running. It reported its onsets into every
+    // later take (their times from its own start: "nothing fits"), and an
+    // Autostart recorder's write head, which comes back to frame 0 after
+    // 2^24 frames (5'49" at 48 kHz), then recorded the input over the loop
+    // playing: the loop went silent (a rig test, four left running).
+    prFreeRecorder {
+        recSynth !? { |s| s.free };
+        recSynth = nil;
     }
 
     // What a take's start does in the language, whether a press started it
@@ -651,6 +666,7 @@ Looper {
     // no longer waiting (disarmed as the note came) is ignored; it was freed.
     prAutostartStarted { |nodeID|
         if(autostartSynth.isNil or: { autostartSynth.nodeID != nodeID } or: { state != \empty }) { ^this };
+        this.prFreeRecorder;
         recSynth = autostartSynth;
         autostartSynth = nil;
         this.prTakeBegins(false);
@@ -760,7 +776,7 @@ Looper {
 
         loopDur = SystemClock.seconds - recStartTime;
         dur     = loopDur;
-        recSynth.free; recSynth = nil;
+        this.prFreeRecorder;
 
         // Start playback IMMEDIATELY at the raw recorded length — do NOT wait for
         // the meter fit (MeterAnalyzer.analyze is tens to ~200 ms for dense
@@ -1945,6 +1961,9 @@ Looper {
         if(this.bbcut) { this.disableBBCut };
         engineSynth !? { |s| s.free };
         engineSynth = nil;
+        // A take stopped or cleared while it records: dropped, its recorder
+        // with it (prFreeRecorder says what it did when it was left running).
+        this.prFreeRecorder;
         this.grainsPart.off;
         clickRoutine !? { |r| r.stop };
         clickRoutine = nil;

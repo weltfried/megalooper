@@ -13,7 +13,7 @@ if(~tAssert.isNil) { (thisProcess.nowExecutingPath.dirname +/+ "_harness.scd").l
 {
 var dir = thisProcess.nowExecutingPath.dirname;
 var scripts = dir.dirname;
-var make, heard, sent, news, frees, sets, zeros, named, l, srv, id, got, said, s0, saved;
+var make, heard, sent, news, frees, sets, zeros, named, l, srv, id, got, said, s0, saved, alive;
 var kept, keptLog, wasSaved, wasSave, wasLooper, wasTargets;
 
 // A looper with no loop, ready, its buffers objects on the stub (none
@@ -152,6 +152,36 @@ l.trigger;
 got = ~tGet.(l, \recSynth);
 l.prAutostartStarted(news.(l)[0][2]);
 ~tAssert.("a reply from the freed recorder, late: ignored", (~tGet.(l, \recSynth) === got) and: { l.state == \recording });
+
+// ---- a take dropped while it records: its recorder freed --------------------------------------------------
+// Until 2026-11-13 only closing a take freed its recorder; a Clear, a Stop or
+// an undo while it recorded left it running, writing into the loop's buffer
+// and reporting onsets into later takes, and an Autostart one recorded over
+// the loop playing 5'49" on (the rig test: four left running beside a loop).
+// Recorders alive: made (s_new of a recorder) and not freed.
+alive = { |lp| news.(lp).select { |m| m[1].asString.beginsWith("looperRec") }.collect { |m| m[2] }
+    .reject { |n| frees.(lp).includes(n) } };
+[[\clear, { |lp| lp.clear }], [\undo, { |lp| lp.undo }]].do { |c|
+    l = make.();
+    l.autostart = true;
+    got = l.instVarAt(\autostartSynth);
+    l.prAutostartStarted(got.nodeID);
+    c[1].value(l);
+    ~tAssert.("an Autostart take dropped by " ++ c[0] ++ " while it records: its recorder freed",
+        frees.(l).includes(got.nodeID) and: { ~tGet.(l, \recSynth).isNil }, [frees.(l), ~tGet.(l, \recSynth)].asString);
+    ~tEq.("...no loop, and a new recorder waits: the one alive", [l.state, l.autostartWaiting, alive.(l)],
+        [\empty, true, [l.instVarAt(\autostartSynth).nodeID]]);
+};
+l = make.();
+l.trigger;
+got = ~tGet.(l, \recSynth);
+l.stopPlayback;
+~tAssert.("a take by hand stopped while it records: its recorder freed",
+    frees.(l).includes(got.nodeID) and: { ~tGet.(l, \recSynth).isNil }, [frees.(l), ~tGet.(l, \recSynth)].asString);
+~tEq.("...none alive", alive.(l), []);
+l.clear;
+l.trigger;
+~tEq.("...cleared and a new take by hand: one recorder alive, the take's", alive.(l), [~tGet.(l, \recSynth).nodeID]);
 
 // ---- switched off, Cmd-period, free ---------------------------------------------------------------------
 l = make.();
