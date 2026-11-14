@@ -75,7 +75,7 @@ compile. Without any one of them nothing runs, not even the tests.
 ## Install
 
 ```bash
-git clone --branch v1.15 https://github.com/weltfried/megalooper.git
+git clone --branch v1.16 https://github.com/weltfried/megalooper.git
 cd megalooper
 ./tools/install.sh
 ```

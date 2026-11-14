@@ -1,5 +1,5 @@
 # megalooper's version and the macOS build number, the one place they are
 # written: tools/release.sh writes them; tools/make-app.sh, tools/make-mcpb.sh,
 # the checks and megalooper itself (MegaFiles.appVersion) read them.
-version 1.15
-build 16
+version 1.16
+build 17
