@@ -264,6 +264,10 @@ Looper {
     // for (chainPart). It records the next loop over this one and hands it
     // over on a boundary; the swap is the Looper's (prSwapInNextLoop).
     var chainPart;
+    // The loop's key, heard (LooperKey): the tap captured while a take or an
+    // overdub plays, and LoopKey's analysis of it after; the note sequencer
+    // plays in it (\loopKey). Made when first asked for (keyPart).
+    var keyPart;
     // Construction is ASYNCHRONOUS: buffers, busses and SynthDefs reach the
     // server on init's own Routine, so an instance is not usable the instant
     // Looper() returns. Anything that sends s_new before this flips gets a silent
@@ -316,6 +320,7 @@ Looper {
             buffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
             undoBuffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
             this.chainPart.allocBuffer(server, server.sampleRate * bufDur);
+            this.keyPart.allocBuffers(server, bufDur);
             outBus = Bus.audio(server, 2);
             // "Insert"-mode duck flag: 1 while the cutter is playing a
             // repetition, 0 otherwise. Defaults to 0 so the dry loop passes
@@ -398,6 +403,7 @@ Looper {
     // if you add a transition, call this rather than touching `state`.
     prSetState { |newState|
         state = newState;
+        keyPart !? { |k| k.stateChanged(newState) };
         this.changed(\state, newState);
         // No loop: Autostart waits; a loop: it does not.
         this.prAutostartFollow;
@@ -434,6 +440,7 @@ Looper {
             readingIndex: [\state, [\index], "which reading of the take is in force (0: the analyser's)"],
             chord: [\event, [\segment], "the chord the loop plays now (a segment Event)"],
             overdubDetected: [\event, [\result], "a meter read from an overdub"],
+            loopKey: [\state, [\key], "the loop's key as heard (LoopKey.keyOf: root, pcs, name, cents...), nil for none"],
             tapStarved: [\state, [\gap], "the take was heard this many dB under the input on the tap, or nil"],
             tapGain: [\state, [\gain], "the automatic level in front of the onset detector, linear"],
             onsetThreshold: [\state, [\threshold], "the onset detector's threshold"],
@@ -508,6 +515,7 @@ Looper {
         ready = false;
         engineSynth = nil; recSynth = nil; masterSynth = nil; grainsPart !? { |g| g.forget };
         tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; chainPart !? { |c| c.forget };
+        keyPart !? { |k| k.forget };
         clickRoutine = nil; chordRoutine = nil;
         dissolveRoutine = nil; this.timeline.forget; this.transport.forget;
         cutterPart !? { |c| c.forget };
@@ -548,6 +556,7 @@ Looper {
             \onsetThreshold, onsetThreshold,
             \tapGainBus, this.prTapGainIndex
         ], server);
+        this.keyPart.takeStarted(0);
         this.prTakeStarted(());
     }
 
@@ -563,6 +572,7 @@ Looper {
     prFreeRecorder {
         recSynth !? { |s| s.free };
         recSynth = nil;
+        keyPart !? { |k| k.takeStopped };
     }
 
     // What a take's start does in the language, whether a press started it
@@ -671,6 +681,9 @@ Looper {
         autostartSynth = nil;
         this.prTakeBegins(false);
         recStartTime = SystemClock.seconds;
+        // The key's capture from now: the take began its lead before the
+        // note, a moment before this reply came.
+        this.keyPart.takeStarted(this.autostartLeadMs / 1000);
         this.changed(\autostartWaiting, false);
         this.prTakeStarted((autostart: true, startLevelDb: startLevelDb, leadMs: this.autostartLeadMs));
     }
@@ -859,6 +872,9 @@ Looper {
             this.prCheckTap(levelsSnap);
             // The take, to the set's log: what was heard, what was decided.
             this.prLogTake(result, dur, firstOnset, onsetsSnap, applied, pressAt, levelsSnap, pitchSnap);
+            // Its key, heard from the tap in a Routine: \loopKey when done.
+            this.keyPart.analyseTake(dur, onsetsSnap.collect { |p| p[0] }.asArray,
+                if(onsetsSnap.isEmpty) { nil } { firstOnset }, result);
         }.defer;
     }
 
@@ -894,6 +910,7 @@ Looper {
             this.snapshotForUndo;
             engineSynth.set(\recEnable, 1);
             if(analyzeOverdubs) { this.startOverdubAnalysis };
+            this.keyPart.overdubStarted;
             this.prSetState(\overdubbing);
             this.prLogEvent(\overdubStart, ());
             "Overdubbing.".postln;
@@ -903,6 +920,8 @@ Looper {
     endOverdub {
         if(engineSynth.notNil) {
             engineSynth.set(\recEnable, 0);
+            // Before the state: an overdub capture still running then is dropped.
+            this.keyPart.overdubEnded;
             this.prSetState(\playing);
             this.prLogEvent(\overdubEnd, ());
             "Playing.".postln;
@@ -1630,6 +1649,11 @@ Looper {
     // made without init (the tests' newCopyArgs) has one too.
     chainPart { ^chainPart ?? { chainPart = LooperChainRecorder(this) } }
 
+    // The key's part (LooperKey), made when first asked for, and the key it
+    // heard (LoopKey.keyOf's Event), or nil.
+    keyPart { ^keyPart ?? { keyPart = LooperKey(this) } }
+    loopKey { ^keyPart !? { |k| k.key } }
+
     // The facade: the window, MIDI, the AI and the tests ask the Looper.
     nextRecState { ^this.chainPart.nextRecState }
     chainRecOffsetMs { ^this.chainPart.chainRecOffsetMs }
@@ -1988,6 +2012,7 @@ Looper {
         analysedResult = nil;
         readingIndex = 0;
         undoState = nil;
+        this.keyPart.clear;
         this.prClearOnsetPattern;
         this.prSetTapStarved(nil);
         this.prSetState(\empty);
@@ -2930,6 +2955,7 @@ Looper {
         readingIndex   = undoState.readingIndex ? 0;
         this.prCancelReading;
         this.onsetNotesPart.restoreTake(undoState);
+        this.keyPart.restoreTake(undoState);
         if(undoState.state == \empty) {
             this.stopPlayback;
             this.prSetState(\empty);
@@ -2966,7 +2992,7 @@ Looper {
         // The onset notes' pattern and dice belong to the buffer contents
         // snapshotted here; without them, undo restores the audio and leaves
         // the previous take's rhythm playing over it (LooperOnsetNotes.takeState).
-        ).putAll(this.onsetNotesPart.takeState);
+        ).putAll(this.onsetNotesPart.takeState).putAll(this.keyPart.takeState);
     }
 
     startTempoClocks { |result|
@@ -3137,6 +3163,7 @@ Looper {
         this.prCancelBBCutEnable;
         this.teardownBBCut;
         chainPart !? { |c| c.free };
+        keyPart !? { |k| k.free };
         recSynth !? { |s| s.free };
         autostartSynth !? { |s| s.free };
         autostartSynth = nil;

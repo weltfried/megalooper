@@ -6,7 +6,8 @@
 //                   Random and Reset for the sound, Start with this (Keep)
 //   the preset bar  a pattern and its sound together (sa/synth-presets/)
 //   Sequence        its rate, swing, how many steps, where it starts again,
-//                   its direction and steps, the scale
+//                   its direction and steps, the scale: the loop's key (From
+//                   the loop) or one of yours, and what was heard of the loop
 //   the steps       sixteen steps on or off, the sequence's steps lit
 //   the lanes       Pitch, Octave, Velocity, Length, Shift, Ratchet,
 //                   Condition: sixteen values each, drawn as bars (from the
@@ -56,6 +57,7 @@
     ~guiUnwatch.(\synth);
     ~synthWidgets = IdentityDictionary.new;
     ~synthLanes = IdentityDictionary.new;
+    ~synthKeyView = nil;
     ~synthHeld = nil;
     ~synthPlayhead = nil;
     ~synthGen = ~synthGen + 1;
@@ -144,21 +146,27 @@
         .states_([[label, ~gt[\ink], ~gt[\panel]]]).toolTip_(tip ? "").action_(action)
 };
 
-// A pattern setting as a menu (`items`: [value, label] pairs).
-~synthSettingMenu = { |name, items, width, tip, id|
+// A pattern setting as a menu (`items`: [value, label] pairs). `get`: what
+// it shows, from the drums (default: the pattern's own value).
+~synthSettingMenu = { |name, items, width, tip, id, get|
     var menu = ~synthMenu.(PopUpMenu()).fixedWidth_(width).items_(items.collect(_[1]))
         .action_({ |mn|
             if(id.notNil) { ~controlDo.(id, \set, mn.value, \gui) }
                 { ~synthModel.() !? { |d| d.setNoteSetting(name, items[mn.value][0]) } } });
     if(id.notNil) { ~mapTag.(menu, id, tip) } { menu.toolTip_(tip ? "") };
-    ~synthWidgets.put(name, (kind: \menu, view: menu, get: { ~synthModel.() !? { |d| d.notes[name] } },
+    ~synthWidgets.put(name, (kind: \menu, view: menu,
+        get: { ~synthModel.() !? { |d| if(get.notNil) { get.value(d) } { d.notes[name] } } },
         index: { |v| items.collect(_[0]).indexOfEqual(v) }));
     menu
 };
-~synthSettingButton = { |name, label, width, tip|
+// `id`: its MIDI control, which the click goes through (a map tag).
+~synthSettingButton = { |name, label, width, tip, id|
     var b = ~synthButton.().fixedWidth_(width)
-        .states_([[label, ~gt[\mute], nil], [label, ~gt[\onacc], ~gt[\synth]]]).toolTip_(tip ? "")
-        .action_({ |bt| ~synthModel.() !? { |d| d.setNoteSetting(name, bt.value == 1) } });
+        .states_([[label, ~gt[\mute], nil], [label, ~gt[\onacc], ~gt[\synth]]])
+        .action_({ |bt|
+            if(id.notNil) { ~controlDo.(id, \set, bt.value == 1, \gui) }
+                { ~synthModel.() !? { |d| d.setNoteSetting(name, bt.value == 1) } } });
+    if(id.notNil) { ~mapTag.(b, id, tip) } { b.toolTip_(tip ? "") };
     ~synthWidgets.put(name, (kind: \button, view: b, get: { ~synthModel.() !? { |d| d.notes[name] } }));
     b
 };
@@ -278,15 +286,103 @@
         HLayout(
             ~synthRowLabel.("Key"),
             ~synthSettingButton.(\scaleOn, "Scale", 76, "On: every pitch snaps down to the scale. Off: plain semitones."),
+            ~synthSettingButton.(\fromLoop, "From the loop", 124,
+                "On: the root and the scale are the loop's key, as heard from the guitar (Heard, below);\n"
+                "a new key comes in on the next bar line. Choosing a root or a scale yourself turns it off,\n"
+                "starting from the loop's key: a scale chosen plays from the loop's root.", 'sa.synth.fromLoop'),
+            ~synthSettingButton.(\loopChanges, "Changes", 92,
+                "With From the loop: a riff that changes key (moves to the IV and back, minor to major...)\n"
+                "plays each bar in the key of its own part of the loop, changing on the bar line. Off: one\n"
+                "key for the whole loop.", 'sa.synth.loopChanges'),
             ~synthSettingMenu.(\root, c.rootNames.collect { |n, i| [i, n] }, 70,
-                "The key's root: pitch 0 plays it.", 'sa.synth.root'),
-            ~synthSettingMenu.(\scale, c.scales.collect { |s, i| [i, s[0]] }, 210, "The scale the pitches snap to.",
-                'sa.synth.scale'),
+                "The key's root: pitch 0 plays it. With From the loop on it shows the loop's; choosing one\n"
+                "turns From the loop off.", 'sa.synth.root', { |d| ~synthShownKey.(d)[\root] }),
+            ~synthSettingMenu.(\scale, c.scales.collect { |s, i| [i, s[0]] }, 210, "The scale the pitches snap to. With\n"
+                "From the loop on it shows the loop's; choosing one turns From the loop off.",
+                'sa.synth.scale', { |d| ~synthShownKey.(d)[\scale] }),
             ~synthRowLabel.("Octave").fixedWidth_(60),
             ~synthSettingBox.(\octave, -3, 3, 50, "The whole line octaves up or down."),
             nil
-        ).spacing_(8)
+        ).spacing_(8),
+        ~synthKeyRow.()
     ]
+};
+
+// ---- The loop's key --------------------------------------------------------------------
+// What the sequencer plays from (MegaSADrums.loopKey, LoopKey.keyOf): with From
+// the loop on and a key heard, the menus show the key (a set of its own shows
+// the pattern's scale in its menu, and its notes under Heard); else the
+// pattern's own root and scale.
+~synthShownKey = { |d|
+    var k = d.loopKey;
+    if((d.notes[\fromLoop] == true) and: { k.notNil }) {
+        (root: k[\root], scale: k[\scale] ? d.notes[\scale])
+    } {
+        (root: d.notes[\root], scale: d.notes[\scale])
+    }
+};
+~synthKeyWords = { |d|
+    var k = d !? { |x| x.loopKey }, cents, secs;
+    if(k.isNil) {
+        "nothing heard yet: a take's key comes here once it is analysed"
+    } {
+        cents = k[\cents];
+        secs = k[\sections];
+        (if(secs.notNil and: { d.notes[\loopChanges] != false }) { LooperKey.sectionWords(secs) } {
+            LoopKey.words(k) ++ "  ·  " ++ (k[\inside] * 100).round.asInteger ++ " % of it in the scale"
+                ++ (if(secs.notNil) { "  ·  changes not followed" } { "" }) })
+            ++ "  ·  tuning " ++ (if(cents > 0) { "+" } { "" }) ++ cents ++ " ct"
+            ++ (if(d.notes[\fromLoop] == true) { "" } { "  ·  not followed" })
+    }
+};
+// Twelve bars, C to B: how much of each note the loop played (the strongest
+// full), the key's notes in the synth's colour, its root framed.
+~synthPaintKey = { |uv|
+    var d = ~synthModel.(), k = d !? { |x| x.loopKey }, w = 20, bh = uv.bounds.height - 14;
+    var names = MegaSANoteSeq.rootNames;
+    12.do { |pc|
+        var v = (k !? { |x| x[\chroma][pc] }) ? 0, on = k.notNil and: { k[\pcs].includes(pc) };
+        Pen.fillColor = ~gt[\panel2];
+        Pen.addRect(Rect((pc * w) + 1, 0, w - 3, bh));
+        Pen.fill;
+        if(v > 0) {
+            Pen.fillColor = if(on) { ~gt[\synth] } { ~gt[\mute] };
+            Pen.addRect(Rect((pc * w) + 1, bh * (1 - v), w - 3, bh * v));
+            Pen.fill;
+        };
+        if(k.notNil and: { k[\root] == pc }) {
+            Pen.strokeColor = ~gt[\ink];
+            Pen.width = 2;
+            Pen.strokeRect(Rect((pc * w) + 1, 0, w - 3, bh));
+        };
+        Pen.stringCenteredIn(names[pc], Rect(pc * w, bh + 1, w - 1, 13), ~guiMono.(9),
+            if(on) { ~gt[\ink] } { ~gt[\mute] });
+    };
+};
+// Changes counts only while From the loop is on.
+~synthKeyEnable = {
+    ~synthWidgets[\loopChanges] !? { |w| w[\enabled] = { ~synthModel.() !? { |d| d.notes[\fromLoop] == true } } };
+};
+~synthKeyRow = {
+    var tip = "What megalooper heard of the loop: the notes the guitar played on the analysis tap,\n"
+        "C to B, the strongest full; the key's notes lit, its root framed. A take's key comes a moment\n"
+        "after it closes, and an overdub adds to it; with From the loop on, the sequencer plays it from\n"
+        "the next bar line. \"unsure\": the loop strays too far from any one scale (chromatic notes,\n"
+        "moving harmony), so only its root, fifth and third play. The tuning is the guitar's, against\n"
+        "A = 440: the Wave synth plays in tune with it.";
+    var view = UserView().canFocus_(false).fixedSize_(Size(20 * 12, 40)).background_(~gt[\panel])
+        .toolTip_(tip).drawFunc_({ |uv| ~synthPaintKey.(uv) });
+    var words = ~guiText.("", 13, ~gt[\ink]).minWidth_(560).toolTip_(tip);
+    ~synthKeyEnable.();
+    ~synthKeyView = view;
+    ~synthWidgets.put(\heard, (kind: \text, view: words, get: { ~synthKeyWords.(~synthModel.()) }));
+    HLayout(~synthRowLabel.("Heard", tip), view, words, nil).spacing_(10)
+};
+~synthRefreshKey = {
+    ~synthPaint.(\heard);
+    ~synthPaint.(\root);
+    ~synthPaint.(\scale);
+    ~synthKeyView !? { |v| if(v.isClosed.not) { v.refresh } };
 };
 
 // ---- The steps and the lanes ---------------------------------------------------------
@@ -559,12 +655,13 @@
         ~guiController.(\synth, d)
             .put(\notesOn, { { ~synthPaint.(\notesOn); ~synthPollPlayhead.(true); ~guiRefreshTabs !? { |f| f.value } }.defer })
             .put(\playing, { { ~synthPollPlayhead.(true); ~guiRefreshTabs !? { |f| f.value } }.defer })
-            .put(\noteSetting, { |obj, what, name| { ~synthPaint.(name); ~synthPaintAll.() }.defer })
+            .put(\noteSetting, { |obj, what, name| { ~synthPaint.(name); ~synthPaintAll.(); ~synthRefreshKey.() }.defer })
+            .put(\loopKey, { { ~synthRefreshKey.() }.defer })
             .put(\noteLaneSetting, { { ~synthPaintAll.() }.defer })
             .put(\noteValue, { |obj, what, lane| { ~synthRefreshLane.(lane) }.defer })
             .put(\noteValues, { |obj, what, lane| { ~synthRefreshLane.(lane) }.defer })
             .put(\noteStep, { { ~synthRefreshLane.(\steps) }.defer })
-            .put(\notes, { { ~synthPaintAll.() }.defer })
+            .put(\notes, { { ~synthPaintAll.(); ~synthRefreshKey.() }.defer })
     ];
     w !? { ctls = ctls.add(~guiController.(\synth, w)
         .put(\waveSetting, { |obj, what, name| { ~synthPaint.(("wave_" ++ name).asSymbol) }.defer })

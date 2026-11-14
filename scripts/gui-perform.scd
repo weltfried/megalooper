@@ -906,7 +906,7 @@
 };
 
 ~performPaintSynth = {
-    var m = ~megaSA, d = ~synthModel !? { |f| f.value }, w, on, plugin, n, bar, p;
+    var m = ~megaSA, d = ~synthModel !? { |f| f.value }, w, on, plugin, n, bar, p, k;
     if(~performSynthTile.notNil and: { ~performSynthTile.isClosed.not } and: { m.notNil } and: { d.notNil }) {
         w = m.wave;
         on = d.notesOn == true;
@@ -925,8 +925,12 @@
         };
         ~performSynthRandom !? { |t| if(t.isClosed.not) { t.enabled_(plugin.isNil) } };
         n = d.notes;
-        ~performNote.(\synth, MegaSANoteSeq.rootNames[n[\root]]
-            ++ (if(n[\scaleOn] == true) { " " ++ MegaSANoteSeq.scales[n[\scale]][0] } { "" })
+        // The key it plays: the loop's (From the loop) or the pattern's own.
+        k = if(d.respondsTo(\noteKeyInForce)) { d.noteKeyInForce } {
+            (root: n[\root], name: MegaSANoteSeq.scales[n[\scale]][0]) };
+        ~performNote.(\synth, MegaSANoteSeq.rootNames[k[\root]]
+            ++ (if(n[\scaleOn] == true) { " " ++ (k[\name] ?? { if((k[\key] !? { |x| x[\core] }) == true) { "core" } { "own set" } }) } { "" })
+            ++ (if(k[\key].notNil) { " (loop)" } { "" })
             ++ " · " ++ MegaSANoteSeq.divisionNames[n[\division]]
             ++ (if(n[\triplet] == true) { "T" } { "" }) ++ (if(n[\dotted] == true) { "." } { "" })
             ++ " · " ++ (plugin !? { |k| PathName(k.asString).fileNameWithoutExtension } ? "Wave synth"));

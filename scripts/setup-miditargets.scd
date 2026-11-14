@@ -712,6 +712,19 @@
         seqChoice.(\division, "Rate", MegaSANoteSeq.divisionNames);
         seqChoice.(\root, "Root", MegaSANoteSeq.rootNames);
         seqChoice.(\scale, "Scale", MegaSANoteSeq.scales.collect(_[0]));
+        // The loop's key followed, or the pattern's own (a root or scale set
+        // by hand turns it off).
+        add.('sa.synth.fromLoop', "From the loop", "Synth", \toggle, (group: "Sequence",
+            flip: { drums.value !? { |d| d.setNoteSetting(\fromLoop, d.notes[\fromLoop] != true) } },
+            get: { drums.value !? { |d| d.notes[\fromLoop] == true } },
+            set: { |on| drums.value !? { |d| d.setNoteSetting(\fromLoop, on == true) } },
+            available: hasDrums));
+        // A loop that changes key followed bar by bar, or one key for it.
+        add.('sa.synth.loopChanges', "Changes", "Synth", \toggle, (group: "Sequence",
+            flip: { drums.value !? { |d| d.setNoteSetting(\loopChanges, d.notes[\loopChanges] == false) } },
+            get: { drums.value !? { |d| d.notes[\loopChanges] != false } },
+            set: { |on| drums.value !? { |d| d.setNoteSetting(\loopChanges, on == true) } },
+            available: hasDrums));
         add.('sa.synth.swing', "Swing", "Synth", \continuous, (group: "Sequence",
             get: { drums.value !? { |d| d.notes[\swing] } },
             set: { |v| drums.value !? { |d| d.setNoteSetting(\swing, v) } },

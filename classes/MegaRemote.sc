@@ -560,6 +560,7 @@ MegaRemote {
         if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
         given = this.class.plain(given);
         waveGiven = this.class.plain(waveGiven);
+        given !? { |g| this.class.takeOverKey(g, drums) };
         if(given.notNil or: { waveGiven.notNil }) {
             obj = MegaFiles.parseObject(MegaSASynthFile.text("ai",
                 this.class.mergePattern(drums.notes, given), this.class.mergePattern(wave.settings, waveGiven)));
@@ -860,6 +861,22 @@ MegaRemote {
             ^current.collect { |c, i| this.mergePattern(c, given[i]) } ++ given.drop(current.size)
         };
         ^given.deepCopy
+    }
+
+    // A root or a scale given while the sequencer follows the loop's key
+    // takes over from it, as one chosen on the Synth view does
+    // (MegaSADrums.setNoteSetting): fromLoop goes off, and the one of the two
+    // not given starts where the key is. A fromLoop given says itself.
+    *takeOverKey { |given, drums|
+        var k = drums.loopKey;
+        if(given.isKindOf(Dictionary).not or: { given[\fromLoop].notNil } or: { drums.notes[\fromLoop] != true }
+            or: { given[\root].isNil and: { given[\scale].isNil } }) { ^given };
+        k !? {
+            if(given[\root].isNil) { given.put(\root, k[\root]) };
+            if(given[\scale].isNil) { k[\scale] !? { |i| given.put(\scale, i) } };
+        };
+        given.put(\fromLoop, false);
+        ^given
     }
 
     // ---- the grains and the cutter -------------------------------------------------
@@ -1569,10 +1586,19 @@ MegaRemote {
         ^this.obj([
             \notesOn, d !? { |x| x.notesOn },
             \notes, d !? { |x| x.notes },
+            \loopKey, d !? { |x| x.loopKey } !? { |k| this.loopKeyOf(k) },
             \instrument, sa.instrumentKey !? { |k| k.asString } ? "wave",
             \wave, w !? { |x| x.settings },
             \waveTable, w !? { |x| x.tableName }
         ])
+    }
+
+    // The loop's key as heard (LoopKey.keyOf), for the AI.
+    *loopKeyOf { |k|
+        ^this.obj([\words, LoopKey.words(k), \root, k[\root], \pcs, k[\pcs], \name, k[\name], \scale, k[\scale],
+            \inside, k[\inside].round(0.01), \unsure, k[\core] == true, \cents, k[\cents],
+            \sections, k[\sections] !? { |ss| ss.collect { |sc| this.obj([\fromBar, sc[\from] + 1, \toBar, sc[\to],
+                \words, LoopKey.words(sc[\key]), \root, sc[\key][\root], \pcs, sc[\key][\pcs]]) } }])
     }
 
     // ---- describe --------------------------------------------------------------
@@ -1670,7 +1696,15 @@ MegaRemote {
                 "indexes divisions (1/1 .. 1/64), with triplet or dotted; swing 0..1 delays every "
                 "second step (1 puts it at three quarters of the pair). restart: bar (from every "
                 "bar line of the loop's reading, uneven bars too), loop or off. on (the context's "
-                "synth.notesOn) is whether the sequencer plays at all.",
+                "synth.notesOn) is whether the sequencer plays at all. fromLoop (true unless "
+                "turned off): while the loop has a key heard from the guitar (the context's "
+                "synth.loopKey: its root, its notes pcs, a scale's name or none, unsure when only "
+                "root, third and fifth are safe, the guitar's tuning in cents, which the Wave synth "
+                "plays at), root 0 is that key's root and scaleOn snaps to its notes; the pattern's "
+                "own root and scale wait. Giving root or scale turns fromLoop off, starting from "
+                "the loop's key (a scale given plays from the loop's root). A loop whose key changes "
+                "has sections (synth.loopKey.sections: bars fromBar..toBar in a key of their own); "
+                "with loopChanges (true unless turned off) each bar plays in its section's key.",
             \lanes, MegaSANoteSeq.laneNames.collect { |n|
                 this.obj([\name, n, \min, specs[n][0], \max, specs[n][1], \default, specs[n][2]]) },
             \settings, MegaSANoteSeq.settingNames,

@@ -22,6 +22,10 @@
 //    division: 4 (into divisions: 1/16), triplet: false, dotted: false,
 //    swing: 0.0 (0..1)
 //    scaleOn: true, root: 0 (0..11, C..B), scale: 1 (into scales: Minor)
+//    fromLoop: true (the root and scale are the loop's key, while it has
+//               one: see below)
+//    loopChanges: true (with fromLoop, a loop whose key changes plays each
+//               bar in its own section's key: see below)
 //    octave: 0 (-3..3, the whole line), restart: \bar (restarts))
 //
 // What one step plays (decide): the sequence's position from its direction
@@ -36,6 +40,15 @@
 //   shift  = the time-shift lane in % of a step, late
 //   ratchet r: the note r + 1 times, evenly through the step, each one as
 //            long as `length` says (a mono instrument ends the one before)
+//
+// From the loop (ours, 2026-11-14, docs/dev/synth.md 6): with fromLoop on
+// and a key heard from the loop (LoopKey.keyOf, which MegaSADrums hands to
+// decide as the key in force where the step is), the key's root is pitch 0
+// and its notes (`intervals`, a named scale's or a set of its own) are the
+// scale; without a key, the pattern's own root and scale. Scale off still
+// plays plain semitones, from the key's root. A loop that changes key has
+// sections, and with loopChanges on MegaSADrums hands over the key of the
+// section the step's bar is in; off, the loop's one key.
 //
 // Ours, where SQ differs:
 //   - pitch 0 is the root: SQ starts every pattern on C and only quantises
@@ -129,7 +142,7 @@ MegaSANoteSeq {
 
     // The settings of the pattern itself, and of a lane, with what each takes.
     *settingNames { ^#[\stepCount, \first, \last, \direction, \division, \triplet, \dotted, \swing,
-        \scaleOn, \root, \scale, \octave, \restart] }
+        \scaleOn, \root, \scale, \octave, \restart, \fromLoop, \loopChanges] }
     *laneSettingNames { ^#[\own, \first, \last, \direction, \range] }
 
     // The settings that move the steps in time: an edit carries the count on
@@ -139,7 +152,7 @@ MegaSANoteSeq {
     // ---- Patterns --------------------------------------------------------------
 
     // A fresh install's pattern (ours): a minor line round the root, the scale
-    // on, every lane following the sequence.
+    // on and the loop's key followed, every lane following the sequence.
     *defaultPattern {
         var specs = this.laneSpecs;
         var lanes = ();
@@ -150,7 +163,7 @@ MegaSANoteSeq {
         lanes[\pitch][\values] = [0, 7, 12, 7, 3, 7, 10, 7, 0, 7, 12, 10, 8, 7, 3, 2];
         ^(steps: Array.fill(16, true), stepCount: 16, first: 1, last: 16, direction: \forward,
             lanes: lanes, division: 4, triplet: false, dotted: false, swing: 0.0,
-            scaleOn: true, root: 0, scale: 1, octave: 0, restart: \bar)
+            scaleOn: true, root: 0, scale: 1, octave: 0, restart: \bar, fromLoop: true, loopChanges: true)
     }
 
     // A deep copy: the lanes' Events and Arrays are the pattern's own.
@@ -185,6 +198,8 @@ MegaSANoteSeq {
             \dotted, { bool.(v) },
             \swing, { if(v.isNumber) { v.asFloat.clip(0, 1) } },
             \scaleOn, { bool.(v) },
+            \fromLoop, { bool.(v) },
+            \loopChanges, { bool.(v) },
             \root, { int.(v, 0, 11) },
             \scale, { int.(v, 0, this.scales.size - 1) },
             \octave, { int.(v, -3, 3) },
@@ -293,14 +308,16 @@ MegaSANoteSeq {
     // One step. count: steps since the last restart (0 on it). state: what
     // the step before left (nil at the transport's start): snake positions
     // and the condition lane's pass. rand.(slot, kind) answers a Float in
-    // [0, 1) for this step: slot 0 is the sequence, 1..7 the lanes.
+    // [0, 1) for this step: slot 0 is the sequence, 1..7 the lanes. key: the
+    // loop's key in force (root:, intervals:), or nil; it counts only with
+    // the pattern's fromLoop on (see From the loop).
     // Answers (state:, main: 0..15, lanes: (name -> 0..15), note: nil or
     // (note:, vel:, length:, shift:, ratchet:)), length and shift as shares
     // of a step.
-    *decide { |pat, count, state, rand|
+    *decide { |pat, count, state, rand, key|
         var snakes = (state !? { |st| st[\snake] }) ?? { () }, newSnakes = ();
         var pass = state !? { |st| st[\pass] };
-        var lanes = (), at, main, mainLen, cond, condLen, condCount, plays, v, note, nt, scale;
+        var lanes = (), at, main, mainLen, cond, condLen, condCount, plays, v, note, nt, scale, root;
         // A lane's (or the sequence's) step: first - 1 + its position.
         at = { |key, slot, e, dir|
             var len = (e[\last] - e[\first]) + 1;
@@ -322,10 +339,12 @@ MegaSANoteSeq {
         plays = (pat[\steps][main] == true) and: { this.conditionPlays(v.(\condition), pass) }
             and: { v.(\velocity) > 0 };
         if(plays) {
-            note = (60 + (pat[\root] ? 0)) + v.(\pitch);
+            if(pat[\fromLoop] != true) { key = nil };
+            root = (key !? { |k| k[\root] }) ?? { pat[\root] ? 0 };
+            note = (60 + root) + v.(\pitch);
             if(pat[\scaleOn] == true) {
-                scale = this.scales[(pat[\scale] ? 1).clip(0, this.scales.size - 1)][1];
-                note = this.snap(note, pat[\root] ? 0, scale);
+                scale = (key !? { |k| k[\intervals] }) ?? { this.scales[(pat[\scale] ? 1).clip(0, this.scales.size - 1)][1] };
+                note = this.snap(note, root, scale);
             };
             note = (note + (12 * (v.(\octave) + (pat[\octave] ? 0)))).clip(0, 127).asInteger;
             nt = (note: note, vel: v.(\velocity), length: (v.(\length) / 100).max(0.01),

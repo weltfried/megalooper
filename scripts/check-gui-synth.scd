@@ -246,6 +246,55 @@ Routine {
         ok.("a file that is no table: refused, said", ~synthImportTable.(dir +/+ "missing.wav").isString);
     });
 
+    section.("the loop's key", {
+        var key = (root: 4, pcs: [2, 4, 7, 9, 11], intervals: [0, 3, 5, 7, 10], name: "Minor pentatonic", scale: 11,
+            inside: 0.86, margin: 0.02, core: false, cents: 18, heard: (pcs: [2, 4, 7, 9, 11], name: "Minor pentatonic"),
+            chroma: [0, 0, 0.9, 0, 1, 0, 0.1, 0.6, 0, 0.5, 0, 0.8]);
+        var words = { ~synthWidgets[\heard][\view].string };
+        d.setNoteSetting(\fromLoop, true);
+        tick.();
+        ok.("From the loop has its switch, lit; nothing heard yet",
+            (~synthWidgets[\fromLoop][\view].value == 1) and: { words.().beginsWith("nothing heard") }, words.());
+        d.setLoopKey(key);
+        tick.();
+        ok.("a key heard: the menus show its root and scale", [~synthWidgets[\root][\view].value,
+            ~synthWidgets[\scale][\view].value] == [4, 11],
+            [~synthWidgets[\root][\view].value, ~synthWidgets[\scale][\view].value].asString);
+        ok.("...and Heard says it, with its share and the tuning",
+            words.() == "E Minor pentatonic  ·  86 % of it in the scale  ·  tuning +18 ct", words.());
+        ok.("...its twelve bars paint", ~synthKeyView.notNil and: { ~synthKeyView.isClosed.not }
+            and: { ~synthKeyView.bounds.width == 240 });
+        ~synthWidgets[\scale][\view].valueAction_(2);
+        tick.();
+        ok.("a scale chosen from the menu: Dorian from the loop's root, From the loop off",
+            (d.notes.atAll(#[\root, \scale, \fromLoop]) == [4, 2, false]) and: { ~synthWidgets[\fromLoop][\view].value == 0 }
+                and: { words.().endsWith("not followed") },
+            d.notes.atAll(#[\root, \scale, \fromLoop]).asString + words.());
+        ~synthWidgets[\fromLoop][\view].valueAction_(1);
+        tick.();
+        ok.("...the switch on again follows the key", (d.notes[\fromLoop] == true) and: { ~synthWidgets[\scale][\view].value == 11 });
+        d.setLoopKey(key.copy.putAll((period: 8.0, sections: [
+            (from: 0, to: 2, at: 0, key: (root: 4, pcs: [2, 4, 7, 9, 11], name: "Minor pentatonic", scale: 11)),
+            (from: 2, to: 4, at: 4.0, key: (root: 6, pcs: [1, 4, 6, 9, 11], name: "Minor pentatonic", scale: 11))])));
+        tick.();
+        ok.("a key that changes: Heard says its sections, bar by bar, and Changes is on",
+            (words.() == "bars 1–2 E Minor pentatonic, 3–4 F# Minor pentatonic  ·  tuning +18 ct")
+                and: { ~synthWidgets[\loopChanges][\view].value == 1 } and: { ~synthWidgets[\loopChanges][\view].enabled }, words.());
+        ~synthWidgets[\loopChanges][\view].valueAction_(0);
+        tick.();
+        ok.("...Changes off: one key for the loop, said so", (d.notes[\loopChanges] == false)
+            and: { words.().contains("changes not followed") }, words.());
+        d.setNoteSetting(\fromLoop, false);
+        tick.();
+        ok.("...From the loop off greys Changes", ~synthWidgets[\loopChanges][\view].enabled.not);
+        d.setNoteSetting(\fromLoop, true);
+        d.setNoteSetting(\loopChanges, true);
+        d.setLoopKey(nil);
+        tick.();
+        ok.("the key gone: the menus show the pattern's own again", (~synthWidgets[\scale][\view].value == 2)
+            and: { words.().beginsWith("nothing heard") });
+    });
+
     section.("the view", {
         var views = ~guiViewOrderFor.(true);
         ok.("SA's views: the Synth after the Drums", views == [\perform, \sound, \fx, \drums, \synth, \setup, \calibrate], views.asString);

@@ -77,8 +77,8 @@ families = [
     [\length, "^sa\\.drums\\.(main|break)\\.lane[1-4]\\.length\\.(chance|alt|velo|roll)$", 32],
     [\trim, "^sa\\.drums\\.trim\\.(steps|onset)\\.[0-9]+$", 0],
     [\groupTrim, "^sa\\.drums\\.groupTrim\\.(steps|onset)\\.[a-zA-Z0-9]+$", 0],
-    [\synth, "^sa\\.synth\\.(on|random|reset|division|root|scale|swing|" ++ MegaSAWave.params.collect { |x| x[\name] }.join("|") ++ ")$",
-        7 + MegaSAWave.params.size],
+    [\synth, "^sa\\.synth\\.(on|random|reset|division|root|scale|swing|fromLoop|loopChanges|" ++ MegaSAWave.params.collect { |x| x[\name] }.join("|") ++ ")$",
+        9 + MegaSAWave.params.size],
     [\window, "^gui\\.view\\.(perform|sound|fx|drums|synth|setup|calibrate)$", 7],
     [\count, "^count\\.(beatLight|countInLight|oddBarLight)$", 3],
     // Next and Previous with no SA; the knob and a control per preset come

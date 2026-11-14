@@ -48,6 +48,9 @@ var baseline = (
     'looperOverdubAnalysis': [ 1453, 916394117 ],
     // New 2026-11-05: the tap-level tracker (LooperSynthDefs.tapLevelGraph).
     'looperTapLevel':        [ 1762, 669184845 ],
+    // New 2026-11-14: the loop's key's capture (LooperSynthDefs.keyCaptureGraph):
+    // the tap at 12 kHz into a buffer, for LooperKey.
+    'looperKeyCapture':      [  444, 426328884 ],
     'looperRecPlain':        [  605, 125864998 ],
     'looperRecPlainMono':    [  545, 466595377 ],
     // Moved 2026-10-27 from [ 2074, 209975019 ] and [ 2014, 953598608 ]: the

@@ -53,12 +53,13 @@ var looperSkip, looperParts, saParts, drumsParts;
 
 // The Looper's parts: each says its changes as the Looper's, held to the
 // Looper's table here.
-looperParts = ["LooperOnsetNotes", "LooperChainRecorder", "LooperGrains", "LooperCutter"];
+looperParts = ["LooperOnsetNotes", "LooperChainRecorder", "LooperGrains", "LooperCutter", "LooperKey"];
 check.("Looper", Looper.notifications, saidIn.(["Looper.sc"] ++ looperParts.collect { |n| n ++ ".sc" }, "prSetGranular"));
 ~tEq.("a part of the Looper says its changes as the Looper's (looper.changed), never as its own, which nobody hears",
     looperParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);
-// 68 since 2026-11-12: Autostart's switch, its waiting and its start level.
-~tEq.("the Looper lists 68 notifications", Looper.notifications.size, 68);
+// 68 since 2026-11-12: Autostart's switch, its waiting and its start level;
+// 69 since 2026-11-14: the loop's key (LooperKey).
+~tEq.("the Looper lists 69 notifications", Looper.notifications.size, 69);
 // MegaSA's parts likewise (step 9).
 saParts = ["MegaSAMixer", "MegaSAStateJobs", "MegaSAGraph"];
 check.("MegaSA", MegaSA.notifications, saidIn.(["MegaSA.sc"] ++ saParts.collect { |n| n ++ ".sc" }));

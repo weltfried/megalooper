@@ -158,6 +158,10 @@ a = ().putPairs(m.copyToEnd(5));
 ~tAssert.("...and every setting", MegaSAWave.params.every { |p| a[p[\name]] == w[p[\name]] });
 a = ().putPairs(w.voiceMsgs((note: 60, vel: 64, gate: 0.2), (group: 1, out: 0, ring: 0, choke: 0, hitId: 1))[0].copyToEnd(5));
 ~tEq.("a first note glides from itself, not legato", [a[\fromFreq], a[\legato]], [60.midicps, 0]);
+a = ().putPairs(w.voiceMsgs((note: 69, vel: 64, gate: 0.2, from: 57, cents: 18),
+    (group: 1, out: 0, ring: 0, choke: 0, hitId: 1))[0].copyToEnd(5));
+~tEqArray.("a note at the loop's tuning (18 cents sharp): it and the note it glides from",
+    [a[\freq], a[\fromFreq]], [440 * (2 ** (0.18 / 12)), 220 * (2 ** (0.18 / 12))], 1e-6);
 w.free;
 ~tEq.("freed: its buffers go", [w.built, w.base, stub[\msgs].count { |x| x[0] == \b_free }], [false, nil, 360]);
 }.value;

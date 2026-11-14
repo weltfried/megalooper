@@ -342,13 +342,15 @@ MegaSAWave {
     // ---- A note -----------------------------------------------------------
 
     // The /s_new for one note (MegaSADrums.noteVoice): rec has note:, vel:,
-    // gate: (seconds), from: (the note before, or nil), legato:; where has
-    // group:, out:, ring:, choke:, hitId:. Nothing before the tables are built.
+    // gate: (seconds), from: (the note before, or nil), legato:, cents: (the
+    // loop's tuning, played on every note: the guitar is often sharp of
+    // A440); where has group:, out:, ring:, choke:, hitId:. Nothing before
+    // the tables are built.
     voiceMsgs { |rec, where|
-        var s = settings, args;
+        var s = settings, args, tune = (rec[\cents] ? 0) / 100;
         if(built.not or: { base.isNil }) { ^[] };
-        args = [\out, where[\out], \base, base, \freq, rec[\note].midicps,
-            \fromFreq, (rec[\from] ? rec[\note]).midicps, \amp, (rec[\vel] / 127).squared * 0.5,
+        args = [\out, where[\out], \base, base, \freq, (rec[\note] + tune).midicps,
+            \fromFreq, ((rec[\from] ? rec[\note]) + tune).midicps, \amp, (rec[\vel] / 127).squared * 0.5,
             \dur, rec[\gate], \legato, (rec[\legato] == true).binaryValue,
             \cancelBus, where[\ring], \chokeBus, where[\choke], \hitId, where[\hitId]];
         this.class.params.do { |p| args = args ++ [p[\name], s[p[\name]]] };

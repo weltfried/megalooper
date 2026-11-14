@@ -213,6 +213,12 @@ MegaSADrums {
     // decided steps and their playheads, and noteVoice.(rec, where), the
     // OSC messages that play one note (nil: the test tone, \megaSANoteTone).
     var <notes, <notesOn = false, notesHist, noteCursor, noteLog, noteHeads, <>noteVoice;
+    // The loop's key (the Looper's \loopKey, LoopKey.keyOf's Event): the
+    // last one heard, and as a history ([[time, key or nil], ...]) of when
+    // each lands, the next bar line after it came (setLoopKey). A key with
+    // sections (a loop that changes key) plays each bar in its section's
+    // (prSectionKey).
+    var <loopKey, keyHist;
 
     // megaSA: anything that answers `server` (MegaSA; a test passes an Event).
     // Every notification it says (`changed(what, args...)`): a \state (its
@@ -252,7 +258,8 @@ MegaSADrums {
             noteLaneSetting: [\state, [\lane, \name, \value], "a note lane's setting"],
             noteStep: [\state, [\step, \on], "a step of the note sequence on or off"],
             noteValue: [\state, [\lane, \step, \value], "one value of a note lane"],
-            noteValues: [\event, [\lane], "a note lane's values changed wholesale"]
+            noteValues: [\event, [\lane], "a note lane's values changed wholesale"],
+            loopKey: [\state, [\key, \at], "the loop's key the sequencer follows (nil: none) and when it lands (nil: at once)"]
         )
     }
 
@@ -294,6 +301,7 @@ MegaSADrums {
         logQueue = List.new;
         notes = MegaSANoteSeq.defaultPattern;
         notesHist = [[inf.neg, false]];
+        keyHist = [[inf.neg, nil]];
         noteLog = List.new;
         noteHeads = List.new;
         transport = MegaSATransport(this);
@@ -833,14 +841,90 @@ MegaSADrums {
 
     // A setting of the pattern (MegaSANoteSeq.settingNames). Notifies
     // \noteSetting, name, value.
+    // A root or a scale chosen by hand while the sequencer follows the loop's
+    // key takes over from it: the other of the two starts where the key is
+    // (a scale picked plays from the loop's root), and fromLoop goes off.
     setNoteSetting { |name, v|
-        var old = notes[name], stored = MegaSANoteSeq.putSetting(notes, name, v);
+        var old = notes[name], stored, k = loopKey;
+        if((#[\root, \scale].includes(name)) and: { notes[\fromLoop] == true }
+            and: { MegaSANoteSeq.cleanSetting(name, v).notNil }) {
+            k !? {
+                if(name == \scale) { this.prPutNoteSetting(\root, k[\root]) }
+                    { k[\scale] !? { |i| this.prPutNoteSetting(\scale, i) } };
+            };
+            this.prPutNoteSetting(\fromLoop, false);
+        };
+        stored = MegaSANoteSeq.putSetting(notes, name, v);
         if(stored.isNil) {
             ("MegaSADrums: the note sequencer has no setting " ++ name ++ " taking " ++ v.asCompileString).warn;
             ^this
         };
         if((stored != old) and: { MegaSANoteSeq.timingSettings.includes(name) }) { this.prNoteRetime };
         this.prNotify(\noteSetting, name, stored);
+    }
+
+    prPutNoteSetting { |name, v|
+        MegaSANoteSeq.putSetting(notes, name, v) !? { |x| this.prNotify(\noteSetting, name, x) };
+    }
+
+    // The loop's key (the Looper's \loopKey; nil: none), for the sequencer's
+    // From the loop and the Wave synth's tuning. It lands where the next bar
+    // line is played, as a preset recalled does: a step before the line plays
+    // the key before, every one from it this one. A line nearer than the lead
+    // is decided already, so it is the one after; with the transport not
+    // playing it is in at once. Notifies \loopKey (key, at: the line's wall
+    // time, or nil).
+    setLoopKey { |key, now|
+        var wall, at;
+        if(alive.not or: { key == loopKey }) { ^this };
+        wall = now ?? { wallClock.value };
+        at = if(playing) { this.prNextBarTime(wall + lead + margin) };
+        loopKey = key;
+        keyHist = this.class.historyFrom(keyHist, at ? wall, key);
+        this.prNotify(\loopKey, key, at);
+    }
+
+    // The loop's key in force at grid time t (default: heard now), or nil:
+    // its section's where the loop changes key and the grid plays there.
+    loopKeyAt { |t|
+        var key, ep, tick;
+        t = t ?? { this.gridNow };
+        key = this.class.historyAt(keyHist, t);
+        if(key.isNil or: { key[\sections].isNil } or: { this.prPlayingAt(t).not }) { ^key };
+        ep = this.prEpochAt(t);
+        if(ep.isNil) { ^key };
+        tick = this.prTicksAt(ep, t);
+        ^this.prSectionKey(key, this.prSegAtTick(ep, tick), tick)
+    }
+
+    // The key a step at `tick` of segment `seg` plays in: with loopChanges
+    // on, the section of the loop's key its bar is in (the bar's line, as a
+    // position in the loop, against each section's `at`, round the take's
+    // loop: `period`), with the loop's tuning; else the key itself.
+    prSectionKey { |key, seg, tick|
+        var secs = key !? { |k| k[\sections] }, loopTicks, rel, within, barTick, pos, sc;
+        if(secs.isNil or: { seg.isNil } or: { notes[\loopChanges] == false }) { ^key };
+        loopTicks = (seg[\loopTicks] ? 1920).max(1);
+        rel = ((tick - seg[\tick0]) + 1e-6).max(0);
+        within = rel - ((rel / loopTicks).floor * loopTicks);
+        barTick = (seg[\barStarts] ? [0]).select { |b| b <= within }.last ? 0;
+        pos = (barTick / loopTicks) * (seg[\loopDur] ? 0);
+        if((key[\period] ? 0) > 0) { pos = pos.mod(key[\period]) };
+        sc = secs.reverse.detect { |x| x[\at] <= (pos + 0.05) } ? secs.first;
+        ^sc[\key].copy.put(\cents, key[\cents])
+    }
+
+    // What the sequencer plays from now: (root:, intervals:, name:, scale:,
+    // key:) where name and scale are nil for a key's set no scale has, and
+    // key the loop's key followed (nil: the pattern's own root and scale).
+    noteKeyInForce { |t|
+        var k = if(notes[\fromLoop] == true) { this.loopKeyAt(t) };
+        ^if(k.notNil) {
+            (root: k[\root], intervals: k[\intervals], name: k[\name], scale: k[\scale], key: k)
+        } {
+            (root: notes[\root], intervals: MegaSANoteSeq.scales[notes[\scale]][1],
+                name: MegaSANoteSeq.scales[notes[\scale]][0], scale: notes[\scale], key: nil)
+        }
     }
 
     // A lane's setting (MegaSANoteSeq.laneSettingNames). Notifies
@@ -1287,7 +1371,9 @@ MegaSADrums {
             .put(\state, { |obj, what, st|
                 if((st == \recording) and: { newLoopOff } and: { on }) { this.setOn(false) };
                 this.prCheckSpawn(wallClock.value) })
-            .put(\sessionRecording, { |obj, what, flag| this.prSessionRecording(flag) });
+            .put(\sessionRecording, { |obj, what, flag| this.prSessionRecording(flag) })
+            .put(\loopKey, { |obj, what, k| this.setLoopKey(k) });
+        if(aLooper.respondsTo(\loopKey)) { this.setLoopKey(aLooper.loopKey) };
         aLooper.transport = transport;
         aLooper.onsetNoteSink = this;
         this.followArc(aLooper.intensity);
@@ -2221,12 +2307,18 @@ MegaSADrums {
     // at the step's time plus its shift, held for its length.
     prDecideNote { |pk, wall|
         var cur = pk[\cursor], ep = pk[\epoch], seg = pk[\seg], n = cur[\n], nominal, key, offset;
-        var out, rec, delta, stepDur, nt, times, last;
+        var out, rec, delta, stepDur, nt, times, last, inKey, cents;
         nominal = this.prNoteNominal(cur);
         key = this.prNoteRestartKey(ep, nominal);
         offset = if(key != cur[\lastKey]) { n } { cur[\offset] };
+        // The loop's key in force where the step is (see setLoopKey), its
+        // section's where it changes key (the bar's).
+        inKey = this.prSectionKey(this.class.historyAt(keyHist, pk[\time]), seg, nominal);
         out = MegaSANoteSeq.decide(notes, n - offset, cur[\seq],
-            { |slot, kind| MegaSASteps.uniform(ep[\seed], \notes, n, slot, kind) });
+            { |slot, kind| MegaSASteps.uniform(ep[\seed], \notes, n, slot, kind) }, inKey);
+        // The guitar's tuning, the loop's key's (none: 0): the Wave synth
+        // plays in tune with it, whether the sequencer follows the key or not.
+        cents = (inKey !? { |k| k[\cents] }) ? 0;
         stepSerial = stepSerial + 1;
         delta = this.prStampDelta;
         stepDur = (cur[\s] / 120) * seg[\s16];
@@ -2246,7 +2338,7 @@ MegaSADrums {
                 // ratchet's repeats and a repeated pitch attack again, as
                 // SQ's retriggering notes do.
                 this.prQueue((kind: \note, slot: \synth, which: \notes, step: rec[\id], epoch: ep[\id], n: n,
-                    j: j, grid: grid, note: nt[\note], vel: nt[\vel], gate: gate, delta: delta,
+                    j: j, grid: grid, note: nt[\note], vel: nt[\vel], gate: gate, delta: delta, cents: cents,
                     tie: (nt[\length] >= 0.999) and: { j == (times.size - 1) },
                     from: last !? { |l| l[\note] }, legato: (j == 0) and: { last.notNil } and: { last[\note] != nt[\note] } and: { last[\end] > (grid - 1e-6) }));
                 last = (note: nt[\note], end: grid + gate);

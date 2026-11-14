@@ -239,6 +239,23 @@ LooperSynthDefs {
         }
     }
 
+    // The tap for the loop's key (LooperKey; LoopKey analyses it): the
+    // analysis input as it arrives, low-passed twice at 3 kHz (the key reads
+    // 65..2100 Hz; 24 dB an octave keeps what folds back from above 6 kHz
+    // out of it) and written at `rate` (LoopKey.rate, 12 kHz) into `buf` from
+    // frame 0, each frame the last sample of its 1/rate s. Its own synth,
+    // not the recorder's: the recorder's bytes stay as they were, and an
+    // overdub is captured by the same def. Past the buffer's end BufWr keeps
+    // writing its last frame (loop 0). `buf` must be passed: a bufnum that
+    // is none writes into buffer 0.
+    *keyCaptureGraph {
+        ^{ |ana = 0, buf = 0, rate = 12000|
+            var sig = LPF.ar(LPF.ar(SoundIn.ar(ana), 3000), 3000);
+            var frame = Phasor.ar(0, rate / SampleRate.ir, 0, 16777216);
+            BufWr.ar(sig, buf, frame, loop: 0);
+        }
+    }
+
     // Plain recorder for loop chaining: the guitar (in) summed with the
     // processed loop-return from Live (ret, its own stereo pair), no analysis.
     // The new loop inherits tempo/signature from the current one. ret lives on
@@ -514,6 +531,7 @@ LooperSynthDefs {
         }).add;
 
         SynthDef(\looperTapLevel, LooperSynthDefs.tapLevelGraph).add;
+        SynthDef(\looperKeyCapture, LooperSynthDefs.keyCaptureGraph).add;
 
         LooperSessionRecorder.loadSynthDefs;
 

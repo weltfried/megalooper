@@ -22,9 +22,10 @@ silences it with everything else, and so does the loop's break, for as long as
 the loop is silent. Its random parts are the drums' dice: kept on the Drums
 view, every Start plays the same line (see [the drums](drums.md#the-steps)).
 
-A fresh install starts with a line in C minor round the root, on all sixteen
-steps. Make it yours, then press **Start with this** (see
-[Presets](#presets-and-start-with-this)).
+A fresh install starts with a minor line round the root, on all sixteen
+steps, in the key of your loop (see [From the loop](#from-the-loop)); before
+there is a loop, in C minor. Make it yours, then press **Start with this**
+(see [Presets](#presets-and-start-with-this)).
 
 ## The sequence
 
@@ -52,10 +53,67 @@ The **Sequence** row says how the steps run:
 
 ![The key row](images/synth-key.png)
 
-*Fig: The Key row on the Synth view: Scale on, C minor, octave 0.*
+*Fig: The Key row on the Synth view: Scale on, From the loop on, the loop heard in D Dorian, octave 0.*
 
-The **Key** row sets the notes the pitches play: the **Scale** switch, the
-**root**, the **scale** and the line's **Octave**.
+The **Key** row sets the notes the pitches play: the **Scale** switch,
+**From the loop**, the **root**, the **scale** and the line's **Octave**.
+The **Heard** row under it shows the key megalooper heard in your loop.
+
+### From the loop
+
+With **From the loop** on (it is, unless you switch it off), the root and
+the scale are your loop's own: megalooper listens to the guitar while you
+record a take and works out which notes it plays and which one is home.
+The sequencer then plays in that key, so its line fits what you played
+without you setting anything.
+
+- **When it comes.** A take's key comes a moment after you close it (it is
+  worked out in the background, a fraction of a second for a long take).
+  The sequencer changes to it on the **next bar line**, so a line never
+  changes key mid-bar. An **overdub** adds what it played: overdub a chord
+  over a pentatonic riff, and the key can grow to the whole scale. **Undo**
+  brings back the key from before; **Clear** forgets it, and the pattern's
+  own root and scale play until the next take.
+- **What it listens to.** The guitar's clean analysis input, the one the
+  meter is read from (see [the analysis tap](routing.md#the-analysis-tap)),
+  riffs and chords alike. The bass is not listened to.
+- **A riff that changes key.** A riff that moves (to the IV and back,
+  minor to major, up a step) is heard bar by bar: each part of the loop gets
+  a key of its own, and with **Changes** on (beside From the loop; it is on
+  unless you switch it off) the sequencer plays each bar in its part's key,
+  changing on the bar line, every pass. Heard then lists the parts:
+  *bars 1–2 E Minor pentatonic, 3–4 F# Minor pentatonic*. A riff that stays
+  in one key stays one part. Small changes are not followed: a minor
+  pentatonic riff moved to the IV changes one note, and if the riff plays
+  that note quietly the loop keeps one key. Switch Changes off to play one
+  key over the whole loop. The parts are the loop's bars as read when the
+  take closed; an overdub's notes go into the bars they were played in.
+- **Your own root or scale.** Choosing a root or a scale from the menus
+  (or by MIDI) switches From the loop off, starting from the loop's key: pick
+  *Phrygian* while the loop is heard in E minor and the line plays E
+  Phrygian. Switch From the loop on again to follow the loop.
+- **Scale off** still plays plain semitones, from the loop's root.
+
+The **Heard** row shows what was heard: twelve bars, C to B, for how much
+of each note the loop played, the key's notes lit and its root framed; then
+the key in words, how much of what you played is in it, and the tuning.
+
+- **Few notes, a small scale.** A riff of five notes is heard as a
+  pentatonic scale, not a seven-note mode: megalooper only offers notes you
+  gave it reason to. Play the whole scale, or overdub the notes it is
+  missing, and the full mode comes.
+- **The root is the harder half.** The notes are worked out reliably; which
+  of them is home is a guess from the first note, the notes on the bar lines
+  and the lowest notes. A loop heard as *G Major pentatonic* where you meant
+  *E Minor pentatonic* has the same five notes: nothing clashes, the line is
+  only centred on another note. Choose the root yourself then.
+- **"unsure".** A loop that strays far from any one scale (chromatic notes,
+  bends, harmony that moves) gets only its root, fifth and third:
+  *E: E G B (unsure)*. These are safe over almost anything it plays.
+- **The tuning.** A guitar is rarely at exactly A = 440: 15 to 20 cents
+  sharp is common. The Wave synth plays every note at the loop's tuning,
+  whether From the loop is on or not, so it is in tune with the guitar. (A
+  VST instrument gets plain MIDI notes and keeps its own tuning.)
 
 ### How a pitch becomes a note
 
@@ -105,12 +163,12 @@ roots, or the 35 scales, in the order of their menus.
   eight-tone, Iwato and Messiaen mode 6. A line built on 0, 7 and 12 keeps
   its shape across most of them.
 
-### The key the loop was heard in
+### The key the status band shows
 
-The status band shows a key for the take (`Dm`, say), from the notes the
-pitch tracker heard. The synth does not follow it by itself: set the root
-and the scale to match, or ask an AI app for a line over the chords it
-heard (see [AI apps](ai.md)).
+The status band shows a key for the take too (`Dm`, say). That one comes
+from the pitch tracker, which hears one note at a time and knows only major
+and minor; the Synth view's **Heard** row is the one the sequencer plays
+in.
 
 ### All 35 scales
 
@@ -307,7 +365,8 @@ of these and move a knob or press a switch (see
 [the manual](manual.md#mapping-your-own-controller)):
 
 - the switch, **Random sound** and **Reset sound**;
-- the sequence's **Rate**, **Swing**, **root** and **scale**;
+- the sequence's **Rate**, **Swing**, **root**, **scale**, **From the
+  loop** and **Changes**;
 - every setting of the Wave synth;
 - the **Synth** strip's level and mute;
 - **Show Synth**, the view itself, in the MIDI map's list on Setup.

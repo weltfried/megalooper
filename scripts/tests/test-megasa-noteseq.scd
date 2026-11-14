@@ -411,3 +411,119 @@ d.setDice(7);
 ~tAssert.("...and the file says it", d.presetText(d.presetData("z")).contains("\"dice\": 7"));
 d.free;
 }.value;
+
+// ------------------------------------------------------- from the loop --
+// The loop's key (LoopKey.keyOf, the Looper's \loopKey; docs/dev/synth.md 6):
+// decide takes it while the pattern follows it, the drums land it on the
+// next bar line and hand its tuning to every note, and a root or scale
+// chosen by hand takes over from it.
+{
+var c = MegaSANoteSeq, pat = c.defaultPattern, st, out, key = (root: 4, intervals: [0, 3, 5, 7, 10]);
+var line = { |p, k| st = nil; (0..15).collect { |i| out = c.decide(p, i, st, { 0 }, k); st = out[\state]; out[\note][\note] } };
+~tEq.("a fresh pattern follows the loop's key", [pat[\fromLoop], c.settingNames.includes(\fromLoop)], [true, true]);
+~tEq.("...with no key it plays its own root and scale", line.(pat, nil),
+    [60, 67, 72, 67, 63, 67, 70, 67, 60, 67, 72, 70, 68, 67, 63, 62]);
+~tEq.("...with E minor pentatonic: pitch 0 is E, every pitch snapped down to the key's notes", line.(pat, key),
+    [64, 71, 76, 71, 67, 71, 74, 71, 64, 71, 76, 74, 71, 71, 67, 64]);
+~tEq.("...a set of its own (E, G, B: unsure) snaps the same way", line.(pat, (root: 4, intervals: [0, 3, 7])),
+    [64, 71, 76, 71, 67, 71, 71, 71, 64, 71, 76, 71, 71, 71, 67, 64]);
+~tEq.("...with Scale off, plain semitones from the key's root", line.(pat.copy.put(\scaleOn, false), key),
+    [64, 71, 76, 71, 67, 71, 74, 71, 64, 71, 76, 74, 72, 71, 67, 66]);
+~tEq.("...not followed (fromLoop off), the key counts for nothing", line.(pat.copy.put(\fromLoop, false), key),
+    line.(pat, nil));
+~tEq.("fromLoop is a switch", [c.cleanSetting(\fromLoop, false), c.cleanSetting(\fromLoop, 1)], [false, nil]);
+}.value;
+
+{
+var fx = ~nsMake.(), d = fx[\drums], ns, said = List.new, cents = List.new, ctl;
+var key = (root: 4, intervals: [0, 3, 5, 7, 10], pcs: [2, 4, 7, 9, 11], name: "Minor pentatonic", scale: 11,
+    cents: 18, core: false);
+ctl = SimpleController(d).put(\loopKey, { |obj, what, k, at| said.add([k, at]) });
+d.noteVoice = { |rec, where| cents.add([rec[\grid], rec[\cents]]); MegaSADrums.toneMsgs(rec, where) };
+d.setNotesOn(true, 91.0);
+~nsStart.(fx, 92.0);
+~nsRun.(fx, 93.05);
+d.setLoopKey(key);
+~tEq.("a key heard while the drums play: said, with the bar line it lands on", said.size, 1);
+~tNear.("...the next bar line past the lead (93.05 + 0.106: 94.0)", said[0][1], 94.0, 1e-6);
+~tEq.("...in force from the line, not before", [d.loopKeyAt(93.99), d.loopKeyAt(94.0) !? { |k| k[\root] }], [nil, 4]);
+~nsRun.(fx, 95.0);
+ns = ~nsSounding.(fx[\log]);
+~tEq.("...the notes before the line in the pattern's own C minor, from it in E minor pentatonic",
+    [ns.select { |n| (n[\grid] >= 93.0) and: { n[\grid] < 94.0 } }.collect(_[\note]),
+        ns.select { |n| (n[\grid] >= 94.0) and: { n[\grid] < 95.0 } }.collect(_[\note])],
+    [[60, 67, 72, 70, 68, 67, 63, 62], [64, 71, 76, 71, 67, 71, 74, 71]]);
+~tEq.("...and every note from it carries the loop's tuning, those before none",
+    [cents.select { |x| x[0] < 94.0 }.collect(_[1]).asSet.asArray, cents.select { |x| x[0] >= 94.0 }.collect(_[1]).asSet.asArray],
+    [[0], [18]]);
+~tEq.("what it plays from now: the key's root and notes, the key followed",
+    d.noteKeyInForce(94.5).atAll(#[\root, \intervals, \name, \scale]), [4, [0, 3, 5, 7, 10], "Minor pentatonic", 11]);
+d.setLoopKey(key.copy);
+~tEq.("the same key again: nothing said", said.size, 1);
+
+// A scale chosen by hand takes over from the loop's key, from its root.
+d.setNoteSetting(\scale, 2);
+~tEq.("a scale chosen by hand: from the loop's root, From the loop off",
+    d.notes.atAll(#[\root, \scale, \fromLoop]), [4, 2, false]);
+~tEq.("...what it plays now is the pattern's own", d.noteKeyInForce(94.5).atAll(#[\root, \name, \key]), [4, "Dorian", nil]);
+d.setNoteSetting(\fromLoop, true);
+d.setNoteSetting(\root, 7);
+~tEq.("a root chosen by hand: in the loop's scale, From the loop off", d.notes.atAll(#[\root, \scale, \fromLoop]),
+    [7, 11, false]);
+d.setNoteSetting(\fromLoop, true);
+d.setLoopKey(key.copy.putAll((intervals: [0, 3, 7], pcs: [4, 7, 11], name: nil, scale: nil, core: true)));
+d.setNoteSetting(\root, 2);
+~tEq.("...with a set of its own, the pattern's scale stays", d.notes.atAll(#[\root, \scale, \fromLoop]), [2, 11, false]);
+d.setNoteSetting(\fromLoop, true);
+d.setNoteSetting(\root, "E");
+~tEq.("...a root that is none changes nothing", [d.notes[\fromLoop], d.notes[\root]], [true, 2]);
+
+// No loop: the key goes at the next line too; the transport stopped, at once.
+d.setLoopKey(nil);
+~tEq.("the key gone (a Clear): said, landing on a line", [said.last[0], said.last[1].notNil], [nil, true]);
+d.transportStop(96.0);
+~nsRun.(fx, 96.5);
+d.setLoopKey(key);
+~tEq.("with the transport stopped a key is in at once", [said.last[1], d.loopKeyAt(96.5) !? { |k| k[\root] }], [nil, 4]);
+ctl.remove;
+d.free;
+}.value;
+
+// The drums take the Looper's key as they attach, and follow its \loopKey.
+{
+var fx = ~nsMake.(), d = fx[\drums], l = fx[\looper], key = (root: 9, intervals: [0, 2, 3, 5, 7, 8, 10], cents: -5);
+l.keyPart.instVarPut(\key, key);
+d.attach(l);
+~tEq.("attached: the Looper's key", d.loopKey[\root], 9);
+l.changed(\loopKey, nil);
+~tEq.("...and its \\loopKey followed", d.loopKey, nil);
+d.free;
+}.value;
+
+// A loop that changes key: each bar plays in its section's key, from the
+// bar line (Changes, loopChanges, on); off, the loop's one key.
+{
+var fx = ~nsMake.(92.0, 4.0), d = fx[\drums], ns, inBar;
+var e = (root: 4, intervals: [0, 3, 5, 7, 10], pcs: [2, 4, 7, 9, 11], name: "Minor pentatonic", scale: 11, core: false);
+var a = (root: 9, intervals: [0, 3, 5, 7, 10], pcs: [0, 2, 4, 7, 9], name: "Minor pentatonic", scale: 11, core: false);
+var key = (root: 4, intervals: [0, 2, 3, 5, 7, 8, 10], pcs: [0, 2, 4, 6, 7, 9, 11], name: "Minor", scale: 1, core: false,
+    cents: 10, sections: [(from: 0, to: 1, at: 0, key: e), (from: 1, to: 2, at: 2.0, key: a)], period: 4.0);
+~tPut.(fx[\looper], \lastResult, (numerator: 4, denominator: 4, k: 2, bpm: 120, loopDur: 4.0));
+d.setLoopKey(key, 90.0);
+d.setNotesOn(true, 91.0);
+~nsStart.(fx, 92.0);
+~nsRun.(fx, 96.0);
+ns = ~nsSounding.(fx[\log]);
+inBar = { |t0| ns.select { |n| (n[\grid] >= (t0 - 1e-6)) and: { n[\grid] < (t0 + 2 - 1e-6) } }.collect(_[\note]).keep(4) };
+~tAssert.("notes were sent over two passes of a two-bar loop", ns.size > 24, ns.size.asString);
+~tEq.("a loop in E minor pentatonic, then A minor pentatonic: bar 1 plays from E, bar 2 from A, every pass",
+    [inBar.(92.0), inBar.(94.0), inBar.(96.0 - 2)], [[64, 71, 76, 71], [69, 76, 81, 76], [69, 76, 81, 76]]);
+~tEq.("...what plays now is the section's key, with the loop's tuning",
+    [d.loopKeyAt(92.5)[\root], d.loopKeyAt(94.5)[\root], d.loopKeyAt(94.5)[\cents]], [4, 9, 10]);
+d.setNoteSetting(\loopChanges, false);
+~nsRun.(fx, 100.0);
+ns = ~nsSounding.(fx[\log]);
+~tEq.("Changes off: both bars in the loop's one key (E minor), from E",
+    [inBar.(98.0), inBar.(98.0 + 2)].collect { |x| x.first }, [64, 64]);
+d.free;
+}.value;

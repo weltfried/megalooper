@@ -279,6 +279,12 @@ Routine {
         ~guiWindow.bounds = Rect(0, 0, 1440, 900);
         wait.(1);
         d.setNotesOn(true);
+        // The key heard from the take (the status band's Dm): D Dorian, the
+        // guitar 17 cents sharp, as the Synth view's Heard row shows it.
+        d.setLoopKey((root: 2, pcs: [0, 2, 4, 5, 7, 9, 11], intervals: [0, 2, 3, 5, 7, 9, 10], name: "Dorian",
+            scale: 2, inside: 0.88, margin: 0.03, core: false, cents: 17,
+            heard: (pcs: [0, 2, 4, 5, 7, 9, 11], name: "Dorian"),
+            chroma: [0.47, 0.04, 1.0, 0.03, 0.35, 0.62, 0.06, 0.4, 0.05, 0.81, 0.08, 0.18]));
         show.(\perform, "perform");
         show.(\sound, "sound");
         show.(\fx, "fx");
@@ -332,7 +338,7 @@ Routine {
         goto.(\drums);
         band.(~renderParts[\buildDrumsPane], "KITS", "MIX", "drum-kits", false);
         goto.(\synth);
-        band.(~renderParts[\buildSynthPane], "Key", "Key", "synth-key");
+        band.(~renderParts[\buildSynthPane], "Key", "Heard", "synth-key");
         band.(~renderParts[\buildSynthPane], "STEPS AND LANES", "Condition", "synth-lanes");
         goto.(\setup, \analysis);
         band.(~renderParts[\buildAnalysisPane], "Analysis", "Onset notes → onset kit", "onsets", false);
