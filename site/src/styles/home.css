@@ -102,7 +102,9 @@
 .shot { padding: clamp(40px, 6vw, 72px) 24px; display: flex; flex-direction: column; gap: 14px; }
 .shot .slot { aspect-ratio: 16 / 10; }
 .shot__cap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--mute); }
-.shot__cap span + span { font: 500 12px var(--mono); }
+.shot__cap span + span, .shot__cap a { font: 500 12px var(--mono); }
+.shot__cap a { text-decoration: none; white-space: nowrap; }
+.shot__cap a:hover { text-decoration: underline; }
 
 /* ------------------------------------------------------------ features */
 .numlist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
