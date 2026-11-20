@@ -1221,10 +1221,17 @@ both engines. **Morph**, **Grain size**, **Density**, **Size rand** and
 | **On** | Grid, Groups | **Grid** plays Per beat. **Groups** plays one grain on every beat group of the reading, as long as its group times Length: 7/8 as 2+2+3, uneven bars bar by bar (7+7+7+8 as 2+2+3 three times, then 2+2+2+2). With no reading there are no groups, and the grid plays. |
 | **Scatter** | 0–1 (0) | 0 puts every grain on the grid. 1 keeps the same number of grains a second but scatters them at random, a cloud. In between, grid grains drop out as random ones come in. |
 | **Length** | 0.05–4 × (0.5) | A grain's length as a share of its pulse (the beat divided by Per beat, or its group). Under 1 the grains have gaps between them, 1 joins them up, over 1 they overlap. |
+| **Rate** | 0–1 (0) | The pulsars. 0 is the grid as Per beat sets it. Up to 0.5 the grid doubles, still on the loop's beats, until it pulses 16 times a second or more; on to 1 it glides into a tone on the root of the chord the loop plays now (a take of no chords: its key's root), in the octave set. On the way the grid plays, not the groups. |
+| **Mask** | 0–0.95 (0) | Burst masking: only the pulses in the front of each beat group (or beat) play. At 0.4 the first 60 % of each group pulses and the rest is silent, so 7/8 is still heard as 2+2+3 when the pulses turn into a buzz. |
+| **Octave** | 1–4 (2) | The octave of the tone at Rate 1: 2 puts the root between C2 (65 Hz) and B2. |
+| **Ramp** | Loops 1–32 (4) | Runs Rate for you: from below the middle up to the tone over the loops set beside it, from above it back down to the grid. Pressed while it runs, it turns round from where it is. Map it to a footswitch: the bass player hears the pulses double and turn into a tone over those loops. On Cloud it is refused. |
+
+A grain's length stays Length times its pulse, so in the tone Length is the
+pulse's duty: short grains are brighter, long ones overlap into a fuller tone.
 
 At half-time the Clock's beats last twice as long, and so do its grains.
-**Reset tweaks** puts Per beat back to 1 and On back to Grid; the engine
-stays, as morph does.
+**Reset tweaks** puts Per beat back to 1, On back to Grid and Octave back
+to 2, and Rate and Mask to 0; the engine stays, as morph does.
 
 ### Grains presets
 

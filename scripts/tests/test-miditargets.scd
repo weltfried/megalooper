@@ -63,7 +63,7 @@ presetIdShape = "^sa\\.drums\\.preset\\.recall\\.[a-z0-9]+(-[a-z0-9]+)*$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
 // (the trims follow the kits, so they come with SA only).
 families = [
-    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 52],
+    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 57],
     [\live, "^live\\.record$", 1],
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 16],
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 128],
@@ -101,6 +101,8 @@ looperIds = ['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 
     // The Clock engine (docs/dev/microsound.md, 2026-11-20).
     'looper.granularEngine', 'looper.granularDivision', 'looper.granularGroups', 'looper.granularScatter',
     'looper.granularLength',
+    // ...and its pulsars (Phase B, the same day).
+    'looper.granularPulsar', 'looper.granularMask', 'looper.granularOctave', 'looper.pulsarRamp', 'looper.pulsarLoops',
     'looper.dissolveBars', 'looper.breakLoops', 'looper.onsetNote', 'looper.onsetNoteVelLo',
     'looper.onsetNoteVelHi', 'looper.onsetNoteDynRange', 'looper.onsetNoteGateMs', 'looper.bbcutMode',
     // Autostart and its start level (2026-11-12).
@@ -260,9 +262,9 @@ protect {
 
     live = [targets.size, count.(there)];
     ("  on a Live rig: " ++ live[0] ++ " controls, " ++ live[1] ++ " there").postln;
-    ~tEq.("on a Live rig the Looper's 52, Live's record and the count's 3 lights are there, and nothing of SA's",
+    ~tEq.("on a Live rig the Looper's 57, Live's record and the count's 3 lights are there, and nothing of SA's",
         [live[1], targets.keys.asArray.select { |id| there.(targets[id]) and: { id.asString.beginsWith("sa.") } }],
-        [56, []]);
+        [61, []]);
 
     // ------------------------------------------------------------------- laws --
     ~tEq.("every level's law goes back to where it came from, at 0, 1/4, 1/2, 3/4 and 1 ("

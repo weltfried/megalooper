@@ -494,6 +494,11 @@ Looper {
             granularGroups: [\state, [\on], "the Clock plays the beat groups"],
             granularScatter: [\state, [\value], "the Clock's scatter, 0 grid .. 1 cloud"],
             granularLength: [\state, [\value], "the Clock's grain length, a share of its pulse"],
+            granularPulsar: [\state, [\value], "the pulsars' rate, 0 the grid .. 1 the chord's root (30 times a second while the ramp runs)"],
+            granularMask: [\state, [\value], "the pulsars' burst mask, 0 .. 0.95"],
+            granularOctave: [\state, [\value], "the pulsars' tone's octave, 1..4"],
+            pulsarLoops: [\state, [\value], "the loops the pulsar ramp takes"],
+            pulsarRamping: [\state, [\on], "the pulsar ramp runs"],
             // ---- the onset notes
             onsetNotes: [\state, [\on], "the onset notes play"],
             onsetNote: [\state, [\note], "the note they play"],
@@ -2772,6 +2777,11 @@ Looper {
     granularGroups { ^this.grainsPart.granularGroups }
     granularScatter { ^this.grainsPart.granularScatter }
     granularLength { ^this.grainsPart.granularLength }
+    granularPulsar { ^this.grainsPart.granularPulsar }
+    granularMask { ^this.grainsPart.granularMask }
+    granularOctave { ^this.grainsPart.granularOctave }
+    pulsarLoops { ^this.grainsPart.pulsarLoops }
+    pulsarRamping { ^this.grainsPart.pulsarRamping }
     granularMorph_ { |val| this.grainsPart.granularMorph_(val) }
     granularAmp_ { |val| this.grainsPart.granularAmp_(val) }
     granularPitch_ { |val| this.grainsPart.granularPitch_(val) }
@@ -2789,6 +2799,12 @@ Looper {
     granularGroups_ { |flag| this.grainsPart.granularGroups_(flag) }
     granularScatter_ { |val| this.grainsPart.granularScatter_(val) }
     granularLength_ { |val| this.grainsPart.granularLength_(val) }
+    granularPulsar_ { |val| this.grainsPart.granularPulsar_(val) }
+    granularMask_ { |val| this.grainsPart.granularMask_(val) }
+    granularOctave_ { |val| this.grainsPart.granularOctave_(val) }
+    pulsarLoops_ { |n| this.grainsPart.pulsarLoops_(n) }
+    togglePulsarRamp { ^this.grainsPart.togglePulsarRamp }
+    cancelPulsarRamp { ^this.grainsPart.cancelPulsarRamp }
     granularOn { ^this.grainsPart.on }
     toggleGranular { ^this.grainsPart.toggle }
     granularPresetVersion { ^this.grainsPart.presetVersion }

@@ -887,7 +887,7 @@ Routine {
             [~performChipNames[\cutVoices], ~performChipLit[\cutVoices], ~performCutVoicesLabel.string].asString);
         ok.("the Grains column: its shape as chips, lit as the grains are, no line at the foot",
             (~performChipNames[\grainShape] == ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords,
-                l.granularEngine, l.granularGroups, l.granularDivision))
+                l.granularEngine, l.granularGroups, l.granularDivision, l.granularPulsar))
                 and: { ~performChipLit[\grainShape] == (l.granularOn == true) } and: { ~performColumns[\grain][\note].isNil }
                 and: { ~performChipHeights[\grainShape] == ~performChipsHeight.(~performChipNames[\grainShape].size) },
             [~performChipNames[\grainShape], ~performChipLit[\grainShape]].asString);

@@ -1785,7 +1785,12 @@ MegaRemote {
                 "group; scatter 0 the grid exactly, 1 a cloud at the same mean rate; length a grain's length as "
                 "a share of its pulse (under 1 gaps, over 1 overlap). The Clock reads where the loop plays "
                 "plus position; morph, size, density, size rand and scan are Cloud's only. Switching engine "
-                "while the grains play changes over at once.",
+                "while the grains play changes over at once. The Clock's pulsars: pulsar 0 the grid as set; up "
+                "to 0.5 the grid doubles, on the loop's beats, until it pulses 16 times a second or more; on to "
+                "1 it glides into a tone on the root of the chord the loop plays now (a take of no chords: its "
+                "key's) in octave (1..4, MIDI octaves: 2 is C2, 65 Hz). mask (0..0.95) keeps only the pulses in "
+                "the front of each beat group, so 7/8 stays 2+2+3 in the buzz. The players run pulsar up or "
+                "down over some loops with a footswitch (the ramp); a change here moves it at once.",
             \settings, LooperGrains.presetFields.collect { |f|
                 var row = (rows ? []).detect { |r| r[\key] == f[1] }, spec = row !? { |r| r[\spec] };
                 this.obj([\name, f[0], \label, row !? { |r| r[\label] }, \min, f[2], \max, f[3], \default, f[4],

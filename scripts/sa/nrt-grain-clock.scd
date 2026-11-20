@@ -17,6 +17,13 @@
 //   groups    7/8 of 0.2 s eighths (2+2+3), a grain per group, half as long
 //   sync      ten grains a second on the grid, 10 ms each
 //   cloud     the same scattered: about as many, at random
+// Pulsars (Phase B), a beat of 0.25 s:
+//   pulsarQ   pulsar 0.25: the grid doubled once (every 0.125 s)
+//   pulsarH   pulsar 0.5: doubled up to 16 Hz, still on the grid
+//   pulsar34  pulsar 0.75: half way from 16 Hz to the root (A2, 110 Hz)
+//   pulsar1   pulsar 1: the root, 110 Hz
+//   masked    7/8 of 0.2 s eighths, pulsar 0.5 (20 Hz), mask 0.4: pulses
+//             only in the first 60 % of each group
 //
 // One render (scsynth -N on a far port); exits 0 if every check passed.
 (
@@ -35,6 +42,9 @@ var clockDef = SynthDef(\nrtClock, LooperSynthDefs.grainClockGraph);
 var phaseDef = SynthDef(\nrtClockPhase, { |out, loopSecs = 2, phase0 = 0| Out.kr(out, (Sweep.kr(0, 1) + phase0).mod(loopSecs)) });
 var refDef = SynthDef(\nrtClockRef, { |out| Out.ar(out, Impulse.ar(0)) });
 var slots = LooperSynthDefs.groupSlots;
+// A take of one chord, A: its root in the first slot (period 0).
+var rootA = [\chordStarts, [0] ++ (1e9 ! (LooperSynthDefs.chordSlots - 1)),
+    \chordRoots, [9] ++ (0 ! (LooperSynthDefs.chordSlots - 1)), \chordPeriod, 0, \octave, 2];
 // [label, loop seconds, engine phase at the start, the clock's args]
 var cases = [
     [\grid, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5]],
@@ -43,7 +53,13 @@ var cases = [
     [\free, 2, 0.3, [\tau, 0.25, \division, 1, \length, 0.5, \locked, 0]],
     [\groups, 1.4, 0, [\tau, 0.2, \groups, 1, \length, 0.5, \headsBuf, 2, \lensBuf, 3]],
     [\sync, 2, 0, [\tau, 0.1, \division, 1, \length, 0.1]],
-    [\cloud, 2, 0, [\tau, 0.1, \division, 1, \length, 0.1, \scatter, 1]]
+    [\cloud, 2, 0, [\tau, 0.1, \division, 1, \length, 0.1, \scatter, 1]],
+    [\pulsarQ, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 0.25]],
+    [\pulsarH, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 0.5]],
+    [\pulsar34, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 0.75] ++ rootA],
+    [\pulsar1, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 1] ++ rootA],
+    [\masked, 1.4, 0, [\tau, 0.2, \division, 1, \length, 0.5, \pulsar, 0.5, \mask, 0.4, \hasGroups, 1,
+        \headsBuf, 2, \lensBuf, 3]]
 ];
 var chans = (cases.size + 1) * 2, score, cmd, said, sf, data, chan, idx, grains, refAt, on, gaps, lens, cv, n, x;
 
@@ -131,6 +147,29 @@ if(sf.isNil) {
     x = on.(\cloud);
     ok.("scattered: about as many (15 to 45) at random (spread over 50 %)",
         (x.size >= 15) and: { x.size <= 45 } and: { cv.(x) > 0.5 }, x.size.asString ++ ", spread " ++ cv.(x).round(0.001));
+    "-- pulsars".postln;
+    x = on.(\pulsarQ);
+    ok.("pulsar 0.25: the grid doubled once, every 0.125 s, on it", (x.size == 23)
+        and: { x.every { |t, i| (t - ((i + 1) * 0.125)).abs < (2 / sr) } }, x.size.asString ++ " " ++ x.keep(4).round(0.0001));
+    x = on.(\pulsarH);
+    ok.("pulsar 0.5: doubled up to 16 Hz (every 0.0625 s), still on the grid", (x.size == 47)
+        and: { x.every { |t, i| (t - ((i + 1) * 0.0625)).abs < (2 / sr) } }, x.size.asString ++ " " ++ x.keep(4).round(0.0001));
+    // The glide: the mean gap over the second half (the Lag long settled).
+    gaps = { |label| var ts = on.(label).select { |t| t > 1.5 }; ts.differentiate.drop(1).mean };
+    x = gaps.(\pulsar34);
+    ok.("pulsar 0.75: half way (in pitch) from 16 Hz to A2: 42 Hz", (x.reciprocal - (16 * (110 / 16).sqrt)).abs < 0.5,
+        x.reciprocal.round(0.01).asString ++ " Hz");
+    x = gaps.(\pulsar1);
+    ok.("pulsar 1: the chord's root, A2 at 110 Hz", (x.reciprocal - 110).abs < 0.5, x.reciprocal.round(0.01).asString ++ " Hz");
+    lens = grains.(\pulsar1).select { |g| g[0] > (1.5 * sr) }.collect(_[1]);
+    ok.("...each grain half its pulse long (the pulsaret's duty)", (lens.mean - (sr / 110 / 2)).abs < 2,
+        lens.mean.round(0.1).asString ++ " frames");
+    x = on.(\masked);
+    // Where each falls in its group (heads 0, 0.4, 0.8 of a 1.4 s loop).
+    n = x.collect { |t| var p = t.mod(1.4); if(p < 0.4) { p / 0.4 } { if(p < 0.8) { (p - 0.4) / 0.4 } { (p - 0.8) / 0.6 } } };
+    ok.("masked 0.4: every pulse in the first 60 % of its group", n.every { |f| f < 0.6 }, n.round(0.01).asString);
+    ok.("...18 a loop (5 + 5 + 8), the second loop whole", x.count { |t| (t >= 1.399) and: { t < 2.799 } } == 18,
+        x.count { |t| (t >= 1.399) and: { t < 2.799 } }.asString);
     ok.("stereo kept: the right side, silent in the loop, is silent in every case",
         cases.every { |c, i| chan.(i, 1).every { |v| v.abs < 1e-6 } });
     [osc, wav, src].do { |f| if(File.exists(f)) { File.delete(f) } };

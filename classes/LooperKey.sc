@@ -242,6 +242,8 @@ LooperKey {
         key = k;
         looper.prLogEvent(\loopKey, this.class.logFields(k, from));
         looper.changed(\loopKey, k);
+        // A take of no chords: the key's root is where the pulsars' tone goes.
+        looper.prGranularFollow;
         k !? { ("Loop key: " ++ LoopKey.words(k) ++ " (" ++ (k[\inside] * 100).round.asInteger
             ++ " % inside, tuning " ++ k[\cents] ++ " c)" ++ (k[\sections] !? { |ss| "; it changes: "
                 ++ this.class.sectionWords(ss) } ? "") ++ ".").postln };

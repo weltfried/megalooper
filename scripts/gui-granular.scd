@@ -141,6 +141,13 @@
         ~granularEngineHint !? { |t| if(t.isClosed.not) { t.string_(LooperGrains.engineHints[l.granularEngine] ? "") } };
         ~granularDivisionSeg !? { |s| ~guiSegSet.(s, LooperGrains.divisions.minIndex { |d| (d - l.granularDivision).abs }) };
         ~granularGroupsSeg !? { |s| ~guiSegSet.(s, l.granularGroups.binaryValue) };
+        ~granularOctaveSeg !? { |s| ~guiSegSet.(s, l.granularOctave - 1) };
+        ~granularRampTile !? { |t| if(t.isClosed.not) {
+            t.states_([[if(l.pulsarRamping) { "Ramp " ++ (if(l.granularPulsar < 0.5) { "↑" } { "↓" }) ++ " · turn round" } {
+                if(l.granularPulsar < 0.5) { "Ramp up" } { "Ramp down" } },
+                if(l.pulsarRamping) { ~gt[\onacc] } { ~gt[\ink] }, if(l.pulsarRamping) { ~gt[\grain] } { ~gt[\panel] }]])
+        } };
+        ~granularRampLoops !? { |f| if(f.isClosed.not) { f.value = l.pulsarLoops } };
         ~granularClockTitle !? { |t| if(t.isClosed.not) {
             t.string_(if(clock) { "Clock" } { "Clock · plays when the engine is Clock" })
                 .stringColor_(if(clock) { ~gt[\ink] } { ~gt[\mute] })
@@ -295,6 +302,27 @@
     ~mapTag.(~granularDivisionSeg[\view], 'looper.granularDivision',
         "The Clock: grains per beat, on the beat's grid from the downbeat. The beat is the one the\n"
             "count on Perform counts: an eighth in 7/8, a quarter in 4/4. Groups plays over this.");
+    // The pulsars: the tone's octave, and the ramp with its loops.
+    ~granularOctaveSeg = ~guiSeg.(["1", "2", "3", "4"],
+        (gap: 4, height: 34, fill: \grain, ink: \onacc, base: \bg, font: ~guiMono.(14, true),
+            action: { |i| ~controlDo.('looper.granularOctave', \set, i, \gui) }));
+    ~mapTag.(~granularOctaveSeg[\view], 'looper.granularOctave',
+        "The octave of the pulsars' tone at Rate 1: the root of the chord the loop plays now,\n"
+            "between C1 and B1 (1) up to between C4 and B4 (4). 2 by default (C2 is 65 Hz).");
+    ~granularRampTile = ~mapTag.(LooperTile().cycles_(false).font_(~guiSans.(15, true)).fixedHeight_(34)
+        .border_(~gt[\grain])
+        .action_({ ~controlDo.('looper.pulsarRamp', \press, nil, \gui) }),
+        'looper.pulsarRamp',
+        "Runs Rate for you: up to the tone over the loops set beside it from below the middle,\n"
+            "back down to the grid from above it. Pressed while it runs, it turns round from\n"
+            "where it is. The Clock's: on Cloud it is refused.");
+    ~granularRampLoops = ~mapTag.(NumberBox().canFocus_(false)
+        .clipLo_(1).clipHi_(32).step_(1).scroll_step_(1).decimals_(0)
+        .font_(~guiMono.(14, true)).background_(~gt[\panel]).normalColor_(~gt[\ink])
+        .fixedSize_(Size(52, 28)).align_(\center)
+        .value_(~looper !? { |l| l.pulsarLoops } ? 4)
+        .action_({ |nb| ~controlDo.('looper.pulsarLoops', \set, nb.value, \gui) }),
+        'looper.pulsarLoops', "How many loop passes the ramp takes for the whole way: 4 by default.");
     ~granularGroupsSeg = ~guiSeg.(["Grid", "Groups"],
         (gap: 6, height: 34, fill: \grain, ink: \onacc, base: \bg, font: ~guiSans.(15, true),
             action: { |i| ~controlDo.('looper.granularGroups', \set, i, \gui) }));
@@ -334,12 +362,15 @@
                 ~granularDivisionSeg[\view],
                 ~guiCaption.("ON", 11),
                 ~granularGroupsSeg[\view],
+                ~guiCaption.("PULSARS · OCTAVE", 11),
+                ~granularOctaveSeg[\view],
+                HLayout(~granularRampTile, ~guiCaption.("LOOPS", 11), ~granularRampLoops).margins_(0).spacing_(8),
                 nil
             ).margins_([22, 16, 22, 16]).spacing_(8)), stretch: 1],
             rule.(),
             [~granularSection.("Grains",
-                "The Clock's grains: on the grid or scattered, and how long",
-                [\granularScatter, \granularLength]), stretch: 1]
+                "The Clock's grains: on the grid or scattered, how long, and the pulsars' rate and mask",
+                [\granularScatter, \granularLength, \granularPulsar, \granularMask]), stretch: 1]
         ).margins_(0).spacing_(0)),
         ~guiRule.(),
         View().layout_(VLayout(HLayout(
@@ -397,12 +428,19 @@
         granularEngine: { ~granularPaintClock !? { |f| f.() } },
         granularDivision: { ~granularPaintClock !? { |f| f.() } },
         granularGroups: { ~granularPaintClock !? { |f| f.() } },
+        granularOctave: { ~granularPaintClock !? { |f| f.() } },
+        pulsarRamping: { ~granularPaintClock !? { |f| f.() } },
+        pulsarLoops: { ~granularPaintClock !? { |f| f.() } },
         // What the take gives them to follow: a new result, another reading,
         // a loop recorded or cleared.
         result: chords, readingIndex: chords, state: chords
     );
     (~granularParams ? []).do { |p|
-        handlers.put(p[\key], { |looper, what, val| ~granularRefreshOne !? { |f| f.(what, val) } });
+        handlers.put(p[\key], { |looper, what, val|
+            ~granularRefreshOne !? { |f| f.(what, val) };
+            // Rate says which way the ramp tile goes.
+            if(what == \granularPulsar) { ~granularPaintClock !? { |f| f.() } };
+        });
     };
     ~guiUnwatch.(\granular);
     ~guiWatch.(\granular, ~looper, handlers);

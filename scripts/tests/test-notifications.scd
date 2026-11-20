@@ -59,8 +59,8 @@ check.("Looper", Looper.notifications, saidIn.(["Looper.sc"] ++ looperParts.coll
     looperParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);
 // 68 since 2026-11-12: Autostart's switch, its waiting and its start level;
 // 69 since 2026-11-14: the loop's key (LooperKey). 74 since 2026-11-20: the
-// Grains' Clock engine and its four controls.
-~tEq.("the Looper lists 74 notifications", Looper.notifications.size, 74);
+// Grains' Clock engine and its four controls; 79 the same day: the pulsars.
+~tEq.("the Looper lists 79 notifications", Looper.notifications.size, 79);
 // MegaSA's parts likewise (step 9).
 saParts = ["MegaSAMixer", "MegaSAStateJobs", "MegaSAGraph"];
 check.("MegaSA", MegaSA.notifications, saidIn.(["MegaSA.sc"] ++ saParts.collect { |n| n ++ ".sc" }));

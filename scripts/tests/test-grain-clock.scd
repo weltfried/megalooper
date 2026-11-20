@@ -110,6 +110,68 @@ l.granularGroups = true;
 l.toggleGranular;
 }.value;
 
+// ---- the pulsars ------------------------------------------------------------------
+{
+var buf = { |n| (bufnum: n, numFrames: 48000 * 60, copyData: { |self ... args| self }) };
+var stubBuf = { |n| (bufnum: n, setn: { |self ... args| self }) };
+var r78 = (numerator: 7, denominator: 8, tau: 0.25, sub: 1, k: 2, n: 14, loopDur: 3.5, bpm: 120);
+var l, g, p, srv, made;
+// The ramp's plan: which way, and for how long.
+p = LooperGrains.pulsarRampPlan(0, false, nil, 4, 2.0);
+~tEq.("the ramp from the grid: up to the tone over the whole 4 loops", [p[\to], p[\dur]], [1, 8.0]);
+p = LooperGrains.pulsarRampPlan(0.75, false, nil, 4, 2.0);
+~tEq.("...from above the middle: down, for its share of the way", [p[\to], p[\dur]], [0, 6.0]);
+p = LooperGrains.pulsarRampPlan(0.3, true, 1, 4, 2.0);
+~tEq.("...pressed while it runs up: it turns round, from where it is", [p[\to], p[\dur]], [0, 2.4]);
+
+l = ~tLooper.();
+srv = ~tGet.(l, \server);
+~tPut.(l, \state, \playing);
+~tPut.(l, \buffer, buf.(11));
+~tPut.(l, \loopFrames, 168000);
+~tPut.(l, \lastResult, r78);
+~tPut.(l, \hannBuf, stubBuf.(70));
+~tPut.(l, \headsBuf, stubBuf.(71));
+~tPut.(l, \lensBuf, stubBuf.(72));
+
+// Refused on Cloud, and said.
+made = List.new;
+l.addDependant({ |who, what ... args| if(what == \refused) { made.add(args[0]) } });
+l.togglePulsarRamp;
+~tEq.("the ramp on Cloud: refused, and said", [l.pulsarRamping, made.asArray], [false, [\pulsarRamp]]);
+
+l.granularEngine = 1;
+l.granularPulsar = 0.6;
+l.granularMask = 0.4;
+l.granularOctave = 3;
+l.toggleGranular;
+g = ~tGet.(l, \granularSynth);
+~tEq.("the Clock starts with the pulsars' rate, mask and octave", [\pulsar, \mask, \octave].collect { |k| ~tLastSet.(l, g, k) },
+    [0.6, 0.4, 3]);
+~tEq.("...and says it has groups to mask by (7/8)", ~tLastSet.(l, g, \hasGroups), 1);
+l.granularPulsar = 0.9;
+~tEq.("Rate reaches the running synth", ~tLastSet.(l, g, \pulsar), 0.9);
+l.granularOctave = 7;
+~tEq.("the octave is held to 1..4", l.granularOctave, 4);
+
+// A take of no chords: the key's root in every slot (the pulsars' tone).
+~tPut.(l, \keyPart, nil);
+~tEq.("no chords and no key: roots of 0", l.prGranularChordArgs[1][3].asSet.asArray, [0]);
+l.keyPart.instVarPut(\key, (root: 9));
+~tEq.("no chords, a key of A: 9 in every slot", l.prGranularChordArgs[1][3].asSet.asArray, [9]);
+~tPut.(l, \lastResult, r78.copy.put(\chordSegments, [(start: 0, root: 2), (start: 1, root: 7)]));
+~tEq.("chords: their roots, the key not used", l.prGranularChordArgs[1][3].keep(2), [2, 7]);
+
+// The ramp runs: up from 0.9 is down (above the middle), and says so.
+l.togglePulsarRamp;
+~tEq.("the ramp starts: running, on its way down from 0.9", [l.pulsarRamping, ~tGet.(l, \pulsarTarget)], [true, 0]);
+l.togglePulsarRamp;
+~tEq.("...pressed again: still running, turned round, up", [l.pulsarRamping, ~tGet.(l, \pulsarTarget)], [true, 1]);
+l.cancelPulsarRamp;
+~tEq.("cancelled: stopped where it got to", l.pulsarRamping, false);
+l.toggleGranular;
+}.value;
+
 // ---- presets ---------------------------------------------------------------------
 {
 var l = ~tLooper.(), data, clean, warnings = List.new;

@@ -239,11 +239,12 @@
 // and the chords when they are followed. Pure.
 // The first says the engine: Cloud's way between drone and pulse, or the
 // Clock's (docs/dev/microsound.md): on the groups, or how many a beat.
-~performGrainChipWords = { |morph, pitch, env, follow, engine = 0, groups = false, division = 1|
+~performGrainChipWords = { |morph, pitch, env, follow, engine = 0, groups = false, division = 1, pulsar = 0|
     var st = pitch.round(1).asInteger;
     var perBeat = if(division >= 1) { division.round(1).asInteger.asString } { "1/" ++ (1 / division).round(1).asInteger };
     [
         case
+            { engine == 1 and: { pulsar > 0 } } { "Pulsars " ++ (pulsar * 100).round.asInteger ++ " %" }
             { engine == 1 and: { groups == true } } { "Clock: groups" }
             { engine == 1 } { "Clock: " ++ perBeat ++ " a beat" }
             { morph < 0.5 } { "Toward drone" }
@@ -757,7 +758,7 @@
         [~granularSlider, ~performGrainAmp].do { |b| b !? { b.dim_(if(l.granularOn) { 1 } { 0.3 }) } };
         ~performSetChips.(\grainShape, ~performGrainChips,
             ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords,
-                l.granularEngine, l.granularGroups, l.granularDivision),
+                l.granularEngine, l.granularGroups, l.granularDivision, l.granularPulsar),
             l.granularOn == true);
     };
 };
@@ -1031,6 +1032,8 @@
         granularAmp: { |looper, what, val| ~performPaintGrainAmp !? { |f| f.(val) } },
         granularPitch: grains, granularEnv: grains, granular: grains,
         granularEngine: grains, granularGroups: grains, granularDivision: grains,
+        // 30 times a second while the pulsar ramp runs: at most every 50 ms.
+        granularPulsar: { ~guiSoon.(\performGrains, grains) },
         bbcut: cutter, bbcutMode: cutter, bbcutState: cutter,
         // A drag on a voice's amp or pan says this per pixel, and the pedal
         // sweeps the arc all set long: at most every 50 ms.

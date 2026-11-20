@@ -107,7 +107,7 @@
         granularSizeRand: "Grain", granularEnv: "Grain",
         granularPosition: "Read position", granularScan: "Read position", granularSpray: "Read position",
         granularScatter: "Clock", granularLength: "Clock", granularDivision: "Clock", granularGroups: "Clock",
-        granularEngine: "Engine");
+        granularEngine: "Engine", granularPulsar: "Pulsars", granularMask: "Pulsars", granularOctave: "Pulsars");
     // Megalooper SA's drums, or nil: no SA, or a MegaSA from before it had
     // them. An Event standing in for MegaSA answers `drums` by key.
     var drums = { ~megaSA !? { |m| if(m.isKindOf(Dictionary) or: { m.respondsTo(\drums) }) { m.drums } } };
@@ -343,6 +343,20 @@
             get: { ~looper !? { |l| l.granularGroups.binaryValue } },
             set: { |i| ~looper !? { |l| l.granularGroups = i == 1 } },
             available: looper)));
+        // The pulsars (docs/dev/microsound.md, Phase B): the tone's octave, and
+        // the ramp, a footswitch that runs Rate up over so many loops, or
+        // back, and turns it round while it runs.
+        add.('looper.granularOctave', "Octave", "Grains", \choice, choice.((group: "Pulsars",
+            items: ["1", "2", "3", "4"],
+            get: { ~looper !? { |l| l.granularOctave - 1 } },
+            set: { |i| ~looper !? { |l| l.granularOctave = i + 1 } },
+            available: looper)));
+        add.('looper.pulsarRamp', "Pulsar ramp", "Grains", \toggle, (group: "Pulsars",
+            flip: { ~looper !? { |l| l.togglePulsarRamp } },
+            get: { ~looper !? { |l| l.pulsarRamping } },
+            // On: start it if it is not running. Off: stop it where it is.
+            set: { |on| ~looper !? { |l| if(on == true) { if(l.pulsarRamping.not) { l.togglePulsarRamp } } { l.cancelPulsarRamp } } },
+            available: looper));
         // Perform's mode menu beside the cutter's switch, in its order.
         add.('looper.bbcutMode', "BBCut mode", "Perform", \choice, choice.((group: "Layers",
             items: ["Mix", "Insert", "Gate"],
@@ -355,6 +369,7 @@
             // Its id from when the ending counted bars (2026-10-27: loop passes).
             ['looper.dissolveBars', "Dissolve loops", "Perform", "Actions", \dissolveLoops, 1, 32, ""],
             ['looper.breakLoops', "Loops", "Perform", "Break", \breakLoops, 1, 8, ""],
+            ['looper.pulsarLoops', "Ramp loops", "Grains", "Pulsars", \pulsarLoops, 1, 32, ""],
             ['looper.onsetNote', "Note", "Analysis", "Onset notes", \onsetNote, 0, 127, nil],
             ['looper.onsetNoteVelLo', "Vel low", "Analysis", "Onset notes", \onsetNoteVelLo, 1, 127, ""],
             ['looper.onsetNoteVelHi', "Vel high", "Analysis", "Onset notes", \onsetNoteVelHi, 1, 127, ""],

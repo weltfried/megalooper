@@ -414,12 +414,26 @@ LooperSynthDefs {
     //   length    a grain's length as a share of its pulse
     //   envbuf    the window, a 1024-frame buffer (always one: Hann included)
     //
+    // Pulsars (docs/dev/microsound.md, Phase B; roadmap item 23 idea 3):
+    //   pulsar    0..1, the grains from the grid's rate into a tone. Its first
+    //             half doubles the grid (heard as doublings, on the loop's
+    //             beats) up to the first rate of 16 Hz or more; the second
+    //             glides freely and exponentially from there to the root of
+    //             the chord the loop plays now, in `octave` (MIDI octave: 2 is
+    //             C2, 65 Hz). Above 0 the grid plays, not the groups.
+    //   mask      0..0.95, burst masking: pulses kept only in the first
+    //             (1 - mask) of each beat group (`hasGroups`) or each beat, so
+    //             7/8 stays 2+2+3 when the pulses turn into a buzz.
+    // A grain's length stays Length times its pulse: the pulsaret's duty, so
+    // in the tone its formant rises with the rate.
+    //
     // Pitch, detune, position, spray and the chords as the Warp1 graph has them.
     *grainClockGraph {
         ^{ |bufnum, startFrame=0, loopFrames=44100, tau=0.5, amp=0.3, out=0,
              pitch=0, detune=0, position=0, sprayMs=0, envbuf=0,
              phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0,
-             division=1, groups=0, scatter=0, length=0.5, gridOffset=0, headsBuf=0, lensBuf=0|
+             division=1, groups=0, scatter=0, length=0.5, gridOffset=0, headsBuf=0, lensBuf=0,
+             pulsar=0, mask=0, octave=2, hasGroups=0|
             var nv = LooperSynthDefs.grainClockVoices;
             var bufSr = BufSampleRate.kr(bufnum);
             var loopDur = (loopFrames / bufSr).max(1e-3);
@@ -427,35 +441,57 @@ LooperSynthDefs {
             var enginePos = In.kr(phaseBus) / loopDur;
             var lock = (enginePos - A2K.kr(onePass)).wrap(-0.5, 0.5) * locked;
             var tSecs = (onePass + K2A.ar(lock)).wrap(0, 1) * loopDur;
-            // The grid: a trigger as the pulse count changes.
-            var pulse = K2A.ar(tau.max(1e-3) / division.clip(0.0625, 64));
-            var gridTrig = Changed.ar((((tSecs - gridOffset).wrap(0, loopDur)) / pulse).floor);
-            // The groups: a trigger as the count of heads passed changes; the
-            // grain is as long as the group it starts.
-            var passed = IndexInBetween.ar(headsBuf, tSecs).floor + 1;
-            var groupTrig = Changed.ar(passed);
-            var groupLen = Index.ar(lensBuf, passed - 1);
-            var isGroups = K2A.ar(groups > 0);
-            var period = Select.ar(isGroups, [pulse, groupLen]).max(1e-3);
-            // The pulse in real time: at half-time a beat lasts twice as long.
-            var periodReal = period / K2A.ar(rate.abs.max(0.25));
-            var trig = Select.ar(isGroups, [gridTrig, groupTrig]);
-            // Synchronous to asynchronous at one mean rate.
-            var scat = Lag.kr(scatter.clip(0, 1), 0.05);
-            var t = (CoinGate.ar(1 - scat, trig) + Dust.ar(scat / A2K.kr(periodReal))) > 0;
-            var step = Stepper.ar(t, 0, 0, nv - 1);
-            var lenSecs = (K2A.ar(Lag.kr(length.max(0), 0.05)) * periodReal).clip(0.002, periodReal * (nv * 0.8));
-            var sprayAmt = Lag.kr(sprayMs.max(0), 0.1) / 1000;
-            var pos = Lag.kr(position, 0.1);
-            var readNow = tSecs + K2A.ar(pos * loopDur);
-            // The chords, as the Warp1 graph follows them: from the chord where
-            // the grains read to the one the loop plays now.
+            // The chords (the take's segments; a take of none: its key's root in
+            // every slot): the root where `secs` is in the loop.
             var rootAt = { |secs|
                 var p = secs.mod(chordPeriod.max(1e-3));
                 Select.kr(((\chordStarts.kr(1e9 ! LooperSynthDefs.chordSlots) <= p).sum - 1).max(0),
                     \chordRoots.kr(0 ! LooperSynthDefs.chordSlots))
             };
             var nowSecs = In.kr(phaseBus);
+            var speed = rate.abs.max(0.25);
+            // The grid's pulse in the loop's time, and in real time.
+            var base = tau.max(1e-3) / division.clip(0.0625, 64);
+            var baseReal = base / speed;
+            // Pulsars: the doublings, then the glide.
+            var pul = pulsar.clip(0, 1);
+            var lockShare = 0.5;
+            var nDoubles = (16 * baseReal).log2.ceil.max(1);
+            var steps = ((pul / lockShare).min(1) * nDoubles).floor;
+            var pulse = K2A.ar(base / (2 ** steps));
+            var gridTrig = Changed.ar((((tSecs - gridOffset).wrap(0, loopDur)) / pulse).floor);
+            var fTop = (2 ** nDoubles) / baseReal;
+            var fRoot = ((12 * (octave.round(1) + 1)) + rootAt.(nowSecs)).midicps;
+            var glide = ((pul - lockShare) / (1 - lockShare)).clip(0, 1);
+            var fFree = Lag.kr(fTop * ((fRoot / fTop) ** glide), 0.05);
+            var isFree = K2A.ar(pul > lockShare);
+            var freeTrig = Impulse.ar(fFree);
+            // The groups: a trigger as the count of heads passed changes; the
+            // grain is as long as the group it starts.
+            var passed = IndexInBetween.ar(headsBuf, tSecs).floor + 1;
+            var groupTrig = Changed.ar(passed);
+            var groupLen = Index.ar(lensBuf, passed - 1);
+            var isGroups = K2A.ar((groups > 0) * (pul <= 0));
+            var period = Select.ar(isGroups, [pulse, groupLen]).max(1e-3);
+            // The pulse in real time: at half-time a beat lasts twice as long;
+            // the free glide is in real time already.
+            var periodReal = Select.ar(isFree, [period / K2A.ar(speed), K2A.ar(fFree.reciprocal)]);
+            var trig = Select.ar(isFree, [Select.ar(isGroups, [gridTrig, groupTrig]), freeTrig]);
+            // Burst masking: where the playhead is in its beat group (or beat),
+            // 0..1, and the pulses kept in its first (1 - mask).
+            var head = Index.ar(headsBuf, (passed - 1).max(0));
+            var inGroup = (tSecs - head).wrap(0, loopDur) / groupLen.max(1e-3);
+            var inBeat = (((tSecs - gridOffset).wrap(0, loopDur)) / K2A.ar(tau.max(1e-3))).frac;
+            var where = Select.ar(K2A.ar(hasGroups > 0), [inBeat, inGroup]);
+            var keep = where < K2A.ar(1 - Lag.kr(mask.clip(0, 0.95), 0.05));
+            // Synchronous to asynchronous at one mean rate.
+            var scat = Lag.kr(scatter.clip(0, 1), 0.05);
+            var t = ((CoinGate.ar(1 - scat, trig) + Dust.ar(scat / A2K.kr(periodReal))) > 0) * keep;
+            var step = Stepper.ar(t, 0, 0, nv - 1);
+            var lenSecs = (K2A.ar(Lag.kr(length.max(0), 0.05)) * periodReal).clip(0.002, periodReal * (nv * 0.8));
+            var sprayAmt = Lag.kr(sprayMs.max(0), 0.1) / 1000;
+            var pos = Lag.kr(position, 0.1);
+            var readNow = tSecs + K2A.ar(pos * loopDur);
             var readK = (nowSecs + (pos * loopDur)).mod(loopDur);
             var gap = (readK - nowSecs).mod(loopDur);
             var away = gap.min(loopDur - gap) > 0.02;

@@ -42,6 +42,13 @@ LooperGrains {
     var <granularGroups = false;   // Clock: a grain per beat group instead
     var <granularScatter = 0;      // Clock: 0 on the grid .. 1 a cloud
     var <granularLength = 0.5;     // Clock: a grain's share of its pulse
+    // Pulsars (docs/dev/microsound.md, Phase B), the Clock's too:
+    var <granularPulsar = 0;       // 0 the grid .. 0.5 doubled to 16 Hz .. 1 the chord's root
+    var <granularMask = 0;         // burst masking: 0 every pulse .. 0.95 a group's first 5 %
+    var <granularOctave = 2;       // the tone's octave (MIDI: 2 is C2, 65 Hz)
+    // The ramp: Rate from where it is to 1 (or back to 0) over so many loops,
+    // armed by a footswitch; pressed while it runs, it turns round.
+    var <pulsarLoops = 4, <pulsarRamping = false, pulsarRoutine, pulsarTarget;
     var granularEnvBufs;
     // The Clock's own buffers: a Hann window (Warp1 has its own built in, the
     // Clock needs one in a buffer) and the reading's group heads and lengths.
@@ -151,7 +158,11 @@ LooperGrains {
             // The Clock's (an older preset has none, and is Cloud anyway)
             [\division, \granularDivision,   0.0625, 16,  1],
             [\scatter,  \granularScatter,    0,     1,    0],
-            [\length,   \granularLength,     0.05,  8,    0.5]
+            [\length,   \granularLength,     0.05,  8,    0.5],
+            // Pulsars (an older preset has none: the grid, unmasked, octave 2)
+            [\pulsar,   \granularPulsar,     0,     1,    0],
+            [\mask,     \granularMask,       0,     0.95, 0],
+            [\octave,   \granularOctave,     1,     4,    2]
         ]
     }
 
@@ -197,6 +208,7 @@ LooperGrains {
     // Cmd-period freed the synth; the Looper freed: the synth and the buffers go.
     forget { granularSynth = nil }
     free {
+        this.cancelPulsarRamp;
         granularSynth !? { |g| g.free };
         granularSynth = nil;
         granularEnvBufs !? { |bufs| bufs.do { |b| b.free } };
@@ -437,6 +449,8 @@ LooperGrains {
             \headsBuf, headsBuf !? { |b| b.bufnum } ? 0, \lensBuf, lensBuf !? { |b| b.bufnum } ? 0,
             \division, granularDivision, \groups, (granularGroups and: { g[\count] > 0 }).binaryValue,
             \scatter, granularScatter, \length, granularLength,
+            \pulsar, granularPulsar, \mask, granularMask, \octave, granularOctave,
+            \hasGroups, (g[\count] > 0).binaryValue,
             \envbuf, this.clockEnvBuf
         ]
     }
@@ -456,6 +470,9 @@ LooperGrains {
         var period = if(segs.size < 2) { 0 } { (lastResult[\chordPeriod] ?? { lastResult[\loopDur] }) ? 0 };
         var starts = Array.fill(LooperSynthDefs.chordSlots, 1e9), roots = Array.fill(LooperSynthDefs.chordSlots, 0);
         segs.keep(LooperSynthDefs.chordSlots).do { |seg, i| starts[i] = seg[\start] ? 0; roots[i] = seg[\root] ? 0 };
+        // A take of no chords: the loop's key's root in every slot, the root
+        // the pulsars' tone goes to (nothing follows a period of 0).
+        if(segs.isEmpty) { looper.loopKey !? { |k| k[\root] !? { |r| roots = Array.fill(LooperSynthDefs.chordSlots, r) } } };
         ^[[\follow, granularFollowChords.binaryValue, \chordPeriod, period], [\chordStarts, starts, \chordRoots, roots]]
     }
 
@@ -605,5 +622,83 @@ LooperGrains {
     granularLength_ { |val|
         granularLength = val.clip(0.05, 8);
         this.prSetGranular(\length, granularLength, \granularLength);
+    }
+
+    // ---- Pulsars (docs/dev/microsound.md, Phase B) ----
+
+    // 0: the grid as set. Up to 0.5 the grid doubles, on the loop's beats, to
+    // 16 Hz or more; on to 1 it glides to a tone on the root of the chord the
+    // loop plays now. The Clock's; Cloud keeps it for a switch.
+    granularPulsar_ { |val|
+        granularPulsar = val.clip(0, 1);
+        this.prSetGranular(\pulsar, granularPulsar, \granularPulsar);
+    }
+
+    // Burst masking: the pulses kept in the first (1 - mask) of each beat group.
+    granularMask_ { |val|
+        granularMask = val.clip(0, 0.95);
+        this.prSetGranular(\mask, granularMask, \granularMask);
+    }
+
+    // The tone's octave, 1..4 (2: the root between C2 and B2).
+    granularOctave_ { |val|
+        granularOctave = val.round(1).clip(1, 4).asInteger;
+        this.prSetGranular(\octave, granularOctave, \granularOctave);
+    }
+
+    pulsarLoops_ { |n|
+        pulsarLoops = n.asInteger.clip(1, 32);
+        looper.changed(\pulsarLoops, pulsarLoops);
+    }
+
+    // The ramp's way from `from`: up to 1 from below the middle, down to 0
+    // from the middle or above; while one runs, the other way (it turns
+    // round). And how long, in seconds, for `loopSecs` a loop: the whole way
+    // takes pulsarLoops loops, a part of it its share. Pure, for the tests.
+    *pulsarRampPlan { |from, ramping, target, loops, loopSecs|
+        var to = case
+            { ramping == true } { if(target == 1) { 0 } { 1 } }
+            { from < 0.5 } { 1 }
+            { 0 };
+        ^(to: to, dur: (to - from).abs * loops * loopSecs)
+    }
+
+    // The footswitch: start the ramp, or turn it round. The Clock's: on Cloud
+    // it is refused and said, so the foot knows nothing moved.
+    togglePulsarRamp {
+        var plan, from, t0;
+        if(granularEngine != 1) {
+            "Pulsars: the engine is Cloud; they are the Clock's.".warn;
+            ^looper.prRefused(\pulsarRamp, "the engine is Cloud: the pulsars are the Clock's")
+        };
+        if(looper.wallPeriod <= 0) {
+            "Pulsars: no loop length to measure the ramp against.".warn;
+            ^looper.prRefused(\pulsarRamp, "no loop length to measure it against")
+        };
+        plan = LooperGrains.pulsarRampPlan(granularPulsar, pulsarRamping, pulsarTarget, pulsarLoops, looper.wallPeriod);
+        pulsarRoutine = looper.prStopRoutine(pulsarRoutine);
+        pulsarTarget = plan[\to];
+        from = granularPulsar;
+        if(plan[\dur] <= 0) { ^this.prPulsarRampDone };
+        pulsarRamping = true;
+        looper.changed(\pulsarRamping, true);
+        ("Pulsars: " ++ (if(plan[\to] == 1) { "up" } { "down" }) ++ " over " ++ plan[\dur].round(0.01) ++ " s.").postln;
+        pulsarRoutine = Routine {
+            t0 = SystemClock.seconds;
+            while { pulsarRamping and: { granularPulsar != plan[\to] } } {
+                this.granularPulsar = from.blend(plan[\to], ((SystemClock.seconds - t0) / plan[\dur]).clip(0, 1));
+                30.reciprocal.wait;
+            };
+            this.prPulsarRampDone;
+        }.play(SystemClock);
+    }
+
+    // Where a ramp ends, or is cancelled (cancelPulsarRamp): Rate stays where it got to.
+    prPulsarRampDone {
+        if(pulsarRamping) { pulsarRamping = false; looper.changed(\pulsarRamping, false) };
+    }
+    cancelPulsarRamp {
+        pulsarRoutine = looper.prStopRoutine(pulsarRoutine);
+        this.prPulsarRampDone;
     }
 }

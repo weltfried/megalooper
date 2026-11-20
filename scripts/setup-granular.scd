@@ -124,7 +124,19 @@
         round: 0.01, unit: " x", default: 0.5,
         tip: "The Clock only. A grain's length as a share of its pulse (a beat\n"
             "divided by Per beat, or its beat group). Under 1 the grains have\n"
-            "gaps between them, 1 joins them up, over 1 they overlap.")
+            "gaps between them, 1 joins them up, over 1 they overlap."),
+    // The pulsars (the Clock's too).
+    (key: \granularPulsar, label: "Rate", spec: ControlSpec(0, 1, \lin, 0, 0),
+        round: 0.01, default: 0,
+        tip: "The Clock's pulsars. 0: the grid as Per beat sets it. Up to 0.5 the grid\n"
+            "doubles, still on the loop's beats, until it pulses 16 times a second or more;\n"
+            "on to 1 it glides into a tone on the root of the chord the loop plays now\n"
+            "(a take of no chords: its key's), in the octave set. The Ramp runs it for you."),
+    (key: \granularMask, label: "Mask", spec: ControlSpec(0, 0.95, \lin, 0, 0),
+        round: 0.01, default: 0,
+        tip: "The Clock's pulsars: burst masking. 0 plays every pulse; higher keeps only the\n"
+            "pulses in the front of each beat group (or beat), so 7/8 is still heard as\n"
+            "2+2+3 when the pulses become a buzz.")
 ];
 
 // Look a param up by key so the sections below can be written in reading order
@@ -140,6 +152,7 @@
         // The Clock's grid too; the engine stays, as morph does.
         l.granularDivision = 1;
         l.granularGroups = false;
+        l.granularOctave = 2;
         l.granularEnv = 0;
         l.granularFollowChords = false;
     };
