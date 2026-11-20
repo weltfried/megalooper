@@ -1,7 +1,6 @@
 ---
 // The homepage. Copy is final as written in the design (Site Home), except
 // the feature list and the Why section, which are the author's own.
-import fs from 'node:fs';
 import Base from '../layouts/Base.astro';
 import Wordmark from '../components/Wordmark.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
@@ -29,11 +28,10 @@ const DRUMS: [string, number[]][] = [
 ];
 const step0 = Math.floor(t0 * 14);
 
-// The Perform view, from docs/images/ (scripts/render-screens.scd makes it),
-// and its light twin if there is one, shown when the page is light.
-const perform = fs.existsSync('../docs/images/perform.png') ? `${base}docs/images/perform.png` : null;
-const performLight = perform && fs.existsSync('../docs/images/perform-light.png') ? `${base}docs/images/perform-light.png` : null;
-const performAlt = "megalooper's Perform view: the status band, a column per layer, and the actions";
+// Thirty seconds of a recorded set in the Perform view (public/media/, cut
+// from a render-set video): dark in both themes, like a screen. It plays
+// muted while on screen, and not at all with reduced motion (the script).
+const setAlt = "A set in megalooper's Perform view: a phrase is recorded, read as 7/8 at 147 BPM, and the drums and the Cutter come in";
 
 const SYNTH_STEPS = [40, 0, 60, 55, 0, 80, 0, 60, 40, 0, 100, 0, 70, 60, 0, 45];
 
@@ -152,14 +150,10 @@ const FEATURES: [string, string, string?][] = [
 
     <section class="band">
       <div class="wrap shot">
-        <div class:list={['slot', { 'slot--filled': perform }]}>
-          {perform && performLight
-            ? <><img class="shot-dark" src={perform} alt={performAlt} loading="lazy" /><img class="shot-light" src={performLight} alt={performAlt} loading="lazy" /></>
-            : perform
-              ? <img src={perform} alt={performAlt} />
-              : <span>Screenshot: the Perform view, 1440 × 900</span>}
+        <div class="slot slot--filled">
+          <video data-set src={`${base}media/set-7-8.mp4`} poster={`${base}media/set-7-8-poster.jpg`} muted loop playsinline controls preload="metadata" aria-label={setAlt}></video>
         </div>
-        <div class="shot__cap"><span>The Perform view: status band, a column per layer, and the actions with their footswitches.</span><span>KEYS 1–5 AND 7 SWITCH VIEWS</span></div>
+        <div class="shot__cap"><span>From a set: a phrase played in free time is read as 7/8 at 147 BPM, then the drums and the Cutter come in. Turn the sound on in the player.</span><span>30 S · THE PERFORM VIEW</span></div>
       </div>
     </section>
 
@@ -334,6 +328,16 @@ const FEATURES: [string, string, string?][] = [
   const BARS = [7, 7, 7, 8];
   const band = document.querySelector('[data-band]');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+
+  // The set clip plays, muted, only while it is on screen; with reduced
+  // motion it waits on its poster for the player's play button.
+  const clip = document.querySelector<HTMLVideoElement>('[data-set]');
+  if (clip && !reduce.matches && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) clip.play().catch(() => {});
+      else if (clip.muted) clip.pause();
+    }, { threshold: .25 }).observe(clip);
+  }
   if (band && !reduce.matches) {
     const cells = [...band.querySelectorAll<HTMLElement>('.cell')];
     const head = band.querySelector<HTMLElement>('[data-playhead]')!;
