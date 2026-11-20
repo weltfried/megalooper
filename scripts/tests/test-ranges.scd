@@ -29,7 +29,10 @@ params = ~granularParams;
     "~granularParams is " ++ params);
 
 ~tEq.("every granular parameter is saveable",
-    params.size, LooperGrains.presetFields.size);
+    params.size, LooperGrains.presetFields.size - 1);
+// The one field without a slider: the Clock's Per beat, offered as tiles.
+~tEq.("...and the one preset field with no slider is the Clock's Per beat (tiles)",
+    LooperGrains.presetFields.reject { |f| params.any { |p| p[\key] == f[1] } }.collect { |f| f[0] }, [\division]);
 
 params.do { |p|
     var key = p[\key];

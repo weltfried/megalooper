@@ -381,6 +381,103 @@ LooperSynthDefs {
     }
     }
 
+    // The grain clock's voices: grains in flight at once. A grain that would
+    // outlast its turn is shortened to fit (Length's top), and a cloud's
+    // clumps can still take a voice early.
+    *grainClockVoices { ^12 }
+    // Beat-group heads a reading can have: 64 groups covers 16 bars of 7/8.
+    *groupSlots { ^64 }
+
+    // The grain clock (docs/dev/microsound.md, roadmap item 23 idea 2): the
+    // Grains with a trigger of their own, which Warp1 does not give. GrainBuf
+    // and TGrains read mono buffers only and the loop is stereo, so this is a
+    // round-robin of voices reading it with BufRd, each latching its grain's
+    // start, length, pitch and window position at its trigger.
+    //
+    // The clock is the loop's: an audio-rate phase, held at a constant offset
+    // from the engine's (phaseBus, seconds) as the Warp1 graph's `lock` is, so
+    // a trigger lands on the sample its pulse begins, reversed and at
+    // half-time too (`rate`). Unlocked (no engine) it runs freely.
+    //
+    //   division  grains per beat (`tau` is the beat), on the grid from
+    //             `gridOffset` seconds into the loop
+    //   groups    1: one grain per beat group instead, at the heads in
+    //             `headsBuf` (seconds into the loop, rising; unused slots
+    //             1e9) and as long as `lensBuf` says: groupSlots frames
+    //             each. Buffers, not arrayed controls: 64 audio-rate
+    //             comparisons at once outrun scsynth's wire buffers (-w 64).
+    //             ALWAYS give them, grid or not: IndexInBetween searches its
+    //             buffer every sample, and the default (0) may be a loop of
+    //             minutes (measured: 250x real time on a 3 s one).
+    //   scatter   0 the grid exactly; 1 a cloud at the same mean rate: grid
+    //             grains are dropped with that chance and random ones added
+    //   length    a grain's length as a share of its pulse
+    //   envbuf    the window, a 1024-frame buffer (always one: Hann included)
+    //
+    // Pitch, detune, position, spray and the chords as the Warp1 graph has them.
+    *grainClockGraph {
+        ^{ |bufnum, startFrame=0, loopFrames=44100, tau=0.5, amp=0.3, out=0,
+             pitch=0, detune=0, position=0, sprayMs=0, envbuf=0,
+             phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0,
+             division=1, groups=0, scatter=0, length=0.5, gridOffset=0, headsBuf=0, lensBuf=0|
+            var nv = LooperSynthDefs.grainClockVoices;
+            var bufSr = BufSampleRate.kr(bufnum);
+            var loopDur = (loopFrames / bufSr).max(1e-3);
+            var onePass = Phasor.ar(DC.ar(0), K2A.ar(rate) / (loopDur * SampleRate.ir), 0, 1);
+            var enginePos = In.kr(phaseBus) / loopDur;
+            var lock = (enginePos - A2K.kr(onePass)).wrap(-0.5, 0.5) * locked;
+            var tSecs = (onePass + K2A.ar(lock)).wrap(0, 1) * loopDur;
+            // The grid: a trigger as the pulse count changes.
+            var pulse = K2A.ar(tau.max(1e-3) / division.clip(0.0625, 64));
+            var gridTrig = Changed.ar((((tSecs - gridOffset).wrap(0, loopDur)) / pulse).floor);
+            // The groups: a trigger as the count of heads passed changes; the
+            // grain is as long as the group it starts.
+            var passed = IndexInBetween.ar(headsBuf, tSecs).floor + 1;
+            var groupTrig = Changed.ar(passed);
+            var groupLen = Index.ar(lensBuf, passed - 1);
+            var isGroups = K2A.ar(groups > 0);
+            var period = Select.ar(isGroups, [pulse, groupLen]).max(1e-3);
+            // The pulse in real time: at half-time a beat lasts twice as long.
+            var periodReal = period / K2A.ar(rate.abs.max(0.25));
+            var trig = Select.ar(isGroups, [gridTrig, groupTrig]);
+            // Synchronous to asynchronous at one mean rate.
+            var scat = Lag.kr(scatter.clip(0, 1), 0.05);
+            var t = (CoinGate.ar(1 - scat, trig) + Dust.ar(scat / A2K.kr(periodReal))) > 0;
+            var step = Stepper.ar(t, 0, 0, nv - 1);
+            var lenSecs = (K2A.ar(Lag.kr(length.max(0), 0.05)) * periodReal).clip(0.002, periodReal * (nv * 0.8));
+            var sprayAmt = Lag.kr(sprayMs.max(0), 0.1) / 1000;
+            var pos = Lag.kr(position, 0.1);
+            var readNow = tSecs + K2A.ar(pos * loopDur);
+            // The chords, as the Warp1 graph follows them: from the chord where
+            // the grains read to the one the loop plays now.
+            var rootAt = { |secs|
+                var p = secs.mod(chordPeriod.max(1e-3));
+                Select.kr(((\chordStarts.kr(1e9 ! LooperSynthDefs.chordSlots) <= p).sum - 1).max(0),
+                    \chordRoots.kr(0 ! LooperSynthDefs.chordSlots))
+            };
+            var nowSecs = In.kr(phaseBus);
+            var readK = (nowSecs + (pos * loopDur)).mod(loopDur);
+            var gap = (readK - nowSecs).mod(loopDur);
+            var away = gap.min(loopDur - gap) > 0.02;
+            var shift = (((rootAt.(nowSecs) - rootAt.(readK)) + 6).mod(12) - 6)
+                * (follow > 0) * locked * away * (chordPeriod > 0);
+            var semis = K2A.ar(Lag.kr(pitch, 0.05) + shift) + (WhiteNoise.ar * K2A.ar(Lag.kr(detune.max(0), 0.1)));
+            var sig = Mix.fill(nv, { |i|
+                var vt = t * BinaryOpUGen('==', step, i);
+                var dur = Latch.ar(lenSecs, vt).max(0.002);
+                var ratio = Latch.ar(semis, vt).midiratio;
+                var start = Latch.ar(readNow + (WhiteNoise.ar * K2A.ar(sprayAmt)), vt);
+                var x = Sweep.ar(vt, dur.reciprocal);
+                var frame = ((start * bufSr) + Sweep.ar(vt, ratio * bufSr)).wrap(0, loopFrames) + startFrame;
+                // Silent until its first grain: a voice's Sweep runs from the
+                // synth's start, and would play a grain there of its own.
+                var env = BufRd.ar(1, envbuf, x.clip(0, 1) * 1023, 0, 2) * (x < 1) * (PulseCount.ar(vt) > 0);
+                BufRd.ar(2, bufnum, frame, 0, 4) * env
+            });
+            Out.ar(out, sig * Lag.kr(amp.max(0), 0.05));
+        }
+    }
+
     // The engine: plays the loop, overdubs into it, publishes its phase.
     //
     // readInterp and writeInterp are BufRd's interpolation for what is played
@@ -572,5 +669,7 @@ LooperSynthDefs {
         // multiplier there would be dead exactly where you want the control:
         // no amount of scaling gets a frozen drone to drift.
         SynthDef(\looperGranular, LooperSynthDefs.granularGraph).add;
+        // The Grains with a clock of their own (the Clock engine).
+        SynthDef(\looperGrainClock, LooperSynthDefs.grainClockGraph).add;
     }
 }

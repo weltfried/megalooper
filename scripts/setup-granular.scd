@@ -113,7 +113,18 @@
         tip: "Per-grain read-position randomness in milliseconds. Unlike the\n"
             "tiny jitter morph applies at the drone end, this survives at the\n"
             "pulsed end — it is how you loosen a locked grid without giving up\n"
-            "the beat. It blurs across the loop seam on purpose.")
+            "the beat. It blurs across the loop seam on purpose."),
+    // The Clock's (docs/dev/microsound.md): Cloud has no use for them.
+    (key: \granularScatter, label: "Scatter", spec: ControlSpec(0, 1, \lin, 0, 0),
+        round: 0.01, default: 0,
+        tip: "The Clock only. 0: every grain on the grid (or on its beat group).\n"
+            "1: the same number of grains a second, scattered at random — a cloud.\n"
+            "Between, grid grains drop out as random ones come in."),
+    (key: \granularLength, label: "Length", spec: ControlSpec(0.05, 4, \exp, 0, 0.5),
+        round: 0.01, unit: " x", default: 0.5,
+        tip: "The Clock only. A grain's length as a share of its pulse (a beat\n"
+            "divided by Per beat, or its beat group). Under 1 the grains have\n"
+            "gaps between them, 1 joins them up, over 1 they overlap.")
 ];
 
 // Look a param up by key so the sections below can be written in reading order
@@ -126,6 +137,9 @@
         ~granularParams.do { |p|
             if(p[\noReset] != true) { l.perform(p[\key].asSetter, p[\default]) };
         };
+        // The Clock's grid too; the engine stays, as morph does.
+        l.granularDivision = 1;
+        l.granularGroups = false;
         l.granularEnv = 0;
         l.granularFollowChords = false;
     };

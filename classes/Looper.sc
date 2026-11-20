@@ -489,6 +489,11 @@ Looper {
             granularSpray: [\state, [\value], "read-position spray, ms"],
             granularEnv: [\state, [\index], "the grain window (LooperGrains.envNames)"],
             granularFollowChords: [\state, [\on], "the grains follow the chords"],
+            granularEngine: [\state, [\index], "the grains' engine (LooperGrains.engineNames: Cloud, Clock)"],
+            granularDivision: [\state, [\value], "the Clock's grains per beat"],
+            granularGroups: [\state, [\on], "the Clock plays the beat groups"],
+            granularScatter: [\state, [\value], "the Clock's scatter, 0 grid .. 1 cloud"],
+            granularLength: [\state, [\value], "the Clock's grain length, a share of its pulse"],
             // ---- the onset notes
             onsetNotes: [\state, [\on], "the onset notes play"],
             onsetNote: [\state, [\note], "the note they play"],
@@ -1840,7 +1845,7 @@ Looper {
                 label:   "Granular",
                 format:  LooperGrains.presetFormat,
                 what:    "megalooper granular preset",
-                order:   #[\version, \name, \savedAt, \env, \followChords]
+                order:   #[\version, \name, \savedAt, \engine, \env, \followChords, \groups]
                     ++ LooperGrains.presetFields.collect { |f| f[0] },
                 version: \granularPresetVersion,
                 data:    \granularPresetData,
@@ -2762,6 +2767,11 @@ Looper {
     granularSpray { ^this.grainsPart.granularSpray }
     granularEnv { ^this.grainsPart.granularEnv }
     granularFollowChords { ^this.grainsPart.granularFollowChords }
+    granularEngine { ^this.grainsPart.granularEngine }
+    granularDivision { ^this.grainsPart.granularDivision }
+    granularGroups { ^this.grainsPart.granularGroups }
+    granularScatter { ^this.grainsPart.granularScatter }
+    granularLength { ^this.grainsPart.granularLength }
     granularMorph_ { |val| this.grainsPart.granularMorph_(val) }
     granularAmp_ { |val| this.grainsPart.granularAmp_(val) }
     granularPitch_ { |val| this.grainsPart.granularPitch_(val) }
@@ -2774,6 +2784,11 @@ Looper {
     granularSpray_ { |val| this.grainsPart.granularSpray_(val) }
     granularEnv_ { |val| this.grainsPart.granularEnv_(val) }
     granularFollowChords_ { |flag| this.grainsPart.granularFollowChords_(flag) }
+    granularEngine_ { |val| this.grainsPart.granularEngine_(val) }
+    granularDivision_ { |val| this.grainsPart.granularDivision_(val) }
+    granularGroups_ { |flag| this.grainsPart.granularGroups_(flag) }
+    granularScatter_ { |val| this.grainsPart.granularScatter_(val) }
+    granularLength_ { |val| this.grainsPart.granularLength_(val) }
     granularOn { ^this.grainsPart.on }
     toggleGranular { ^this.grainsPart.toggle }
     granularPresetVersion { ^this.grainsPart.presetVersion }

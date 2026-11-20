@@ -237,10 +237,17 @@
 };
 // The Grains' shape as chips: which way morph leans, the pitch, the window,
 // and the chords when they are followed. Pure.
-~performGrainChipWords = { |morph, pitch, env, follow|
+// The first says the engine: Cloud's way between drone and pulse, or the
+// Clock's (docs/dev/microsound.md): on the groups, or how many a beat.
+~performGrainChipWords = { |morph, pitch, env, follow, engine = 0, groups = false, division = 1|
     var st = pitch.round(1).asInteger;
+    var perBeat = if(division >= 1) { division.round(1).asInteger.asString } { "1/" ++ (1 / division).round(1).asInteger };
     [
-        if(morph < 0.5) { "Toward drone" } { "Toward pulse" },
+        case
+            { engine == 1 and: { groups == true } } { "Clock: groups" }
+            { engine == 1 } { "Clock: " ++ perBeat ++ " a beat" }
+            { morph < 0.5 } { "Toward drone" }
+            { "Toward pulse" },
         "Pitch " ++ (if(st > 0) { "+" } { "" }) ++ st ++ " st",
         ((LooperGrains.envNames[env] ? "").replace(" (built in)", "")) ++ " window"
     ] ++ if(follow == true) { ["Follows chords"] } { [] }
@@ -749,7 +756,8 @@
         ~performPaintBand.(\grain, l.granularOn);
         [~granularSlider, ~performGrainAmp].do { |b| b !? { b.dim_(if(l.granularOn) { 1 } { 0.3 }) } };
         ~performSetChips.(\grainShape, ~performGrainChips,
-            ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords),
+            ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords,
+                l.granularEngine, l.granularGroups, l.granularDivision),
             l.granularOn == true);
     };
 };
@@ -1022,6 +1030,7 @@
             ~wireBar.(~granularSlider, ~granularLabel, val, val.round(0.01).asString); grains.() },
         granularAmp: { |looper, what, val| ~performPaintGrainAmp !? { |f| f.(val) } },
         granularPitch: grains, granularEnv: grains, granular: grains,
+        granularEngine: grains, granularGroups: grains, granularDivision: grains,
         bbcut: cutter, bbcutMode: cutter, bbcutState: cutter,
         // A drag on a voice's amp or pan says this per pixel, and the pedal
         // sweeps the arc all set long: at most every 50 ms.

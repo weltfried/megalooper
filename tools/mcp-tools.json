@@ -236,7 +236,7 @@
   {
    "name": "set_grains",
    "title": "Change the grains",
-   "description": "Change the granular layer: its settings by name (settings, as get_context shows them under grains.settings), its grain window by name (window), whether it follows the take's chord changes (followChords), and/or switch it on or off (on; it needs a recorded loop). Settings left out stay. For example {\"settings\": {\"morph\": 0.1, \"pitch\": -12}, \"window\": \"Swell\", \"on\": true} makes an octave-down drone (call describe with topic grains first). Values out of range are held to it and listed in the answer's corrections; a name that is no setting refuses the call. Every change can be taken back with revert.",
+   "description": "Change the granular layer: its settings by name (settings, as get_context shows them under grains.settings), its grain window by name (window), whether it follows the take's chord changes (followChords), its engine (engine: Cloud, the texture, or Clock, grains on a clock of their own), whether the Clock plays the beat groups (groups), and/or switch it on or off (on; it needs a recorded loop). Settings left out stay. For example {\"settings\": {\"morph\": 0.1, \"pitch\": -12}, \"window\": \"Swell\", \"on\": true} makes an octave-down drone, and {\"engine\": \"Clock\", \"groups\": true, \"settings\": {\"length\": 0.5}, \"on\": true} a grain on every beat group (call describe with topic grains first). Values out of range are held to it and listed in the answer's corrections; a name that is no setting refuses the call. Every change can be taken back with revert.",
    "inputSchema": {
     "type": "object",
     "properties": {
@@ -251,6 +251,14 @@
      "followChords": {
       "type": "boolean",
       "description": "true: the grains transposed with the take's chords (describe's grains says how); false: as the loop sounds where they read."
+     },
+     "engine": {
+      "type": "string",
+      "description": "Cloud (the texture, as the grains always were) or Clock (grains on a clock of their own: on the beat, on the beat groups, or scattered), from describe's engines."
+     },
+     "groups": {
+      "type": "boolean",
+      "description": "The Clock: true, a grain per beat group of the reading as long as its group; false, division grains a beat."
      },
      "on": {
       "type": "boolean",

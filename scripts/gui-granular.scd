@@ -125,11 +125,35 @@
     };
 };
 
+// The engine tiles and the Clock's (docs/dev/microsound.md): which engine,
+// its line, and the grid. The Clock's title is greyed while Cloud plays (a
+// plain View has no alpha), and its controls still set: a switch starts
+// from them.
+// Cloud's sections are not dimmed for the Clock: Level, Pitch, Detune,
+// Position and Spray are both engines'; the tips say which are Cloud's only.
+~granularDivisionWords = LooperGrains.divisions.collect { |d|
+    if(d >= 1) { d.asInteger.asString } { "1/" ++ (1 / d).round(1).asInteger } };
+~granularPaintClock = {
+    var l = ~looper, clock;
+    l !? {
+        clock = l.granularEngine == 1;
+        ~granularEngineSeg !? { |s| ~guiSegSet.(s, l.granularEngine) };
+        ~granularEngineHint !? { |t| if(t.isClosed.not) { t.string_(LooperGrains.engineHints[l.granularEngine] ? "") } };
+        ~granularDivisionSeg !? { |s| ~guiSegSet.(s, LooperGrains.divisions.minIndex { |d| (d - l.granularDivision).abs }) };
+        ~granularGroupsSeg !? { |s| ~guiSegSet.(s, l.granularGroups.binaryValue) };
+        ~granularClockTitle !? { |t| if(t.isClosed.not) {
+            t.string_(if(clock) { "Clock" } { "Clock · plays when the engine is Clock" })
+                .stringColor_(if(clock) { ~gt[\ink] } { ~gt[\mute] })
+        } };
+    };
+};
+
 ~granularRefreshAll = {
     ~looper !? { |l|
         ~granularParams.do { |p| ~granularRefreshOne.(p[\key], l.perform(p[\key])) };
         ~granularPaintEnv.(l.granularEnv);
         ~granularPaintChords.();
+        ~granularPaintClock.();
         ~granularPaintHeader.();
     };
 };
@@ -252,6 +276,32 @@
             "the changes. At morph 1 they read where the loop is, and nothing moves. The chords are\n"
             "the take's, as the analysis heard them.");
     ~granularChordsHint = ~guiHelp.(~guiText.("", 13, ~gt[\mute]));
+    // The engine: Cloud (Warp1, as the grains always were) | Clock.
+    ~granularEngineSeg = ~guiSeg.(LooperGrains.engineNames,
+        (gap: 6, height: 38, fill: \grain, ink: \onacc, base: \bg, font: ~guiSans.(15, true),
+            action: { |i| ~controlDo.('looper.granularEngine', \set, i, \gui) }));
+    ~mapTag.(~granularEngineSeg[\view], 'looper.granularEngine',
+        "Cloud (the default): the grains as a texture, a drone at Morph 0 and a pulse locked to the\n"
+            "loop at 1, everything below bending it.\n"
+            "Clock: grains started on a clock of their own, locked to the loop: so many a beat, or one\n"
+            "on every beat group of the reading (7/8 as 2+2+3), on the grid or scattered into a cloud.\n"
+            "Switching while the grains play changes over at once.");
+    ~granularEngineHint = ~guiHelp.(~guiText.("", 13, ~gt[\mute]));
+    // The Clock's grid: grains per beat (the count's beat: an eighth in 7/8),
+    // or a grain per beat group.
+    ~granularDivisionSeg = ~guiSeg.(~granularDivisionWords,
+        (gap: 4, height: 34, fill: \grain, ink: \onacc, base: \bg, font: ~guiMono.(14, true),
+            action: { |i| ~controlDo.('looper.granularDivision', \set, i, \gui) }));
+    ~mapTag.(~granularDivisionSeg[\view], 'looper.granularDivision',
+        "The Clock: grains per beat, on the beat's grid from the downbeat. The beat is the one the\n"
+            "count on Perform counts: an eighth in 7/8, a quarter in 4/4. Groups plays over this.");
+    ~granularGroupsSeg = ~guiSeg.(["Grid", "Groups"],
+        (gap: 6, height: 34, fill: \grain, ink: \onacc, base: \bg, font: ~guiSans.(15, true),
+            action: { |i| ~controlDo.('looper.granularGroups', \set, i, \gui) }));
+    ~mapTag.(~granularGroupsSeg[\view], 'looper.granularGroups',
+        "The Clock. Grid: Per beat grains a beat. Groups: one grain on every beat group of the reading,\n"
+            "as long as its group times Length: 7/8 plays 2+2+3, uneven bars bar by bar. With no reading\n"
+            "there are no groups, and the grid plays.");
 
     pane.layout_(VLayout(
         ~guiBand.(\grain),
@@ -270,7 +320,29 @@
         ~guiRule.(),
         View().layout_(VLayout(preset[\edit]).margins_([22, 10, 22, 10])),
         ~guiRule.(),
-        HLayout(
+        View().layout_(VLayout(
+            ~guiCaption.("ENGINE", 11),
+            ~granularEngineSeg[\view],
+            ~granularEngineHint
+        ).margins_([22, 16, 22, 16]).spacing_(8)),
+        ~guiRule.(),
+        View().layout_(HLayout(
+            [View().layout_(VLayout(
+                ~granularClockTitle = ~guiText.("Clock", 18, nil, true)
+                    .toolTip_("The Clock engine's grid: how many grains a beat, or one a beat group"),
+                ~guiCaption.("PER BEAT", 11),
+                ~granularDivisionSeg[\view],
+                ~guiCaption.("ON", 11),
+                ~granularGroupsSeg[\view],
+                nil
+            ).margins_([22, 16, 22, 16]).spacing_(8)), stretch: 1],
+            rule.(),
+            [~granularSection.("Grains",
+                "The Clock's grains: on the grid or scattered, and how long",
+                [\granularScatter, \granularLength]), stretch: 1]
+        ).margins_(0).spacing_(0)),
+        ~guiRule.(),
+        View().layout_(VLayout(HLayout(
             [~granularSection.("Blend",
                 "Morph sets the base texture · Level balances it against the dry loop",
                 [\granularMorph, \granularAmp]), stretch: 1],
@@ -288,7 +360,7 @@
             [~granularSection.("Read position",
                 "Where in the loop grains come from, and how the read point moves",
                 [\granularPosition, \granularScan, \granularSpray]), stretch: 1]
-        ).margins_(0).spacing_(0),
+        ).margins_(0).spacing_(0)).margins_(0).spacing_(0)),
         ~guiRule.(),
         View().layout_(VLayout(
             ~guiCaption.("GRAIN WINDOW", 11),
@@ -322,6 +394,9 @@
         granular: { ~granularPaintHeader !? { |f| f.() } },
         granularEnv: { |looper, what, val| ~granularEnvSeg !? { ~granularPaintEnv !? { |f| f.(val) } } },
         granularFollowChords: chords,
+        granularEngine: { ~granularPaintClock !? { |f| f.() } },
+        granularDivision: { ~granularPaintClock !? { |f| f.() } },
+        granularGroups: { ~granularPaintClock !? { |f| f.() } },
         // What the take gives them to follow: a new result, another reading,
         // a loop recorded or cleared.
         result: chords, readingIndex: chords, state: chords

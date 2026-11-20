@@ -87,7 +87,9 @@ say `guitar` in their ids, as in `sa.level.guitar`.
 `granularPitch`, `granularDetune`, `granularSize`, `granularDensity`,
 `granularSizeRand`, `granularEnv`, `granularPosition`, `granularScan`,
 `granularSpray`, `granularFollowChords` (Chords: As played or Follow
-chords), `granularResetTweaks`.
+chords), `granularEngine` (Engine: Cloud or Clock), `granularDivision` (Per
+beat, the Clock's tiles), `granularGroups` (On: Grid or Groups),
+`granularScatter`, `granularLength`, `granularResetTweaks`.
 
 **Analysis**, `looper.` and: `onsetNotes`, `rerollOnsetNotes`, `onsetNote`,
 `onsetNoteVelLo`, `onsetNoteVelHi`, `onsetNoteDynRange`, `onsetNoteGateMs`,

@@ -900,18 +900,23 @@ MegaRemote {
 
     // The granular layer's settings by name (settings: (name: number), the
     // names the context's grains.settings has), its grain window by name
-    // (window), whether it follows the take's chords (followChords), and/or
-    // the layer on or off (on). Settings are merged over what plays; a value
-    // held to its range is said in the corrections.
+    // (window), whether it follows the take's chords (followChords), its
+    // engine by name (engine: Cloud or Clock), whether the Clock plays the
+    // beat groups (groups), and/or the layer on or off (on). Settings are
+    // merged over what plays; a value held to its range is said in the
+    // corrections.
     setGrains { |args|
-        var src = source.value, looper = this.prLooper(src), settings, window, on, chords, names, data, label, notes, w;
+        var src = source.value, looper = this.prLooper(src), settings, window, on, chords, engine, groups, names, data, label, notes, w;
         if(looper.isNil) { ^this.prNoLooper };
         settings = args !? { |a| a.at("settings") };
         window = args !? { |a| a.at("window") };
         on = args !? { |a| a.at("on") };
         chords = args !? { |a| a.at("followChords") };
-        if(settings.isNil and: { window.isNil } and: { on.isNil } and: { chords.isNil }) {
-            ^this.class.failure("nothing to change: give settings, window, followChords, on, or several")
+        engine = args !? { |a| a.at("engine") };
+        groups = args !? { |a| a.at("groups") };
+        if(settings.isNil and: { window.isNil } and: { on.isNil } and: { chords.isNil } and: { engine.isNil }
+            and: { groups.isNil }) {
+            ^this.class.failure("nothing to change: give settings, window, followChords, engine, groups, on, or several")
         };
         names = LooperGrains.presetFields.collect { |f| f[0].asString };
         if(settings.notNil) {
@@ -930,16 +935,24 @@ MegaRemote {
         };
         if(on.notNil and: { on.isKindOf(Boolean).not }) { ^this.class.failure("on is true or false") };
         if(chords.notNil and: { chords.isKindOf(Boolean).not }) { ^this.class.failure("followChords is true or false") };
-        label = "grains' " ++ [settings !? { "settings" }, window !? { "window" }, chords !? { "chords" }, on !? { "switch" }]
+        if(engine.notNil and: { this.class.grainEngineIndex(engine).isNil }) {
+            ^this.class.failure("there is no grains engine " ++ engine.asString.quote ++ "; there are "
+                ++ LooperGrains.engineNames.join(", "))
+        };
+        if(groups.notNil and: { groups.isKindOf(Boolean).not }) { ^this.class.failure("groups is true or false") };
+        label = "grains' " ++ [settings !? { "settings" }, window !? { "window" }, chords !? { "chords" },
+            engine !? { "engine" }, groups !? { "groups" }, on !? { "switch" }]
             .reject(_.isNil).join(" and ");
         this.prSnapshot(\grains, label, (preset: looper.granularPresetData("before the AI's change"),
             on: looper.granularOn));
         notes = this.prHeard(looper, {
-            if(settings.notNil or: { window.notNil } or: { chords.notNil }) {
+            if(settings.notNil or: { window.notNil } or: { chords.notNil } or: { engine.notNil } or: { groups.notNil }) {
                 data = looper.granularPresetData("ai");
                 settings !? { |set| set.keysValuesDo { |k, v| data[k.asSymbol] = v } };
                 window !? { data[\env] = LooperGrains.envNames[this.class.grainWindowIndex(window)] };
                 chords !? { data[\followChords] = chords };
+                engine !? { data[\engine] = LooperGrains.engineNames[this.class.grainEngineIndex(engine)] };
+                groups !? { data[\groups] = groups };
                 looper.applyGranularPreset(data);
             };
             on !? { |flag| if(flag != looper.granularOn) { looper.toggleGranular } };
@@ -1142,6 +1155,13 @@ MegaRemote {
 
     // The preset `part`'s view (\drums, \synth) shows as loaded, where a
     // window answers: its slug, or nil.
+    // An engine's index in LooperGrains.engineNames from its name, the case
+    // not minded, or nil.
+    *grainEngineIndex { |name|
+        ^if(name.isString.not) { nil } {
+            LooperGrains.engineNames.detectIndex { |n| n.asString.toLower == name.toLower }
+        }
+    }
     *shownOf { |src, part| ^src !? { |s| s[\presetShown] } !? { |f| f.value(part) } }
 
     // The granular layer: on or off, its settings by name, its grain window,
@@ -1153,6 +1173,8 @@ MegaRemote {
             \settings, this.obj(LooperGrains.presetFields.collect { |f| [f[0], data[f[0]]] }.flatten(1)),
             \window, data[\env],
             \followChords, data[\followChords] == true,
+            \engine, data[\engine],
+            \groups, data[\groups] == true,
             \intensity, looper.intensity
         ])
     }
@@ -1756,7 +1778,14 @@ MegaRemote {
                 "default, the grains as they always were): true transposes the grains by the interval from "
                 "the chord where they read to the chord the loop plays now (the take's chords, the nearer way "
                 "round, -6..+5 semitones), so a drone frozen in one chord follows the changes; at morph 1 "
-                "they read where the loop is and nothing moves; a take of one chord moves nothing.",
+                "they read where the loop is and nothing moves; a take of one chord moves nothing. engine: Cloud (the "
+                "default, Warp1 as above) or Clock, grains started on a clock of their own: division grains per "
+                "beat of the reading (the count's beat, an eighth in 7/8), on the grid from the downbeat; or "
+                "groups true, one grain per beat group (7/8 as 2+2+3, uneven bars bar by bar) as long as its "
+                "group; scatter 0 the grid exactly, 1 a cloud at the same mean rate; length a grain's length as "
+                "a share of its pulse (under 1 gaps, over 1 overlap). The Clock reads where the loop plays "
+                "plus position; morph, size, density, size rand and scan are Cloud's only. Switching engine "
+                "while the grains play changes over at once.",
             \settings, LooperGrains.presetFields.collect { |f|
                 var row = (rows ? []).detect { |r| r[\key] == f[1] }, spec = row !? { |r| r[\spec] };
                 this.obj([\name, f[0], \label, row !? { |r| r[\label] }, \min, f[2], \max, f[3], \default, f[4],
@@ -1764,7 +1793,8 @@ MegaRemote {
                     \units, row !? { |r| r[\unit] !? { |u| u.stripWhiteSpace } },
                     \tip, row !? { |r| r[\tip] !? { |t| t.replace("\n", " ") } }])
             },
-            \windows, LooperGrains.envNames.collect { |n, i| this.obj([\name, n, \about, LooperGrains.envHints[i]]) }
+            \windows, LooperGrains.envNames.collect { |n, i| this.obj([\name, n, \about, LooperGrains.envHints[i]]) },
+            \engines, LooperGrains.engineNames.collect { |n, i| this.obj([\name, n, \about, LooperGrains.engineHints[i]]) }
         ])
     }
 

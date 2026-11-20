@@ -34,9 +34,64 @@ LooperGrains {
     // always did). On: transposed with the take's chord changes (roadmap
     // item 8; the \looperGranular graph).
     var <granularFollowChords = false;
+    // The engine (docs/dev/microsound.md): 0 Cloud, the Warp1 layer as it
+    // always was; 1 Clock, grains on a trigger of their own
+    // (LooperSynthDefs.grainClockGraph). Only the Clock reads the next four.
+    var <granularEngine = 0;
+    var <granularDivision = 1;     // Clock: grains per beat
+    var <granularGroups = false;   // Clock: a grain per beat group instead
+    var <granularScatter = 0;      // Clock: 0 on the grid .. 1 a cloud
+    var <granularLength = 0.5;     // Clock: a grain's share of its pulse
     var granularEnvBufs;
+    // The Clock's own buffers: a Hann window (Warp1 has its own built in, the
+    // Clock needs one in a buffer) and the reading's group heads and lengths.
+    var hannBuf, headsBuf, lensBuf;
 
     *new { |looper| ^super.newCopyArgs(looper) }
+
+    // The engines, index-aligned with granularEngine; stored in presets by name.
+    *engineNames { ^["Cloud", "Clock"] }
+    *engineHints {
+        ^[
+            "The grains as a texture: a drone at Morph 0, a pulse locked to the loop at 1.",
+            "Grains on a clock of their own: on the beat, on the beat groups, or scattered into a cloud."
+        ]
+    }
+    // The Clock's grains per beat, as the view and MIDI offer them.
+    *divisions { ^[0.25, 0.5, 1, 2, 3, 4, 6, 8] }
+
+    // Where the Clock's grid and groups fall in a loop, from its reading: the
+    // beat (the denominator's unit, as the count on Perform has it: an eighth
+    // in 7/8), the grid's offset (the downbeat), and every beat group's head
+    // in seconds into the loop with its length (bar by bar, so uneven bars
+    // keep their own groups: 7 7 7 8 as 2+2+3 three times, then 2+2+2+2).
+    // groupSlots values each, rising; unused heads lie past any time. With no
+    // reading: a beat of a quarter of the loop and no groups.
+    *groupGrid { |result, loopDur|
+        var slots = LooperSynthDefs.groupSlots;
+        var heads = Array.fill(slots, 1e9), lens = Array.fill(slots, 0);
+        var beat, offset, bars, acc = 0, n = 0, total, starts = List.new;
+        loopDur = (loopDur ? 0).max(1e-3);
+        if(result.isNil or: { result[\tau].isNil }) {
+            ^(beat: loopDur / 4, offset: 0, heads: heads, lens: lens, count: 0)
+        };
+        beat = result[\tau] * (result[\sub] ? 1);
+        offset = (result[\downbeatPhase] ? 0).mod(loopDur);
+        bars = MeterAnalyzer.barsOf(result);
+        total = (loopDur / beat).round.asInteger.max(1);
+        // Bar after bar, round the bars' list, until the loop is full.
+        while { acc < total } {
+            MeterAnalyzer.beatGrouping(bars.wrapAt(n), result[\denominator] ? 4).do { |g|
+                if(acc < total) { starts.add(acc) };
+                acc = acc + g;
+            };
+            n = n + 1;
+        };
+        starts = starts.keep(slots).collect { |b| (offset + (b * beat)).mod(loopDur) }.sort;
+        starts.do { |s, i| heads[i] = s; lens[i] = (starts.wrapAt(i + 1) - s).mod(loopDur) };
+        if(starts.size == 1) { lens[0] = loopDur };
+        ^(beat: beat, offset: offset, heads: heads, lens: lens, count: starts.size)
+    }
 
     // Grain-window shapes offered by the granular layer. Index 0 is Warp1's own
     // built-in Hann (envbufnum -1, so it needs no buffer); the rest are the Envs
@@ -92,7 +147,11 @@ LooperGrains {
             [\sizeRand, \granularSizeRand,   0,     1,    0.1],
             [\position, \granularPosition,   0,     1,    0],
             [\scan,     \granularScan,      -8,     8,    0],
-            [\spray,    \granularSpray,      0,  2000,    0]
+            [\spray,    \granularSpray,      0,  2000,    0],
+            // The Clock's (an older preset has none, and is Cloud anyway)
+            [\division, \granularDivision,   0.0625, 16,  1],
+            [\scatter,  \granularScatter,    0,     1,    0],
+            [\length,   \granularLength,     0.05,  8,    0.5]
         ]
     }
 
@@ -100,13 +159,35 @@ LooperGrains {
 
     // The window shapes in buffers on the server (index 0, Warp1's own Hann,
     // needs none): allocated in the Looper's init, then filled after a sync.
-    allocEnvBufs { |server| granularEnvBufs = LooperGrains.envShapes.collect { Buffer.alloc(server, 1024, 1) } }
-    fillEnvBufs { granularEnvBufs.do { |b, i| b.sendCollection(LooperGrains.envShapes[i].discretize(1024)) } }
+    allocEnvBufs { |server|
+        granularEnvBufs = LooperGrains.envShapes.collect { Buffer.alloc(server, 1024, 1) };
+        hannBuf = Buffer.alloc(server, 1024, 1);
+        headsBuf = Buffer.alloc(server, LooperSynthDefs.groupSlots, 1);
+        lensBuf = Buffer.alloc(server, LooperSynthDefs.groupSlots, 1);
+    }
+    fillEnvBufs {
+        granularEnvBufs.do { |b, i| b.sendCollection(LooperGrains.envShapes[i].discretize(1024)) };
+        hannBuf !? { |b| b.sendCollection(Array.fill(1024, { |i| sin(pi * i / 1023).squared })) };
+        this.prSendGrid;
+    }
+
+    // The reading's group heads and lengths into the Clock's buffers, before
+    // any synth that reads them: a message sent ahead of its s_new lands first.
+    prSendGrid {
+        var g = this.grid;
+        headsBuf !? { |b| b.setn(0, g[\heads]) };
+        lensBuf !? { |b| b.setn(0, g[\lens]) };
+    }
+
+    // The Clock's grid in the loop playing now (groupGrid).
+    grid { ^LooperGrains.groupGrid(looper.lastResult, looper.loopDuration) }
 
     // The loop moved under the grains, or the arc did: told by the Looper.
     lock { granularSynth !? { |g| g.set(\locked, 1) } }
     setRate { |rate| granularSynth !? { |g| g.set(\rate, rate) } }
-    setTau { |tau| granularSynth !? { |g| g.set(\tau, tau) } }
+    // The pulse, in real time (Cloud's window). The Clock's beat is in the
+    // loop's own time, which half-time does not change: it keeps its own.
+    setTau { |tau| if(granularEngine == 0) { granularSynth !? { |g| g.set(\tau, tau) } } }
     applyMix { granularSynth !? { |g| g.set(\amp, granularAmp * looper.prGranularMix) } }
     // Off with the loop (a stop, the arc's end): said only if they were on.
     off {
@@ -119,6 +200,7 @@ LooperGrains {
         granularSynth !? { |g| g.free };
         granularSynth = nil;
         granularEnvBufs !? { |bufs| bufs.do { |b| b.free } };
+        [hannBuf, headsBuf, lensBuf].do { |b| b !? { b.free } };
     }
 
     presetSummary { |data|
@@ -136,7 +218,10 @@ LooperGrains {
             // granularEnvNames, so inserting a window shape would silently
             // re-point every preset saved before it at a different envelope.
             env:     LooperGrains.envNames[granularEnv].asString,
-            followChords: granularFollowChords
+            followChords: granularFollowChords,
+            // By name, as the window is.
+            engine:  LooperGrains.engineNames[granularEngine].asString,
+            groups:  granularGroups
         );
         LooperGrains.presetFields.do { |f|
             data[f[0]] = this.perform(f[1]).asFloat;
@@ -207,6 +292,20 @@ LooperGrains {
             { data[\followChords].isNil } { false }
             { (data[\followChords] == true) or: { data[\followChords] == false } } { data[\followChords] }
             { warnings.add("followChords " ++ data[\followChords].asCompileString ++ " is not true or false -> false"); false };
+        // The engine by name; a preset from before the Clock is Cloud.
+        clean[\engine] = (data[\engine] ? "").asString !? { |name|
+            LooperGrains.engineNames.detectIndex { |n| n.toLower == name.toLower }
+        };
+        if(clean[\engine].isNil) {
+            if((data[\engine] ? "").asString.isEmpty.not) {
+                warnings.add("unknown engine '" ++ data[\engine] ++ "' -> " ++ LooperGrains.engineNames[0]);
+            };
+            clean[\engine] = 0;
+        };
+        clean[\groups] = case
+            { data[\groups].isNil } { false }
+            { (data[\groups] == true) or: { data[\groups] == false } } { data[\groups] }
+            { warnings.add("groups " ++ data[\groups].asCompileString ++ " is not true or false -> false"); false };
         ^clean
     }
 
@@ -225,6 +324,9 @@ LooperGrains {
         };
         this.granularEnv = clean[\env];
         this.granularFollowChords = clean[\followChords];
+        this.granularGroups = clean[\groups];
+        // Last: a running layer changes engine with everything else set.
+        this.granularEngine = clean[\engine];
         if(warnings.notEmpty) {
             ("Granular preset '" ++ clean[\name] ++ "': " ++ warnings.size
                 ++ " correction(s) — " ++ warnings.join("; ")).warn;
@@ -237,7 +339,7 @@ LooperGrains {
     on { ^granularSynth.notNil }
 
     toggle {
-        var tau, args, src;
+        var src;
         if(granularSynth.notNil) {
             granularSynth.free; granularSynth = nil;
             "Granular off.".postln;
@@ -252,7 +354,31 @@ LooperGrains {
             looper.changed(\granular, false);
             ^looper.prRefused(\granular, "no loop recorded")
         };
-        tau = looper.prGranularTau;
+        this.prSpawn(src);
+        looper.changed(\granular, true);
+    }
+
+    // The engine: 0 Cloud, 1 Clock. A running layer changes over at once:
+    // the new synth starts, the old one fades in its amp's Lag (50 ms) and goes.
+    granularEngine_ { |val|
+        var old;
+        val = val.asInteger.clip(0, LooperGrains.engineNames.size - 1);
+        if(val == granularEngine) { ^this };
+        granularEngine = val;
+        old = granularSynth;
+        if(old.notNil) {
+            old.set(\amp, 0);
+            SystemClock.sched(0.08, { old.free; nil });
+            this.prSpawn(looper.prGrainSource);
+        };
+        looper.changed(\granularEngine, granularEngine);
+    }
+
+    // The synth of the engine set, from what every control says now.
+    prSpawn { |src|
+        var tau = looper.prGranularTau, args, def;
+        if(granularEngine == 1) { this.prSendGrid };
+        def = if((granularEngine == 1) and: { headsBuf.notNil }) { \looperGrainClock } { \looperGranular };
         args = [
             \bufnum, src[\buffer].bufnum,
             \out, src[\out],
@@ -269,14 +395,13 @@ LooperGrains {
             \phaseBus, src[\phaseBus],
             \locked, src[\engine].notNil.asInteger,
             \rate, looper.prGrainRate
-        ] ++ this.args ++ this.chordArgs.flatten(1);
-        granularSynth = src[\engine] !? { |e| Synth.after(e, \looperGranular, args) }
-            ?? { Synth(\looperGranular, args, src[\server]) };
-        ("Granular on. tau=" ++ tau.round(0.001)
+        ] ++ this.args ++ this.chordArgs.flatten(1) ++ this.clockArgs;
+        granularSynth = src[\engine] !? { |e| Synth.after(e, def, args) }
+            ?? { Synth(def, args, src[\server]) };
+        ("Granular on (" ++ LooperGrains.engineNames[granularEngine] ++ "). tau=" ++ tau.round(0.001)
             ++ " morph=" ++ granularMorph.round(0.01)
             ++ (if(src[\engine].notNil) { ", locked to the loop" } { ", free (loop stopped)" })
             ).postln;
-        looper.changed(\granular, true);
     }
 
     // The grains read what the engine reads. Their synth is given the buffer,
@@ -291,10 +416,34 @@ LooperGrains {
         granularSynth !? { |g|
             var src = looper.prGrainSource;
             chords = this.chordArgs;
+            if(granularEngine == 1) { this.prSendGrid };
             g.set(*([\startFrame, src[\startFrame], \loopFrames, src[\loopFrames], \tau, looper.prGranularTau]
-                ++ (src[\buffer] !? { |b| [\bufnum, b.bufnum] } ? []) ++ chords[0]));
+                ++ (src[\buffer] !? { |b| [\bufnum, b.bufnum] } ? []) ++ chords[0] ++ this.clockArgs));
             g.setn(*chords[1]);
         };
+    }
+
+    // The Clock's own args (none for Cloud): its beat (in the loop's time, so
+    // it overrides Cloud's tau), the grid's offset, the group buffers, and
+    // its four controls. After `args` in a list, so its tau and window win.
+    clockArgs {
+        var g;
+        // (No buffers yet, a toggle racing construction: Cloud plays. The
+        // Clock on buffer 0 would search a whole loop every sample.)
+        if((granularEngine != 1) or: { headsBuf.isNil }) { ^[] };
+        g = this.grid;
+        ^[
+            \tau, g[\beat], \gridOffset, g[\offset],
+            \headsBuf, headsBuf !? { |b| b.bufnum } ? 0, \lensBuf, lensBuf !? { |b| b.bufnum } ? 0,
+            \division, granularDivision, \groups, (granularGroups and: { g[\count] > 0 }).binaryValue,
+            \scatter, granularScatter, \length, granularLength,
+            \envbuf, this.clockEnvBuf
+        ]
+    }
+
+    // The Clock's window: Hann from its buffer, the others as Cloud's.
+    clockEnvBuf {
+        ^if(granularEnv == 0) { hannBuf !? { |b| b.bufnum } ? 0 } { this.envBuf.max(0) }
     }
 
     // The take's chords for the grains (granularFollowChords): [the switch
@@ -423,7 +572,38 @@ LooperGrains {
     // Grain window shape — index into LooperGrains.envNames.
     granularEnv_ { |val|
         granularEnv = val.asInteger.clip(0, LooperGrains.envNames.size - 1);
-        granularSynth !? { |syn| syn.set(\envbuf, this.envBuf) };
+        granularSynth !? { |syn| syn.set(\envbuf, if(granularEngine == 1) { this.clockEnvBuf } { this.envBuf }) };
         looper.changed(\granularEnv, granularEnv);
+    }
+
+    // The Clock's controls. Set on Cloud too, so a switch to Clock starts from
+    // them; a Cloud synth has no such controls and ignores them.
+
+    // Grains per beat (the count's beat: an eighth in 7/8), 1/16 .. 16.
+    granularDivision_ { |val|
+        granularDivision = val.clip(0.0625, 16);
+        this.prSetGranular(\division, granularDivision, \granularDivision);
+    }
+
+    // A grain per beat group of the reading instead of the grid. With no
+    // groups to play (no reading) the grid plays.
+    granularGroups_ { |flag|
+        granularGroups = flag == true;
+        if(granularEngine == 1) {
+            granularSynth !? { |g| g.set(\groups, (granularGroups and: { this.grid[\count] > 0 }).binaryValue) };
+        };
+        looper.changed(\granularGroups, granularGroups);
+    }
+
+    // 0: every grain on the grid. 1: a cloud at the same mean rate.
+    granularScatter_ { |val|
+        granularScatter = val.clip(0, 1);
+        this.prSetGranular(\scatter, granularScatter, \granularScatter);
+    }
+
+    // A grain's length as a share of its pulse: under 1 gaps, over 1 overlap.
+    granularLength_ { |val|
+        granularLength = val.clip(0.05, 8);
+        this.prSetGranular(\length, granularLength, \granularLength);
     }
 }

@@ -105,7 +105,9 @@
     var granularGroups = (granularMorph: "Blend", granularAmp: "Blend",
         granularPitch: "Pitch", granularDetune: "Pitch", granularSize: "Grain", granularDensity: "Grain",
         granularSizeRand: "Grain", granularEnv: "Grain",
-        granularPosition: "Read position", granularScan: "Read position", granularSpray: "Read position");
+        granularPosition: "Read position", granularScan: "Read position", granularSpray: "Read position",
+        granularScatter: "Clock", granularLength: "Clock", granularDivision: "Clock", granularGroups: "Clock",
+        granularEngine: "Engine");
     // Megalooper SA's drums, or nil: no SA, or a MegaSA from before it had
     // them. An Event standing in for MegaSA answers `drums` by key.
     var drums = { ~megaSA !? { |m| if(m.isKindOf(Dictionary) or: { m.respondsTo(\drums) }) { m.drums } } };
@@ -321,6 +323,25 @@
             items: ["As played", "Follow chords"],
             get: { ~looper !? { |l| l.granularFollowChords.binaryValue } },
             set: { |i| ~looper !? { |l| l.granularFollowChords = i == 1 } },
+            available: looper)));
+        // The Grains tab's engine tiles: Cloud | Clock (docs/dev/microsound.md).
+        add.('looper.granularEngine', "Engine", "Grains", \choice, choice.((group: "Engine",
+            items: LooperGrains.engineNames,
+            get: { ~looper !? { |l| l.granularEngine } },
+            set: { |i| ~looper !? { |l| l.granularEngine = i } },
+            available: looper)));
+        // The Clock's grid: grains per beat, as the tiles offer them, and
+        // Grid | Groups.
+        add.('looper.granularDivision', "Per beat", "Grains", \choice, choice.((group: "Clock",
+            items: LooperGrains.divisions.collect { |d| if(d >= 1) { d.asInteger.asString } { "1/" ++ (1 / d).round(1).asInteger } },
+            get: { ~looper !? { |l| LooperGrains.divisions.indexOf(l.granularDivision) ?? {
+                LooperGrains.divisions.minIndex { |d| (d - l.granularDivision).abs } } } },
+            set: { |i| ~looper !? { |l| LooperGrains.divisions[i] !? { |d| l.granularDivision = d } } },
+            available: looper)));
+        add.('looper.granularGroups', "Grid or groups", "Grains", \choice, choice.((group: "Clock",
+            items: ["Grid", "Groups"],
+            get: { ~looper !? { |l| l.granularGroups.binaryValue } },
+            set: { |i| ~looper !? { |l| l.granularGroups = i == 1 } },
             available: looper)));
         // Perform's mode menu beside the cutter's switch, in its order.
         add.('looper.bbcutMode', "BBCut mode", "Perform", \choice, choice.((group: "Layers",

@@ -1173,8 +1173,10 @@ the rest of the granulator, and morph keeps its job — it sets the **base** of 
 texture, and every control here **bends that base**.
 
 **ON · G** toggles the layer like `G`; it is refused while no loop is
-recorded. The controls are in four sections, **Blend**, **Pitch**, **Grain**
-and **Read position**, with **GRAIN WINDOW** and **CHORDS** under them.
+recorded. Under the preset bar, **ENGINE** picks how the grains are made (see
+[The Clock](#the-clock) below), then the **Clock**'s own section, then four
+sections, **Blend**, **Pitch**, **Grain** and **Read position**, with **GRAIN
+WINDOW** and **CHORDS** under them.
 
 Every default is **neutral**: with all of them untouched the layer sounds exactly
 as it did when morph was the only control. **Reset tweaks** puts them all back
@@ -1197,6 +1199,33 @@ without disturbing morph itself.
 Following the chords transposes by the chords' roots only: a drone frozen in A
 minor moved to a D major chord plays D minor. Pitch adds to it.
 
+### The Clock
+
+The **ENGINE** tiles choose how the grains are made:
+
+- **Cloud** (the default) is everything above: the grains as a texture, a
+  drone at morph 0 and a pulse locked to the loop at morph 1.
+- **Clock** starts each grain on a clock of its own, locked to the loop's
+  playhead: so many a beat, or one on every beat group of the reading, on the
+  grid or scattered into a cloud. The grains read where the loop plays, plus
+  **Position**.
+
+Switching while the grains play changes over at once. **Level**, **Pitch**,
+**Detune**, **Position**, **Spray**, the **Window** and **Chords** work for
+both engines. **Morph**, **Grain size**, **Density**, **Size rand** and
+**Scan** are Cloud's only. The Clock's title is greyed while Cloud plays.
+
+| Control | Range | What it does |
+| --- | --- | --- |
+| **Per beat** | ¼–8 | Grains per beat, on the grid from the downbeat. The beat is the one the count on Perform counts: an eighth in 7/8, a quarter in 4/4. |
+| **On** | Grid, Groups | **Grid** plays Per beat. **Groups** plays one grain on every beat group of the reading, as long as its group times Length: 7/8 as 2+2+3, uneven bars bar by bar (7+7+7+8 as 2+2+3 three times, then 2+2+2+2). With no reading there are no groups, and the grid plays. |
+| **Scatter** | 0–1 (0) | 0 puts every grain on the grid. 1 keeps the same number of grains a second but scatters them at random, a cloud. In between, grid grains drop out as random ones come in. |
+| **Length** | 0.05–4 × (0.5) | A grain's length as a share of its pulse (the beat divided by Per beat, or its group). Under 1 the grains have gaps between them, 1 joins them up, over 1 they overlap. |
+
+At half-time the Clock's beats last twice as long, and so do its grains.
+**Reset tweaks** puts Per beat back to 1 and On back to Grid; the engine
+stays, as morph does.
+
 ### Grains presets
 
 The preset bar at the top of the Grains stores the whole voice — morph plus
@@ -1213,6 +1242,8 @@ What differs:
   back to Hann.
 - **Chords** is in a preset; a preset saved before it existed recalls **As
   played**.
+- The **engine** and the Clock's controls are in a preset too. A preset saved
+  before the Clock existed recalls **Cloud**.
 
 **Start with this**, at the end of the preset bar's row, keeps morph and every
 control as they are now for the next start, the way a preset holds them: the
@@ -2018,7 +2049,7 @@ you did about it with the next-reading switch. See
 
 ## Testing
 
-`./tools/run-checks.sh` runs all twenty-nine checks, one sclang at a time, in
+`./tools/run-checks.sh` runs all thirty checks, one sclang at a time, in
 about six minutes. `./tools/run-checks.sh quick` runs only the unit tests, the
 static check and the AI bridge's test. Nothing opens an audio device or touches
 MIDI, and megalooper may be running beside it. Checks that need material the

@@ -41,8 +41,8 @@ parsed = MegaFiles.eventOf(parsed);
 ~tEq.("round trip preserves size", parsed[\size], 2.5);
 ~tEq.("round trip preserves a negative value", parsed[\scan], -1.5);
 ~tEq.("...one field a line, in the table's order after the header",
-    str.split($\n).drop(1).keep(LooperGrains.presetFields.size + 6).collect { |line| line.stripWhiteSpace.split($:)[0] },
-    ["format", "version", "name", "savedAt", "env", "followChords"].collect { |k| "\"" ++ k ++ "\"" }
+    str.split($\n).drop(1).keep(LooperGrains.presetFields.size + 8).collect { |line| line.stripWhiteSpace.split($:)[0] },
+    ["format", "version", "name", "savedAt", "engine", "env", "followChords", "groups"].collect { |k| "\"" ++ k ++ "\"" }
         ++ LooperGrains.presetFields.collect { |f| "\"" ++ f[0] ++ "\"" });
 
 // ---- recall --------------------------------------------------------------

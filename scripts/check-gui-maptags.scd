@@ -865,6 +865,12 @@ Routine {
             [~performGrainChipWords.(0.7, -2.4, 1, true), ~performGrainChipWords.(0.2, 3, 0, false)]
                 == [["Toward pulse", "Pitch -2 st", "Plateau window", "Follows chords"], ["Toward drone", "Pitch +3 st", "Hann window"]],
             [~performGrainChipWords.(0.7, -2.4, 1, true), ~performGrainChipWords.(0.2, 3, 0, false)].asString);
+        ok.("...and on the Clock, its grid in place of Morph's lean: groups, or how many a beat",
+            [~performGrainChipWords.(0.7, 0, 0, false, 1, true, 1).first, ~performGrainChipWords.(0.7, 0, 0, false, 1, false, 2).first,
+                ~performGrainChipWords.(0.7, 0, 0, false, 1, false, 0.5).first]
+                == ["Clock: groups", "Clock: 2 a beat", "Clock: 1/2 a beat"],
+            [~performGrainChipWords.(0.7, 0, 0, false, 1, true, 1).first, ~performGrainChipWords.(0.7, 0, 0, false, 1, false, 2).first,
+                ~performGrainChipWords.(0.7, 0, 0, false, 1, false, 0.5).first].asString);
         fit = ~performChipFit.("Break/Repeat · Bit + Comb + BPF + Rev", 100);
         ok.("words too long for a chip are drawn smaller, and cut short only at 11 px",
             (fit[0].size == 11) and: { fit[1].endsWith("…") } and: { fit[1].bounds(fit[0]).width <= 100 }
@@ -880,7 +886,8 @@ Routine {
                 and: { ~performColumns[\cut][\note].isNil },
             [~performChipNames[\cutVoices], ~performChipLit[\cutVoices], ~performCutVoicesLabel.string].asString);
         ok.("the Grains column: its shape as chips, lit as the grains are, no line at the foot",
-            (~performChipNames[\grainShape] == ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords))
+            (~performChipNames[\grainShape] == ~performGrainChipWords.(l.granularMorph, l.granularPitch, l.granularEnv, l.granularFollowChords,
+                l.granularEngine, l.granularGroups, l.granularDivision))
                 and: { ~performChipLit[\grainShape] == (l.granularOn == true) } and: { ~performColumns[\grain][\note].isNil }
                 and: { ~performChipHeights[\grainShape] == ~performChipsHeight.(~performChipNames[\grainShape].size) },
             [~performChipNames[\grainShape], ~performChipLit[\grainShape]].asString);
