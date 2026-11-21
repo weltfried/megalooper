@@ -110,6 +110,9 @@ LooperOnsetNotes {
     // costs nothing while it runs.
 
     count { ^onsetNotePattern !? { |p| p.size } ? 0 }
+    // The pattern: [time from the loop's start, strength against the loudest]
+    // per onset, sorted; nil for none. MegaSA's onset readers follow it.
+    pattern { ^onsetNotePattern }
 
     clearPattern {
         onsetNotePattern = nil;

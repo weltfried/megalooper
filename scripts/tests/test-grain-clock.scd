@@ -148,7 +148,7 @@ l.toggleGranular;
 g = ~tGet.(l, \granularSynth);
 ~tEq.("the Clock starts with the pulsars' rate, mask and octave", [\pulsar, \mask, \octave].collect { |k| ~tLastSet.(l, g, k) },
     [0.6, 0.4, 3]);
-~tEq.("...and says it has groups to mask by (7/8)", ~tLastSet.(l, g, \hasGroups), 1);
+~tEq.("...and says how many beat groups it has to mask by (7/8 twice: 6)", ~tLastSet.(l, g, \groupCount), 6);
 l.granularPulsar = 0.9;
 ~tEq.("Rate reaches the running synth", ~tLastSet.(l, g, \pulsar), 0.9);
 l.granularOctave = 7;

@@ -37,7 +37,7 @@ MegaSAFx {
     // group (docs/dev/rc600-picks.md, Phase 4). The first one inserted has
     // its type's key as its id, as a default device has (MegaSA.prNewId), so
     // its controls' ids (sa.fxOn.eq, sa.fx.eqLow) hold from sound to sound.
-    *extraKeys { ^[\eq, \compressor, \noiseGate, \freeze, \slicer, \tremolo, \octaveDown, \ringMod, \reverb] }
+    *extraKeys { ^[\eq, \compressor, \noiseGate, \freeze, \slicer, \tremolo, \octaveDown, \ringMod, \reverb, \rhythmEcho] }
     // Every type there is: the default chains' and the others.
     *typeKeys { ^this.keys ++ this.extraKeys }
     // The chains a keyed type can listen to (its Key, 1 on), in the order the
@@ -54,7 +54,7 @@ MegaSAFx {
             echo: "Tape Echo", saturator: "Drive", redux: "Crusher",
             eq: "EQ", compressor: "Compressor", noiseGate: "Noise Gate",
             freeze: "Freeze", slicer: "Slicer", tremolo: "Tremolo", octaveDown: "Octave Down", ringMod: "Ring Mod",
-            reverb: "Reverb")[key] ?? { key.asString }
+            reverb: "Reverb", rhythmEcho: "Rhythm Echo")[key] ?? { key.asString }
     }
 
     *titleBefore { |key|
@@ -589,6 +589,106 @@ MegaSAFx {
     // went in, at the default Decay (scripts/sa/nrt-space.scd measures it).
     *reverbGain { ^0.9 }
 
+    // ---- The Rhythm Echo (docs/dev/rhythm-echo.md; roadmap item 23, idea 4) ----
+
+    // The take's onsets as an echo, in two ways (Mode): From the note, the
+    // input convolved with the riff's rhythm (PartConv on \irBuf: taps where
+    // the onsets are, timed from the first, as loud as they were played, one
+    // loop long), each note coming back as a phrase from where it was played;
+    // or On the grid, the last note played coming back as a grain on each of
+    // the loop's own onsets as the playhead passes them (\onsetsBuf, their
+    // times in the loop, rising, unused 1e9; \gainsBuf, as loud). Either for
+    // Repeats loops, each at Decay against the one before: From the note by
+    // taps of one line a whole loop apart, so the IR stays one loop; On the
+    // grid by counting the onsets passed since the note.
+    //
+    // MegaSA gives them (MegaSAOnsets): the buffers, \loopDur and
+    // \onsetCount over the whole loop (no loop: 0, and no echo), the take's
+    // own period and its onsets in it (\patternDur, \perPattern: a
+    // multiplied loop holds it more than once, and a repeat is one of it), the
+    // loop's \speed (half-time: 0.5; the IR is written for it) and \irReady
+    // (0 while the IR is rewritten in place: PartConv keeps its buffer's data
+    // from its start). The buffers must always be
+    // given: at 0 they could be a loop of minutes, which IndexInBetween
+    // searches every block and PartConv would take as a minutes-long IR.
+    // The echo works on the sum of the two sides and adds itself to both.
+    *rhythmEchoFft { ^2048 }
+    // The IR's longest, and the repeat line's: three loops of it.
+    *rhythmEchoMaxLoop { ^8 }
+    // PartConv's own delay, frames: the IR's taps are moved this much earlier
+    // (MegaSA's IR). Measured in scripts/sa/nrt-rhythm-echo.scd: half the FFT
+    // less a block (960 at 2048 and the server's 64-frame blocks).
+    *rhythmEchoLatency { ^(this.rhythmEchoFft div: 2) - 64 }
+    // How many of `onsets` (a buffer of rising times) the playhead at `pos`
+    // has passed, and a 1 each time it passes one: when the count grows, and
+    // when it wraps round the loop onto an onset at its very start (the count
+    // falls to 1 or more). Shared with the Grains' Clock (its groups).
+    *passedOnsets { |buf, pos, count, rate = \kr|
+        var first = Index.perform(rate, buf, 0);
+        var passed = (pos >= first) * (IndexInBetween.perform(rate, buf, pos).floor + 1).min(count);
+        var d = HPZ1.perform(rate, passed);
+        ^[passed, (d > 0) + ((d < 0) * (passed >= 1))]
+    }
+    *rhythmEcho { |sig|
+        var x = (sig[0] + sig[1]) * 0.5;
+        var loopDur = \loopDur.kr(0), count = \onsetCount.kr(0).round(1);
+        var patternDur = \patternDur.kr(0), perPattern = \perPattern.kr(0).round(1).max(1);
+        var speed = \speed.kr(1).abs.max(0.25);
+        var has = (loopDur > 0) * (count > 0);
+        var repeats = \rhythmEchoRepeats.kr(1).round(1).clip(1, 4);
+        var decay = \rhythmEchoDecay.kr(-6, 0.05).dbamp;
+        var level = \rhythmEchoLevel.kr(-6, 0.05).dbamp * Lag.kr(has * \irReady.kr(1), 0.05);
+        var onsetsBuf = \onsetsBuf.kr(0);
+        // From the note: the IR, then each repeat a whole loop later.
+        var conv = PartConv.ar(x, this.rhythmEchoFft, \irBuf.kr(0));
+        var line = LocalBuf(48000 * this.rhythmEchoMaxLoop * 3, 1).clear;
+        var tap = DelTapWr.ar(line, conv);
+        var echoA = conv + (1..3).collect { |k|
+            DelTapRd.ar(line, tap, (patternDur / speed * k).min((this.rhythmEchoMaxLoop * 3) - 0.01), 1)
+                * (repeats > k) * (decay ** k)
+        }.sum;
+        // On the grid: the notes played, on the input levelled to -1 dBFS
+        // (its level held 4 s), as megalooper hears a take; a 4 s ring of it.
+        var ring = LocalBuf(48000 * 4, 1).clear;
+        var w = Phasor.ar(DC.ar(0), 1, 0, BufFrames.kr(ring));
+        var written = BufWr.ar(x, ring, w);
+        var gain = (-1.dbamp / this.follow(x, 0.001, 4).max(0.001)).min(100);
+        var note = Onsets.kr(FFT(LocalBuf(512), x * K2A.ar(gain)), \rhythmEchoSense.kr(0.5));
+        var lastAt = Latch.kr(A2K.kr(w), note) - (0.01 * SampleRate.ir);
+        // The loop's onsets as the playhead passes them: how many it has
+        // passed (none before the first), a grain each time that grows.
+        var pb = \phaseBus.kr(-1);
+        var pos = In.kr(pb.max(0));
+        var moving = (LagUD.kr(HPZ1.kr(pos).abs > 0, 0, 0.1) > 0.1) * (pb >= 0);
+        var first = Index.kr(onsetsBuf, 0);
+        // 5 ms ahead: a repeat starts 10 ms before where its note was heard,
+        // and Onsets hears a note 0 to 11 ms in (where its attack falls in
+        // the FFT's frame), so its attack lands within about 5 ms of the onset.
+        var passedHit = this.passedOnsets(onsetsBuf, (pos + 0.005).wrap(0, loopDur.max(1e-3)), count);
+        var passed = passedHit[0];
+        var hit = passedHit[1] * moving * has;
+        var idx = (passed - 1).max(0);
+        var at = Index.kr(onsetsBuf, idx);
+        var gap = Select.kr((idx + 1) >= count, [Index.kr(onsetsBuf, idx + 1) - at, (loopDur - at) + first]);
+        var since = PulseCount.kr(hit, note);
+        var on = hit * (since <= (perPattern * repeats)) * (PulseCount.kr(note) > 0);
+        var amp = Index.kr(\gainsBuf.kr(0), idx) * (decay ** ((since - 1).max(0) / perPattern).floor);
+        var dur = (gap / speed * \rhythmEchoLength.kr(0.9)).clip(0.02, 0.5);
+        // One voice: a repeat is at most the gap to the next onset, so they
+        // never overlap. 5 ms in, so the note's attack comes back as played
+        // (GrainBuf's Hann fades it in over half the grain, and takes no
+        // window from a LocalBuf), 10 ms out.
+        var echoB = PlayBuf.ar(1, ring, 1, on, lastAt.wrap(0, BufFrames.kr(ring)))
+            * EnvGen.ar(Env([0, 1, 1, 0], [0.005, (dur - 0.015).max(0.001), 0.01]), on)
+            * K2A.ar(Latch.kr(amp, hit));
+        var raw = Select.ar(\rhythmEchoMode.kr(0) > 0.5, [echoA, echoB]);
+        // Tone: a high cut, out of the way at its top (20 kHz), fading in over
+        // the top kilohertz as the key's is (keySignal).
+        var cut = \rhythmEchoTone.kr(12000, 0.05);
+        var echo = LinXFade2.ar(raw, LPF.ar(raw, cut), (((20000 - cut) / 1000).clip(0, 1) * 2) - 1);
+        ^sig + ((echo * K2A.ar(level)) ! 2)
+    }
+
     // ---- The types --------------------------------------------------------
     // One row per built-in device type (docs/dev/device-chains.md, section 4.1),
     // in chain order. Each type is its effect's key; the device of that type
@@ -750,6 +850,18 @@ MegaSAFx {
                 // (Size 2) and the allpasses' eight.
                 memBytes: { |sr| (this.lineBytes((0.25 * sr) + 1) * 2) + (this.lineBytes((0.2 * sr) + 1) * 8)
                     + (this.lineBytes((0.02 * sr) + 1) * 8) },
+                latency: none),
+            // It remembers its line and its ring, so it keeps running. It
+            // reads the take's onsets (readsOnsets: MegaSA gives their buffers).
+            (key: \rhythmEcho, track: \any, group: "Space", width: \stereo, followsTempo: false, followsPhase: true,
+                readsOnsets: true,
+                blurb: "Echoes in the loop's own rhythm: from each note, or on the riff's onsets.",
+                mainKnobs: [\rhythmEchoMode, \rhythmEchoLevel, \rhythmEchoRepeats],
+                dsp: { |sig| this.rhythmEcho(sig) },
+                // The repeat line (three loops of the longest) and the ring,
+                // 48 kHz frames as allocated; PartConv's own two FFT frames.
+                memBytes: { |sr| ((48000 * this.rhythmEchoMaxLoop * 3) + (48000 * 4) + 512) * 4
+                    + (this.rhythmEchoFft * 4 * 4) },
                 latency: none)
         ].collect { |t|
             t.put(\title, this.title(t[\key]));
@@ -1368,7 +1480,35 @@ MegaSAFx {
                     "lows stay clear."),
             (fx: \reverb, name: \reverbMix, label: "Dry/Wet", units: " %", scale: 100,
                 spec: ControlSpec(0, 1, \lin, 0, 0.25),
-                tip: "The sound as it came against the reverb: a quarter wet by default.")
+                tip: "The sound as it came against the reverb: a quarter wet by default."),
+
+            // ---- Rhythm Echo
+            (fx: \rhythmEcho, name: \rhythmEchoMode, label: "Mode",
+                spec: ControlSpec(0, 1, \lin, 1, 0),
+                choices: [[0, "From the note"], [1, "On the grid"]],
+                tip: "From the note (the default): every note comes back as the riff's rhythm, starting\n"
+                    "where you played it. On the grid: your last note comes back on the loop's own\n"
+                    "onsets, in time with the riff."),
+            (fx: \rhythmEcho, name: \rhythmEchoLevel, label: "Level", units: " dB", centered: true,
+                spec: ControlSpec(-40, 6, \lin, 0, -6),
+                tip: "The echo against the sound as it came, which passes untouched: -6 dB by default."),
+            (fx: \rhythmEcho, name: \rhythmEchoRepeats, label: "Repeats",
+                spec: ControlSpec(1, 4, \lin, 1, 1),
+                tip: "How many loops of the riff's rhythm come back after a note: one by default."),
+            (fx: \rhythmEcho, name: \rhythmEchoDecay, label: "Decay", units: " dB",
+                spec: ControlSpec(-24, 0, \lin, 0, -6),
+                tip: "Each repeat against the one before: -6 dB by default."),
+            (fx: \rhythmEcho, name: \rhythmEchoLength, label: "Length", units: " %", scale: 100,
+                spec: ControlSpec(0.1, 1, \lin, 0, 0.9),
+                tip: "On the grid: how much of the gap to the next onset a repeat of your note fills,\n"
+                    "at most half a second. 90 % by default; short is a stutter."),
+            (fx: \rhythmEcho, name: \rhythmEchoSense, label: "Sense",
+                spec: ControlSpec(0.1, 1, \lin, 0, 0.5),
+                tip: "On the grid: how hard a note must start to count as a new one (the onset\n"
+                    "threshold, on your playing levelled as megalooper levels a take). Lower hears more."),
+            (fx: \rhythmEcho, name: \rhythmEchoTone, label: "Tone", units: " Hz",
+                spec: ControlSpec(500, 20000, \exp, 0, 12000),
+                tip: "Cuts the echo above this: 12 kHz by default. Lower is darker.")
         ]
     }
 }

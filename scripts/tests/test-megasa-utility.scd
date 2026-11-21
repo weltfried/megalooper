@@ -18,7 +18,7 @@ fresh = ~tMegaSA.(~tStubServer.());
 ~tAssert.("...and a sound of the chains carries no mark for them",
     MegaSAFx.extraKeys.every { |k| fresh.sound("x").fileString.contains("\"" ++ k ++ "\"").not }, "a mark written");
 ~tEq.("they are in the + menu's Utility, Texture and Space groups", MegaSAFx.extraKeys.collect { |k| MegaSAFx.type(k)[\group] },
-    ["Utility", "Utility", "Utility", "Texture", "Texture", "Texture", "Texture", "Texture", "Space"]);
+    ["Utility", "Utility", "Utility", "Texture", "Texture", "Texture", "Texture", "Texture", "Space", "Space"]);
 fresh.free;
 
 sa = ~tMegaSA.(~tStubServer.());

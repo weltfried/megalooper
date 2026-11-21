@@ -65,10 +65,10 @@ presetIdShape = "^sa\\.drums\\.preset\\.recall\\.[a-z0-9]+(-[a-z0-9]+)*$";
 families = [
     [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 57],
     [\live, "^live\\.record$", 1],
-    [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 16],
-    [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 128],
-    [\fxReset, "^sa\\.fxReset\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 16],
-    [\fxRandom, "^sa\\.fxRandom\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 16],
+    [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 17],
+    [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 135],
+    [\fxReset, "^sa\\.fxReset\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 17],
+    [\fxRandom, "^sa\\.fxRandom\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 17],
     [\level, "^sa\\.level\\.(guitar|bass|loop|drums|onsetKit|synth|master)$", 7],
     [\mute, "^sa\\.mute\\.(guitar|bass|loop|drums|onsetKit|synth)$", 6],
     [\drums, "^sa\\.drums\\.(on|breakPattern|arcLanes|repeats|reverbMix|livePattern\\.(main|break))$", 7],
@@ -257,7 +257,7 @@ protect {
         var wantLines = want.split($\n).reject(_.isEmpty);
         ~tEq.("the effects' controls are exactly the snapshot's: ids, labels, groups, tabs, kinds",
             [have.reject { |l| wantLines.includesEqual(l) }, wantLines.reject { |l| have.includesEqual(l) }], [[], []]);
-        ~tEq.("...all 160 of them", have.size, 160);
+        ~tEq.("...all 169 of them", have.size, 169);
     }.value;
 
     live = [targets.size, count.(there)];
@@ -300,9 +300,9 @@ protect {
                 and: { near.(t[\toPos].value(q[\spec].default), ~effectsUnmap.(q, q[\spec].default)) }
                 and: { t[\format].value(q[\spec].default) == ~effectsFormat.(q, q[\spec].default) }
         }.collect { |q| q[\name] }, []);
-    ~tEq.("...the four set in whole steps (Coarse, Pitch L and R, Bit Depth) are counts, the rest levels",
+    ~tEq.("...the five set in whole steps (Coarse, Pitch L and R, Bit Depth, the Rhythm Echo's Repeats) are counts, the rest levels",
         MegaSAFx.params.select { |q| targets[("sa.fx." ++ q[\name]).asSymbol][\kind] == \step }.collect { |q| q[\name] },
-        [\shifterCoarse, \pitchLoopPitchL, \pitchLoopPitchR, \reduxBits]);
+        [\shifterCoarse, \pitchLoopPitchL, \pitchLoopPitchR, \reduxBits, \rhythmEchoRepeats]);
     ~tEq.("a strip's level is in dB on ~saLevelSpec and reads as ~saLevelText",
         [\guitar, \bass, \loop, \drums, \onsetKit, \synth, \master].reject { |k|
             t = targets[("sa.level." ++ k).asSymbol];
@@ -455,12 +455,12 @@ protect {
             and: { ~drumsNoteItems.(d)[6] == ("42 Hat · " ++ ~midiNoteName.(42)) });
     v = [targets.size, count.(there)];
     ("  on SA: " ++ v[0] ++ " controls, " ++ v[1] ++ " there").postln;
-    // The utility, texture and space effects' 82 come with their devices,
+    // The utility, texture and space effects' 92 come with their devices,
     // which no chain holds to begin with; the drums' Next and Previous with a
     // preset saved (none here yet).
     ~tEq.("on SA every control is there: SA's and its kits' 6 trims beside the Looper's and Live's "
         "(the views' 7 need the window, the effects in no chain their devices, Next and Previous a preset)",
-        v, [live[0] + 6, ((live[0] + 6) - 7) - 82 - 2]);
+        v, [live[0] + 6, ((live[0] + 6) - 7) - 92 - 2]);
 
     // ---------------------------------------------------- SA's, driven --
     p = MegaSAFx.param(\filterFreq);
@@ -638,10 +638,10 @@ protect {
         ~tEq.("a moved device keeps its controls: they reach it where it is now",
             [got.collect(_.first), ~tLastSet.(sa, sa.fxNode(\delay), \delayMix)], [[\fxParam, \fxSetting], sa.fxParam(\delayMix)]);
         d2 = sa.insertDevice(\guitar, nil, \delay);
-        ~tEq.("a second Delay has its own controls, built again after the insert: the effects' 176 and its eleven",
+        ~tEq.("a second Delay has its own controls, built again after the insert: the effects' 186 and its eleven",
             { var now = ~midiTargetsBuild.();
               [now.keys.asArray.count { |id| id.asString.beginsWith("sa.fx") }, now.includesKey('sa.fxOn.delay2')] }.value,
-            [187, true]);
+            [197, true]);
         act.('sa.fx.delayTimeR', [\position, 0.75]);
         ~tAssert.("...and the Delay's settings still drive the first Delay, never the second",
             (d2.param(\delayTimeR) == MegaSAFx.param(\delayTimeR)[\spec].default)
@@ -726,7 +726,7 @@ protect {
         [before ++ " › " ++ t['sa.fx.delayMix'][\label], before, t['looper.trigger'][\label]]);
     ~megaSA = nil;
     ~tEq.("with no Megalooper SA the reason is that", ~midiTargetWhy.('sa.fxOn.delay'), "This rig has no effect chains");
-    ~tEq.("...and the family is every type's first device's, from the table", ~midiTargetsBuild.(\effects).size, 176);
+    ~tEq.("...and the family is every type's first device's, from the table", ~midiTargetsBuild.(\effects).size, 186);
     ~megaSA = sa;
     sa.undo;
     ~midiTargets = keptTargets;

@@ -1,11 +1,11 @@
 # The effects
 
-megalooper has sixteen effects of its own: **Pitch Shift**, **Dual
+megalooper has seventeen effects of its own: **Pitch Shift**, **Dual
 Delay**, **Envelope Filter** and **Pitch Loops**, made for the instrument,
 **Tape Echo**, **Drive** and **Crusher**, made for the loop, three utilities for
 any chain, **EQ**, **Compressor** and **Noise Gate**, five textures,
-**Freeze**, **Slicer**, **Tremolo**, **Octave Down** and **Ring Mod**, and a
-**Reverb**.
+**Freeze**, **Slicer**, **Tremolo**, **Octave Down** and **Ring Mod**, a
+**Reverb**, and a **Rhythm Echo** that echoes in the loop's own rhythm.
 
 How to add, move, switch and save them is in
 [The chains](standalone.md#the-chains). Here is what each one does, and every
@@ -472,3 +472,39 @@ does not cut a tail short when the loop stops.
 | **Pre-delay** | 0 to 200 ms | 20 ms | How long before the tail starts |
 | **Low Cut** | 20 Hz to 1 kHz | 150 Hz | What goes into the tail, cut below this |
 | **Dry/Wet** | 0 to 100 % | 25 % | The sound as it came against the reverb |
+
+## Rhythm Echo
+
+![The Rhythm Echo panel](images/fx-rhythmecho.png)
+
+*Fig: Rhythm Echo at its starting values.*
+
+An echo in the loop's own rhythm: its repeats fall where the take's notes
+fell, as loud as they were played, so what you play over the loop comes back
+in the riff's rhythm. It takes the rhythm from the take's onsets, the same
+ones the onset notes replay, and follows each new take, overdub reading and
+half-time. With no loop it is silent, and the sound passes as it came. It
+works on the sum of the two sides and adds its echo to both.
+
+It has two ways of echoing (**Mode**):
+
+- **From the note**: every note comes back as the riff's rhythm, starting
+  where you played it. A note played on a beat of the riff echoes on the
+  riff's next notes; one played between them echoes the riff's rhythm shifted
+  against the loop. Chords and lines become phrases.
+- **On the grid**: your last note comes back on the loop's own onsets, in
+  time with the riff, until you play the next. It hears your notes as
+  megalooper hears a take; **Sense** sets how hard a note must start to count.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Mode** | From the note, On the grid | From the note | How it echoes (above) |
+| **Level** | -40 to +6 dB | -6 dB | The echo against the sound as it came, which passes untouched |
+| **Repeats** | 1 to 4 | 1 | How many loops of the riff's rhythm come back after a note |
+| **Decay** | -24 to 0 dB | -6 dB | Each repeat against the one before |
+| **Length** | 10 to 100 % | 90 % | On the grid: how much of the gap to the next onset a repeat fills, at most half a second. Short is a stutter |
+| **Sense** | 0.1 to 1 | 0.5 | On the grid: how hard a note must start to count. Lower hears more |
+| **Tone** | 500 Hz to 20 kHz | 12 kHz | A high cut on the echo. At 20 kHz it is out of the way |
+
+From the note echoes at most 8 seconds of the riff's rhythm; a longer take's
+later notes are left out of it. It costs about 1 % of a core.

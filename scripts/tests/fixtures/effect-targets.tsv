@@ -98,6 +98,13 @@ sa.fx.reverbLowCut	Low Cut	Reverb	Effects	continuous
 sa.fx.reverbMix	Dry/Wet	Reverb	Effects	continuous
 sa.fx.reverbPredelay	Pre-delay	Reverb	Effects	continuous
 sa.fx.reverbSize	Size	Reverb	Effects	continuous
+sa.fx.rhythmEchoDecay	Decay	Rhythm Echo	Effects	continuous
+sa.fx.rhythmEchoLength	Length	Rhythm Echo	Effects	continuous
+sa.fx.rhythmEchoLevel	Level	Rhythm Echo	Effects	continuous
+sa.fx.rhythmEchoMode	Mode	Rhythm Echo	Effects	choice
+sa.fx.rhythmEchoRepeats	Repeats	Rhythm Echo	Effects	step
+sa.fx.rhythmEchoSense	Sense	Rhythm Echo	Effects	continuous
+sa.fx.rhythmEchoTone	Tone	Rhythm Echo	Effects	continuous
 sa.fx.ringModFreq	Freq	Ring Mod	Effects	continuous
 sa.fx.ringModMix	Dry/Wet	Ring Mod	Effects	continuous
 sa.fx.ringModTone	Tone	Ring Mod	Effects	continuous
@@ -137,6 +144,7 @@ sa.fxOn.octaveDown	Octave Down	Octave Down	Effects	toggle
 sa.fxOn.pitchLoop	Pitch Loops	Pitch Loops	Effects	toggle
 sa.fxOn.redux	Crusher	Crusher	Effects	toggle
 sa.fxOn.reverb	Reverb	Reverb	Effects	toggle
+sa.fxOn.rhythmEcho	Rhythm Echo	Rhythm Echo	Effects	toggle
 sa.fxOn.ringMod	Ring Mod	Ring Mod	Effects	toggle
 sa.fxOn.saturator	Drive	Drive	Effects	toggle
 sa.fxOn.shifter	Pitch Shift	Pitch Shift	Effects	toggle
@@ -153,6 +161,7 @@ sa.fxReset.octaveDown	Reset	Octave Down	Effects	trigger
 sa.fxReset.pitchLoop	Reset	Pitch Loops	Effects	trigger
 sa.fxReset.redux	Reset	Crusher	Effects	trigger
 sa.fxReset.reverb	Reset	Reverb	Effects	trigger
+sa.fxReset.rhythmEcho	Reset	Rhythm Echo	Effects	trigger
 sa.fxReset.ringMod	Reset	Ring Mod	Effects	trigger
 sa.fxReset.saturator	Reset	Drive	Effects	trigger
 sa.fxReset.shifter	Reset	Pitch Shift	Effects	trigger

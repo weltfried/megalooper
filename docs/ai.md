@@ -205,10 +205,10 @@ To build such a workflow:
 - **It knows the settings by their descriptions.** It cannot hear. What it
   knows about an effect is its name, its range and the tooltip you see in
   the window. Expect a good start, and tune by ear.
-- **Sixteen built-in effects.** It works with the effects megalooper has
+- **Seventeen built-in effects.** It works with the effects megalooper has
   (Pitch Shift, Dual Delay, Envelope Filter, Pitch Loops, Tape Echo, Drive,
   Crusher, EQ, Compressor, Noise Gate, Freeze, Slicer, Tremolo, Octave Down,
-  Ring Mod, Reverb), in any chain.
+  Ring Mod, Reverb, Rhythm Echo), in any chain.
 - **Chain names.** The AI calls the Instrument chain `guitar`; ask for "the
   instrument chain" and it will find it.
 

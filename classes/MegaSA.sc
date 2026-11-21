@@ -116,6 +116,8 @@ MegaSA {
     // with the tempo. And what follows the Looper's reading in force
     // (prFollowLoop), and the reading it last followed.
     var <timeSignature, loopFollower, followed;
+    // The take's onsets for the devices that read them (the Rhythm Echo).
+    var <onsets;
     var <ready = false;
     // init's routine (prBuild). free stops it if it has not finished, so a
     // MegaSA freed early builds nothing afterwards.
@@ -324,6 +326,11 @@ MegaSA {
     // ready. A test steps it on a stub server, whose sync answers at once.
     prBuild {
         this.class.loadSynthDefs;
+        // Before any chain: a device that reads onsets never starts on buffer 0.
+        onsets !? { |o| o.free };
+        onsets = MegaSAOnsets(server);
+        onsets.tell = { |controls| this.chains.do { |c| c.group !? { |g| g.set(*controls) } } };
+        this.chains.do { |c| c.onsetArgs = { onsets.args } };
         server.sync;
         graphPart.makeGroups;
         guitarChain.build(this.guitarGroup, \addToHead, beatDur);
@@ -1275,7 +1282,7 @@ MegaSA {
         limbo.remove(device);
         anchor = chain.anchorFor(chain.indexOf(device));
         if(device.node.isNil) {
-            this.prSend(t0, [device.newOffMsg(server, anchor, chain.bus.index, beatDur, chain.keyBuses)]
+            this.prSend(t0, [device.newOffMsg(server, anchor, chain.bus.index, beatDur, chain.keyBuses, chain.onsetArgs.value)]
                 ++ this.prPhaseMsgs(device, chain));
             t1 = t0 + this.class.birthGap;
             if(device.on) { this.prSend(t1, device.switchMsgs(true)) };
@@ -1884,8 +1891,21 @@ MegaSA {
         loopFollower !? { |c| c.remove };
         followed = nil;
         loopFollower = SimpleController(looper);
-        [\result, \reading, \readingIndex].do { |what|
-            loopFollower.put(what, { this.prFollowReading(looper.countResult) }) };
+        // One action a key (put replaces): the reading, and the take's onsets
+        // for the devices that read them (a new pattern, the loop's length:
+        // a multiply, an undo; half-time).
+        [\result, \reading, \readingIndex, \onsetNotePattern, \state, \halfTime].do { |what|
+            loopFollower.put(what, {
+                if([\result, \reading, \readingIndex].includes(what)) { this.prFollowReading(looper.countResult) };
+                if([\onsetNotePattern, \result, \state, \halfTime].includes(what)) { this.prFollowOnsets(looper) };
+            })
+        };
+        this.prFollowOnsets(looper);
+    }
+
+    prFollowOnsets { |looper|
+        if(alive.not) { ^this };
+        onsets !? { |o| o.follow(looper.onsetPattern, looper.onsetNotePatternDur, looper.loopDuration, looper.speed) };
     }
 
     prFollowReading { |result|
@@ -1929,6 +1949,7 @@ MegaSA {
         // The Looper's reading followed no more.
         loopFollower !? { |c| c.remove };
         loopFollower = nil;
+        onsets !? { |o| o.free };
         // A build still under way builds nothing more, a plugin not yet asked
         // to open is not, and a bank job stops.
         [builder, opener].do { |r| r !? { if(r !== thisThread) { r.stop } } };

@@ -23,7 +23,7 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
   with presets.
 - **Effect chains.** Chains for your instrument, the loop, the drums and
-  the synth, and for a second instrument on an input of its own, with sixteen built-in effects and your VST2
+  the synth, and for a second instrument on an input of its own, with seventeen built-in effects and your VST2
   and VST3 plugins. Add, drag and remove effects while a loop plays. Random
   throws new settings at an effect, and a variation keeps the ones you like.
   A sound is one file: the chains, every setting and each plugin's state.
@@ -181,7 +181,7 @@ Recorded sets go to `sessions/` in this folder, which git ignores.
 | Guide | For |
 |---|---|
 | [Effect chains and sounds](docs/standalone.md) | The effect chains, sounds and plugins |
-| [The effects](docs/effects.md) | The sixteen built-in effects, and every setting they have |
+| [The effects](docs/effects.md) | The seventeen built-in effects, and every setting they have |
 | [megalooper on Linux](docs/linux.md) | Installing and starting it there, and what differs |
 | [Drums](docs/drums.md) | Getting a kit, and making one from your own samples |
 | [The synth](docs/synth.md) | The note sequencer, the Wave synth, your wavetables and VST instruments |

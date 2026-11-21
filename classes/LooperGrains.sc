@@ -450,7 +450,7 @@ LooperGrains {
             \division, granularDivision, \groups, (granularGroups and: { g[\count] > 0 }).binaryValue,
             \scatter, granularScatter, \length, granularLength,
             \pulsar, granularPulsar, \mask, granularMask, \octave, granularOctave,
-            \hasGroups, (g[\count] > 0).binaryValue,
+            \groupCount, g[\count],
             \envbuf, this.clockEnvBuf
         ]
     }

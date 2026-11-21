@@ -3127,6 +3127,8 @@ Looper {
     onsetNoteOffsetMs { ^this.onsetNotesPart.onsetNoteOffsetMs }
     onsetNoteChance { ^this.onsetNotesPart.onsetNoteChance }
     onsetNotePatternDur { ^this.onsetNotesPart.onsetNotePatternDur }
+    // The take's onsets as the onset notes replay them (LooperOnsetNotes.pattern).
+    onsetPattern { ^this.onsetNotesPart.pattern }
     onsetNoteSink { ^this.onsetNotesPart.onsetNoteSink }
     onsetNotes_ { |flag| this.onsetNotesPart.onsetNotes_(flag) }
     onsetNote_ { |val| this.onsetNotesPart.onsetNote_(val) }

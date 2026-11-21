@@ -18,6 +18,8 @@ MegaSAChain {
     // (the Compressor's Key): MegaSA gives every chain the same ones. Nil,
     // a keyed device hears itself whatever its Key.
     var <>keyBuses;
+    // { } answering the onset readers' start controls (MegaSAOnsets.args), or nil.
+    var <>onsetArgs;
 
     // track: \guitar, \loop, \drums or \bass. bus: a two-channel audio Bus.
     // sourceDef and sourceArgs: the source's SynthDef (\megaSAChainIn,
@@ -63,7 +65,7 @@ MegaSAChain {
         // A device that cannot be built costs that device only: the rest of
         // the chain comes up, in order, and the post window says which.
         devices.do { |d|
-            try { d.build(group, \addToTail, bus.index, beatDur, keyBuses) } { |err|
+            try { d.build(group, \addToTail, bus.index, beatDur, keyBuses, onsetArgs.value) } { |err|
                 d.forget;
                 ("MegaSA: " ++ d.name ++ " (" ++ d.id ++ ") was not built on the " ++ MegaSASound.trackLabel(track) ++ " chain ("
                     ++ err.errorString ++ "); the chain plays without it.").warn;

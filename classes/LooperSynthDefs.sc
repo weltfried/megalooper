@@ -422,8 +422,9 @@ LooperSynthDefs {
     //             the chord the loop plays now, in `octave` (MIDI octave: 2 is
     //             C2, 65 Hz). Above 0 the grid plays, not the groups.
     //   mask      0..0.95, burst masking: pulses kept only in the first
-    //             (1 - mask) of each beat group (`hasGroups`) or each beat, so
+    //             (1 - mask) of each beat group (`groupCount`) or each beat, so
     //             7/8 stays 2+2+3 when the pulses turn into a buzz.
+    //   groupCount  the groups in the buffers (0: none, the mask goes by beats)
     // A grain's length stays Length times its pulse: the pulsaret's duty, so
     // in the tone its formant rises with the rate.
     //
@@ -433,7 +434,7 @@ LooperSynthDefs {
              pitch=0, detune=0, position=0, sprayMs=0, envbuf=0,
              phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0,
              division=1, groups=0, scatter=0, length=0.5, gridOffset=0, headsBuf=0, lensBuf=0,
-             pulsar=0, mask=0, octave=2, hasGroups=0|
+             pulsar=0, mask=0, octave=2, groupCount=0|
             var nv = LooperSynthDefs.grainClockVoices;
             var bufSr = BufSampleRate.kr(bufnum);
             var loopDur = (loopFrames / bufSr).max(1e-3);
@@ -466,11 +467,14 @@ LooperSynthDefs {
             var fFree = Lag.kr(fTop * ((fRoot / fTop) ** glide), 0.05);
             var isFree = K2A.ar(pul > lockShare);
             var freeTrig = Impulse.ar(fFree);
-            // The groups: a trigger as the count of heads passed changes; the
-            // grain is as long as the group it starts.
-            var passed = IndexInBetween.ar(headsBuf, tSecs).floor + 1;
-            var groupTrig = Changed.ar(passed);
-            var groupLen = Index.ar(lensBuf, passed - 1);
+            // The groups: a trigger as the playhead passes a head (and as it
+            // wraps onto one at the loop's start); the grain is as long as the
+            // group it starts. Before the first head (a downbeat after the
+            // loop's start) the playhead is in the last group.
+            var passedHit = MegaSAFx.passedOnsets(headsBuf, tSecs, K2A.ar(groupCount), \ar);
+            var gi = (passedHit[0] - 1).wrap(0, groupCount.max(1));
+            var groupTrig = passedHit[1];
+            var groupLen = Index.ar(lensBuf, gi);
             var isGroups = K2A.ar((groups > 0) * (pul <= 0));
             var period = Select.ar(isGroups, [pulse, groupLen]).max(1e-3);
             // The pulse in real time: at half-time a beat lasts twice as long;
@@ -479,10 +483,12 @@ LooperSynthDefs {
             var trig = Select.ar(isFree, [Select.ar(isGroups, [gridTrig, groupTrig]), freeTrig]);
             // Burst masking: where the playhead is in its beat group (or beat),
             // 0..1, and the pulses kept in its first (1 - mask).
-            var head = Index.ar(headsBuf, (passed - 1).max(0));
-            var inGroup = (tSecs - head).wrap(0, loopDur) / groupLen.max(1e-3);
+            var head = Index.ar(headsBuf, gi);
+            // (A millisecond's grace: at a head's trigger the playhead can be a
+            // float32 hair before it, which would wrap to the group's far end.)
+            var inGroup = ((tSecs - head) + 0.001).wrap(0, loopDur) / groupLen.max(1e-3);
             var inBeat = (((tSecs - gridOffset).wrap(0, loopDur)) / K2A.ar(tau.max(1e-3))).frac;
-            var where = Select.ar(K2A.ar(hasGroups > 0), [inBeat, inGroup]);
+            var where = Select.ar(K2A.ar(groupCount > 0), [inBeat, inGroup]);
             var keep = where < K2A.ar(1 - Lag.kr(mask.clip(0, 0.95), 0.05));
             // Synchronous to asynchronous at one mean rate.
             var scat = Lag.kr(scatter.clip(0, 1), 0.05);

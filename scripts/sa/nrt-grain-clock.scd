@@ -51,15 +51,16 @@ var cases = [
     [\grid2, 2, 0, [\tau, 0.25, \division, 2, \length, 0.5]],
     [\locked, 2, 0.3, [\tau, 0.25, \division, 1, \length, 0.5]],
     [\free, 2, 0.3, [\tau, 0.25, \division, 1, \length, 0.5, \locked, 0]],
-    [\groups, 1.4, 0, [\tau, 0.2, \groups, 1, \length, 0.5, \headsBuf, 2, \lensBuf, 3]],
+    [\groups, 1.4, 0, [\tau, 0.2, \groups, 1, \length, 0.5, \headsBuf, 2, \lensBuf, 3, \groupCount, 3]],
+    [\groupsLate, 1.4, 0, [\tau, 0.2, \groups, 1, \length, 0.5, \headsBuf, 6, \lensBuf, 7, \groupCount, 3]],
     [\sync, 2, 0, [\tau, 0.1, \division, 1, \length, 0.1]],
     [\cloud, 2, 0, [\tau, 0.1, \division, 1, \length, 0.1, \scatter, 1]],
     [\pulsarQ, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 0.25]],
     [\pulsarH, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 0.5]],
     [\pulsar34, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 0.75] ++ rootA],
     [\pulsar1, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 1] ++ rootA],
-    [\masked, 1.4, 0, [\tau, 0.2, \division, 1, \length, 0.5, \pulsar, 0.5, \mask, 0.4, \hasGroups, 1,
-        \headsBuf, 2, \lensBuf, 3]]
+    [\masked, 1.4, 0, [\tau, 0.2, \division, 1, \length, 0.5, \pulsar, 0.5, \mask, 0.4,
+        \headsBuf, 2, \lensBuf, 3, \groupCount, 3]]
 ];
 var chans = (cases.size + 1) * 2, score, cmd, said, sf, data, chan, idx, grains, refAt, on, gaps, lens, cv, n, x;
 
@@ -76,6 +77,9 @@ score = [
     // 7/8's heads and lengths, as the Looper will send them
     [0.0, [\b_alloc, 2, slots, 1]], [0.0, [\b_setn, 2, 0, slots] ++ [0, 0.4, 0.8] ++ (1e9 ! (slots - 3))],
     [0.0, [\b_alloc, 3, slots, 1]], [0.0, [\b_setn, 3, 0, slots] ++ [0.4, 0.4, 0.6] ++ (0 ! (slots - 3))],
+    // ...and with its downbeat 0.2 s into the loop: the heads at 0.2, 0.6, 1.0
+    [0.0, [\b_alloc, 6, slots, 1]], [0.0, [\b_setn, 6, 0, slots] ++ [0.2, 0.6, 1.0] ++ (1e9 ! (slots - 3))],
+    [0.0, [\b_alloc, 7, slots, 1]], [0.0, [\b_setn, 7, 0, slots] ++ [0.4, 0.4, 0.6] ++ (0 ! (slots - 3))],
     [start, [\s_new, \nrtClockRef, 8999, 1, 0, \out, cases.size * 2]]
 ];
 cases.do { |c, i|
@@ -140,6 +144,13 @@ if(sf.isNil) {
     lens = grains.(\groups).collect { |g| (g[1] / sr).round(0.001) };
     // (The last is cut off by the render's end.)
     ok.("...as long as half its group (0.2, 0.3, 0.2 ...)", lens.keep(5) == [0.2, 0.3, 0.2, 0.2, 0.3], lens.asString);
+    x = on.(\groupsLate);
+    ok.("...with the downbeat 0.2 s in: on the heads (0.2, 0.6, 1.0, 1.6, 2.0, 2.4 s), not at the loop's wrap",
+        (x.size == 6) and: { x.every { |t, i| (t - [0.2, 0.6, 1.0, 1.6, 2.0, 2.4][i]).abs < (2 / sr) } },
+        x.round(0.0001).asString);
+    lens = grains.(\groupsLate).collect { |g| (g[1] / sr).round(0.001) };
+    ok.("...each half its own group, the one across the wrap too (0.2, 0.2, 0.3 ...)", lens.keep(6) == [0.2, 0.2, 0.3, 0.2, 0.2, 0.3],
+        lens.asString);
     cv = { |ts| var d = ts.differentiate.drop(1), m = d.mean; (d.collect { |v| (v - m).squared }.mean.sqrt) / m };
     x = on.(\sync);
     ok.("ten a second on the grid: 29, evenly (spread of the gaps under 1 %)",
