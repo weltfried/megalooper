@@ -162,8 +162,14 @@ LooperOnsetNotes {
     // silence would be the wrong guess. The comparison is strictly `<`, which is
     // what makes the two ends exact — a draw is in [0, 1), so chance 1 sends
     // every hit and chance 0 sends none.
-    plays { |i|
-        ^(((onsetNoteRolls !? { |r| r.at(i) }) ? 0) < onsetNoteChance)
+    //
+    // `arc` scales the chance (1: as set): the dissolve's, for the notes sent
+    // to Live, whose drums megalooper cannot turn down (Looper.drumsMix: gone
+    // with the cutter). The same draws, so the hits thin as the chance
+    // would, the last to go the ones a lower chance keeps. Megalooper's own
+    // onset kit (onsetNoteSink) is turned down on its strip instead.
+    plays { |i, arc = 1|
+        ^(((onsetNoteRolls !? { |r| r.at(i) }) ? 0) < (onsetNoteChance * arc))
     }
 
     // How many of the pattern's hits the current chance actually sends. The
@@ -273,7 +279,7 @@ LooperOnsetNotes {
                         // A skipped hit costs nothing and leaves `cursor` where
                         // it was: the next one that sounds still waits out its
                         // own distance from the last note actually sent.
-                        if(this.plays(i)) {
+                        if(this.plays(i, looper.drumsMix)) {
                             (hit[0] - cursor).max(0).wait;
                             onsetNoteSounding = [chan, note];
                             midiOut.noteOn(chan, note, this.velocity(hit[1]));

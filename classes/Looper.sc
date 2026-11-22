@@ -197,7 +197,8 @@ Looper {
     // `dissolvePos` is the ending, run by a timed ramp rather than by hand, so
     // both hands are free for the last melody. Things leave in the order that
     // sounds like a piece ending rather than like a fade: the cutter first, then
-    // the body of the loop, and the granular haze last.
+    // the body of the loop, and the granular haze last, turning to dust as it
+    // goes (docs/dev/microsound.md, idea 1).
     //
     // Both are MULTIPLIERS over the stored levels, never replacements. The
     // per-voice cutter mix and the granular level stay exactly where they were
@@ -1982,7 +1983,7 @@ Looper {
         // leave the master gate at 0 for the next loop. clear routes through
         // here too, so this one call covers both.
         this.prCancelBreak;
-        this.prCancelDissolve;
+        this.prCancelDissolve(\stop);
         this.prCancelReading;
         this.cancelNextLoopRecord;
         this.prResetHalfTime;
@@ -2054,6 +2055,18 @@ Looper {
     // loop by 0.6, the grains only at 1.0. That ordering is the whole point —
     // rhythm goes, then body, then the haze evaporates.
     //
+    // The haze turns to dust on its way (roadmap item 23, idea 1, built
+    // 2026-11-22): from 0.5, where the dry loop is nearly gone, `dust` runs to
+    // 1 and the grains get shorter, fewer and less regular (both grain graphs
+    // fold it in, LooperSynthDefs), so their level is held until 0.8 and
+    // falls only over the last fifth. Before, it fell from 0.5, and short,
+    // sparse grains under that fade would have gone before anyone heard them.
+    //
+    // What megalooper plays beside the loop leaves with what it sounds with
+    // (decided 2026-11-22): the drums, their steps and the onset kit with the
+    // cutter, the synth with the dry loop (drumsMix, synthMix; MegaSA's
+    // strips and, with Live, the onset notes' chance follow them).
+    //
     // The pedal reaches the cutter through its DENSITY (prVoiceDensity), not
     // its level. It used to do both, and on the rig that read as the layer
     // going away rather than as it chopping less — a cutter thinned to a few
@@ -2061,7 +2074,10 @@ Looper {
     // takes the level out, because the ending is about leaving.
     prLoopMix     { ^(1 - (dissolvePos / 0.6)).clip(0, 1) }
     prBBCutMix    { ^(1 - (dissolvePos / 0.4)).clip(0, 1) }
-    prGranularMix { ^intensity * (1 - ((dissolvePos - 0.5) / 0.5)).clip(0, 1) }
+    prGranularMix { ^intensity * ((1 - dissolvePos) / 0.2).clip(0, 1) }
+    prGrainDust   { ^((dissolvePos - 0.5) / 0.5).clip(0, 1) }
+    drumsMix      { ^this.prBBCutMix }
+    synthMix      { ^this.prLoopMix }
 
     // The single writer of the three running levels. Everything that changes a
     // stored level routes through here rather than setting a synth directly, so
@@ -2141,7 +2157,13 @@ Looper {
 
     // Abort and restore. Also the reset path: a finished dissolve must not
     // leave the axis at 1, or the next loop would start already dissolved.
-    prCancelDissolve {
+    //
+    // `why` goes with the axis's return to 0: \stop when the loop stops with
+    // it (stopPlayback, so the dissolve's own end too). What plays on after
+    // the loop then keeps its place: MegaSA's strips stay where the dissolve
+    // left them until the loop plays again, or a cymbal struck silently
+    // during the dissolve would ring out at full the moment it ended.
+    prCancelDissolve { |why|
         dissolveRoutine = this.prStopRoutine(dissolveRoutine);
         if(dissolving) {
             dissolving = false;
@@ -2150,7 +2172,7 @@ Looper {
         if(dissolvePos != 0) {
             dissolvePos = 0;
             this.prApplyMixes;
-            this.changed(\dissolvePos, 0);
+            this.changed(\dissolvePos, 0, why);
         };
     }
 

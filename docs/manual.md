@@ -404,7 +404,24 @@ passes of the loop from the press, default 4: passes, as a break counts them,
 whatever bars the analyser read), so both hands are free for the last melody; press
 again to abort and restore. Things leave in the order that sounds like a piece
 ending rather than like a fader going down — **the cutter first, then the body
-of the loop, and the granular haze last.**
+of the loop, and the granular haze last.** The drums go with the cutter (gone
+40 % of the way in), with their onset kit, and the synth with the loop (by
+60 %); their faders stay where you set them. When the dissolve stops the
+loop, they stay out until the loop plays again, so nothing they struck on the
+way rings back in. With Live, megalooper cannot turn Live's drums down; the
+onset notes it sends thin out instead.
+
+The haze does not simply fade: from halfway it **turns to dust**. The grains
+get shorter (down to 15 ms, a click with the loop's colour), fewer (a quarter
+of their rate, at most four a second) and less regular, a rain where there was
+a texture. As they stop overlapping they are turned up (by at most 12 dB), so
+the specks stay audible, and only the last fifth fades them out. On the
+**Clock** the grid thins instead: the pulses late in a beat group go first,
+then the beats themselves by chance, and the grains that are left stay on the
+loop's beats, for whoever plays on to the end. Pulsars break into clicks the
+same way. None of your settings changes, and the next loop starts with the
+grains as you set them. With the Grains off, nothing is left after 60 %, and
+the loop stops at the end.
 
 Intensity moves two things: the **level of the granular layer**, and **how much
 the cutter is chopping**. The cutter's own level is not one of them — it was

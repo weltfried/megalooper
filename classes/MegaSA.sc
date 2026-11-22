@@ -118,6 +118,9 @@ MegaSA {
     var <timeSignature, loopFollower, followed;
     // The take's onsets for the devices that read them (the Rhythm Echo).
     var <onsets;
+    // The dissolve's strips held where it left them after it stopped the
+    // loop, until the loop plays again (prFollowDissolve).
+    var arcHeld = false;
     var <ready = false;
     // init's routine (prBuild). free stops it if it has not finished, so a
     // MegaSA freed early builds nothing afterwards.
@@ -625,9 +628,11 @@ MegaSA {
         // all, and the crossfade is 0 for a strip given no stem bus (`stem`
         // 0, the interface's first output, which is never one), so such a
         // strip leaves every bus but the master's as it was. At 1 it writes
-        // the strip alone onto its bus, which nothing else writes.
-        SynthDef(\megaSAStrip, { |in, out, amp = 1, mute = 0, stem = 0|
-            var sig = In.ar(in, 2) * Lag.kr(amp * (1 - mute), 0.02);
+        // the strip alone onto its bus, which nothing else writes. `arc`
+        // multiplies the level as the Looper's dissolve takes it away
+        // (MegaSAMixer.setArc), so the fader keeps the level as set.
+        SynthDef(\megaSAStrip, { |in, out, amp = 1, mute = 0, stem = 0, arc = 1|
+            var sig = In.ar(in, 2) * Lag.kr(amp * (1 - mute) * arc, 0.02);
             Out.ar(out, sig);
             XOut.ar(stem, stem > 0, sig);
         }).add;
@@ -1891,16 +1896,41 @@ MegaSA {
         loopFollower !? { |c| c.remove };
         followed = nil;
         loopFollower = SimpleController(looper);
-        // One action a key (put replaces): the reading, and the take's onsets
+        // One action a key (put replaces): the reading, the take's onsets
         // for the devices that read them (a new pattern, the loop's length:
-        // a multiply, an undo; half-time).
+        // a multiply, an undo; half-time), and the strips the dissolve holds.
         [\result, \reading, \readingIndex, \onsetNotePattern, \state, \halfTime].do { |what|
             loopFollower.put(what, {
                 if([\result, \reading, \readingIndex].includes(what)) { this.prFollowReading(looper.countResult) };
                 if([\onsetNotePattern, \result, \state, \halfTime].includes(what)) { this.prFollowOnsets(looper) };
+                if(what == \state) { this.prFollowDissolve(looper) };
             })
         };
+        loopFollower.put(\dissolvePos, { |obj, what, pos, why| this.prFollowDissolve(looper, why) });
+        arcHeld = false;
+        this.prFollowDissolve(looper);
         this.prFollowOnsets(looper);
+    }
+
+    // The dissolve takes what megalooper plays beside the loop away with it
+    // (docs/dev/microsound.md, idea 1, decided 2026-11-22): the drums and the
+    // onset kit with the cutter (gone by 0.4), the synth with the dry loop
+    // (by 0.6), on their strips, as multipliers of the levels set
+    // (Looper.drumsMix, synthMix). Aborted, they are back at once. When it
+    // stops the loop (`why` \stop: its end, or a stop on the way) they stay
+    // where it left them until the loop plays again: what they struck while
+    // turned down still rings, a cymbal or the reverb's tail, and would come
+    // back at full the moment the ending ended.
+    prFollowDissolve { |looper, why|
+        if(alive.not or: { looper.isNil }) { ^this };
+        if(why == \stop) { arcHeld = true; ^this };
+        if(arcHeld) {
+            if([\recording, \playing, \overdubbing].includes(looper.state).not) { ^this };
+            arcHeld = false;
+        };
+        this.mixerPart.setArc(\drums, looper.drumsMix);
+        this.mixerPart.setArc(\onsetKit, looper.drumsMix);
+        this.mixerPart.setArc(\synth, looper.synthMix);
     }
 
     prFollowOnsets { |looper|

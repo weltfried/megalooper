@@ -26,6 +26,7 @@ var files = [
     "test-onset-notes.scd",
     "test-grains-follow.scd",
     "test-grain-clock.scd",
+    "test-dissolve.scd",
     "test-rhythm-echo.scd",
     "test-live-signals.scd",
     "test-chain-timing.scd",

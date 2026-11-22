@@ -308,7 +308,7 @@ File.delete(tmp);
     [\megaSADrumVoice1, \megaSADrumVoice2, \megaSADrumsProbe, \megaSADrumsFx, \megaSAOnsetFx]
         .every { |name| SynthDescLib.global[name].notNil });
 [
-    \megaSAStrip,    [\in, \out, \amp, \mute, \stem],
+    \megaSAStrip,    [\in, \out, \amp, \mute, \stem, \arc],
     \megaSAMaster,   [\in, \out, \rec, \amp, \stems]
 ].pairsDo { |name, controls|
     var desc = SynthDescLib.global[name];
@@ -595,15 +595,19 @@ strip = SynthDescLib.global[\megaSAStrip];
         { nil }
     };
     // Each side's signal is the input times a Lag; what the Lag is given, at
-    // [amp, mute], should be amp unmuted and nothing muted, at any level.
+    // [amp, mute, arc], should be amp unmuted and nothing muted, at any level,
+    // times what the dissolve leaves (arc, 1 but in one).
     lags = out !? { |o| o.inputs.copyToEnd(1).collect { |u|
         if(u.isKindOf(BinaryOpUGen) and: { u.operator == '*' }) { u.inputs.detect { |x| x.isKindOf(Lag) } } } } ? [];
-    rows = [[0.5, 0, 0.5], [1, 0, 1], [2, 0, 2], [0.5, 1, 0], [1, 1, 0]];
-    levels = lags.collect { |g| g !? { |x| rows.collect { |r| level.(x.inputs[0], (amp: r[0], mute: r[1])) } } };
-    ~tAssert.("...that signal the input times its level, lagged: amp unmuted, nothing muted (so a muted strip's stem is silent too)",
+    rows = [[0.5, 0, 1, 0.5], [1, 0, 1, 1], [2, 0, 1, 2], [0.5, 1, 1, 0], [1, 1, 1, 0],
+        [2, 0, 0.25, 0.5], [1, 0, 0, 0], [1, 1, 0.5, 0]];
+    levels = lags.collect { |g| g !? { |x| rows.collect { |r| level.(x.inputs[0], (amp: r[0], mute: r[1], arc: r[2])) } } };
+    ~tAssert.("...that signal the input times its level, lagged: amp unmuted, nothing muted (so a muted strip's stem is silent too), times the dissolve's arc",
         (lags.size == 2) and: { levels.every { |side| side.notNil and: { side.every { |v, i|
-            v.notNil and: { (v - rows[i][2]).abs < 1e-9 } } } } },
-        "at " ++ rows.collect(_.keep(2)) ++ ": " ++ levels);
+            v.notNil and: { (v - rows[i][3]).abs < 1e-9 } } } } },
+        "at " ++ rows.collect(_.keep(3)) ++ ": " ++ levels);
+    ~tEq.("...the arc's default 1: a strip no dissolve has touched plays at its level",
+        strip !? { |d| d.controls.detect { |c| c.name.asSymbol == \arc } !? { |c| c.defaultValue } }, 1);
     ~tAssert.("...onto the stem control's bus, crossfaded by stem > 0",
         xout.notNil and: { ctlOf.(xout.inputs[0]) } and: { fade.isKindOf(BinaryOpUGen) } and: { fade.operator == '>' }
             and: { fade.inputs[0] === xout.inputs[0] } and: { fade.inputs[1] == 0 });

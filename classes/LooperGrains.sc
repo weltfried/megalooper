@@ -199,7 +199,8 @@ LooperGrains {
     // The pulse, in real time (Cloud's window). The Clock's beat is in the
     // loop's own time, which half-time does not change: it keeps its own.
     setTau { |tau| if(granularEngine == 0) { granularSynth !? { |g| g.set(\tau, tau) } } }
-    applyMix { granularSynth !? { |g| g.set(\amp, granularAmp * looper.prGranularMix) } }
+    // The arc's level, and the dissolve's dust (LooperSynthDefs.granularGraph).
+    applyMix { granularSynth !? { |g| g.set(\amp, granularAmp * looper.prGranularMix, \dust, looper.prGrainDust) } }
     // Off with the loop (a stop, the arc's end): said only if they were on.
     off {
         granularSynth !? { |g| g.free; looper.changed(\granular, false) };
@@ -490,6 +491,7 @@ LooperGrains {
     args {
         ^[
             \morph,    granularMorph,   \amp,      granularAmp * looper.prGranularMix,
+            \dust,     looper.prGrainDust,
             \pitch,    granularPitch,   \detune,   granularDetune,
             \size,     granularSize,    \density,  granularDensity,
             \sizeRand, granularSizeRand, \position, granularPosition,

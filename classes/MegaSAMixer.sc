@@ -26,6 +26,10 @@ MegaSAMixer {
     var holds;
     // The strips' synths by strip, and the master's.
     var <strips, <masterSynth;
+    // What the Looper's dissolve leaves of a strip, 0..1, by strip (1 where
+    // none is): a multiplier of its level, never stored, never shown on the
+    // fader, never kept (MegaSA.prFollowDissolve).
+    var arcs;
     // ---- The meters and the master's light (2026-11-12) -------------------
     // A rehearsal distorted: the lanes summed past the master's clip, and
     // nothing said so. The master (masterGraph) now limits the sum before the
@@ -65,6 +69,7 @@ MegaSAMixer {
         if(bass == true) { levels.put(\bass, this.class.defaultLevels[\bass]); mutes.put(\bass, false) };
         holds = IdentityDictionary.new;
         strips = IdentityDictionary.new;
+        arcs = IdentityDictionary.new;
     }
 
     // Where every strip starts, megalooper's own (amplitudes; the comment in
@@ -94,7 +99,7 @@ MegaSAMixer {
             strips.put(key, Synth.tail(group, \megaSAStrip, [
                 \in, bus.index, \out, masterBus.index,
                 \amp, levels[key], \mute, this.muted(key).binaryValue
-            ] ++ stem));
+            ] ++ (if(this.arc(key) < 1) { [\arc, this.arc(key)] } { [] }) ++ stem));
             stem.indexOf(\stem) !? { |i| stems.put(key, stem[i + 1]) };
         };
         masterSynth = Synth.tail(group, \megaSAMaster, [
@@ -216,6 +221,18 @@ MegaSAMixer {
     }
 
     mute { |key| ^mutes[key] }
+
+    // What the dissolve leaves of strip `key`, 0..1 (1: all of it).
+    arc { |key| ^(arcs !? { |a| a[key] }) ? 1 }
+
+    // Set it; sent only when it changes (the dissolve says its place 30
+    // times a second). Nothing is said: the fader shows the level as set.
+    setArc { |key, x|
+        x = (x ? 1).clip(0, 1);
+        if(this.arc(key) == x) { ^this };
+        arcs.put(key, x);
+        this.node(key) !? { |n| n.set(\arc, x) };
+    }
 
     setMute { |key, flag|
         var held;

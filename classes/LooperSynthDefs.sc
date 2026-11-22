@@ -276,12 +276,17 @@ LooperSynthDefs {
     // The granular voice's graph (loadSynthDefs adds it as \looperGranular), a
     // class method as engineGraph is, so a render can build it with no
     // Looper (scripts/sa/nrt-grains.scd).
+    //
+    // `dust` (0..1) is the dissolve's (docs/dev/microsound.md, idea 1;
+    // Looper.prGrainDust): 0 the grains as set, sample for sample; toward 1
+    // shorter, fewer and less regular, and held up as they stop overlapping.
+    // Both engines take it; it multiplies, so every stored value stays.
     *granularGraph {
         ^{ |bufnum, startFrame=0, loopFrames=44100,
              tau=0.5, morph=0, amp=0.3, out=0,
              pitch=0, detune=0, size=1, density=1,
              sizeRand=0.1, position=0, scan=0, sprayMs=0,
-             envbuf= -1, phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0|
+             envbuf= -1, phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0, dust=0|
             var bufFrames = BufFrames.kr(bufnum);
             var bufSr = BufSampleRate.kr(bufnum);
             // Warp1's pointer is normalised over the WHOLE buffer, so any
@@ -292,14 +297,37 @@ LooperSynthDefs {
             var startNorm = startFrame / bufFrames;
             var loopNorm = loopFrames / bufFrames;
             var m = Lag.kr(morph.clip(0, 1), 0.1);
-            var windowSize = ((((1 - m) * 0.4) + (m * tau))
+            var windowSize0 = ((((1 - m) * 0.4) + (m * tau))
                 * Lag.kr(size, 0.1)).clip(0.001, 4);
             // Overlaps is clipped hard: Warp1 runs one grain stream per overlap,
             // and this is the parameter that runs the CPU up. 16 is already past
             // musically useful and keeps a full-tilt density slider from stalling
             // the server mid-take.
-            var overlaps = ((((1 - m) * 6) + (m * 1))
+            var overlaps0 = ((((1 - m) * 6) + (m * 1))
                 * Lag.kr(density, 0.1)).clip(0.5, 16);
+            // The dissolve's dust: toward 1, a grain's length to 15 ms (below
+            // ~20 ms a grain is a click with the loop's colour) and the grains
+            // a second to a quarter of theirs, at most 4 (a rain), each
+            // exponentially and never up. Warp1 spaces its grains windowSize /
+            // overlaps apart, so overlaps is the new rate times the new
+            // length, below the floor above on purpose: a rain is far sparser
+            // than a texture. windowRandRatio sizes a grain AND its gap to the
+            // next, so dust raises it toward 0.9 (never down): the specks fall
+            // irregularly. Warp1 reads both as a grain starts, so at 4 a
+            // second a change lands within 250 ms (measured smooth: Phase 0).
+            var dustNow = Lag.kr(dust.clip(0, 1), 0.05);
+            var rate0 = overlaps0 / windowSize0;
+            var lenEnd = windowSize0.min(0.015) / windowSize0;
+            var rateEnd = (rate0 * 0.25).min(4) / rate0;
+            var windowSize = windowSize0 * (lenEnd ** dustNow);
+            var overlaps = (overlaps0 * (rateEnd ** dustNow) * (lenEnd ** dustNow)).max(0.005);
+            var randRatio = sizeRand.clip(0, 1) + ((0.9 - sizeRand.clip(0, 1)).max(0) * dustNow);
+            // ...and held up: as the grains stop overlapping, the peaks fall
+            // (one grain where eleven summed: -13 dB on the 19 Nov set before
+            // any fade), so the rain was too quiet to hear. The level rises by
+            // half what the overlaps lose (their ratio to the -1/4), at most
+            // +12 dB; the duo chose it by ear (2b, 2026-11-22).
+            var lift = (((lenEnd * rateEnd) ** (-0.25)).min(4)) ** dustNow;
             // Warp1 latches its per-grain values when a grain starts, and it
             // starts them at overlaps/windowSize. Stepping noise at that rate is
             // therefore per-GRAIN randomness (the classic granular shimmer and
@@ -376,8 +404,8 @@ LooperSynthDefs {
             // interp 4 (cubic), up from the old 1 (none): with transposition now
             // exposed, no interpolation aliases audibly at anything but unity.
             var sig = Warp1.ar(2, bufnum, pointer, freqScale, windowSize,
-                envbuf, overlaps, sizeRand.clip(0, 1), 4);
-            Out.ar(out, sig * Lag.kr(amp.max(0), 0.05));
+                envbuf, overlaps, randRatio, 4);
+            Out.ar(out, sig * (Lag.kr(amp.max(0), 0.05) * lift));
     }
     }
 
@@ -427,6 +455,15 @@ LooperSynthDefs {
     //   groupCount  the groups in the buffers (0: none, the mask goes by beats)
     // A grain's length stays Length times its pulse: the pulsaret's duty, so
     // in the tone its formant rises with the rate.
+    //   dust      0..1, the dissolve's (as the Warp1 graph's): its first half
+    //             closes the mask toward 0.95, so the pulses late in a group
+    //             (or beat) go first and its head last; its second half keeps
+    //             the heads with a chance falling to a quarter. The grains
+    //             stay on the loop's beats (decided 2026-11-22: the bass
+    //             player can play to the end), shortening toward 15 ms all the
+    //             way. Pulsars need nothing of their own: a tone breaks into
+    //             clicks as its pulses are dropped, its formant rising as the
+    //             pulsaret shortens.
     //
     // Pitch, detune, position, spray and the chords as the Warp1 graph has them.
     *grainClockGraph {
@@ -434,7 +471,7 @@ LooperSynthDefs {
              pitch=0, detune=0, position=0, sprayMs=0, envbuf=0,
              phaseBus=0, locked=0, rate=1, follow=0, chordPeriod=0,
              division=1, groups=0, scatter=0, length=0.5, gridOffset=0, headsBuf=0, lensBuf=0,
-             pulsar=0, mask=0, octave=2, groupCount=0|
+             pulsar=0, mask=0, octave=2, groupCount=0, dust=0|
             var nv = LooperSynthDefs.grainClockVoices;
             var bufSr = BufSampleRate.kr(bufnum);
             var loopDur = (loopFrames / bufSr).max(1e-3);
@@ -489,12 +526,17 @@ LooperSynthDefs {
             var inGroup = ((tSecs - head) + 0.001).wrap(0, loopDur) / groupLen.max(1e-3);
             var inBeat = (((tSecs - gridOffset).wrap(0, loopDur)) / K2A.ar(tau.max(1e-3))).frac;
             var where = Select.ar(K2A.ar(groupCount > 0), [inBeat, inGroup]);
-            var keep = where < K2A.ar(1 - Lag.kr(mask.clip(0, 0.95), 0.05));
+            // The dissolve's dust: the mask closing, then the heads' chance.
+            var dustNow = Lag.kr(dust.clip(0, 1), 0.05);
+            var maskNow = mask.clip(0, 0.95) + ((0.95 - mask.clip(0, 0.95)) * (dustNow * 2).min(1));
+            var chance = 1 - (0.75 * ((dustNow * 2) - 1).clip(0, 1));
+            var keep = where < K2A.ar(1 - Lag.kr(maskNow, 0.05));
             // Synchronous to asynchronous at one mean rate.
             var scat = Lag.kr(scatter.clip(0, 1), 0.05);
-            var t = ((CoinGate.ar(1 - scat, trig) + Dust.ar(scat / A2K.kr(periodReal))) > 0) * keep;
+            var t = ((CoinGate.ar((1 - scat) * chance, trig) + Dust.ar(scat * chance / A2K.kr(periodReal))) > 0) * keep;
             var step = Stepper.ar(t, 0, 0, nv - 1);
-            var lenSecs = (K2A.ar(Lag.kr(length.max(0), 0.05)) * periodReal).clip(0.002, periodReal * (nv * 0.8));
+            var lenSecs0 = (K2A.ar(Lag.kr(length.max(0), 0.05)) * periodReal).clip(0.002, periodReal * (nv * 0.8));
+            var lenSecs = lenSecs0 * ((lenSecs0.min(0.015) / lenSecs0) ** K2A.ar(dustNow));
             var sprayAmt = Lag.kr(sprayMs.max(0), 0.1) / 1000;
             var pos = Lag.kr(position, 0.1);
             var readNow = tSecs + K2A.ar(pos * loopDur);

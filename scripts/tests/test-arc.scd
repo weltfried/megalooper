@@ -78,13 +78,44 @@ var mixes = { |l| [l.prLoopMix, l.prBBCutMix, l.prGranularMix] };
         mixes.(atDissolve.(l, 1.0)), [0, 0, 0], 1e-9);
 }.value;
 
-// Nothing may come back up on the way down — a level that dipped and recovered
-// would read as a mistake rather than as an ending.
+// ---- the haze turns to dust (roadmap item 23, idea 1) -------------------------
+// From 0.5, where the dry loop is nearly gone, `dust` runs to 1 and the grains
+// get shorter, fewer and less regular; their level is held until 0.8, or the
+// rain would be faded away before anyone heard it (it fell from 0.5 until
+// 2026-11-22). What megalooper plays beside the loop leaves with what it
+// sounds with: the drums with the cutter, the synth with the dry loop.
 {
     var l = playing.();
-    var prev = [2, 2, 2];
+    ~tEqArray.("no dust until 0.5, where the dry loop is nearly gone",
+        [0, 0.3, 0.5].collect { |d| atDissolve.(l, d).prGrainDust }, [0, 0, 0], 1e-9);
+    ~tEqArray.("...then rising to all of it at the end", [0.75, 0.9, 1].collect { |d| atDissolve.(l, d).prGrainDust },
+        [0.5, 0.8, 1], 1e-9);
+    ~tEqArray.("the grains' level held until 0.8 (while the dust comes)",
+        [0.5, 0.6, 0.8].collect { |d| atDissolve.(l, d).prGranularMix }, [1, 1, 1], 1e-9);
+    ~tEqArray.("...and gone over the last fifth, to nothing at the end",
+        [0.9, 1].collect { |d| atDissolve.(l, d).prGranularMix }, [0.5, 0], 1e-9);
+    ~tEq.("...exactly nothing", atDissolve.(l, 1).prGranularMix, 0);
+    ~tEqArray.("the drums leave with the cutter, the synth with the dry loop",
+        [0.2, 0.4, 0.6].collect { |d| atDissolve.(l, d); [l.drumsMix - l.prBBCutMix, l.synthMix - l.prLoopMix] }.flatten,
+        0 ! 6, 1e-12);
+    ~tEqArray.("...the drums gone by 0.4, the synth by 0.6", [atDissolve.(l, 0.4).drumsMix, atDissolve.(l, 0.6).synthMix],
+        [0, 0], 1e-9);
+    l.intensity = 0.4;
+    ~tEqArray.("the pedal scales the grains' level, never their dust nor the drums",
+        [atDissolve.(l, 0.7).prGranularMix, l.prGrainDust, atDissolve.(l, 0.2).drumsMix], [0.4, 0.4, 0.5], 1e-9);
+}.value;
+
+// Nothing may come back up on the way down — a level that dipped and recovered
+// would read as a mistake rather than as an ending. The dust only rises.
+{
+    var l = playing.();
+    var prev = [2, 2, 2, 2, 2], dust = -1;
     (0, 0.02 .. 1).do { |d|
-        var now = mixes.(atDissolve.(l, d));
+        var now = mixes.(atDissolve.(l, d)) ++ [l.drumsMix, l.synthMix];
+        if(l.prGrainDust < (dust - 1e-9)) {
+            ~tFail.("dust only rises", "fell at d=" ++ d ++ ": " ++ dust ++ " -> " ++ l.prGrainDust);
+        };
+        dust = l.prGrainDust;
         now.do { |v, i|
             if(v > (prev[i] + 1e-9)) {
                 ~tFail.("dissolve is monotonic",
@@ -94,7 +125,7 @@ var mixes = { |l| [l.prLoopMix, l.prBBCutMix, l.prGranularMix] };
         };
         prev = now;
     };
-    ~tPass.("every level falls monotonically across the whole dissolve");
+    ~tPass.("every level falls monotonically across the whole dissolve (the drums' and the synth's too), the dust rises");
 }.value;
 
 // The pedal still scales what is left mid-dissolve: the two axes multiply

@@ -24,6 +24,14 @@
 //   pulsar1   pulsar 1: the root, 110 Hz
 //   masked    7/8 of 0.2 s eighths, pulsar 0.5 (20 Hz), mask 0.4: pulses
 //             only in the first 60 % of each group
+// The dissolve's dust (docs/dev/microsound.md, idea 1):
+//   dustHalf  two grains a beat of 0.25 s at dust 0.5: the mask closed, the
+//             beats alone, every one, each sqrt(15 ms x its 62.5 ms) long
+//   dust1     a grain a beat of 0.05 s at dust 1: some beats (a quarter's
+//             chance), never off them, each 15 ms
+//   dustRamp  two a beat of 0.25 s, dust from 0 to 1 over the render: the
+//             grains shorter and shorter, all on the grid
+// Every case above them runs at dust 0, which is the graph as it was.
 //
 // One render (scsynth -N on a far port); exits 0 if every check passed.
 (
@@ -41,6 +49,7 @@ var ok = { |label, cond, detail|
 var clockDef = SynthDef(\nrtClock, LooperSynthDefs.grainClockGraph);
 var phaseDef = SynthDef(\nrtClockPhase, { |out, loopSecs = 2, phase0 = 0| Out.kr(out, (Sweep.kr(0, 1) + phase0).mod(loopSecs)) });
 var refDef = SynthDef(\nrtClockRef, { |out| Out.ar(out, Impulse.ar(0)) });
+var rampDef = SynthDef(\nrtClockRamp, { |out| Out.kr(out, Line.kr(0, 1, 2.9)) });
 var slots = LooperSynthDefs.groupSlots;
 // A take of one chord, A: its root in the first slot (period 0).
 var rootA = [\chordStarts, [0] ++ (1e9 ! (LooperSynthDefs.chordSlots - 1)),
@@ -60,9 +69,12 @@ var cases = [
     [\pulsar34, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 0.75] ++ rootA],
     [\pulsar1, 2, 0, [\tau, 0.25, \division, 1, \length, 0.5, \pulsar, 1] ++ rootA],
     [\masked, 1.4, 0, [\tau, 0.2, \division, 1, \length, 0.5, \pulsar, 0.5, \mask, 0.4,
-        \headsBuf, 2, \lensBuf, 3, \groupCount, 3]]
+        \headsBuf, 2, \lensBuf, 3, \groupCount, 3]],
+    [\dustHalf, 2, 0, [\tau, 0.25, \division, 2, \length, 0.5, \dust, 0.5]],
+    [\dust1, 2, 0, [\tau, 0.05, \division, 1, \length, 0.5, \dust, 1]],
+    [\dustRamp, 2, 0, [\tau, 0.25, \division, 2, \length, 0.5]]
 ];
-var chans = (cases.size + 1) * 2, score, cmd, said, sf, data, chan, idx, grains, refAt, on, gaps, lens, cv, n, x;
+var chans = (cases.size + 1) * 2, score, cmd, said, sf, data, chan, idx, grains, refAt, on, gaps, lens, cv, n, x, inGroup;
 
 File.mkdir(tmp);
 sf = SoundFile.new.headerFormat_("WAV").sampleFormat_("float").numChannels_(2).sampleRate_(sr);
@@ -71,6 +83,7 @@ sf.writeData(FloatArray.fill((sr * bufSecs * 2).asInteger, { |j| if(j.even) { 0.
 sf.close;
 score = [
     [0.0, [\d_recv, clockDef.asBytes]], [0.0, [\d_recv, phaseDef.asBytes]], [0.0, [\d_recv, refDef.asBytes]],
+    [0.0, [\d_recv, rampDef.asBytes]],
     [0.0, [\b_allocRead, 0, src]],
     [0.0, [\b_alloc, 1, 1024, 1]],
     [0.0, [\b_setn, 1, 0, 1024] ++ (1 ! 1024)],
@@ -80,15 +93,22 @@ score = [
     // ...and with its downbeat 0.2 s into the loop: the heads at 0.2, 0.6, 1.0
     [0.0, [\b_alloc, 6, slots, 1]], [0.0, [\b_setn, 6, 0, slots] ++ [0.2, 0.6, 1.0] ++ (1e9 ! (slots - 3))],
     [0.0, [\b_alloc, 7, slots, 1]], [0.0, [\b_setn, 7, 0, slots] ++ [0.4, 0.4, 0.6] ++ (0 ! (slots - 3))],
-    [start, [\s_new, \nrtClockRef, 8999, 1, 0, \out, cases.size * 2]]
+    // ...and none, for every case with no groups: the graph searches its
+    // heads every sample, and left at buffer 0 it searched the whole loop
+    // (the render outran its two minutes once there were sixteen cases).
+    [0.0, [\b_alloc, 4, slots, 1]], [0.0, [\b_setn, 4, 0, slots] ++ (1e9 ! slots)],
+    [0.0, [\b_alloc, 5, slots, 1]], [0.0, [\b_setn, 5, 0, slots] ++ (0 ! slots)],
+    [start, [\s_new, \nrtClockRef, 8999, 1, 0, \out, cases.size * 2]],
+    [start, [\s_new, \nrtClockRamp, 8998, 0, 0, \out, 99]]
 ];
 cases.do { |c, i|
     score = score.add([start, [\s_new, \nrtClockPhase, 9000 + i, 0, 0, \out, 50 + i, \loopSecs, c[1], \phase0, c[2]]]);
     score = score.add([start, [\s_new, \nrtClock, 10000 + i, 1, 0]
         ++ ([\bufnum, 0, \startFrame, 0, \loopFrames, (c[1] * sr).round.asInteger, \amp, 1, \out, i * 2,
-            \envbuf, 1, \phaseBus, 50 + i, \locked, 1] ++ c[3]).asOSCArgArray]);
+            \envbuf, 1, \phaseBus, 50 + i, \locked, 1, \headsBuf, 4, \lensBuf, 5] ++ c[3]).asOSCArgArray]);
 };
-score = score ++ [[dur - 0.02, [\n_free, 8999] ++ cases.collect { |c, i| [9000 + i, 10000 + i] }.flatten],
+score = score.add([start, [\n_map, 10000 + cases.detectIndex { |c| c[0] == \dustRamp }, \dust, 99]]);
+score = score ++ [[dur - 0.02, [\n_free, 8998, 8999] ++ cases.collect { |c, i| [9000 + i, 10000 + i] }.flatten],
     [dur, [\c_set, 0, 0]]];
 Score(score).writeOSCFile(osc);
 cmd = "perl -e 'alarm shift; exec @ARGV' 120 " ++ MegaSAPlugins.scsynthPath.shellQuote ++ " -u " ++ (58500 + 200.rand)
@@ -177,12 +197,36 @@ if(sf.isNil) {
         lens.mean.round(0.1).asString ++ " frames");
     x = on.(\masked);
     // Where each falls in its group (heads 0, 0.4, 0.8 of a 1.4 s loop).
-    n = x.collect { |t| var p = t.mod(1.4); if(p < 0.4) { p / 0.4 } { if(p < 0.8) { (p - 0.4) / 0.4 } { (p - 0.8) / 0.6 } } };
-    ok.("masked 0.4: every pulse in the first 60 % of its group", n.every { |f| f < 0.6 }, n.round(0.01).asString);
+    // (Not in `n`, the frames every read after this needs: it was, and the
+    // stereo check below read nothing and passed.)
+    inGroup = x.collect { |t| var p = t.mod(1.4); if(p < 0.4) { p / 0.4 } { if(p < 0.8) { (p - 0.4) / 0.4 } { (p - 0.8) / 0.6 } } };
+    ok.("masked 0.4: every pulse in the first 60 % of its group", inGroup.every { |f| f < 0.6 }, inGroup.round(0.01).asString);
     ok.("...18 a loop (5 + 5 + 8), the second loop whole", x.count { |t| (t >= 1.399) and: { t < 2.799 } } == 18,
         x.count { |t| (t >= 1.399) and: { t < 2.799 } }.asString);
-    ok.("stereo kept: the right side, silent in the loop, is silent in every case",
-        cases.every { |c, i| chan.(i, 1).every { |v| v.abs < 1e-6 } });
+    "-- the dissolve's dust".postln;
+    x = on.(\dustHalf);
+    lens = grains.(\dustHalf).collect(_[1]);
+    ok.("dust 0.5: the beats alone (0.25, 0.5 ... 2.75 s), every one",
+        (x.size == 11) and: { x.every { |t, i| (t - ((i + 1) * 0.25)).abs < (2 / sr) } }, x.round(0.0001).asString);
+    ok.("...each sqrt(15 ms x 62.5 ms) long (1470 frames)", lens.every { |l| (l - (sr * (0.015 * 0.0625).sqrt)).abs <= 2 },
+        lens.asString);
+    x = on.(\dust1);
+    lens = grains.(\dust1).collect(_[1]);
+    ok.("dust 1: some of the 59 beats (3 to 35: a quarter's chance)", (x.size >= 3) and: { x.size <= 35 }, x.size.asString);
+    ok.("...every one on a beat", x.every { |t| ((t / 0.05) - (t / 0.05).round).abs < (2 / sr / 0.05) }, x.round(0.0001).asString);
+    ok.("...each 15 ms (720 frames)", lens.every { |l| (l - 720).abs <= 2 }, lens.asString);
+    x = on.(\dustRamp);
+    lens = grains.(\dustRamp).collect(_[1]);
+    ok.("a ramp of dust: every grain on the grid of eighths", x.every { |t| ((t / 0.125) - (t / 0.125).round).abs < (2 / sr / 0.125) },
+        x.round(0.0001).asString);
+    ok.("...each no longer than the one before", (lens.size > 3) and: { lens.differentiate.drop(1).every { |d| d <= 2 } },
+        lens.asString);
+    // At t s dust is t / 2.9: 62.5 ms x (15 / 62.5) to the dust.
+    ok.("...each as long as the dust at its start makes it (within 2 %)",
+        lens.every { |l, i| var want = sr * 0.0625 * ((0.015 / 0.0625) ** (x[i] / 2.9)); (l - want).abs < (want * 0.02) },
+        lens.collect { |l, i| (l / (sr * 0.0625 * ((0.015 / 0.0625) ** (x[i] / 2.9)))).round(0.001) }.asString);
+    ok.("stereo kept: the right side, silent in the loop, is silent in every case (and the left is not)",
+        cases.every { |c, i| chan.(i, 1).every { |v| v.abs < 1e-6 } and: { chan.(i, 0).maxItem > 0.25 } });
     [osc, wav, src].do { |f| if(File.exists(f)) { File.delete(f) } };
     File.delete(tmp);
     "".postln;

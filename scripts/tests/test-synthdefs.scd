@@ -81,7 +81,11 @@ var baseline = (
     // chords (follow, chordPeriod, chordStarts and chordRoots, 32 slots each,
     // and the shift added to the pitch; roadmap item 8). Deliberate — see the
     // graph's comment; scripts/sa/nrt-grains.scd renders it.
-    'looperGranular':        [ 8824, 556604813 ]
+    // Moved 2026-11-22 from [ 8824, 556604813 ]: the dissolve's `dust` (its
+    // grains shorter, fewer, less regular and lifted; docs/dev/microsound.md,
+    // idea 1). Deliberate — at dust 0 it renders the graph before it to the
+    // sample (both seeded, every random part on); nrt-grains.scd checks dust.
+    'looperGranular':        [ 9831, 464993697 ]
 );
 // Defined here rather than leaning on ArrayedCollection:hash, so the
 // fingerprint is fixed by this file and cannot shift under the test.
