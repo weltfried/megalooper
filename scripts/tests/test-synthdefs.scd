@@ -71,9 +71,13 @@ var baseline = (
     // loop's notes (LooperSynthDefs.noteSlices; roadmap item 24,
     // docs/dev/sampler.md): a slice table, each note shortened or reversed in
     // its slot. Deliberate — off, scripts/sa/nrt-slices.scd renders it against
-    // the graph without them (engineGraph(.., false)) to the sample.
-    'looperEngine':          [ 7093, 455236178 ],
-    'looperEngineMono':      [ 7033, 3446009 ],
+    // the graph without them (engineGraph(.., false)) to the sample. Moved
+    // again the same day from [ 7093, 455236178 ] and [ 7033, 3446009 ]: a
+    // roll that halves (LooperSynthDefs.rollOf, idea 7) and the playhead on
+    // a bus for the drums' roller; never armed, scripts/sa/nrt-roll.scd
+    // renders it as the graph without it, to the sample.
+    'looperEngine':          [ 10055, 877285753 ],
+    'looperEngineMono':      [ 9995, 854939397 ],
     'looperClick':           [  429, 831893340 ],
     'looperMaster':          [  383, 375005486 ],   // 2026-11-07: no amp, unity into the limiter
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the

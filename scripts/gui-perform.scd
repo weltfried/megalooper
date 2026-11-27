@@ -379,9 +379,21 @@
     ~staccatoLabel = ~performValue.((l !? { |lp| lp.noteLength } ? 0).round(0.01).asString);
     ~staccatoShapeTile = ~midiTip.(LooperTile().cycles_(false)
         .states_([["Gate", ~gt[\ink], nil], ["Decay", ~gt[\ink], nil]])
-        .border_(~gt[\line]).font_(~guiSans.(12, true)).fixedHeight_(20).fixedWidth_(52)
+        .border_(~gt[\line]).font_(~guiSans.(12, true)).fixedHeight_(20).fixedWidth_(60)
         .action_({ ~controlDo.('looper.noteShape', \press, nil, \gui) }),
         'looper.noteShape', "How a shortened note ends: Gate holds it, then cuts it; Decay fades it from its attack.");
+    // Roll (idea 7): the pedal's, a moment held and halving; beside its value
+    // the Drums tile, lit while the drums roll with it.
+    ~rollSlider = ~mapTag.(~guiBar.(\loop)
+        .value_(l !? { |lp| lp.roll } ? 0)
+        .action_({ |sl| ~controlDo.('looper.roll', \position, sl.value, \gui) }),
+        'looper.roll');
+    ~rollLabel = ~performValue.((l !? { |lp| lp.roll } ? 0).round(0.01).asString);
+    ~rollDrumsTile = ~midiTip.(LooperTile().cycles_(false)
+        .states_([["Drums", ~gt[\mute], nil], ["Drums", ~gt[\onacc], ~gt[\loop]]])
+        .border_(~gt[\line]).font_(~guiSans.(12, true)).fixedHeight_(20).fixedWidth_(60)
+        .action_({ ~controlDo.('looper.rollDrums', \press, nil, \gui) }),
+        'looper.rollDrums', "The drums roll with the loop (lit), or play on.");
     loopCol = ~performColumn.((key: \loop, name: "Loop",
         sw: { ~performSw.('looper.reverse') },
         toggle: ~performLoopToggle,
@@ -391,6 +403,10 @@
             VLayout(
                 HLayout(~guiLabel.("Staccato", 14), nil, ~staccatoShapeTile, ~staccatoLabel).margins_(0).spacing_(6),
                 ~staccatoSlider
+            ).spacing_(5).margins_(0),
+            VLayout(
+                HLayout(~guiLabel.("Roll", 14), nil, ~rollDrumsTile, ~rollLabel).margins_(0).spacing_(6),
+                ~rollSlider
             ).spacing_(5).margins_(0)
         ],
         extra: [~performMultiplyTile, HLayout(~performHalfTile, ~performNotesTile).margins_(0).spacing_(8)]));
@@ -746,8 +762,19 @@
         // Staccato works on the slices: dim until a take has them.
         ~staccatoSlider !? { |b| if(b.isClosed.not) { b.dim_(if(has and: { l.sliceCount > 0 }) { 1 } { 0.3 }) } };
         ~staccatoShapeTile !? { |t| if(t.isClosed.not) { t.value_(if(l.noteShape == \decay) { 1 } { 0 }) } };
-        ~performNote.(\loop, "Click to reverse from the next loop (V). Multiply M, Undo U, half-time L, notes back O."
-            ++ (case { l.reverseFlag.not } { "" } { has } { " Playing backwards." } { " The next take plays backwards." }));
+        // The roll needs a reading (its beat groups); its value says when it
+        // rolls.
+        ~rollSlider !? { |b| if(b.isClosed.not) { b.dim_(if(has and: { l.lastResult.notNil }) { 1 } { 0.3 }) } };
+        ~rollDrumsTile !? { |t| if(t.isClosed.not) { t.value_(l.rollDrums.binaryValue) } };
+        ~rollLabel !? { |t| if(t.isClosed.not) {
+            t.string_(switch(l.rollState, \armed, { "SOON" }, \on, { "ROLL" }, \landing, { "LAND" }, { l.roll.round(0.01).asString }))
+        } };
+        // One line: the column is full (2026-11-27, the Roll row). The other
+        // keys are on their tiles and in the key line.
+        ~performNote.(\loop, case
+            { l.reverseFlag.not } { "Click or V to reverse." }
+            { has } { "Backwards. V: forwards." }
+            { "Next take backwards (V)." });
     };
 };
 
@@ -1084,6 +1111,9 @@
             ~breakLoopsField !? { |f| if(f.isClosed.not) { f.value = val } }; counting.() },
         reverse: loop, reverseArmed: loop, halfTime: loop,
         notesBackwards: loop, notesBackwardsArmed: loop, noteShape: loop, slices: loop,
+        rollDrums: loop, rolling: loop,
+        // The pedal sweeps it: at most every 50 ms.
+        roll: { |looper, what, val| ~wireBar.(~rollSlider, nil, val, nil); ~guiSoon.(\performLoop, loop) },
         noteLength: { |looper, what, val| ~wireBar.(~staccatoSlider, ~staccatoLabel, val, val.round(0.01).asString) },
         onsetThreshold: { |looper, what, val|
             ~wireBar.(~performThresholdBar, ~performThresholdLabel,

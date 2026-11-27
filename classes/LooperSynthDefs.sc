@@ -607,13 +607,16 @@ LooperSynthDefs {
     // fades over 2 ms instead of clicking.
     *noteSlewUp { ^1000 }
     *noteSlewDown { ^500 }
-    *noteSlices { |pos, loopFrames, declickFrames|
+    *noteSlices { |pos, loopFrames, declickFrames, wrapPos|
         var on = \slicesOn.kr(0);
         var table = \sliceBuf.kr(0);
         var tauFrames = \tauFrames.kr(12000).max(1);
         var x = Lag.kr(\noteLen.kr(0).clip(0, 1), 0.05) * on;
         var shape = \noteShape.kr(0);
-        var wrapped = (pos - Delay1.ar(pos)).abs > (loopFrames * 0.5);
+        // The pass's own wrap, from the playhead (`wrapPos`): the position read
+        // (a roll's) jumps where the playhead does not.
+        var wp = wrapPos ? pos;
+        var wrapped = (wp - Delay1.ar(wp)).abs > (loopFrames * 0.5);
         var rev = Latch.ar(\noteRev.ar(0) * on, wrapped + Impulse.ar(0));
         var j = IndexInBetween.ar(table, pos).floor;
         var a = Index.ar(table, j), b = Index.ar(table, j + 1), before = Index.ar(table, j - 1);
@@ -640,14 +643,94 @@ LooperSynthDefs {
         ^[rev, mirror, gain * edgeG * readDeclick]
     }
 
+    // A roll that halves (roadmap item 24, idea 7; docs/dev/sampler.md): a
+    // moment of the loop held and repeated in windows, the playhead running on
+    // underneath (as a DJ's roll in slip mode). Called from inside a graph
+    // with the playhead's loop position (frames, forwards); answers
+    // [rolling (0/1), the loop position to read, the gain, frames since the
+    // roll began, the window in force, the position in it].
+    //
+    //   rollArm    1: the roll begins on the sample the playhead crosses
+    //              rollAnchor (the language arms it for a beat group's head,
+    //              and disarms it after)
+    //   rollWin    the window wanted, frames, taken on the next multiple of it
+    //              counted from the roll's start: every switch lands on the
+    //              grid, a halving on the half of the window in force
+    //   rollLand   1: it ends on the sample the playhead crosses rollLandAt,
+    //              faded out over rollEdge before it (the point is known) and
+    //              in after
+    //
+    // In the first window what is read is what the playhead is at, so the roll
+    // comes in without a seam; each window's edges fade over rollEdge. Never
+    // armed, it answers the playhead and a gain of exactly 1.
+    *rollEdge { ^0.002 }
+    *rollOf { |pos, loopFrames, speed = 1|
+        // Audio-rate controls, every one: a .kr value in audio-rate sums glides
+        // across its block, and an anchor or a landing point gliding past the
+        // playhead starts, fades or lands the roll in the wrong place (it did:
+        // nrt-roll, 2026-11-27).
+        var arm = \rollArm.ar(0), anchor = \rollAnchor.ar(0), want = \rollWin.ar(4800).max(64);
+        var land = \rollLand.ar(0), landAt = \rollLandAt.ar(0);
+        var prev = Delay1.ar(pos);
+        // A crossing of `a` forwards, not the loop's wrap.
+        var near = (pos - prev).abs < (loopFrames * 0.5);
+        var start = arm * (pos >= anchor) * (prev < anchor) * near;
+        var landTrig = land * (pos >= landAt) * (prev < landAt) * near;
+        // rollCut: stop at once, no landing (the loop stopped, multiplied,
+        // undone; the language's).
+        var rolling = SetResetFF.ar(start, landTrig + K2A.ar(\rollCut.tr(0)));
+        var c = Sweep.ar(start, SampleRate.ir * speed);
+        var cPrev = Delay1.ar(c);
+        var w = Latch.ar(want, start + ((c % want) < (cPrev % want))).max(64);
+        var off = c % w;
+        var v = anchor + off;
+        var edgeF = this.rollEdge * SampleRate.ir;
+        var edge = (off.min(w - off) / edgeF).clip(0, 1);
+        // How far ahead the landing is, round the seam.
+        var dl = landAt - pos;
+        var dlw = dl + (loopFrames * (dl < (loopFrames * -0.5)));
+        var fadeOut = Select.ar(land, [DC.ar(1), (dlw / edgeF).clip(0, 1)]);
+        // Landed while rolling: a landing armed with no roll, or left armed
+        // after one (crossed again a pass later), fades nothing.
+        var landedNow = landTrig * Delay1.ar(rolling);
+        var landed = SetResetFF.ar(landedNow, start);
+        var fadeIn = Select.ar(landed, [DC.ar(1), (Sweep.ar(landedNow, SampleRate.ir) / edgeF).clip(0, 1)]);
+        v = v - (loopFrames * (v >= loopFrames));
+        ^[rolling, v, Select.ar(rolling, [fadeIn, edge * fadeOut]), c, w, off]
+    }
+
+    // The drums' roller (idea 7, "Drums roll too"): on the drums' and the onset
+    // kit's buses after their chain, before their strips (MegaSA), the roll's
+    // piece on the engine's playhead (posBus: the position and the loop's
+    // length, from the engine), its anchor the beat group's grid point less a
+    // little (the hit's front). It captures the first window as it plays and
+    // repeats it; not rolling, it hands the buses on as they are.
+    *rollerGraph {
+        ^{ |inA = 0, inB = 0, posBus = 0, capA = 0, capB = 0|
+            var posIn = In.ar(posBus, 2), pos = posIn[0], loopFrames = posIn[1].max(1);
+            var roll = LooperSynthDefs.rollOf(pos, loopFrames);
+            var rolling = roll[0], gain = roll[2], c = roll[3], w = roll[4], off = roll[5];
+            var a = In.ar(inA, 2), b = In.ar(inB, 2);
+            var cap = BufFrames.kr(capA);
+            // What plays is the live input in the first window (it is being
+            // captured), the capture after.
+            var held = rolling * (c >= w);
+            BufWr.ar(a, capA, c.min(cap - 1), 0);
+            BufWr.ar(b, capB, c.min(cap - 1), 0);
+            ReplaceOut.ar(inA, Select.ar(held, [a, BufRd.ar(2, capA, off, 0, 1)]) * gain);
+            ReplaceOut.ar(inB, Select.ar(held, [b, BufRd.ar(2, capB, off, 0, 1)]) * gain);
+        }
+    }
+
     // The engine: plays the loop, overdubs into it, publishes its phase.
     //
     // readInterp and writeInterp are BufRd's interpolation for what is played
     // and for what is written back. The defaults are the engine; the graph as
     // it was before 2026-10-27 is (2, 2), which scripts/sa/nrt-engine-rate.scd
     // builds to show its check catches what changed. `notes` false builds it
-    // without the loop's notes (noteSlices), as it was before 2026-11-27, for
-    // scripts/sa/nrt-slices.scd to hold the new one against.
+    // without the loop's notes (noteSlices) and the roll (rollOf), as it was
+    // before 2026-11-27, for scripts/sa/nrt-slices.scd and nrt-roll.scd to
+    // hold the new one against.
     *engineGraph { |mono, readInterp = 4, writeInterp = 1, notes = true|
         ^{ |bufnum, in=0, startFrame=0, loopFrames=44100,
             amp=1.0, out=0, rate=1, recEnable=0,
@@ -690,13 +773,18 @@ LooperSynthDefs {
             // transient baked into the buffer). loopPhase is 0..loopFrames
             // regardless of play direction, so both ends are covered.
             var loopPhase = phase - startFrame;
-            // The loop's notes: where to read and a gain (noteSlices).
-            var noteParts = if(notes) { LooperSynthDefs.noteSlices(loopPhase, loopFrames, declickFrames) };
+            // A roll (rollOf): where it reads in the loop, and its gain.
+            var roll = if(notes) { LooperSynthDefs.rollOf(loopPhase, loopFrames) };
+            var heard = if(notes) { Select.ar(roll[0], [loopPhase, roll[1]]) };
+            // The loop's notes, of what is heard (a roll's too): where to read
+            // and a gain (noteSlices).
+            var noteParts = if(notes) { LooperSynthDefs.noteSlices(heard, loopFrames, declickFrames, loopPhase) };
             // Cubic: at rate ±1 every position is a whole frame, where cubic
             // gives the sample itself, so normal and reverse playback are
             // exact; at any other rate it sounds better than linear.
             var existing = BufRd.ar(2, bufnum,
-                if(notes) { Select.ar(noteParts[0], [phase, noteParts[1] + startFrame]) } { phase },
+                if(notes) { Select.ar(noteParts[0], [Select.ar(roll[0], [phase, roll[1] + startFrame]),
+                    noteParts[1] + startFrame]) } { phase },
                 loop: 0, interpolation: readInterp);
             var df = declickFrames.max(1);
             var declick = (loopPhase / df).min((loopFrames - loopPhase) / df).clip(0, 1);
@@ -736,13 +824,19 @@ LooperSynthDefs {
             // Output the pre-overdub buffer content only — live input is not
             // monitored, so the player only hears their addition on the next
             // loop pass.
-            Out.ar(out, if(notes) { existing * amp * declick * bbGate * noteParts[2] }
+            Out.ar(out, if(notes) { existing * amp * declick * bbGate * noteParts[2] * roll[2] }
                 { existing * amp * declick * bbGate });
+            // The playhead and the loop's length, for the drums' roller
+            // (rollerGraph); with no bus (-1), nothing: + 0 on bus 0.
+            if(notes) {
+                Out.ar(\posBus.kr(-1).max(0), [loopPhase, K2A.ar(loopFrames)] * (\posBus.kr(-1) >= 0));
+            };
         }
     }
 
     *loadSynthDefs {
         SynthDef(\looperRec,     LooperSynthDefs.recGraph(false)).add;
+        SynthDef(\looperRoller, LooperSynthDefs.rollerGraph).add;
         SynthDef(\looperRecMono, LooperSynthDefs.recGraph(true)).add;
         SynthDef(\looperRecAuto,     LooperSynthDefs.recAutoGraph(false)).add;
         SynthDef(\looperRecAutoMono, LooperSynthDefs.recAutoGraph(true)).add;

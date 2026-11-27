@@ -30,6 +30,7 @@ var files = [
     "test-rhythm-echo.scd",
     "test-slices.scd",
     "test-notes.scd",
+    "test-roll.scd",
     "test-live-signals.scd",
     "test-chain-timing.scd",
     "test-preset-storage.scd",

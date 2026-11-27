@@ -53,7 +53,7 @@ var looperSkip, looperParts, saParts, drumsParts;
 
 // The Looper's parts: each says its changes as the Looper's, held to the
 // Looper's table here.
-looperParts = ["LooperOnsetNotes", "LooperChainRecorder", "LooperGrains", "LooperCutter", "LooperKey", "LooperSlices"];
+looperParts = ["LooperOnsetNotes", "LooperChainRecorder", "LooperGrains", "LooperCutter", "LooperKey", "LooperSlices", "LooperRoll"];
 check.("Looper", Looper.notifications, saidIn.(["Looper.sc"] ++ looperParts.collect { |n| n ++ ".sc" }, "prSetGranular"));
 ~tEq.("a part of the Looper says its changes as the Looper's (looper.changed), never as its own, which nobody hears",
     looperParts.select { |n| code.(n ++ ".sc").findRegexp("this\\.changed\\(").notEmpty }, []);
@@ -61,8 +61,9 @@ check.("Looper", Looper.notifications, saidIn.(["Looper.sc"] ++ looperParts.coll
 // 69 since 2026-11-14: the loop's key (LooperKey). 74 since 2026-11-20: the
 // Grains' Clock engine and its four controls; 79 the same day: the pulsars.
 // 84 since 2026-11-27: the loop's notes (notes backwards and its arm, the
-// note length and shape, the slices; LooperSlices).
-~tEq.("the Looper lists 84 notifications", Looper.notifications.size, 84);
+// note length and shape, the slices; LooperSlices). 87 the same day: the
+// roll, its drums and where it is (LooperRoll).
+~tEq.("the Looper lists 87 notifications", Looper.notifications.size, 87);
 // MegaSA's parts likewise (step 9).
 saParts = ["MegaSAMixer", "MegaSAStateJobs", "MegaSAGraph"];
 check.("MegaSA", MegaSA.notifications, saidIn.(["MegaSA.sc"] ++ saParts.collect { |n| n ++ ".sc" }));

@@ -558,6 +558,30 @@ next loop boundary as Reverse does:
   it when armed. Rec next loop turns it off for the new loop: that loop
   already holds the notes as you heard them.
 
+### Roll
+
+**Roll** (the Loop column's bar, or a pedal or knob mapped to `looper.roll`)
+holds a moment of the loop and repeats it, faster and faster: the build
+before a drop. Move the pedal off 0 and the roll starts on the next beat
+group's first note (in 7/8, 2+2+3: never more than three eighths away),
+repeating that group. Push further and the repeats halve through the meter's
+own units: a group, an eighth, a sixteenth, a 32nd, a 64th, each step a fifth
+of the pedal's travel and each landing on the grid. Back to 0, it lands on the
+next group's first note, and the loop is exactly where it would have been:
+it kept playing underneath. Let go in the last group before the one and it
+lands on the one.
+
+- **Drums**, the tile beside its value (or `looper.rollDrums`): lit, the
+  drums and the onset kit roll with the loop; dark, they play on. On by
+  default. Change it between rolls: a roll keeps the setting it started with.
+- The value says where it is: `SOON` until its first group, `ROLL`, `LAND`
+  until it lands; the count counts in to both (`ROLL IN`, `ROLL LANDS IN`).
+- **It needs a reading** (its beat groups), and plays forwards: it is refused
+  at half-time and with Reverse on, and while you overdub. While it rolls,
+  an overdub, Reverse and half-time are refused until it lands. Staccato and
+  Notes backwards apply to the rolled notes too.
+- Stop, a multiply, an undo and Rec next loop end a roll at once.
+
 ### Breaks
 
 Hit the Break button, key `K`, or a switch mapped to it, and the looper goes

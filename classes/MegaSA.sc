@@ -118,6 +118,10 @@ MegaSA {
     var <timeSignature, loopFollower, followed;
     // The take's onsets for the devices that read them (the Rhythm Echo).
     var <onsets;
+    // The drums' roller (LooperSynthDefs.rollerGraph; roadmap item 24, idea 7):
+    // a synth at the mixer group's head on the drums' and the onset kit's
+    // buses, its two capture buffers, and the Looper it rolls with.
+    var <roller, rollerBufs, rollerLooper;
     // The dissolve's strips held where it left them after it stopped the
     // loop, until the loop plays again (prFollowDissolve).
     var arcHeld = false;
@@ -605,11 +609,36 @@ MegaSA {
         looper.sessionRec.target = this.recordGroup;
         drums !? { |d| d.attach(looper) };
         this.prFollowLoop(looper);
+        this.prBuildRoller(looper);
         server.sync;
         // The loop chain's plugins, once their synths are there. Nothing is
         // held for them: until one is open its device passes the loop through.
         this.prMakePlugins(loopChain);
         loopChain.devices.do { |d| if(d.plugin.notNil and: { d.plugin.state == \closed }) { this.prOpenPlugin(d) } };
+    }
+
+    // The drums' roller: after the drum group (their voices, chain and effects
+    // have written stepsOutBus and onsetOutBus) and before the strips, which
+    // read them; on the Looper's playhead (rollPosBus). It hands the buses on
+    // as they are until the Looper's roll arms it (LooperRoll). Capture
+    // buffers of 4 s: a roll holds one beat group at most.
+    prBuildRoller { |looper|
+        this.prFreeRoller;
+        if(looper.rollPosBus.isNil or: { this.mixerGroup.isNil }) { ^this };
+        rollerBufs = { Buffer.alloc(server, (server.sampleRate ? 48000) * 4, 2) } ! 2;
+        roller = Synth.head(this.mixerGroup, \looperRoller, [\inA, this.stepsOutBus.index, \inB, this.onsetOutBus.index,
+            \posBus, looper.rollPosBus.index, \capA, rollerBufs[0].bufnum, \capB, rollerBufs[1].bufnum]);
+        rollerLooper = looper;
+        looper.rollPart.rollers = [roller];
+    }
+
+    prFreeRoller {
+        rollerLooper !? { |l| l.rollPart.rollers = nil };
+        roller !? (_.free);
+        rollerBufs !? { |bs| bs.do(_.free) };
+        roller = nil;
+        rollerBufs = nil;
+        rollerLooper = nil;
     }
 
     *loadSynthDefs {
@@ -1992,6 +2021,7 @@ MegaSA {
         // on a reboot the old Looper is freed after the new MegaSA is up, and
         // it is still calling them.
         drums !? (_.free);
+        this.prFreeRoller;
         (this.devices ++ (limbo ? [])).do { |d| d.plugin !? { |p| p.removeDependant(this) } };
         this.chains.do(_.free);
         limboGroup !? (_.free);

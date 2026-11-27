@@ -1267,6 +1267,9 @@ MegaRemote {
                 "as notesBackwards or notesForwards in coming); staccato: how short the loop's notes are, 0 as "
                 "played to 1 the shortest, each ending as staccatoShape says (gate: held, then cut; decay: fading "
                 "from its attack); slices: how many notes a pass of the loop was cut into (0: none yet). "
+                "roll: the roll's pedal (0 off; up to 1, a moment of the loop held and repeated in windows that "
+                "halve, landing on a group head with the loop where it would have been), rolling: off, armed, on "
+                "or landing, rollDrums: the drums roll with it. "
                 "coming: what lands on a coming loop boundary, in seconds.",
             \playing, moving,
             \bar, c !? { |x| x[\bar] }, \barCount, c !? { |x| x[\barCount] },
@@ -1276,6 +1279,7 @@ MegaRemote {
             \reversed, looper.reverseFlag,
             \notesBackwards, looper.notesBackwards, \staccato, looper.noteLength.round(0.01),
             \staccatoShape, looper.noteShape.asString, \slices, looper.sliceCount,
+            \roll, looper.roll.round(0.01), \rolling, looper.rollState.asString, \rollDrums, looper.rollDrums,
             \onBreak, looper.onBreak,
             \dissolving, looper.dissolving, \dissolve, looper.dissolvePos.round(0.01),
             \intensity, looper.intensity,

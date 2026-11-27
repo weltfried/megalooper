@@ -30,6 +30,7 @@
 ~actionsLooperState = { |l|
     (reverse: l.reverseFlag, halfTime: l.halfTime, intensity: l.intensity, feedback: l.feedback,
         notesBackwards: l.notesBackwards, noteLength: l.noteLength, noteShape: l.noteShape,
+        roll: l.roll, rollDrums: l.rollDrums,
         breakLoops: l.breakLoops, dissolveLoops: l.dissolveLoops,
         onsetNotes: l.onsetNotes, onsetNoteChance: l.onsetNoteChance, onsetThreshold: l.onsetThreshold)
 };

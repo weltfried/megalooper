@@ -279,6 +279,9 @@ Looper {
     // The loop cut into slices at its notes (LooperSlices): the engine's
     // slice table. Made when first asked for (slicesPart).
     var slicesPart;
+    // A roll that halves (LooperRoll), made when first asked for (rollPart),
+    // and the bus the engine publishes its playhead on for the drums' roller.
+    var rollPart, <rollPosBus;
     // Construction is ASYNCHRONOUS: buffers, busses and SynthDefs reach the
     // server on init's own Routine, so an instance is not usable the instant
     // Looper() returns. Anything that sends s_new before this flips gets a silent
@@ -333,6 +336,7 @@ Looper {
             this.chainPart.allocBuffer(server, server.sampleRate * bufDur);
             this.keyPart.allocBuffers(server, bufDur);
             this.slicesPart.allocBuffer(server);
+            rollPosBus = Bus.audio(server, 2);
             outBus = Bus.audio(server, 2);
             // "Insert"-mode duck flag: 1 while the cutter is playing a
             // repetition, 0 otherwise. Defaults to 0 so the dry loop passes
@@ -447,6 +451,9 @@ Looper {
             noteLength: [\state, [\length], "how short the loop's notes are, 0 (as played) .. 1 (shortest)"],
             noteShape: [\state, [\shape], "how a shortened note ends: \\gate or \\decay"],
             slices: [\state, [\count], "the loop cut into this many slices a pass, at its notes (0: none yet)"],
+            roll: [\state, [\amount], "the roll's pedal, 0 (off) .. 1 (the shortest window)"],
+            rollDrums: [\state, [\on], "the drums roll with the loop"],
+            rolling: [\state, [\state], "the roll: \\off, \\armed (for a group head), \\on or \\landing"],
             halfTime: [\state, [\state], "\\off, \\armed, \\on or \\ending"],
             speed: [\state, [\rate], "the engine's speed: 1, or 0.5 at half-time"],
             sessionRecording: [\state, [\on], "the set is being recorded"],
@@ -544,6 +551,7 @@ Looper {
         tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; chainPart !? { |c| c.forget };
         keyPart !? { |k| k.forget };
         slicesPart !? { |p| p.forget };
+        rollPart !? { |p| p.forget };
         clickRoutine = nil; chordRoutine = nil;
         dissolveRoutine = nil; this.timeline.forget; this.transport.forget;
         cutterPart !? { |c| c.forget };
@@ -781,6 +789,7 @@ Looper {
             if(reverseArmed) { list.add((what: if(reverseFlag) { \forward } { \reverse }, at: reverseAt)) };
             if(notesBackwardsArmed) { list.add((what: if(notesBackwards) { \notesForwards } { \notesBackwards },
                 at: notesBackwardsAt)) };
+            rollPart !? { |p| p.at !? { |t| list.add((what: if(p.state == \landing) { \rollLands } { \roll }, at: t)) } };
         };
         ^list.asArray
     }
@@ -989,6 +998,8 @@ Looper {
         this.prResetHalfTime;
         this.prResetReverse;
         this.prResetNotesBackwards;
+        // A new engine starts with no roll; the drums' rollers stop theirs.
+        rollPart !? { |p| p.cut(false) };
         engineSynth = Synth(defName, [
             \bufnum, buffer.bufnum,
             \in, inChannel,
@@ -1014,7 +1025,9 @@ Looper {
             // and the slice table (LooperSlices).
             \noteLen, noteLength,
             \noteShape, this.prNoteShapeCode,
-            \noteRev, notesBackwards.binaryValue
+            \noteRev, notesBackwards.binaryValue,
+            // Its playhead, for the drums' roller (LooperRoll).
+            \posBus, rollPosBus !? { |b| b.index } ? -1
         ] ++ this.slicesPart.engineArgs, server);
         // Wall time of the moment the loop's audio actually starts. `Synth.new`
         // sends its s_new IMMEDIATELY and applies no latency of its own, so that
@@ -1708,6 +1721,16 @@ Looper {
     prEngineMsg { |...args| ^engineSynth !? { |e| e.setMsg(*args) } }
     prOnsetFrames { ^(this.onsetPattern ? []).collect { |p| (p[0] * (server.sampleRate ? 48000)).round.asInteger } }
 
+    // A roll that halves (LooperRoll): the pedal (0..1), Drums roll too, and
+    // where it is (\off, \armed, \on, \landing).
+    rollPart { ^rollPart ?? { rollPart = LooperRoll(this) } }
+    roll { ^rollPart !? { |p| p.amount } ? 0 }
+    roll_ { |x| this.rollPart.amount_(x) }
+    rollDrums { ^rollPart !? { |p| p.drums } ? true }
+    rollDrums_ { |flag| this.rollPart.drums_(flag) }
+    rollState { ^rollPart !? { |p| p.state } ? \off }
+    rolling { ^rollPart !? { |p| p.rolling } ? false }
+
     // The facade: the window, MIDI, the AI and the tests ask the Looper.
     nextRecState { ^this.chainPart.nextRecState }
     chainRecOffsetMs { ^this.chainPart.chainRecOffsetMs }
@@ -2036,6 +2059,7 @@ Looper {
         this.prResetHalfTime;
         this.prResetReverse;
         this.prResetNotesBackwards;
+        rollPart !? { |p| p.cut(false) };
         // A detection may have a transport start queued for the next downbeat;
         // stopping the loop cancels it rather than firing into a stopped looper.
         this.timeline.cancel(\overdubTransport);
@@ -2373,6 +2397,8 @@ Looper {
     // loop playing it flips at once: the next take plays that way.
     reverse {
         var now = SystemClock.seconds, ld = this.loopDuration, at, after;
+        // The roll plays forwards: a reverse would leave it never landing.
+        if(this.rolling and: { reverseArmed.not }) { ^this.prRefused(\reverse, "a roll is on: land it first") };
         if(reverseArmed) {
             if((reverseAt - now) < Looper.halfTimeMargin) { ^this.prRefused(\reverse, "the reverse lands now") };
             this.prSendDir(reverseFlag);
@@ -2610,6 +2636,7 @@ Looper {
                 case
                 { this.prAtHalfTime } { "half-time: end it before an overdub" }
                 { notesBackwards or: { notesBackwardsArmed } } { "notes backwards: turn them forwards before an overdub" }
+                { this.rolling } { "a roll is on: land it first" }
                 { this.nextRecState != \idle } { "Rec next loop is on: overdub once the next loop is in" }
                 { nil }
             },
@@ -2625,6 +2652,13 @@ Looper {
                 { state == \overdubbing } { "end the overdub first" }
                 { nil }
             },
+            \roll, {
+                case
+                { state == \overdubbing } { "end the overdub first" }
+                { this.prAtHalfTime or: { halfTime == \armed } } { "half-time: end it first" }
+                { reverseFlag or: { reverseArmed } } { "reversed: the roll plays forwards" }
+                { nil }
+            },
             \halfTime, {
                 case
                 { state == \overdubbing } { "end the overdub first" }
@@ -2632,6 +2666,7 @@ Looper {
                 { this.nextRecState != \idle } { "Rec next loop is on" }
                 { this.bbcutEnabling } { "the cutter is starting" }
                 { dissolving or: { dissolvePos > 0 } } { "a dissolve is on" }
+                { this.rolling } { "a roll is on: land it first" }
                 { nil }
             },
             { nil })
@@ -3061,6 +3096,7 @@ Looper {
             ^this.prRefused(\multiply, "the loop would not fit the buffer")
         };
         this.snapshotForUndo;
+        rollPart !? { |p| p.cut };
         // A reading armed for the loop as it was would land at its length, on
         // its boundary, which is mid-pass in the longer one (the gesture fuzz
         // found it, 2026-11-08): taken back, as a new take and an undo take
@@ -3161,6 +3197,7 @@ Looper {
         // no loop playing it was a take, otherwise an overdub, multiply or
         // chain on a take that stands (see LooperSessionRecorder:takesFrom).
         this.prLogEvent(\undo, (state: undoState.state));
+        rollPart !? { |p| p.cut };
         undoBuffer.copyData(buffer);
         startFrame = undoState.startFrame;
         loopFrames = undoState.loopFrames;
@@ -3382,6 +3419,7 @@ Looper {
         chainPart !? { |c| c.free };
         keyPart !? { |k| k.free };
         slicesPart !? { |p| p.free };
+        rollPosBus !? { |b| b.free };
         recSynth !? { |s| s.free };
         autostartSynth !? { |s| s.free };
         autostartSynth = nil;

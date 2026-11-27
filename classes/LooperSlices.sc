@@ -170,6 +170,19 @@ LooperSlices {
         this.sync;
     }
 
+    // The slice start nearest loop frame `frame` within `within` frames (round
+    // the seam), or nil: where a roll's window starts on a note
+    // (LooperRoll).
+    startNear { |frame, within|
+        var n = looper.loopFrames, all = this.prAllStarts, best, d;
+        if(all.isNil or: { n <= 0 }) { ^nil };
+        all.do { |s|
+            d = ((s - frame + (n / 2)).mod(n) - (n / 2)).abs;
+            if((d <= within) and: { best.isNil or: { d < best[1] } }) { best = [s, d] };
+        };
+        ^best !? { |b| b[0] }
+    }
+
     // ---- Inside ---------------------------------------------------------------
 
     prOn { ^this.prTable.notNil }

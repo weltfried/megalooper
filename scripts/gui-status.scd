@@ -501,7 +501,9 @@
     reverse: (cap: "REVERSE IN", word: "REV", fill: \loop),
     forward: (cap: "FORWARD IN", word: "FWD", fill: \loop),
     notesBackwards: (cap: "NOTES BACKWARDS IN", word: "NOTES", fill: \loop),
-    notesForwards: (cap: "NOTES FORWARDS IN", word: "NOTES", fill: \loop)
+    notesForwards: (cap: "NOTES FORWARDS IN", word: "NOTES", fill: \loop),
+    roll: (cap: "ROLL IN", word: "ROLL", fill: \loop),
+    rollLands: (cap: "ROLL LANDS IN", word: "LAND", fill: \loop)
 );
 
 

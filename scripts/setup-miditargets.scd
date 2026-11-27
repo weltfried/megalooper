@@ -189,6 +189,13 @@
         get: { ~looper !? { |l| l.notesBackwards != l.notesBackwardsArmed } },
         set: { |v| ~looper !? { |l| if((v == true) != (l.notesBackwards != l.notesBackwardsArmed)) { l.toggleNotesBackwards } } },
         available: looper));
+    // A roll that halves (idea 7): the drums roll with the loop, lit (on by
+    // default).
+    add.('looper.rollDrums', "Roll: drums too", "Perform", \toggle, (group: "Loop",
+        flip: { ~looper !? { |l| l.rollDrums = l.rollDrums.not } },
+        get: { ~looper !? { |l| l.rollDrums } },
+        set: { |v| ~looper !? { |l| l.rollDrums = v == true } },
+        available: looper));
     // How a staccato note ends: lit for the decay, dark for the gate.
     add.('looper.noteShape', "Staccato: decay", "Perform", \toggle, (group: "Loop",
         flip: { ~looper !? { |l| l.noteShape = if(l.noteShape == \decay) { \gate } { \decay } } },
@@ -226,12 +233,15 @@
         // The loop's notes shortened (Looper.noteLength): 0 as played, 1 the
         // shortest; a pedal's.
         ['looper.noteLength', "Staccato", "Perform", \noteLength],
+        // The roll's pedal (idea 7): 0 off, then the held group, a unit, ½,
+        // ¼, ⅛ of one, in fifths.
+        ['looper.roll', "Roll", "Perform", \roll],
         ['looper.intensity', "Arc / intensity", "Perform", \intensity],
         ['looper.granularMorph', "Granular morph", "Grains", \granularMorph]
     ].do { |e|
         var key = e[3];
         add.(e[0], e[1], e[2], \continuous, (group: granularGroups[key] ?? {
-                (feedback: "Loop", noteLength: "Loop", intensity: "Arc and threshold")[key] },
+                (feedback: "Loop", noteLength: "Loop", roll: "Loop", intensity: "Arc and threshold")[key] },
             get: { ~looper !? { |l| l.perform(key) } }, set: { |v| ~looper.perform(key.asSetter, v) },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
     };
