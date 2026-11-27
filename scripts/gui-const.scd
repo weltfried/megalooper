@@ -44,7 +44,7 @@
 // Denominators offered in the export signature control.
 ~exportDenoms = [2, 4, 8, 16];
 
-~keyHintString = "R trigger  S stop  M multiply  U undo  V reverse  L half  G grains  B cutter  K break  D dissolve  N next loop  A reading  C clear";
+~keyHintString = "R trigger  S stop  M multiply  U undo  V reverse  L half  O notes  G grains  B cutter  K break  D dissolve  N next  A reading  C clear";
 
 // ---- Visual vocabulary ----------------------------------------------------
 // These colours were already in use, spelled as literals at a dozen call sites.

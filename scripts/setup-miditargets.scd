@@ -181,6 +181,20 @@
         get: { ~looper !? { |l| [\armed, \on].includes(l.halfTime) } },
         set: { |v| ~looper !? { |l| if((v == true) != [\armed, \on].includes(l.halfTime)) { l.toggleHalfTime } } },
         available: looper));
+    // Notes backwards (roadmap item 24, docs/dev/sampler.md): each note
+    // backwards in its own slot, armed for the boundary as Reverse is; lit
+    // as Reverse is lit.
+    add.('looper.notesBackwards', "Notes backwards", "Perform", \toggle, (group: "Loop",
+        flip: { ~looper.toggleNotesBackwards },
+        get: { ~looper !? { |l| l.notesBackwards != l.notesBackwardsArmed } },
+        set: { |v| ~looper !? { |l| if((v == true) != (l.notesBackwards != l.notesBackwardsArmed)) { l.toggleNotesBackwards } } },
+        available: looper));
+    // How a staccato note ends: lit for the decay, dark for the gate.
+    add.('looper.noteShape', "Staccato: decay", "Perform", \toggle, (group: "Loop",
+        flip: { ~looper !? { |l| l.noteShape = if(l.noteShape == \decay) { \gate } { \decay } } },
+        get: { ~looper !? { |l| l.noteShape == \decay } },
+        set: { |v| ~looper !? { |l| l.noteShape = if(v == true) { \decay } { \gate } } },
+        available: looper));
     add.('looper.dissolve', "Dissolve", "Perform", \toggle,
         (group: "Actions", flip: { ~looper.toggleDissolve },
             get: { ~looper !? { |l| l.dissolving or: { l.dissolvePos > 0 } } }, available: looper));
@@ -209,12 +223,15 @@
     // does, to two decimals (gui-shell.scd, gui-wiring.scd).
     [
         ['looper.feedback', "Overdub feedback", "Perform", \feedback],
+        // The loop's notes shortened (Looper.noteLength): 0 as played, 1 the
+        // shortest; a pedal's.
+        ['looper.noteLength', "Staccato", "Perform", \noteLength],
         ['looper.intensity', "Arc / intensity", "Perform", \intensity],
         ['looper.granularMorph', "Granular morph", "Grains", \granularMorph]
     ].do { |e|
         var key = e[3];
         add.(e[0], e[1], e[2], \continuous, (group: granularGroups[key] ?? {
-                (feedback: "Loop", intensity: "Arc and threshold")[key] },
+                (feedback: "Loop", noteLength: "Loop", intensity: "Arc and threshold")[key] },
             get: { ~looper !? { |l| l.perform(key) } }, set: { |v| ~looper.perform(key.asSetter, v) },
             fromPos: { |c| c }, toPos: { |v| v }, format: hundredths, available: looper));
     };
@@ -1011,7 +1028,7 @@
 // H, E, Esc, Backspace) are not controls and stay in ~guiKeyDown.
 ~controlKeys = [
     [$r, 'looper.trigger'], [$s, 'looper.stop'], [$m, 'looper.multiply'], [$u, 'looper.undo'],
-    [$v, 'looper.reverse'], [$l, 'looper.halfTime'], [$g, 'looper.granular'], [$b, 'looper.bbcut'],
+    [$v, 'looper.reverse'], [$l, 'looper.halfTime'], [$o, 'looper.notesBackwards'], [$g, 'looper.granular'], [$b, 'looper.bbcut'],
     [$k, 'looper.break'], [$d, 'looper.dissolve'], [$c, 'looper.clear'],
     [$n, 'looper.recordNextLoop'], [$a, 'looper.nextReading']
 ];

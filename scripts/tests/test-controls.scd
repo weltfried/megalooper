@@ -150,7 +150,7 @@ calls = List.new;
 looper = ();
 fillLooper = {
     [\trigger, \stopPlayback, \multiply, \undo, \reverse, \toggleHalfTime, \toggleGranular, \fireBreak,
-        \toggleDissolve, \recordNextLoop, \nextReading].do { |sel|
+        \toggleDissolve, \recordNextLoop, \nextReading, \toggleNotesBackwards].do { |sel|
         looper.put(sel, { |self ... args| calls.add(sel); self });
     };
     looper.put(\bbcut, { |self| false });
@@ -171,7 +171,9 @@ press = { |char, mods = 0|
 [
     [$r, [\trigger]], [$s, [\stopPlayback]], [$m, [\multiply]], [$u, [\undo]], [$v, [\reverse]],
     [$l, [\toggleHalfTime]], [$g, [\toggleGranular]], [$b, [[\bbcut_, true]]], [$k, [\fireBreak]],
-    [$d, [\toggleDissolve]], [$c, [\clear]], [$n, [\recordNextLoop]], [$a, [\nextReading]]
+    [$d, [\toggleDissolve]], [$c, [\clear]], [$n, [\recordNextLoop]], [$a, [\nextReading]],
+    // Since 2026-11-27: O, notes backwards (docs/dev/sampler.md).
+    [$o, [\toggleNotesBackwards]]
 ].do { |k|
     got = press.(k[0]);
     ~tEq.("key " ++ k[0] ++ " makes the call it made before", calls.asArray, k[1]);

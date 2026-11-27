@@ -82,6 +82,8 @@ say `guitar` in their ids, as in `sa.level.guitar`.
   bars), `breakLoops`, `sessionRecording`
 - `bbcut`, `bbcutMode`, `granular`
 - `intensity`, `feedback`, `onsetThreshold`
+- `notesBackwards`, `noteLength` (Staccato), `noteShape` (Staccato's
+  Decay: lit, or Gate: dark)
 
 **The Grains**, `looper.` and: `granularMorph`, `granularAmp`,
 `granularPitch`, `granularDetune`, `granularSize`, `granularDensity`,

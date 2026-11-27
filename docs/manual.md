@@ -158,6 +158,7 @@ opens on the Perform view (see [GUI](#gui)).
 | `U` | Undo (one level deep)                                             |
 | `V` | Reverse: the loop backwards from the next loop; again before then takes it back |
 | `L` | Half-time: the loop at half speed from the next loop; again ends it with the pass |
+| `O` | Notes backwards: each note backwards in its place from the next loop; again before then takes it back |
 | `G` | Grains on and off                                                 |
 | `B` | Cutter on and off                                                 |
 | `K` | Break: silence until a loop downbeat                              |
@@ -511,6 +512,51 @@ they were, and the drums with them.
 - **With no loop playing** it switches at once: the tile says
   `EMPTY · REVERSE`, and the next take plays backwards. Stop, clear and a
   multiply drop a reverse that is armed.
+
+### The loop's notes: Staccato and Notes backwards
+
+When a take is analysed, megalooper also cuts the loop into **slices**, one
+per note: from each attack to the next, where it heard your onsets. It cuts
+where each attack really begins in the loop's audio, not where the onset
+detector reported it (that is a little late, and the loop sits a chain's
+latency away from the analysis input), so no slice starts inside its own
+attack or ends with the next one's. The slices are ready a moment after the
+loop starts. A loop with no onsets has none, and the two controls below
+leave it as it is.
+
+**Staccato** (the Loop column's bar, or a knob or pedal mapped to
+`looper.noteLength`) shortens every note. At 0 each plays as you played it;
+moving up, the long notes are cut first, then every note, down to an eighth
+of a beat at 1. The notes still start where you played them, so the loop's
+rhythm stays and its held chords become stabs. It is a natural pedal: the
+loop tightening towards a climax, or drying out at the end.
+
+- **Gate or Decay**, the small tile beside its value (or a switch mapped to
+  `looper.noteShape`): with **Gate** each note is held, then cut with a short
+  fade; with **Decay** it fades from its attack, like a damped string.
+- It counts in the reading's beat, so the same setting is as short at any
+  tempo, and at half-time the notes stay as long in the loop.
+- It shapes the loop as it plays: the buffer is untouched, and the cutter and
+  the grains hear the loop as recorded.
+
+**Notes backwards** (the `← Notes` tile in the Loop column, key `O`, or a
+switch mapped to `looper.notesBackwards`) plays every note backwards in its
+own place: each one swells up to its attack, which lands just before the next
+note. The loop keeps its rhythm, played as reversed notes. It lands on the
+next loop boundary as Reverse does:
+
+- **Armed.** The tile says `← armed` until the boundary (`← ending` on the
+  way back), and the count counts in to it (`NOTES BACKWARDS IN`,
+  `NOTES FORWARDS IN`). A press before then takes it back; within 50 ms of a
+  boundary a press goes to the boundary after.
+- **With Reverse** the loop plays backwards and each note forwards: the riff
+  played backwards, note by note.
+- **No overdub** while it is on or armed, and no turning it while you
+  overdub: what you played over backwards notes would land where you played
+  it and sound backwards in its place on the next pass. The footer says why.
+- **With no loop playing** it switches at once, for the next take. Stop drops
+  it when armed. Rec next loop turns it off for the new loop: that loop
+  already holds the notes as you heard them.
 
 ### Breaks
 

@@ -29,6 +29,7 @@
 // The Looper's own switches, for its state.
 ~actionsLooperState = { |l|
     (reverse: l.reverseFlag, halfTime: l.halfTime, intensity: l.intensity, feedback: l.feedback,
+        notesBackwards: l.notesBackwards, noteLength: l.noteLength, noteShape: l.noteShape,
         breakLoops: l.breakLoops, dissolveLoops: l.dissolveLoops,
         onsetNotes: l.onsetNotes, onsetNoteChance: l.onsetNoteChance, onsetThreshold: l.onsetThreshold)
 };
@@ -55,6 +56,8 @@
         parts.put(\looper, (model: l,
             skip: #[\liveOnset, \dissolvePos, \analysisMonitor, \sessionRecording, \sessionChannel, \reading,
                 \readingIndex, \speed, \breakEndsAt, \overdubDetected, \bbcutState, \onsetNotePattern,
+                // The slices are rebuilt after a take, as the onset notes are.
+                \slices,
                 // A take's result is the session log's (a take line), and the
                 // chord playing changes with every pass: neither is an action.
                 \result, \chord],

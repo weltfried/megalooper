@@ -351,21 +351,49 @@
     // Half-time (docs/dev/rc600-picks.md, 3a), painted from the model: off,
     // armed (lands on the next loop), HALF, ending (with the pass).
     ~performHalfTile = ~midiTip.(LooperTile().cycles_(false)
-        .states_([["½  Half-time", ~gt[\ink], nil], ["½  armed", ~gt[\onacc], ~gt[\armed]],
+        // Short words: it shares its row with Notes backwards (2026-11-27).
+        .states_([["½  Half", ~gt[\ink], nil], ["½  armed", ~gt[\onacc], ~gt[\armed]],
             ["½  HALF", Color.white, ~gt[\loop]], ["½  ending", ~gt[\onacc], ~gt[\armed]]])
         .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
         .action_({ ~controlDo.('looper.halfTime', \press, nil, \gui) }),
         'looper.halfTime', "The loop at half speed, an octave down, the drums and the synth's notes at half tempo with it. "
             "Lands on the next loop; again, it ends with the pass. Key L.");
     ~midiWatch.(~performHalfTile, { |t| t.sw_(~performSw.('looper.halfTime')) });
+    // Notes backwards (roadmap item 24, docs/dev/sampler.md), painted as
+    // half-time is: off, armed, on, armed to come back; beside it, as both
+    // land on the next loop.
+    ~performNotesTile = ~midiTip.(LooperTile().cycles_(false)
+        .states_([["←  Notes", ~gt[\ink], nil], ["←  armed", ~gt[\onacc], ~gt[\armed]],
+            ["←  NOTES", Color.white, ~gt[\loop]], ["←  ending", ~gt[\onacc], ~gt[\armed]]])
+        .border_(~gt[\line]).font_(~guiSans.(14, true)).fixedHeight_(32).minWidth_(60)
+        .action_({ ~controlDo.('looper.notesBackwards', \press, nil, \gui) }),
+        'looper.notesBackwards', "Each of the loop's notes backwards in its own place, so the loop keeps its rhythm. "
+            "Lands on the next loop; again, the notes turn forwards with the next. Key O.");
+    ~midiWatch.(~performNotesTile, { |t| t.sw_(~performSw.('looper.notesBackwards')) });
+    // Staccato: the loop's notes shorter, from as played (0) to the shortest
+    // (1); a pedal's. Its shape beside its value: Gate or Decay.
+    ~staccatoSlider = ~mapTag.(~guiBar.(\loop)
+        .value_(l !? { |lp| lp.noteLength } ? 0)
+        .action_({ |sl| ~controlDo.('looper.noteLength', \position, sl.value, \gui) }),
+        'looper.noteLength');
+    ~staccatoLabel = ~performValue.((l !? { |lp| lp.noteLength } ? 0).round(0.01).asString);
+    ~staccatoShapeTile = ~midiTip.(LooperTile().cycles_(false)
+        .states_([["Gate", ~gt[\ink], nil], ["Decay", ~gt[\ink], nil]])
+        .border_(~gt[\line]).font_(~guiSans.(12, true)).fixedHeight_(20).fixedWidth_(52)
+        .action_({ ~controlDo.('looper.noteShape', \press, nil, \gui) }),
+        'looper.noteShape', "How a shortened note ends: Gate holds it, then cuts it; Decay fades it from its attack.");
     loopCol = ~performColumn.((key: \loop, name: "Loop",
         sw: { ~performSw.('looper.reverse') },
         toggle: ~performLoopToggle,
         rows: [
             ~performParam.("Feedback", ~feedbackLabel, ~feedbackSlider),
-            ~performParam.("Length", ~performLengthLabel, ~performLengthBar)
+            ~performParam.("Length", ~performLengthLabel, ~performLengthBar),
+            VLayout(
+                HLayout(~guiLabel.("Staccato", 14), nil, ~staccatoShapeTile, ~staccatoLabel).margins_(0).spacing_(6),
+                ~staccatoSlider
+            ).spacing_(5).margins_(0)
         ],
-        extra: [~performMultiplyTile, ~performHalfTile]));
+        extra: [~performMultiplyTile, HLayout(~performHalfTile, ~performNotesTile).margins_(0).spacing_(8)]));
 
     // ---- Cutter ------------------------------------------------------------------------
     ~bbcutButton = ~midiTip.(~guiLayerTile.(\cut)
@@ -712,7 +740,13 @@
         ~performHalfTile !? { |t| if(t.isClosed.not) {
             t.value_(switch(l.halfTime, \armed, { 1 }, \on, { 2 }, \releasing, { 3 }, { 0 }));
         } };
-        ~performNote.(\loop, "Click to reverse from the next loop (V). Multiply M, Undo U, half-time L."
+        ~performNotesTile !? { |t| if(t.isClosed.not) {
+            t.value_(case { l.notesBackwardsArmed } { if(l.notesBackwards) { 3 } { 1 } } { l.notesBackwards } { 2 } { 0 });
+        } };
+        // Staccato works on the slices: dim until a take has them.
+        ~staccatoSlider !? { |b| if(b.isClosed.not) { b.dim_(if(has and: { l.sliceCount > 0 }) { 1 } { 0.3 }) } };
+        ~staccatoShapeTile !? { |t| if(t.isClosed.not) { t.value_(if(l.noteShape == \decay) { 1 } { 0 }) } };
+        ~performNote.(\loop, "Click to reverse from the next loop (V). Multiply M, Undo U, half-time L, notes back O."
             ++ (case { l.reverseFlag.not } { "" } { has } { " Playing backwards." } { " The next take plays backwards." }));
     };
 };
@@ -1049,6 +1083,8 @@
         breakLoops: { |looper, what, val|
             ~breakLoopsField !? { |f| if(f.isClosed.not) { f.value = val } }; counting.() },
         reverse: loop, reverseArmed: loop, halfTime: loop,
+        notesBackwards: loop, notesBackwardsArmed: loop, noteShape: loop, slices: loop,
+        noteLength: { |looper, what, val| ~wireBar.(~staccatoSlider, ~staccatoLabel, val, val.round(0.01).asString) },
         onsetThreshold: { |looper, what, val|
             ~wireBar.(~performThresholdBar, ~performThresholdLabel,
                 ~onsetThresholdSpec.unmap(val), val.round(0.01).asString) },

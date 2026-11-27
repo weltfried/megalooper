@@ -67,8 +67,13 @@ var baseline = (
     // reverse lands on the sample a pass starts, and the write head's
     // latency shift follows it. Deliberate — see the graph's comment; the
     // render checks the landing.
-    'looperEngine':          [ 2927, 959546355 ],
-    'looperEngineMono':      [ 2867, 184139025 ],
+    // Moved 2026-11-27 from [ 2927, 959546355 ] and [ 2867, 184139025 ]: the
+    // loop's notes (LooperSynthDefs.noteSlices; roadmap item 24,
+    // docs/dev/sampler.md): a slice table, each note shortened or reversed in
+    // its slot. Deliberate — off, scripts/sa/nrt-slices.scd renders it against
+    // the graph without them (engineGraph(.., false)) to the sample.
+    'looperEngine':          [ 7093, 455236178 ],
+    'looperEngineMono':      [ 7033, 3446009 ],
     'looperClick':           [  429, 831893340 ],
     'looperMaster':          [  383, 375005486 ],   // 2026-11-07: no amp, unity into the limiter
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the

@@ -562,13 +562,93 @@ LooperSynthDefs {
         }
     }
 
+    // The loop's notes (roadmap item 24, docs/dev/sampler.md): the loop cut
+    // into slices at its own attacks (LoopSlices), each note shortened
+    // (`noteLen`) or reversed in its own slot (`noteRev`). Called from inside
+    // the engine's graph with the loop position (frames from the loop's start,
+    // at any speed or direction); answers [reversed?, the loop position a
+    // reversed note reads, the gain on what is read]. Off — `slicesOn` 0, or
+    // `noteLen` 0 and `noteRev` 0 — reversed is 0 and the gain exactly 1, so
+    // the engine reads where it always did and is the engine as it was,
+    // sample for sample
+    // (scripts/sa/nrt-slices.scd).
+    //
+    //   sliceBuf   the table (LoopSlices.padded), loop frames; slicesOn 1
+    //              once the Looper has written one for this loop
+    //   tauFrames  the reading's pulse, frames: the note lengths count in it
+    //   noteLen    0..1, the pedal: 0 every note as played, then each held
+    //              for L, from noteLenMax pulses down to noteLenMin at 1,
+    //              exponentially; eased in over its first twentieth
+    //   noteShape  0 a gate (held for L, then noteRelease), 1 a decay (from
+    //              noteHold after the attack, a T60 of noteDecay L)
+    //   noteRev    1: each slice read backwards in its own slot, with
+    //              noteEdge fades at its edges; latched on the loop's own wrap,
+    //              so it takes over on the sample a pass begins
+    //
+    // The lengths count in the note's own frames (the read position from the
+    // slice's start), so a reversed note is the shortened note reversed, and at
+    // half-time a note is as long in the loop as at full speed. A note whose
+    // previous one was cut fades in over noteFadeIn. The gain is slewed (a
+    // pedal moved fast would otherwise jump it). The mirrored read crosses the
+    // buffer's seam inside a slot (the take's end against its start), where the
+    // engine's declick, which follows the playhead, does not: so it has its
+    // own, by read position.
+    *noteLenMax { ^16 }
+    *noteLenMin { ^0.12 }
+    *noteRelease { ^0.025 }
+    *noteFadeIn { ^0.0015 }
+    *noteHold { ^0.01 }
+    *noteDecay { ^2 }
+    *noteEdge { ^0.004 }
+    // The gain's slew, per second: faster than any of its own shapes (the
+    // fade-in rises 667 a second; the shortest decay falls at most 6.9 / 2 L,
+    // about 300 a second on a 94 ms pulse, sixteenths at 160 BPM; the gate's
+    // release 40), slow enough that a pedal flicked from one end to the other
+    // fades over 2 ms instead of clicking.
+    *noteSlewUp { ^1000 }
+    *noteSlewDown { ^500 }
+    *noteSlices { |pos, loopFrames, declickFrames|
+        var on = \slicesOn.kr(0);
+        var table = \sliceBuf.kr(0);
+        var tauFrames = \tauFrames.kr(12000).max(1);
+        var x = Lag.kr(\noteLen.kr(0).clip(0, 1), 0.05) * on;
+        var shape = \noteShape.kr(0);
+        var wrapped = (pos - Delay1.ar(pos)).abs > (loopFrames * 0.5);
+        var rev = Latch.ar(\noteRev.ar(0) * on, wrapped + Impulse.ar(0));
+        var j = IndexInBetween.ar(table, pos).floor;
+        var a = Index.ar(table, j), b = Index.ar(table, j + 1), before = Index.ar(table, j - 1);
+        var len = b - a, prevLen = a - before;
+        // a + b - 1 - pos lies within one loop either side: wrapped by sums,
+        // as Wrap takes its bounds only when it starts and loopFrames changes.
+        var m = ((a + b) - 1) - pos;
+        var mirror = m + (loopFrames * ((m < 0) - (m >= loopFrames)));
+        var t = Select.ar(rev, [pos - a, (b - 1) - pos]);
+        var sr = SampleRate.ir;
+        var lenF = (this.noteLenMax * ((this.noteLenMin / this.noteLenMax) ** x)) * tauFrames;
+        var rel = this.noteRelease * sr, hold = this.noteHold * sr, fadeIn = this.noteFadeIn * sr;
+        var gateOf = { |tt| ((lenF + rel - tt) / rel).clip(0, 1) };
+        var decayOf = { |tt| ((-6.9 * (tt - hold).max(0)) / (this.noteDecay * lenF)).exp };
+        var g = Select.ar(shape, [gateOf.(t), decayOf.(t)]);
+        var prevEnd = Select.ar(shape, [gateOf.(prevLen), decayOf.(prevLen)]);
+        var fin = (t / fadeIn).clip(0, 1).max(prevEnd);
+        var w = (x * 20).min(1);
+        var gain = Slew.ar(1 - (w * (1 - (g * fin))), this.noteSlewUp, this.noteSlewDown);
+        var edge = (t.min((len - 1) - t) / (this.noteEdge * sr)).clip(0, 1);
+        var edgeG = Select.ar(rev, [DC.ar(1), 0.5 - (0.5 * cos(edge * pi))]);
+        var df = declickFrames.max(1);
+        var readDeclick = Select.ar(rev, [DC.ar(1), (mirror / df).min((loopFrames - mirror) / df).clip(0, 1)]);
+        ^[rev, mirror, gain * edgeG * readDeclick]
+    }
+
     // The engine: plays the loop, overdubs into it, publishes its phase.
     //
     // readInterp and writeInterp are BufRd's interpolation for what is played
     // and for what is written back. The defaults are the engine; the graph as
     // it was before 2026-10-27 is (2, 2), which scripts/sa/nrt-engine-rate.scd
-    // builds to show its check catches what changed.
-    *engineGraph { |mono, readInterp = 4, writeInterp = 1|
+    // builds to show its check catches what changed. `notes` false builds it
+    // without the loop's notes (noteSlices), as it was before 2026-11-27, for
+    // scripts/sa/nrt-slices.scd to hold the new one against.
+    *engineGraph { |mono, readInterp = 4, writeInterp = 1, notes = true|
         ^{ |bufnum, in=0, startFrame=0, loopFrames=44100,
             amp=1.0, out=0, rate=1, recEnable=0,
             latencyFrames=0, feedback=1.0, declickFrames=0,
@@ -605,15 +685,19 @@ LooperSynthDefs {
                 rate * dirNow * speedNow * BufRateScale.kr(bufnum),
                 startFrame,
                 startFrame + loopFrames);
-            // Cubic: at rate ±1 every position is a whole frame, where cubic
-            // gives the sample itself, so normal and reverse playback are
-            // exact; at any other rate it sounds better than linear.
-            var existing = BufRd.ar(2, bufnum, phase, loop: 0, interpolation: readInterp);
             // Short fade in/out at the loop seam to kill the wrap-point click
             // (level jump from loop end back to start, plus any record on/off
             // transient baked into the buffer). loopPhase is 0..loopFrames
             // regardless of play direction, so both ends are covered.
             var loopPhase = phase - startFrame;
+            // The loop's notes: where to read and a gain (noteSlices).
+            var noteParts = if(notes) { LooperSynthDefs.noteSlices(loopPhase, loopFrames, declickFrames) };
+            // Cubic: at rate ±1 every position is a whole frame, where cubic
+            // gives the sample itself, so normal and reverse playback are
+            // exact; at any other rate it sounds better than linear.
+            var existing = BufRd.ar(2, bufnum,
+                if(notes) { Select.ar(noteParts[0], [phase, noteParts[1] + startFrame]) } { phase },
+                loop: 0, interpolation: readInterp);
             var df = declickFrames.max(1);
             var declick = (loopPhase / df).min((loopFrames - loopPhase) / df).clip(0, 1);
             // Shift the write head backward (in playback direction) by the
@@ -652,7 +736,8 @@ LooperSynthDefs {
             // Output the pre-overdub buffer content only — live input is not
             // monitored, so the player only hears their addition on the next
             // loop pass.
-            Out.ar(out, existing * amp * declick * bbGate);
+            Out.ar(out, if(notes) { existing * amp * declick * bbGate * noteParts[2] }
+                { existing * amp * declick * bbGate });
         }
     }
 

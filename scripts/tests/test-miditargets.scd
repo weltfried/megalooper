@@ -63,7 +63,7 @@ presetIdShape = "^sa\\.drums\\.preset\\.recall\\.[a-z0-9]+(-[a-z0-9]+)*$";
 // Table 4.2's families, as patterns of ids, with how many each has with no SA
 // (the trims follow the kits, so they come with SA only).
 families = [
-    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 57],
+    [\looper, "^looper\\.[a-z][a-zA-Z0-9]*$", 60],
     [\live, "^live\\.record$", 1],
     [\fxOn, "^sa\\.fxOn\\.(" ++ MegaSAFx.typeKeys.join("|") ++ ")$", 17],
     [\fx, "^sa\\.fx\\.(" ++ MegaSAFx.params.collect { |x| x[\name] }.join("|") ++ ")$", 135],
@@ -106,7 +106,9 @@ looperIds = ['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 
     'looper.dissolveBars', 'looper.breakLoops', 'looper.onsetNote', 'looper.onsetNoteVelLo',
     'looper.onsetNoteVelHi', 'looper.onsetNoteDynRange', 'looper.onsetNoteGateMs', 'looper.bbcutMode',
     // Autostart and its start level (2026-11-12).
-    'looper.autostart', 'looper.startLevel'];
+    'looper.autostart', 'looper.startLevel',
+    // The loop's notes (2026-11-27; docs/dev/sampler.md).
+    'looper.notesBackwards', 'looper.noteShape', 'looper.noteLength'];
 // The 36 the old responders drove (phase 1).
 phase1 = ['looper.trigger', 'looper.stop', 'looper.multiply', 'looper.undo', 'looper.clear',
     'looper.recordNextLoop', 'looper.break', 'looper.nextReading', 'looper.reverse', 'looper.dissolve',
@@ -262,9 +264,9 @@ protect {
 
     live = [targets.size, count.(there)];
     ("  on a Live rig: " ++ live[0] ++ " controls, " ++ live[1] ++ " there").postln;
-    ~tEq.("on a Live rig the Looper's 57, Live's record and the count's 3 lights are there, and nothing of SA's",
+    ~tEq.("on a Live rig the Looper's 60, Live's record and the count's 3 lights are there, and nothing of SA's",
         [live[1], targets.keys.asArray.select { |id| there.(targets[id]) and: { id.asString.beginsWith("sa.") } }],
-        [61, []]);
+        [64, []]);
 
     // ------------------------------------------------------------------- laws --
     ~tEq.("every level's law goes back to where it came from, at 0, 1/4, 1/2, 3/4 and 1 ("

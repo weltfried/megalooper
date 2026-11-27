@@ -1263,6 +1263,10 @@ MegaRemote {
                 "loop.reading.groups), groupBeat the beat within it. halfTime: off, armed, on or releasing "
                 "(the loop at half speed, an octave down, with the drums and the synth's notes at half tempo). reversed: "
                 "the loop plays backwards; a reverse lands on the next loop boundary, as reverse or forward in coming. "
+                "notesBackwards: each of the loop's notes plays backwards in its own slot (it lands on a boundary too, "
+                "as notesBackwards or notesForwards in coming); staccato: how short the loop's notes are, 0 as "
+                "played to 1 the shortest, each ending as staccatoShape says (gate: held, then cut; decay: fading "
+                "from its attack); slices: how many notes a pass of the loop was cut into (0: none yet). "
                 "coming: what lands on a coming loop boundary, in seconds.",
             \playing, moving,
             \bar, c !? { |x| x[\bar] }, \barCount, c !? { |x| x[\barCount] },
@@ -1270,6 +1274,8 @@ MegaRemote {
             \group, c !? { |x| x[\group] }, \groupBeat, c !? { |x| x[\groupBeat] },
             \halfTime, looper.halfTime.asString, \speed, looper.speed,
             \reversed, looper.reverseFlag,
+            \notesBackwards, looper.notesBackwards, \staccato, looper.noteLength.round(0.01),
+            \staccatoShape, looper.noteShape.asString, \slices, looper.sliceCount,
             \onBreak, looper.onBreak,
             \dissolving, looper.dissolving, \dissolve, looper.dissolvePos.round(0.01),
             \intensity, looper.intensity,

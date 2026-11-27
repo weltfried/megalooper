@@ -28,6 +28,8 @@ var files = [
     "test-grain-clock.scd",
     "test-dissolve.scd",
     "test-rhythm-echo.scd",
+    "test-slices.scd",
+    "test-notes.scd",
     "test-live-signals.scd",
     "test-chain-timing.scd",
     "test-preset-storage.scd",

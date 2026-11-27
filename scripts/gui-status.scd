@@ -499,7 +499,9 @@
     halfTime: (cap: "HALF-TIME IN", word: "HALF", fill: \loop),
     halfTimeEnds: (cap: "FULL TIME IN", word: "FULL", fill: \loop),
     reverse: (cap: "REVERSE IN", word: "REV", fill: \loop),
-    forward: (cap: "FORWARD IN", word: "FWD", fill: \loop)
+    forward: (cap: "FORWARD IN", word: "FWD", fill: \loop),
+    notesBackwards: (cap: "NOTES BACKWARDS IN", word: "NOTES", fill: \loop),
+    notesForwards: (cap: "NOTES FORWARDS IN", word: "NOTES", fill: \loop)
 );
 
 

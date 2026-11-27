@@ -156,6 +156,13 @@ Looper {
     // A reverse armed for the next boundary (reverse): `reverseArmed`, and
     // `reverseAt` where it lands; reverseFlag flips there.
     var <reverseArmed = false, <reverseAt, reverseSentAt;
+    // The loop's notes (roadmap item 24, docs/dev/sampler.md; LooperSlices,
+    // LooperSynthDefs.noteSlices): each note held for `noteLength` (0 as
+    // played, 1 at its shortest) in `noteShape` (\gate or \decay), and
+    // `notesBackwards`, each note backwards in its own slot, armed for the
+    // next boundary as a reverse is.
+    var <noteLength = 0, <noteShape = \gate;
+    var <notesBackwards = false, <notesBackwardsArmed = false, <notesBackwardsAt, notesBackSentAt;
     // ---- Breaks -------------------------------------------------------------
     // Drop the looper out so the room can play into the hole, then come back ON
     // A LOOP DOWNBEAT. This MUTES and never stops: stopPlayback would tear down
@@ -269,6 +276,9 @@ Looper {
     // overdub plays, and LoopKey's analysis of it after; the note sequencer
     // plays in it (\loopKey). Made when first asked for (keyPart).
     var keyPart;
+    // The loop cut into slices at its notes (LooperSlices): the engine's
+    // slice table. Made when first asked for (slicesPart).
+    var slicesPart;
     // Construction is ASYNCHRONOUS: buffers, busses and SynthDefs reach the
     // server on init's own Routine, so an instance is not usable the instant
     // Looper() returns. Anything that sends s_new before this flips gets a silent
@@ -322,6 +332,7 @@ Looper {
             undoBuffer = Buffer.alloc(server, server.sampleRate * bufDur, 2);
             this.chainPart.allocBuffer(server, server.sampleRate * bufDur);
             this.keyPart.allocBuffers(server, bufDur);
+            this.slicesPart.allocBuffer(server);
             outBus = Bus.audio(server, 2);
             // "Insert"-mode duck flag: 1 while the cutter is playing a
             // repetition, 0 otherwise. Defaults to 0 so the dry loop passes
@@ -431,6 +442,11 @@ Looper {
             nextRecState: [\state, [\state], "the next loop: \\idle, \\armed, \\recording or \\stopping"],
             reverse: [\state, [\backwards], "the loop plays backwards"],
             reverseArmed: [\state, [\armed], "the other direction is armed for the next boundary"],
+            notesBackwards: [\state, [\backwards], "each note plays backwards in its own slot"],
+            notesBackwardsArmed: [\state, [\armed], "the notes' other direction is armed for the next boundary"],
+            noteLength: [\state, [\length], "how short the loop's notes are, 0 (as played) .. 1 (shortest)"],
+            noteShape: [\state, [\shape], "how a shortened note ends: \\gate or \\decay"],
+            slices: [\state, [\count], "the loop cut into this many slices a pass, at its notes (0: none yet)"],
             halfTime: [\state, [\state], "\\off, \\armed, \\on or \\ending"],
             speed: [\state, [\rate], "the engine's speed: 1, or 0.5 at half-time"],
             sessionRecording: [\state, [\on], "the set is being recorded"],
@@ -527,6 +543,7 @@ Looper {
         engineSynth = nil; recSynth = nil; masterSynth = nil; grainsPart !? { |g| g.forget };
         tapLevelSynth = nil; monitorSynth = nil; overdubSynth = nil; chainPart !? { |c| c.forget };
         keyPart !? { |k| k.forget };
+        slicesPart !? { |p| p.forget };
         clickRoutine = nil; chordRoutine = nil;
         dissolveRoutine = nil; this.timeline.forget; this.transport.forget;
         cutterPart !? { |c| c.forget };
@@ -539,6 +556,8 @@ Looper {
     prSetResult { |r|
         lastResult = r;
         this.changed(\result, r);
+        // The note lengths count in the reading's beat.
+        slicesPart !? { |p| p.follow };
     }
 
     // Multi-purpose transport, per Ableton's Looper spec.
@@ -605,6 +624,8 @@ Looper {
         // until the deferred analysis builds the new one, rather than
         // replaying the previous loop's rhythm over this one.
         this.prClearOnsetPattern;
+        // The slices too: the new take's come with its analysis.
+        this.slicesPart.clear;
     }
 
     prTakeStarted { |more|
@@ -758,6 +779,8 @@ Looper {
             if(halfTime == \armed) { list.add((what: \halfTime, at: halfTimeAt)) };
             if(halfTime == \releasing) { list.add((what: \halfTimeEnds, at: halfTimeAt)) };
             if(reverseArmed) { list.add((what: if(reverseFlag) { \forward } { \reverse }, at: reverseAt)) };
+            if(notesBackwardsArmed) { list.add((what: if(notesBackwards) { \notesForwards } { \notesBackwards },
+                at: notesBackwardsAt)) };
         };
         ^list.asArray
     }
@@ -877,6 +900,8 @@ Looper {
                 // they differ by the frame rounding above, and over a long take
                 // that difference is what would walk the pattern off the audio.
                 this.prBuildOnsetPattern(onsetsSnap, newFrames / sr);
+                // The loop's notes, cut where the pattern's attacks are.
+                this.slicesPart.build(this.prOnsetFrames);
                 onAnalysis.value(result);
                 this.startTempoClocks(result);
             };
@@ -963,6 +988,7 @@ Looper {
         // armed for the old one is dropped.
         this.prResetHalfTime;
         this.prResetReverse;
+        this.prResetNotesBackwards;
         engineSynth = Synth(defName, [
             \bufnum, buffer.bufnum,
             \in, inChannel,
@@ -983,8 +1009,13 @@ Looper {
             \amp, this.prLoopMix,
             \gateBus, insertBus.index,
             \phaseBus, phaseBus.index,
-            \gateMode, if(this.bbcut) { this.bbcutGateCode } { 0 }
-        ], server);
+            \gateMode, if(this.bbcut) { this.bbcutGateCode } { 0 },
+            // The loop's notes: how short, how they end, backwards or not,
+            // and the slice table (LooperSlices).
+            \noteLen, noteLength,
+            \noteShape, this.prNoteShapeCode,
+            \noteRev, notesBackwards.binaryValue
+        ] ++ this.slicesPart.engineArgs, server);
         // Wall time of the moment the loop's audio actually starts. `Synth.new`
         // sends its s_new IMMEDIATELY and applies no latency of its own, so that
         // moment is SystemClock.seconds and nothing else.
@@ -1275,6 +1306,7 @@ Looper {
         // attacks at all still gets onset notes, from the overdub that gave it
         // its meter.
         this.prBuildOnsetPattern(folded, loopSecs);
+        this.slicesPart.build(this.prOnsetFrames, false);
         this.prGranularFollow;
         onAnalysis.value(result);
         this.changed(\overdubDetected, result);
@@ -1665,6 +1697,17 @@ Looper {
     keyPart { ^keyPart ?? { keyPart = LooperKey(this) } }
     loopKey { ^keyPart !? { |k| k.key } }
 
+    // The slices' part (LooperSlices), made when first asked for, and how
+    // many slices a pass of the loop has (0: none yet, or none).
+    slicesPart { ^slicesPart ?? { slicesPart = LooperSlices(this) } }
+    sliceCount { ^slicesPart !? { |p| p.count } ? 0 }
+    // For the part: the loop's buffer, where the loop starts in it and how
+    // long it is (frames); an n_set for the engine, or nil with none; the
+    // onset notes' pattern as frames from the loop's start.
+    prLoopRegion { ^[buffer, startFrame, loopFrames] }
+    prEngineMsg { |...args| ^engineSynth !? { |e| e.setMsg(*args) } }
+    prOnsetFrames { ^(this.onsetPattern ? []).collect { |p| (p[0] * (server.sampleRate ? 48000)).round.asInteger } }
+
     // The facade: the window, MIDI, the AI and the tests ask the Looper.
     nextRecState { ^this.chainPart.nextRecState }
     chainRecOffsetMs { ^this.chainPart.chainRecOffsetMs }
@@ -1705,6 +1748,10 @@ Looper {
         // The new loop plays forwards: said, or the window and the drums would
         // go on showing and following a reversed loop.
         if(reverseFlag) { reverseFlag = false; this.prReverseSaid };
+        // Its notes, as heard, are already backwards where they were.
+        if(notesBackwards) { notesBackwards = false; this.prNotesBackwardsSaid };
+        // Its slices: the old ones repeated, searched again in its own audio.
+        this.slicesPart.rebuild;
         // Spawn the new engine FIRST (phase-aligned to this boundary via
         // spawnEngine's loopStartTime), then free the old one — no silent gap.
         // Tempo/MIDI clocks are intentionally left running: same tempo, so Live
@@ -1988,6 +2035,7 @@ Looper {
         this.cancelNextLoopRecord;
         this.prResetHalfTime;
         this.prResetReverse;
+        this.prResetNotesBackwards;
         // A detection may have a transport start queued for the next downbeat;
         // stopping the loop cancels it rather than firing into a stopped looper.
         this.timeline.cancel(\overdubTransport);
@@ -2025,6 +2073,7 @@ Looper {
         undoState = nil;
         this.keyPart.clear;
         this.prClearOnsetPattern;
+        this.slicesPart.clear;
         this.prSetTapStarved(nil);
         this.prSetState(\empty);
         "Cleared.".postln;
@@ -2397,6 +2446,110 @@ Looper {
     }
 
     // ===================================================================
+    // The loop's notes (roadmap item 24, docs/dev/sampler.md)
+    // ===================================================================
+    // The loop cut into slices at its own attacks (LooperSlices), and the
+    // engine playing each slice shorter or backwards in its own slot
+    // (LooperSynthDefs.noteSlices). The table comes a moment after a take's
+    // analysis; until then, and with no notes found, the loop plays as it is.
+
+    // How short the notes are: 0 each as played, 1 at its shortest (0.12 of
+    // the reading's beat), exponentially between; the pedal's.
+    noteLength_ { |val|
+        noteLength = val.clip(0, 1);
+        engineSynth !? { |e| e.set(\noteLen, noteLength) };
+        this.changed(\noteLength, noteLength);
+    }
+
+    // How a shortened note ends: \gate (held, then a 25 ms fade) or \decay
+    // (fading from its attack, a damped string).
+    noteShape_ { |shape|
+        // A symbol, or its name from a file (the set's log, a replay).
+        noteShape = if(shape.asString == "decay") { \decay } { \gate };
+        engineSynth !? { |e| e.set(\noteShape, this.prNoteShapeCode) };
+        this.changed(\noteShape, noteShape);
+    }
+
+    prNoteShapeCode { ^if(noteShape == \decay) { 1 } { 0 } }
+
+    // Each note backwards in its own slot: a press arms it for the next loop
+    // boundary, as a reverse is armed (`reverse`), and a press while armed
+    // takes it back, up to halfTimeMargin before it lands. The engine takes
+    // it on the sample its pass begins. With no loop playing it flips at once.
+    // Refused while overdubbing; an overdub is refused while it is on or
+    // armed: what is played over backwards notes would land where it was
+    // played and sound backwards in its slot on the next pass.
+    toggleNotesBackwards {
+        var now = SystemClock.seconds, ld = this.loopDuration, at, after;
+        if(notesBackwardsArmed) {
+            if((notesBackwardsAt - now) < Looper.halfTimeMargin) {
+                ^this.prRefused(\notesBackwards, "the notes turn now") };
+            this.prSendNotesBackwards(notesBackwards);
+            ^this.prNotesBackwardsArm(false)
+        };
+        this.prRefusal(\notesBackwards) !? { |why| ^this.prRefused(\notesBackwards, why) };
+        if(engineSynth.isNil or: { ld <= 0 } or: { #[\playing, \overdubbing].includes(state).not }) {
+            notesBackwards = notesBackwards.not;
+            engineSynth !? { |e| e.set(\noteRev, notesBackwards.binaryValue) };
+            ^this.prNotesBackwardsSaid
+        };
+        at = this.prNextBoundaryAt(now);
+        if((at - now) < Looper.halfTimeMargin) {
+            after = if(((halfTimeAt ? inf) - at).abs < 1e-6) { this.prSpeedAfterNext } { this.speed };
+            at = at + (ld / after);
+        };
+        // The engine latches it on its own wrap: sent inside the pass that
+        // ends on `at` (a pass is at least a loop long), it lands there.
+        this.prSendNotesBackwards(notesBackwards.not, at - ld);
+        this.prNotesBackwardsArm(true, at);
+    }
+
+    // The engine's noteRev, sent no earlier than `after` (+10 ms) and after
+    // one still on its way, as prSendDir sends the direction.
+    prSendNotesBackwards { |backwards, after|
+        var now = thisThread.seconds, at = now, value = backwards.binaryValue;
+        after !? { |a| at = at.max(a + 0.01) };
+        notesBackSentAt !? { |p| if(p > now) { at = at.max(p + 0.001) } };
+        engineSynth !? { |e|
+            if(at > now) { server.sendBundle(at - now, e.setMsg(\noteRev, value)) } { e.set(\noteRev, value) };
+        };
+        notesBackSentAt = at;
+    }
+
+    prNotesBackwardsArm { |flag, at|
+        this.timeline.cancel(\notesBackwards);
+        notesBackwardsArmed = flag;
+        notesBackwardsAt = if(flag) { at };
+        if(flag) { this.timeline.armAt(\notesBackwards, at, { |token| this.prNotesBackwardsLands(token) }) };
+        this.changed(\notesBackwardsArmed, notesBackwardsArmed);
+    }
+
+    prNotesBackwardsLands { |seq|
+        if(this.timeline.holds(\notesBackwards, seq).not or: { notesBackwardsArmed.not }) { ^this };
+        notesBackwardsArmed = false;
+        notesBackwardsAt = nil;
+        notesBackwards = notesBackwards.not;
+        this.changed(\notesBackwardsArmed, false);
+        this.prNotesBackwardsSaid;
+    }
+
+    prNotesBackwardsSaid {
+        ("Notes backwards: " ++ notesBackwards).postln;
+        this.changed(\notesBackwards, notesBackwards);
+    }
+
+    // No turn armed: a new engine starts with the notes as they are now, a
+    // stop has none to land on.
+    prResetNotesBackwards {
+        var was = notesBackwardsArmed;
+        this.timeline.cancel(\notesBackwards);
+        notesBackSentAt = nil;
+        notesBackwardsArmed = false;
+        notesBackwardsAt = nil;
+        if(was) { this.changed(\notesBackwardsArmed, false) };
+    }
+
+    // ===================================================================
     // Half-time
     // ===================================================================
     // A press: off, it is armed and lands on the next boundary; armed, the
@@ -2456,6 +2609,7 @@ Looper {
             \overdub, {
                 case
                 { this.prAtHalfTime } { "half-time: end it before an overdub" }
+                { notesBackwards or: { notesBackwardsArmed } } { "notes backwards: turn them forwards before an overdub" }
                 { this.nextRecState != \idle } { "Rec next loop is on: overdub once the next loop is in" }
                 { nil }
             },
@@ -2464,6 +2618,11 @@ Looper {
                 { this.prAtHalfTime } { "half-time: end it first" }
                 { (state == \empty) or: { state == \recording } or: { loopFrames == 0 } } { "no loop to multiply" }
                 { this.nextRecState != \idle } { "Rec next loop is on" }
+                { nil }
+            },
+            \notesBackwards, {
+                case
+                { state == \overdubbing } { "end the overdub first" }
                 { nil }
             },
             \halfTime, {
@@ -2915,6 +3074,8 @@ Looper {
         };
         loopFrames = newFrames;
         engineSynth !? { |s| s.set(\loopFrames, newFrames) };
+        // The slices again in each pass of the longer loop.
+        this.slicesPart.sync;
         this.prScaleResultLength(factor);
         this.prGranularFollow;
         this.prLogEvent(\multiply, (factor: factor, loopDur: this.loopDuration));
@@ -3009,6 +3170,7 @@ Looper {
         this.prCancelReading;
         this.onsetNotesPart.restoreTake(undoState);
         this.keyPart.restoreTake(undoState);
+        this.slicesPart.restoreTake(undoState);
         if(undoState.state == \empty) {
             this.stopPlayback;
             this.prSetState(\empty);
@@ -3045,7 +3207,7 @@ Looper {
         // The onset notes' pattern and dice belong to the buffer contents
         // snapshotted here; without them, undo restores the audio and leaves
         // the previous take's rhythm playing over it (LooperOnsetNotes.takeState).
-        ).putAll(this.onsetNotesPart.takeState).putAll(this.keyPart.takeState);
+        ).putAll(this.onsetNotesPart.takeState).putAll(this.keyPart.takeState).putAll(this.slicesPart.takeState);
     }
 
     startTempoClocks { |result|
@@ -3219,6 +3381,7 @@ Looper {
         this.teardownBBCut;
         chainPart !? { |c| c.free };
         keyPart !? { |k| k.free };
+        slicesPart !? { |p| p.free };
         recSynth !? { |s| s.free };
         autostartSynth !? { |s| s.free };
         autostartSynth = nil;
