@@ -574,8 +574,11 @@ lands on the one.
 - **Drums**, the tile beside its value (or `looper.rollDrums`): lit, the
   drums and the onset kit roll with the loop; dark, they play on. On by
   default. Change it between rolls: a roll keeps the setting it started with.
-- The value says where it is: `SOON` until its first group, `ROLL`, `LAND`
-  until it lands; the count counts in to both (`ROLL IN`, `ROLL LANDS IN`).
+- The value says where it is: `NEXT` until the next beat group starts it;
+  while it rolls, what repeats: `GRP` (the group it started on), then
+  `1/8`, `1/16`, `1/32`, `1/64` (in 7/8; from the bar's unit); `BACK` once
+  the pedal is at 0, until the loop comes back on the next beat group. The
+  count counts in to both (`ROLL IN`, `LOOP BACK IN`).
 - **It needs a reading** (its beat groups), and plays forwards: it is refused
   at half-time and with Reverse on, and while you overdub. While it rolls,
   an overdub, Reverse and half-time are refused until it lands. Staccato and

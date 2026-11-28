@@ -75,9 +75,13 @@ var baseline = (
     // again the same day from [ 7093, 455236178 ] and [ 7033, 3446009 ]: a
     // roll that halves (LooperSynthDefs.rollOf, idea 7) and the playhead on
     // a bus for the drums' roller; never armed, scripts/sa/nrt-roll.scd
-    // renders it as the graph without it, to the sample.
-    'looperEngine':          [ 10055, 877285753 ],
-    'looperEngineMono':      [ 9995, 854939397 ],
+    // renders it as the graph without it, to the sample. Moved 2026-11-28
+    // from [ 10055, 877285753 ] and [ 9995, 854939397 ]: the engine holds a
+    // start or a landing asked for until its playhead crosses the point (no
+    // timer takes it back), frame 0 counts at frame 1, and it says when it
+    // started and landed (SendReply '/looperRoll'); nrt-roll checks both.
+    'looperEngine':          [ 11307, 511897209 ],
+    'looperEngineMono':      [ 11247, 951371470 ],
     'looperClick':           [  429, 831893340 ],
     'looperMaster':          [  383, 375005486 ],   // 2026-11-07: no amp, unity into the limiter
     // Moved 2026-09-25 from [ 2645, 983190439 ]: the pulsed scan now reads the

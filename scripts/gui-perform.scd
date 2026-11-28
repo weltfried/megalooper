@@ -762,12 +762,15 @@
         // Staccato works on the slices: dim until a take has them.
         ~staccatoSlider !? { |b| if(b.isClosed.not) { b.dim_(if(has and: { l.sliceCount > 0 }) { 1 } { 0.3 }) } };
         ~staccatoShapeTile !? { |t| if(t.isClosed.not) { t.value_(if(l.noteShape == \decay) { 1 } { 0 }) } };
-        // The roll needs a reading (its beat groups); its value says when it
-        // rolls.
+        // The roll needs a reading (its beat groups). Its value says where
+        // it is: NEXT until the next beat group starts it, what repeats while
+        // it rolls (GRP, the held group; then 1/8, 1/16... from the bar's
+        // unit), BACK until the loop comes back on the next beat group.
         ~rollSlider !? { |b| if(b.isClosed.not) { b.dim_(if(has and: { l.lastResult.notNil }) { 1 } { 0.3 }) } };
         ~rollDrumsTile !? { |t| if(t.isClosed.not) { t.value_(l.rollDrums.binaryValue) } };
         ~rollLabel !? { |t| if(t.isClosed.not) {
-            t.string_(switch(l.rollState, \armed, { "SOON" }, \on, { "ROLL" }, \landing, { "LAND" }, { l.roll.round(0.01).asString }))
+            t.string_(switch(l.rollState, \armed, { "NEXT" }, \on, { l.rollPart.windowWords ? "ROLL" },
+                \landing, { "BACK" }, { l.roll.round(0.01).asString }))
         } };
         // One line: the column is full (2026-11-27, the Roll row). The other
         // keys are on their tiles and in the key line.

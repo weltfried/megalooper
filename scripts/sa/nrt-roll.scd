@@ -19,10 +19,18 @@
 //            the loop's seam)
 //   the roller on engine 3's playhead: the same, its anchor 200 frames before
 //   (the grid's point, the hit's front); and a roller never armed
+//   engine 4 new, armed in the first pass for the loop's own downbeat (frame
+//            0, which the playhead never crosses: it wraps onto it), a window
+//            of 2400, landing on the downbeat too
+//   engine 5 new, its request sent after its point had passed in that pass:
+//            held, it starts on the point a pass later
+//
+// A request is a new value of rollArm (rollLand) above 0; the engine holds it
+// until the playhead crosses its point. Nothing takes it back on a timer.
 //
 // Exits 0 if every check passed, 1 otherwise.
 (
-var sr = 48000, len = 24007, dur = 1.8, chans = 12;
+var sr = 48000, len = 24007, dur = 1.8, chans = 16;
 var tmp = PathName.tmp +/+ "megalooper-nrt-roll-" ++ thisProcess.pid;
 var osc = tmp +/+ "roll.osc", wav = tmp +/+ "roll.wav", src = tmp +/+ "loop.wav", clk = tmp +/+ "clicks.wav";
 var pass = 0, fail = 0, fails = List.new;
@@ -63,12 +71,14 @@ File.mkdir(tmp);
 passStart = 0.1 + (len / sr);
 score = [[0.0, [\d_recv, newDef.asBytes]], [0.0, [\d_recv, oldDef.asBytes]], [0.0, [\d_recv, rollerDef.asBytes]],
         [0.0, [\d_recv, srcDef.asBytes]], [0.0, [\d_recv, tapDef.asBytes]]]
-    ++ (0 .. 3).collect { |i| [0.0, [\b_allocRead, i, src]] }
+    ++ (0 .. 5).collect { |i| [0.0, [\b_allocRead, i, src]] }
     ++ [[0.0, [\b_allocRead, 10, clk]], [0.0, [\b_alloc, 11, sr * 2, 2]], [0.0, [\b_alloc, 12, sr * 2, 2]],
         [0.0, [\b_alloc, 13, sr * 2, 2]], [0.0, [\b_alloc, 14, sr * 2, 2]]]
-    ++ [[\megaNrtRollNew, 0, [\posBus, 60]], [\megaNrtRollOld, 1, []], [\megaNrtRollNew, 2, []], [\megaNrtRollNew, 3, [\posBus, 40]]]
+    ++ [[\megaNrtRollNew, 0, [\posBus, 60]], [\megaNrtRollOld, 1, []], [\megaNrtRollNew, 2, []], [\megaNrtRollNew, 3, [\posBus, 40]],
+        [\megaNrtRollNew, 4, []], [\megaNrtRollNew, 5, []]]
         .collect { |e|
-            [0.1, [\s_new, e[0], 1000 + e[1], 1, 0, \bufnum, e[1], \in, 0, \startFrame, 0, \loopFrames, len, \out, e[1] * 2,
+            [0.1, [\s_new, e[0], 1000 + e[1], 1, 0, \bufnum, e[1], \in, 0, \startFrame, 0, \loopFrames, len,
+                \out, if(e[1] >= 4) { (e[1] + 2) * 2 } { e[1] * 2 },
                 \rate, 1, \latencyFrames, 0, \declickFrames, 0, \phaseBus, e[1], \gateBus, 100] ++ e[2]] }
     // The drums: clicks on buses 50 and 52, the rollers after, the taps last.
     ++ [[0.1, [\s_new, \megaNrtRollSrc, 1100, 1, 0, \buf, 10, \out, 50]],
@@ -84,12 +94,17 @@ score = [[0.0, [\d_recv, newDef.asBytes]], [0.0, [\d_recv, oldDef.asBytes]], [0.
     // the windows sent mid-window; landing armed before it.
     ++ [[0.3, [\n_set, 1003, \rollArm, 1, \rollAnchor, anchor, \rollWin, w0]],
         [0.3, [\n_set, 1200, \rollArm, 1, \rollAnchor, dAnchor, \rollWin, w0]],
-        [passStart + ((anchor + 600) / sr), [\n_set, 1003, \rollArm, 0], [\n_set, 1200, \rollArm, 0]],
         [passStart + ((anchor + (2 * w0) + 2000) / sr), [\n_set, 1003, \rollWin, w1], [\n_set, 1200, \rollWin, w1]],
         [passStart + ((anchor + (4 * w0) + 450) / sr), [\n_set, 1003, \rollWin, w2], [\n_set, 1200, \rollWin, w2]],
         [passStart + ((len + landAt - 1500) / sr), [\n_set, 1003, \rollLand, 1, \rollLandAt, landAt],
             [\n_set, 1200, \rollLand, 1, \rollLandAt, dLand]]]
-    ++ [[dur - 0.1, [\n_free, 1000, 1001, 1002, 1003, 1100, 1101, 1102, 1200, 1201, 1300, 1301]], [dur, [\c_set, 0, 0]]];
+    // Engine 4: the downbeat, armed early in the first pass; its landing on
+    // the downbeat asked for in the second.
+    ++ [[0.15, [\n_set, 1004, \rollArm, 1, \rollAnchor, 0, \rollWin, 2400]],
+        [passStart + (12000 / sr), [\n_set, 1004, \rollLand, 1, \rollLandAt, 0]]]
+    // Engine 5: asked for frame 2000 when the second pass is at 5000.
+    ++ [[passStart + (5000 / sr), [\n_set, 1005, \rollArm, 1, \rollAnchor, 2000, \rollWin, 2400]]]
+    ++ [[dur - 0.1, [\n_free, 1000, 1001, 1002, 1003, 1004, 1005, 1100, 1101, 1102, 1200, 1201, 1300, 1301]], [dur, [\c_set, 0, 0]]];
 Score(score).writeOSCFile(osc);
 cmd = "perl -e 'alarm shift; exec @ARGV' 120 " ++ MegaSAPlugins.scsynthPath.shellQuote ++ " -u " ++ (58500 + 200.rand)
     ++ " -m 65536 -N " ++ osc.shellQuote ++ " _ " ++ wav.shellQuote ++ " " ++ sr ++ " WAV float -o " ++ chans ++ " -i 0 2>&1";
@@ -168,6 +183,34 @@ if(start.notNil) {
         ok.("...then the loop where it would have been, every frame, to the end",
             miss.(3, sLand + edge, played, { |t| [buf.(0, t), buf.(1, t)] }, { |t| t.mod(len) != 0 }).isNil,
             report.(miss.(3, sLand + edge, played, { |t| [buf.(0, t), buf.(1, t)] }, { |t| t.mod(len) != 0 })));
+
+        // Engine 4 (channel pair 6): the loop's downbeat, frame 0, counted at 1.
+        {
+            var a4 = len + 1, l4 = (2 * len) + 1, w4 = 2400;
+            ok.("the downbeat: a roll armed for frame 0 starts on the next pass's frame 1, its first window as the loop plays",
+                miss.(6, a4 + edge, a4 + w4 - edge, { |t| [buf.(0, t), buf.(1, t)] }).isNil,
+                report.(miss.(6, a4 + edge, a4 + w4 - edge, { |t| [buf.(0, t), buf.(1, t)] })));
+            ok.("...then that window again and again",
+                miss.(6, a4 + w4, l4 - edge, { |t| var r = 1 + ((t - a4) % w4); [buf.(0, r), buf.(1, r)] },
+                    { |t| inner.(t, w4, a4) }).isNil,
+                report.(miss.(6, a4 + w4, l4 - edge, { |t| var r = 1 + ((t - a4) % w4); [buf.(0, r), buf.(1, r)] },
+                    { |t| inner.(t, w4, a4) })));
+            ok.("...and it lands on the downbeat too: the loop as it is after it",
+                miss.(6, l4 + edge, played, { |t| [buf.(0, t), buf.(1, t)] }, { |t| t.mod(len) != 0 }).isNil,
+                report.(miss.(6, l4 + edge, played, { |t| [buf.(0, t), buf.(1, t)] }, { |t| t.mod(len) != 0 })));
+        }.value;
+        // Engine 5 (pair 7): asked for frame 2000 when the pass was at 5000.
+        {
+            var a5 = (2 * len) + 2000, w5 = 2400;
+            ok.("a request after its point had passed: that pass plays on as it is",
+                miss.(7, len + 5000, a5, { |t| [buf.(0, t), buf.(1, t)] }, { |t| t.mod(len) != 0 }).isNil,
+                report.(miss.(7, len + 5000, a5, { |t| [buf.(0, t), buf.(1, t)] }, { |t| t.mod(len) != 0 })));
+            ok.("...held, it starts on the point a pass later: the window again and again",
+                miss.(7, a5 + w5, a5 + (4 * w5), { |t| var r = 2000 + ((t - a5) % w5); [buf.(0, r), buf.(1, r)] },
+                    { |t| inner.(t, w5, a5) }).isNil,
+                report.(miss.(7, a5 + w5, a5 + (4 * w5), { |t| var r = 2000 + ((t - a5) % w5); [buf.(0, r), buf.(1, r)] },
+                    { |t| inner.(t, w5, a5) })));
+        }.value;
 
         // The drums' roller, on engine 3's playhead, its anchor 200 earlier.
         {

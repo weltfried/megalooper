@@ -14,6 +14,12 @@
 //     the roll's start (the server's), so every step lands on the grid.
 //   - Back to 0: it lands on the next group head, the loop where it would have
 //     been. Up again before then, it rolls on.
+//   - The engine holds a start or a landing asked for until its playhead
+//     crosses the point (a request is a new count in rollArm / rollLand), and
+//     says when it started and landed ('/looperRoll', serverSaid): what the
+//     window shows is the engine's, not a timer's. (Until 2026-11-28 a timer
+//     disarmed the engine 50 ms after the grid point, and a note later than
+//     that was never rolled.)
 //   - Refused when it would start at half-time, reversed or overdubbing, or
 //     with no reading (no groups to start on); refused once a gesture, not on
 //     every value the pedal sends. A stop, a new engine, a multiply, an undo
@@ -34,6 +40,8 @@ LooperRoll {
     var step, groupFrames;
     // The pedal was refused on this gesture: said once, until it is back at 0.
     var refusedGesture = false;
+    // Requests sent, counted: each new count is a new request to the engine.
+    var armCount = 0, landCount = 0;
 
     *new { |looper| ^super.newCopyArgs(looper) }
 
@@ -84,6 +92,7 @@ LooperRoll {
         };
         if(state == \landing) {
             looper.timeline.cancel(\roll);
+            // rollLand back to 0 takes the landing back.
             this.prSendAll([\rollLand, 0]);
             this.prSay(\on, nil);
         };
@@ -109,6 +118,21 @@ LooperRoll {
     // Cmd-period: the routines and the nodes are gone.
     forget { state = \off; at = nil }
 
+    // The engine says it started (1) or landed (0) ('/looperRoll').
+    serverSaid { |value|
+        looper.timeline.cancel(\roll);
+        if(value == 1) { if(state == \armed) { this.prSay(\on, nil) } } {
+            if((state == \landing) or: { state == \on }) { this.prSay(\off, nil) };
+        };
+    }
+
+    // The window in force as a note value ("1/16"), or "GRP" for the held
+    // group, from the reading's unit (an eighth in 7/8); nil with none.
+    windowWords {
+        var den = (looper.lastResult !? { |r| r[\denominator] }) ? 4;
+        ^step !? { |k| if(k == 1) { "GRP" } { "1/" ++ (den * (2 ** (k - 2))).asInteger } }
+    }
+
     // ---- Inside ---------------------------------------------------------------
 
     // Armed for `head` ((frame:, len:, at:)): the engine and the rollers told
@@ -117,22 +141,35 @@ LooperRoll {
         var anchor = this.prNoteAt(head[\frame]), win;
         groupFrames = head[\len];
         win = this.windowFrames(step);
-        this.prEngine([\rollArm, 1, \rollAnchor, anchor, \rollWin, win, \rollLand, 0]);
-        if(drums) { this.prRollers([\rollArm, 1, \rollAnchor, this.prDrumsAt(head[\frame]), \rollWin, win, \rollLand, 0], nil) };
-        this.prSendAll([\rollArm, 0], (head[\at] - SystemClock.seconds) + 0.05);
+        armCount = armCount + 1;
+        this.prEngine([\rollArm, armCount, \rollAnchor, anchor, \rollWin, win, \rollLand, 0]);
+        if(drums) { this.prRollers([\rollArm, armCount, \rollAnchor, this.prDrumsAt(head[\frame]), \rollWin, win, \rollLand, 0], nil) };
         this.prSay(\armed, head[\at]);
-        looper.timeline.armAt(\roll, head[\at], { |token| if(looper.timeline.holds(\roll, token)) { this.prSay(\on, nil) } });
+        this.prWatch(head[\at] + 0.1);
     }
 
     // Landing on the next group head.
     prLand {
         var head = this.prNextHead(SystemClock.seconds);
         if(head.isNil) { ^this.cut };
-        this.prEngine([\rollLand, 1, \rollLandAt, this.prNoteAt(head[\frame])]);
-        this.prRollers([\rollLand, 1, \rollLandAt, this.prDrumsAt(head[\frame])], nil);
-        this.prSendAll([\rollLand, 0], (head[\at] - SystemClock.seconds) + 0.05);
+        landCount = landCount + 1;
+        this.prEngine([\rollLand, landCount, \rollLandAt, this.prNoteAt(head[\frame])]);
+        this.prRollers([\rollLand, landCount, \rollLandAt, this.prDrumsAt(head[\frame])], nil);
         this.prSay(\landing, head[\at]);
-        looper.timeline.armAt(\roll, head[\at], { |token| if(looper.timeline.holds(\roll, token)) { this.prSay(\off, nil) } });
+        this.prWatch(head[\at] + 0.1);
+    }
+
+    // The count's time, kept true: past the time a start or a landing was
+    // due with the engine not yet saying so, the engine still holds it (its
+    // playhead crosses the point a pass later): the count looks to then.
+    prWatch { |when|
+        looper.timeline.armAt(\roll, when, { |token|
+            var ld = looper.loopDuration;
+            if(looper.timeline.holds(\roll, token) and: { #[\armed, \landing].includes(state) } and: { ld > 0 }) {
+                at = (at ? when) + ld;
+                this.prWatch(at + 0.1);
+            };
+        });
     }
 
     prSay { |st, when|

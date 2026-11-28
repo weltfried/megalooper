@@ -648,17 +648,21 @@ LooperSynthDefs {
     // underneath (as a DJ's roll in slip mode). Called from inside a graph
     // with the playhead's loop position (frames, forwards); answers
     // [rolling (0/1), the loop position to read, the gain, frames since the
-    // roll began, the window in force, the position in it].
+    // roll began, the window in force, the position in it, a trigger on its
+    // start, a trigger on its landing].
     //
-    //   rollArm    1: the roll begins on the sample the playhead crosses
-    //              rollAnchor (the language arms it for a beat group's head,
-    //              and disarms it after)
+    //   rollArm    a new value above 0 (the language counts them): the roll
+    //              begins on the sample the playhead next crosses rollAnchor
+    //              (a beat group's head); held until then
     //   rollWin    the window wanted, frames, taken on the next multiple of it
     //              counted from the roll's start: every switch lands on the
     //              grid, a halving on the half of the window in force
-    //   rollLand   1: it ends on the sample the playhead crosses rollLandAt,
-    //              faded out over rollEdge before it (the point is known) and
-    //              in after
+    //   rollLand   a new value above 0: it ends on the sample the playhead
+    //              next crosses rollLandAt, faded out over rollEdge before it
+    //              (the point is known) and in after; back to 0 takes it back
+    //   rollCut    a trigger: it stops at once
+    // It answers too the samples it starts and lands on, for the engine to
+    // say (SendReply '/looperRoll': 1 started, 0 landed).
     //
     // In the first window what is read is what the playhead is at, so the roll
     // comes in without a seam; each window's edges fade over rollEdge. Never
@@ -669,16 +673,31 @@ LooperSynthDefs {
         // across its block, and an anchor or a landing point gliding past the
         // playhead starts, fades or lands the roll in the wrong place (it did:
         // nrt-roll, 2026-11-27).
-        var arm = \rollArm.ar(0), anchor = \rollAnchor.ar(0), want = \rollWin.ar(4800).max(64);
-        var land = \rollLand.ar(0), landAt = \rollLandAt.ar(0);
+        var arm = \rollArm.ar(0), anchor = \rollAnchor.ar(0).max(1), want = \rollWin.ar(4800).max(64);
+        var land = \rollLand.ar(0), landAt = \rollLandAt.ar(0).max(1);
+        var cut = K2A.ar(\rollCut.tr(0));
         var prev = Delay1.ar(pos);
-        // A crossing of `a` forwards, not the loop's wrap.
+        // A crossing of `a` forwards, not the loop's wrap. Frame 0 is never
+        // crossed (the playhead wraps onto it), so a point there counts at
+        // frame 1 (the .max(1) above): the loop's own downbeat.
         var near = (pos - prev).abs < (loopFrames * 0.5);
-        var start = arm * (pos >= anchor) * (prev < anchor) * near;
-        var landTrig = land * (pos >= landAt) * (prev < landAt) * near;
+        var crossStart = (pos >= anchor) * (prev < anchor) * near;
+        var crossLand = (pos >= landAt) * (prev < landAt) * near;
+        // A request is a new value of rollArm (rollLand) above 0: the
+        // language counts them. The engine holds it until the playhead
+        // crosses its point, however late that is: no timer takes it back
+        // (one did, 2026-11-27, and a note 50-60 ms after its grid point was
+        // never rolled). rollLand back to 0 takes a landing back.
+        var armReq = (arm > 0) * ((arm - Delay1.ar(arm)).abs > 0);
+        var landReq = (land > 0) * ((land - Delay1.ar(land)).abs > 0);
+        var landCancel = (land <= 0) * (Delay1.ar(land) > 0);
+        var armed = SetResetFF.ar(armReq, crossStart + cut);
+        var landArmed = SetResetFF.ar(landReq, crossLand + landCancel + cut);
+        var start = Delay1.ar(armed) * crossStart;
+        var landTrig = Delay1.ar(landArmed) * crossLand;
         // rollCut: stop at once, no landing (the loop stopped, multiplied,
         // undone; the language's).
-        var rolling = SetResetFF.ar(start, landTrig + K2A.ar(\rollCut.tr(0)));
+        var rolling = SetResetFF.ar(start, landTrig + cut);
         var c = Sweep.ar(start, SampleRate.ir * speed);
         var cPrev = Delay1.ar(c);
         var w = Latch.ar(want, start + ((c % want) < (cPrev % want))).max(64);
@@ -689,14 +708,13 @@ LooperSynthDefs {
         // How far ahead the landing is, round the seam.
         var dl = landAt - pos;
         var dlw = dl + (loopFrames * (dl < (loopFrames * -0.5)));
-        var fadeOut = Select.ar(land, [DC.ar(1), (dlw / edgeF).clip(0, 1)]);
-        // Landed while rolling: a landing armed with no roll, or left armed
-        // after one (crossed again a pass later), fades nothing.
+        var fadeOut = Select.ar(landArmed, [DC.ar(1), (dlw / edgeF).clip(0, 1)]);
+        // Landed while rolling: a landing armed with no roll fades nothing.
         var landedNow = landTrig * Delay1.ar(rolling);
         var landed = SetResetFF.ar(landedNow, start);
         var fadeIn = Select.ar(landed, [DC.ar(1), (Sweep.ar(landedNow, SampleRate.ir) / edgeF).clip(0, 1)]);
         v = v - (loopFrames * (v >= loopFrames));
-        ^[rolling, v, Select.ar(rolling, [fadeIn, edge * fadeOut]), c, w, off]
+        ^[rolling, v, Select.ar(rolling, [fadeIn, edge * fadeOut]), c, w, off, start, landedNow]
     }
 
     // The drums' roller (idea 7, "Drums roll too"): on the drums' and the onset
@@ -826,6 +844,12 @@ LooperSynthDefs {
             // loop pass.
             Out.ar(out, if(notes) { existing * amp * declick * bbGate * noteParts[2] * roll[2] }
                 { existing * amp * declick * bbGate });
+            // When the roll really starts and lands, for the Looper to show
+            // (LooperRoll.serverSaid): 1 started, 0 landed.
+            if(notes) {
+                SendReply.ar(roll[6], '/looperRoll', 1);
+                SendReply.ar(roll[7], '/looperRoll', 0);
+            };
             // The playhead and the loop's length, for the drums' roller
             // (rollerGraph); with no bus (-1), nothing: + 0 on bus 0.
             if(notes) {

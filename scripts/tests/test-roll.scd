@@ -45,11 +45,10 @@ l.roll = 0.1;
 ~tEq.("the pedal off 0: armed for the next group head", [l.rollState, heard.asArray], [\armed, [\armed]]);
 ~tAssert.("...at 1.75 s, 0.75 s on (the head at 1.0 is nearer than the margin)", (l.rollPart.at - (now + 0.75)).abs < 0.02,
     (l.rollPart.at - now).asString);
-~tEq.("...the engine armed on the note there (20 ms after the grid point), a window of the group (bar 2's first: 2 units)",
-    [last.(l, eng, \rollArm), last.(l, eng, \rollAnchor), last.(l, eng, \rollWin)], [0, 84960, 24000.0]);
-~tAssert.("...armed now and disarmed after it starts",
-    ~tGet.(l, \server)[\msgs].any { |m| (m[0] == 15) and: { m[1] == eng.nodeID } and: { m.indexOf(\rollArm).notNil }
-        and: { m[m.indexOf(\rollArm) + 1] == 1 } });
+~tEq.("...the engine asked (a request: a new count) to start on the note there (20 ms after the grid point), a window of the group (bar 2's first: 2 units)",
+    [last.(l, eng, \rollArm), last.(l, eng, \rollAnchor), last.(l, eng, \rollWin)], [1, 84960, 24000.0]);
+~tEq.("...and nothing takes the request back on a timer: the engine holds it until it crosses the note",
+    ~tGet.(l, \server)[\bundles].select { |b| b[1].any { |m| m.indexOf(\rollArm).notNil } }.size, 0);
 ~tEq.("...the drums' roller armed on the grid point less 10 ms, the same window",
     [last.(l, rol, \rollAnchor), last.(l, rol, \rollWin)], [84000 - 480, 24000.0]);
 ~tEq.("...and it is coming: the count counts in to it", l.upcoming(now).collect { |e| e[\what] }, [\roll]);
@@ -63,15 +62,20 @@ l.roll = 0.1;
 ~tEq.("the steps: off, then fifths", [0, 0.01, 0.2, 0.21, 0.4, 0.6, 0.8, 0.81, 1].collect { |x| LooperRoll.stepOf(x) },
     [nil, 1, 1, 2, 2, 3, 4, 5, 5]);
 
-// ---- on, landing, rolling on -----------------------------------------------------------
-~tFire.(l, \roll);
-~tEq.("on its head: on", [l.rollState, heard.asArray.last], [\on, \on]);
+// ---- on (the engine says), landing, rolling on --------------------------------------------
+~tEq.("its time past and the engine silent: still armed, the count looking a pass on (the engine holds it)",
+    [~tFire.(l, \roll), l.rollState, (l.rollPart.at - (now + 0.75 + ld)).abs < 0.02], [true, \armed, true]);
+l.rollPart.serverSaid(1);
+~tEq.("the engine says it started: on", [l.rollState, heard.asArray.last, l.rollPart.at], [\on, \on, nil]);
+~tEq.("...and the window shows what repeats: the step's note value", l.rollPart.windowWords, "GRP");
+l.roll = 0.5;
+~tEq.("...a sixteenth at the pedal's middle (7/8: an eighth halved)", l.rollPart.windowWords, "1/16");
+l.roll = 0.2;
 ~tPut.(l, \loopStartTime, SystemClock.seconds - 2.0);
 l.roll = 0;
-~tEq.("back to 0: landing on the next group head (2.25 s), on the grid there with no note near",
-    [l.rollState, last.(l, eng, \rollLand), last.(l, eng, \rollLandAt)], [\landing, 0, 2.25 * sr]);
-~tAssert.("...landing sent now, cleared after", ~tGet.(l, \server)[\msgs].any { |m| (m[0] == 15) and: { m[1] == eng.nodeID }
-    and: { m.indexOf(\rollLand).notNil } and: { m[m.indexOf(\rollLand) + 1] == 1 } });
+~tEq.("back to 0: landing asked (a count) for the next group head (2.25 s), on the grid there with no note near",
+    [l.rollState, last.(l, eng, \rollLand), last.(l, eng, \rollLandAt)], [\landing, 1, 2.25 * sr]);
+~tEq.("...nothing clears it on a timer", ~tGet.(l, \server)[\bundles].select { |b| b[1].any { |m| m.indexOf(\rollLand).notNil } }.size, 0);
 ~tEq.("...the roller's landing 10 ms before the grid point", last.(l, rol, \rollLandAt), (2.25 * sr) - 480);
 ~tEq.("...the count counts in to the landing", l.upcoming(SystemClock.seconds).collect { |e| e[\what] }, [\rollLands]);
 l.roll = 0.4;
@@ -80,23 +84,26 @@ l.roll = 0.4;
     [\on, 0]);
 ~tEq.("...and nothing waits to say it landed", [~tFire.(l, \roll), l.rollState], [false, \on]);
 l.roll = 0;
-~tFire.(l, \roll);
-~tEq.("landed: off", [l.rollState, heard.asArray.last], [\off, \off]);
+~tEq.("...back to 0 again: a new landing, counted on", last.(l, eng, \rollLand), 2);
+l.rollPart.serverSaid(0);
+~tEq.("the engine says it landed: off", [l.rollState, heard.asArray.last], [\off, \off]);
 
 // ---- off before it starts, and what cuts it ----------------------------------------------
 l = fresh.();
 l.roll = 0.5;
 l.roll = 0;
 ~tEq.("back to 0 before it starts: disarmed at once, the engine and the roller",
-    [l.rollState, last.(l, eng, \rollArm), last.(l, rol, \rollArm)], [\off, 0, 0]);
+    [l.rollState, last.(l, eng, \rollArm), last.(l, rol, \rollArm), last.(l, eng, \rollCut)], [\off, 0, 0, 1]);
+l.roll = 0.5;
+~tEq.("...the next roll a new request, counted on", last.(l, eng, \rollArm), 2);
 l = fresh.();
 l.roll = 0.5;
-~tFire.(l, \roll);
+l.rollPart.serverSaid(1);
 l.stopPlayback;
 ~tEq.("stop cuts a roll: off, the roller told to stop at once", [l.rollState, last.(l, rol, \rollCut)], [\off, 1]);
 l = fresh.();
 l.roll = 0.5;
-~tFire.(l, \roll);
+l.rollPart.serverSaid(1);
 l.rollPart.cut;
 ~tEq.("a cut (a multiply, an undo): the engine and the roller stopped at once",
     [l.rollState, last.(l, eng, \rollCut), last.(l, rol, \rollCut)], [\off, 1, 1]);
@@ -139,7 +146,7 @@ l.roll = 0.3;
 // ---- what it refuses while it rolls ----------------------------------------------------------
 l = fresh.();
 l.roll = 0.3;
-~tFire.(l, \roll);
+l.rollPart.serverSaid(1);
 l.startOverdub;
 l.reverse;
 l.toggleHalfTime;

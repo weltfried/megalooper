@@ -14,7 +14,7 @@ Looper {
     // recorder's /looperLevels, four times a second. nil until the first
     // report. A tap far under the input is a starved analyser; see
     // tapStarvedDb. The gain is the automatic level the take was analysed at.
-    var takeLevels, levelsResp;
+    var takeLevels, levelsResp, rollResp;
     // The automatic level in front of the onset detector (LooperSynthDefs.tapLevelGraph):
     // the tracker synth, the control bus it writes the gain to, which every
     // analysis synth reads, and the gain and held peak it last reported (2 Hz),
@@ -395,6 +395,11 @@ Looper {
 
         // The recorder waiting for the first note heard it: [cmd, node, id, lead].
         autostartResp = OSCdef(\looperAutostart, { |msg| this.prAutostartStarted(msg[1]) }, '/looperAutostart');
+
+        // The engine's roll started (1) or landed (0): [cmd, node, id, value].
+        rollResp = OSCdef(\looperRoll, { |msg|
+            if(engineSynth.notNil and: { msg[1] == engineSynth.nodeID }) { this.rollPart.serverSaid(msg[3]) };
+        }, '/looperRoll');
 
         // Said only when the gain moves by half a dB, so a window showing it
         // repaints twice a second at most and mostly not at all.
@@ -3446,6 +3451,7 @@ Looper {
         onsetResp !? { |r| r.free };
         pitchResp !? { |r| r.free };
         levelsResp !? { |r| r.free };
+        rollResp !? { |r| r.free };
         autostartResp !? { |r| r.free };
         tapLevelResp !? { |r| r.free };
         this.stopAnalysisMonitor;
