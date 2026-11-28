@@ -20,8 +20,13 @@ Linux port is new and untried: see [megalooper on Linux](docs/linux.md).
 - **Loops.** Overdub with undo, reverse, multiply, loop chaining, and
   overdubs shifted by your measured round-trip latency so they land in time.
   No footswitch? Autostart starts the take on the first note you play.
+- **Play the loop like a sampler.** Each take is cut into its notes:
+  Staccato shortens them on a pedal, Notes backwards turns each one backwards
+  in its place, and Roll repeats a beat group faster and faster, landing in
+  time on the one.
 - **Cuts and grains.** A BBCut layer and a granular layer over the loop, each
-  with presets.
+  with presets. The grains play as a texture or on a clock of their own: on
+  every beat group, or pulsing faster until they turn into a tone.
 - **Effect chains.** Chains for your instrument, the loop, the drums and
   the synth, and for a second instrument on an input of its own, with seventeen built-in effects and your VST2
   and VST3 plugins. Add, drag and remove effects while a loop plays. Random
